@@ -8,7 +8,11 @@ import { Download, Pause, Play, Trash2, Plus, Eye } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase/client";
 import { getReviewsWithClips } from "@/lib/services/reviews";
+import { getOrganisations } from "@/lib/services/organisations";
+import { getMembersForOrganisation } from "@/lib/services/memberships";
 import type { RefEvalSession, Role } from "@/lib/types/auth";
+import type { OrganisationRecord } from "@/lib/types/organisations";
+import type { MemberRecord } from "@/lib/types/members";
 
 declare global {
   interface Window {
@@ -21,8 +25,6 @@ type Mode = "video" | "non-video";
 type Status = "In Review" | "Completed";
 type RefSlot = "All Referees" | "Referee 1" | "Referee 2" | "Referee 3";
 
-type OrganisationRecord = { id: string; name: string; status: "Active" | "Suspended"; createdAt: string };
-type UserRecord = { id: string; role: Role; name: string; password: string; organisationId: string };
 type ReviewRecord = {
   id: string; organisationId: string; game: string; educatorId: string; educatorName: string;
   referee1Id: string; referee2Id: string; referee3Id: string;
@@ -41,8 +43,6 @@ const CATEGORIES = ["Foul - Personal", "Foul - Disruptive", "Foul - Flagrant", "
 const POSITIONS = ["Trail", "Lead", "Centre"];
 const COVERAGE = ["Primary", "Secondary", "Extended"];
 const REF_SLOTS: RefSlot[] = ["All Referees", "Referee 1", "Referee 2", "Referee 3"];
-const ORGS_KEY = "referee-coder-v5-organisations";
-const USERS_KEY = "referee-coder-v5-users";
 
 const NON_VIDEO_KEYS: Record<string, Partial<CodedTag>> = {
   "1": { outcome: "Correct Call" }, "2": { outcome: "Correct No Call" },
@@ -60,12 +60,6 @@ function formatTime(seconds: number) {
   const h = Math.floor(safe / 3600);
   return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
-function loadJson<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  const stored = localStorage.getItem(key);
-  return stored ? JSON.parse(stored) : fallback;
-}
-function saveJson<T>(key: string, value: T) { localStorage.setItem(key, JSON.stringify(value)); }
 function csvEscape(value: unknown) { return `"${String(value ?? "").replaceAll('"', '""')}"`; }
 function percent(n: number, d: number) { return d ? `${Math.round((n / d) * 100)}%` : "—"; }
 function countBy(tags: CodedTag[], field: keyof CodedTag) {
@@ -145,19 +139,24 @@ function makeAnalytics(tags: CodedTag[]) {
   };
 }
 
+function roleLabel(role: Role) {
+  if (role === "super_admin") return "Super Admin";
+  if (role === "admin") return "Org Admin";
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const youtubeContainerRef = useRef<HTMLDivElement | null>(null);
   const youtubePlayerRef = useRef<any>(null);
 
+  // Phase 2: organisations and members loaded from Supabase only (localStorage removed)
   const [organisations, setOrganisations] = useState<OrganisationRecord[]>([]);
-  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [members, setMembers] = useState<MemberRecord[]>([]);
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
   const [tags, setTags] = useState<CodedTag[]>([]);
 
-  // Phase 1: replaced currentUser with RefEvalSession
   const [session, setSession] = useState<RefEvalSession | null>(null);
-  // Holds a partially-built session while user picks an org (multi-membership case)
   const [pendingSession, setPendingSession] = useState<RefEvalSession | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -165,12 +164,6 @@ export default function Home() {
   const [loginName, setLoginName] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
-
-  const [newUserRole, setNewUserRole] = useState<Role>("referee");
-  const [newUserOrganisation, setNewUserOrganisation] = useState("");
-  const [newOrgName, setNewOrgName] = useState("");
-  const [newUserName, setNewUserName] = useState("");
-  const [newUserPassword, setNewUserPassword] = useState("");
 
   const [activeReviewId, setActiveReviewId] = useState("");
   const activeReview = reviews.find(r => r.id === activeReviewId);
@@ -205,15 +198,14 @@ export default function Home() {
   const [reviewOffset, setReviewOffset] = useState(0);
   const [viewerClipSeconds, setViewerClipSeconds] = useState(0);
 
-  const scopedUsers = useMemo(() => {
-    if (!session) return users;
-    if (session.activeRole === "super_admin") return users;
-    return users.filter(u => u.organisationId === session.activeOrganisation?.id);
-  }, [users, session]);
-  const refereeUsers = scopedUsers.filter(u => u.role === "referee");
-  const adminUsers = scopedUsers.filter(u => u.role === "admin");
-  const educatorUsers = scopedUsers.filter(u => u.role === "educator");
-  const superAdminUsers = users.filter(u => u.role === "super_admin");
+  // Phase 2 note: members are always scoped to session.activeOrganisation.
+  // super_admin sees members of their active organisation only — not all orgs.
+  // All-org member visibility is deferred to Phase 7 (RLS + service-role queries).
+  const refereeMembers = members.filter(m => m.role === "referee");
+  const adminMembers = members.filter(m => m.role === "admin");
+  const educatorMembers = members.filter(m => m.role === "educator");
+  const superAdminMembers = members.filter(m => m.role === "super_admin");
+
   const organisationName = (id: string) => organisations.find(o => o.id === id)?.name || "Unassigned";
   const reviewTags = useMemo(() => tags.filter(t => t.reviewId === activeReviewId).sort((a, b) => a.seconds - b.seconds), [tags, activeReviewId]);
 
@@ -231,58 +223,18 @@ export default function Home() {
   const scaleSeconds = mode === "video" ? (usingYouTubeVideo ? youtubeDuration || Math.max(60, maxTagSeconds) : videoDuration || Math.max(60, maxTagSeconds)) : Math.max(60, timerSeconds, maxTagSeconds);
   const progressPct = Math.min(100, (currentSeconds / scaleSeconds) * 100 || 0);
 
-  // Load legacy localStorage data (removed in Phase 2) and Supabase data
+  // Load organisations and reviews from Supabase on mount
   useEffect(() => {
-    const defaultOrgId = "300e750e-8c45-4026-b4d0-4caadd1ded7d";
-    let storedOrgs = loadJson<OrganisationRecord[]>(ORGS_KEY, []);
-    if (!storedOrgs.length) storedOrgs = [{ id: defaultOrgId, name: "Referee College of Australia", status: "Active", createdAt: new Date().toISOString() }];
-
-    let storedUsers = loadJson<UserRecord[]>(USERS_KEY, []);
-    if (!storedUsers.length) {
-      storedUsers = [
-        { id: crypto.randomUUID(), role: "super_admin", name: "Logan Bilby", password: "admin", organisationId: defaultOrgId },
-        { id: crypto.randomUUID(), role: "admin", name: "Demo Admin", password: "admin", organisationId: defaultOrgId },
-        { id: crypto.randomUUID(), role: "educator", name: "Demo Educator", password: "educator", organisationId: defaultOrgId },
-        { id: crypto.randomUUID(), role: "referee", name: "Demo Referee", password: "demo", organisationId: defaultOrgId },
-      ];
-    }
-    storedUsers = storedUsers.map((u: any) => ({
-      ...u,
-      role: (u.name === "Logan Bilby" && u.password === "admin") ? "super_admin" : u.role,
-      organisationId: u.organisationId || defaultOrgId,
-    }));
-    if (!storedUsers.some(u => u.role === "super_admin")) {
-      const firstAdmin = storedUsers.find(u => u.role === "admin" || u.role === "educator");
-      if (firstAdmin) storedUsers = storedUsers.map(u => u.id === firstAdmin.id ? { ...u, role: "super_admin", organisationId: u.organisationId || defaultOrgId } : u);
-    }
-    saveJson(ORGS_KEY, storedOrgs);
-    saveJson(USERS_KEY, storedUsers);
-    setOrganisations(storedOrgs);
-    setUsers(storedUsers);
-
-    supabase
-      .from("organisations")
-      .select("id, name, status, created_at")
-      .order("name")
-      .then(({ data, error }) => {
-        if (error) { console.error("Could not load organisations from Supabase:", error.message); return; }
-        if (data && data.length) {
-          setOrganisations(data.map((org: any) => ({
-            id: org.id, name: org.name,
-            status: org.status || "Active",
-            createdAt: org.created_at || new Date().toISOString(),
-          })));
-        }
-      });
+    getOrganisations().then(setOrganisations);
 
     getReviewsWithClips().then((supabaseReviews: any[]) => {
       if (!supabaseReviews.length) return;
       const mappedReviews: ReviewRecord[] = supabaseReviews.map((r: any) => ({
         id: r.id,
-        organisationId: r.organisation_id || r.organisationId || defaultOrgId,
+        organisationId: r.organisation_id || "",
         game: r.game || r.title || "Untitled Review",
         educatorId: r.educator_id || "",
-        educatorName: r.educator_name || "Supabase",
+        educatorName: r.educator_name || "",
         referee1Id: r.referee1_id || "",
         referee2Id: r.referee2_id || "",
         referee3Id: r.referee3_id || "",
@@ -320,6 +272,13 @@ export default function Home() {
       setTags(mappedTags);
     });
   }, []);
+
+  // Load members whenever the active organisation changes
+  useEffect(() => {
+    const orgId = session?.activeOrganisation?.id;
+    if (!orgId) { setMembers([]); return; }
+    getMembersForOrganisation(orgId).then(setMembers);
+  }, [session?.activeOrganisation?.id]);
 
   // Restore Supabase session on page load
   useEffect(() => {
@@ -380,9 +339,6 @@ export default function Home() {
     }
     restoreSession();
   }, []);
-
-  useEffect(() => { saveJson(ORGS_KEY, organisations); }, [organisations]);
-  useEffect(() => { saveJson(USERS_KEY, users); }, [users]);
 
   useEffect(() => {
     if (!usingYouTubeVideo || screen !== "reviewer") return;
@@ -514,6 +470,7 @@ export default function Home() {
     await supabase.auth.signOut();
     setSession(null);
     setPendingSession(null);
+    setMembers([]);
     setActiveReviewId("");
     setScreen("login");
   }
@@ -530,26 +487,9 @@ export default function Home() {
     setScreen(membership.role === "referee" ? "referee" : "educator");
   }
 
-  function addOrganisation() {
-    if (!newOrgName.trim()) return;
-    setOrganisations(items => [...items, { id: crypto.randomUUID(), name: newOrgName.trim(), status: "Active", createdAt: new Date().toISOString() }]);
-    setNewOrgName("");
-  }
-
-  function addUser() {
-    if (!session || !newUserName.trim() || !newUserPassword.trim()) return;
-    const organisationId = session.activeRole === "super_admin"
-      ? (newUserOrganisation || organisations[0]?.id || "")
-      : session.activeOrganisation?.id || "";
-    setUsers(items => [...items, { id: crypto.randomUUID(), role: newUserRole, name: newUserName.trim(), password: newUserPassword, organisationId }]);
-    setNewUserName(""); setNewUserPassword("");
-  }
-
-  function removeUser(id: string) { setUsers(items => items.filter(u => u.id !== id)); }
-
   async function startNewReview() {
     if (!session) return;
-    const r1 = refereeUsers[0];
+    const r1 = refereeMembers[0];
     const now = new Date().toISOString();
     const orgId = session.activeOrganisation?.id || "";
 
@@ -611,9 +551,10 @@ export default function Home() {
 
   async function saveReviewMeta(status?: Status) {
     if (!activeReviewId) return;
-    const r1 = users.find(u => u.id === reviewRef1);
-    const r2 = users.find(u => u.id === reviewRef2);
-    const r3 = users.find(u => u.id === reviewRef3);
+    // Phase 2: name lookups use members (Supabase) instead of localStorage users
+    const r1 = members.find(m => m.id === reviewRef1);
+    const r2 = members.find(m => m.id === reviewRef2);
+    const r3 = members.find(m => m.id === reviewRef3);
     const nextStatus = status || activeReview?.status || "In Review";
     const submittedAt = nextStatus === "Completed" ? new Date().toISOString() : activeReview?.submittedAt;
     const patch = {
@@ -837,7 +778,6 @@ export default function Home() {
     XLSX.writeFile(wb, "referee-review-analytics.xlsx");
   }
 
-  // Block render until auth check completes to prevent login flash
   if (!authChecked) return null;
 
   if (screen === "login")
@@ -870,37 +810,169 @@ export default function Home() {
   if (screen === "database" && session?.activeRole !== "admin" && session?.activeRole !== "super_admin") setScreen("educator");
 
   if (screen === "database") {
-    const roleOptions: Role[] = session?.activeRole === "super_admin" ? ["super_admin", "admin", "educator", "referee"] : ["admin", "educator", "referee"];
-    const UserTable = ({ title, items }: { title: string; items: UserRecord[] }) => <><h2 style={{ marginTop: 24 }}>{title}</h2><table><thead><tr><th>Name</th><th>Organisation</th><th>Password</th><th></th></tr></thead><tbody>{items.map(u => <tr key={u.id}><td>{u.name}</td><td>{organisationName(u.organisationId)}</td><td>{u.password}</td><td><button className="danger" onClick={() => removeUser(u.id)}>Delete</button></td></tr>)}</tbody></table></>;
-    return <main><Header
-      session={session}
-      onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
-      onAdmin={() => setScreen("database")}
-      onLogout={logout}
-    /><div className="layout one-col"><section className="panel"><p className="eyebrow">{session?.activeRole === "super_admin" ? "Platform licensing" : organisationName(session?.activeOrganisation?.id || "")}</p><h1>Admin Dashboard</h1><p className="hint">Each organisation is a separate licensed group. Organisation admins manage only their own educators, referees and evaluations. Super Admin can see and manage all groups.</p>{session?.activeRole === "super_admin" && <div className="analytics-card"><h2>Organisations</h2><div className="grid-2"><label>New organisation<input value={newOrgName} onChange={e => setNewOrgName(e.target.value)} placeholder="Association, school or league name" /></label><div style={{ alignSelf: "end" }}><button className="primary" onClick={addOrganisation}><Plus size={16} /> Add Organisation</button></div></div><table><thead><tr><th>Organisation</th><th>Status</th><th>Admins</th><th>Educators</th><th>Referees</th><th>Evaluations</th></tr></thead><tbody>{organisations.map(o => <tr key={o.id}><td>{o.name}</td><td>{o.status}</td><td>{users.filter(u => u.organisationId === o.id && u.role === "admin").length}</td><td>{users.filter(u => u.organisationId === o.id && u.role === "educator").length}</td><td>{users.filter(u => u.organisationId === o.id && u.role === "referee").length}</td><td>{reviews.filter(r => r.organisationId === o.id).length}</td></tr>)}</tbody></table></div>}<h2 style={{ marginTop: 24 }}>Add User</h2><div className="setup-grid"><label>Role<select value={newUserRole} onChange={e => setNewUserRole(e.target.value as Role)}>{roleOptions.map(role => <option key={role} value={role}>{role === "super_admin" ? "Super Admin" : role === "admin" ? "Org Admin" : role[0].toUpperCase() + role.slice(1)}</option>)}</select></label>{session?.activeRole === "super_admin" && <label>Organisation<select value={newUserOrganisation} onChange={e => setNewUserOrganisation(e.target.value)}><option value="">Select organisation</option>{organisations.map(o => <option value={o.id} key={o.id}>{o.name}</option>)}</select></label>}<label>Name<input value={newUserName} onChange={e => setNewUserName(e.target.value)} /></label><label>Password<input value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} /></label></div><br /><button className="primary" onClick={addUser}><Plus size={16} /> Add User</button>{session?.activeRole === "super_admin" && <UserTable title="Super Admins" items={superAdminUsers} />}<UserTable title="Organisation Admins" items={adminUsers} /><UserTable title="Educators" items={educatorUsers} /><UserTable title="Referees" items={refereeUsers} /></section></div></main>;
+    // Phase 2 note: member counts in the org table reflect the active organisation only.
+    // super_admin sees members of their currently selected organisation, not all orgs.
+    // All-org member visibility requires Phase 7 (service-role queries).
+    const MemberTable = ({ title, items }: { title: string; items: MemberRecord[] }) => (
+      <>
+        <h2 style={{ marginTop: 24 }}>{title}</h2>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead>
+          <tbody>
+            {items.map(m => (
+              <tr key={m.id}>
+                <td>{m.name}</td>
+                <td>{m.email}</td>
+                <td>{roleLabel(m.role)}</td>
+              </tr>
+            ))}
+            {items.length === 0 && <tr><td colSpan={3}><span className="hint">No members found.</span></td></tr>}
+          </tbody>
+        </table>
+      </>
+    );
+
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
+          onAdmin={() => setScreen("database")}
+          onLogout={logout}
+        />
+        <div className="layout one-col">
+          <section className="panel">
+            <p className="eyebrow">{session?.activeRole === "super_admin" ? "Platform licensing" : organisationName(session?.activeOrganisation?.id || "")}</p>
+            <h1>Admin Dashboard</h1>
+            <p className="hint">Organisation admins manage only their own educators, referees and evaluations. Super Admin can see all organisations.</p>
+
+            {session?.activeRole === "super_admin" && (
+              <div className="analytics-card">
+                <h2>Organisations</h2>
+                <p className="hint">Member counts are scoped to your active organisation. Switch organisations to view another org&apos;s members.</p>
+                <table>
+                  <thead><tr><th>Organisation</th><th>Status</th><th>Evaluations</th></tr></thead>
+                  <tbody>
+                    {organisations.map(o => (
+                      <tr key={o.id}>
+                        <td>{o.name}{o.id === session.activeOrganisation?.id && <span className="chip" style={{ marginLeft: 8 }}>Active</span>}</td>
+                        <td>{o.status}</td>
+                        <td>{reviews.filter(r => r.organisationId === o.id).length}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <p className="hint" style={{ marginTop: 16 }}>
+              Showing members of <strong>{session?.activeOrganisation?.name}</strong>. User management is handled in the Supabase dashboard.
+            </p>
+
+            {session?.activeRole === "super_admin" && <MemberTable title="Super Admins" items={superAdminMembers} />}
+            <MemberTable title="Organisation Admins" items={adminMembers} />
+            <MemberTable title="Educators" items={educatorMembers} />
+            <MemberTable title="Referees" items={refereeMembers} />
+          </section>
+        </div>
+      </main>
+    );
   }
 
   if (screen === "educator") {
-    const visibleReviews = session?.activeRole === "super_admin" ? reviews : session?.activeRole === "admin" ? reviews.filter(r => r.organisationId === session.activeOrganisation?.id) : reviews.filter(r => r.educatorId === session?.user.id && r.organisationId === session?.activeOrganisation?.id);
+    const visibleReviews = session?.activeRole === "super_admin"
+      ? reviews
+      : session?.activeRole === "admin"
+        ? reviews.filter(r => r.organisationId === session.activeOrganisation?.id)
+        : reviews.filter(r => r.educatorId === session?.user.id && r.organisationId === session?.activeOrganisation?.id);
     const inReview = visibleReviews.filter(r => r.status !== "Completed");
     const completed = visibleReviews.filter(r => r.status === "Completed");
-    const ReviewTable = ({ items }: { items: ReviewRecord[] }) => <table><thead><tr><th>Game</th><th>Status</th><th>Educator</th><th>Referees</th><th>Tags</th><th></th></tr></thead><tbody>{items.map(review => <tr key={review.id}><td>{review.game}</td><td><span className={`status ${review.status === "Completed" ? "done" : "review"}`}>{review.status}</span></td><td>{review.educatorName}</td><td>{[review.referee1Name, review.referee2Name, review.referee3Name].filter(Boolean).join(", ")}</td><td>{tags.filter(t => t.reviewId === review.id).length}</td><td><button onClick={() => openReviewForEdit(review)}>Open</button><button className="danger" onClick={() => deleteReview(review.id)}>Delete</button></td></tr>)}</tbody></table>;
-    return <main><Header
-      session={session}
-      onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
-      onAdmin={() => setScreen("database")}
-      onLogout={logout}
-    /><div className="layout one-col"><section className="panel"><div className="table-head"><div><p className="eyebrow">{session?.activeRole === "super_admin" ? "Super Admin Portal" : session?.activeRole === "admin" ? "Organisation Admin Portal" : "Educator Portal"}</p><h1>Welcome, {session?.profile.name}</h1></div><button className="primary" onClick={startNewReview}><Plus size={16} /> New Review</button></div><p className="hint">{session?.activeRole === "super_admin" ? "Super Admin view: all organisation evaluations are visible." : session?.activeRole === "admin" ? "Organisation Admin view: evaluations for your organisation are visible." : "Educator view: only evaluations created by you are visible."}</p><h2>Save & Complete Later Playlist</h2><ReviewTable items={inReview} /><h2 style={{ marginTop: 28 }}>Completed Reviews</h2><ReviewTable items={completed} /></section></div></main>;
+    const ReviewTable = ({ items }: { items: ReviewRecord[] }) => (
+      <table>
+        <thead><tr><th>Game</th><th>Status</th><th>Educator</th><th>Referees</th><th>Tags</th><th></th></tr></thead>
+        <tbody>
+          {items.map(review => (
+            <tr key={review.id}>
+              <td>{review.game}</td>
+              <td><span className={`status ${review.status === "Completed" ? "done" : "review"}`}>{review.status}</span></td>
+              <td>{review.educatorName}</td>
+              <td>{[review.referee1Name, review.referee2Name, review.referee3Name].filter(Boolean).join(", ")}</td>
+              <td>{tags.filter(t => t.reviewId === review.id).length}</td>
+              <td>
+                <button onClick={() => openReviewForEdit(review)}>Open</button>
+                <button className="danger" onClick={() => deleteReview(review.id)}>Delete</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
+          onAdmin={() => setScreen("database")}
+          onLogout={logout}
+        />
+        <div className="layout one-col">
+          <section className="panel">
+            <div className="table-head">
+              <div>
+                <p className="eyebrow">{session?.activeRole === "super_admin" ? "Super Admin Portal" : session?.activeRole === "admin" ? "Organisation Admin Portal" : "Educator Portal"}</p>
+                <h1>Welcome, {session?.profile.name}</h1>
+              </div>
+              <button className="primary" onClick={startNewReview}><Plus size={16} /> New Review</button>
+            </div>
+            <p className="hint">{session?.activeRole === "super_admin" ? "Super Admin view: all organisation evaluations are visible." : session?.activeRole === "admin" ? "Organisation Admin view: evaluations for your organisation are visible." : "Educator view: only evaluations created by you are visible."}</p>
+            <h2>Save & Complete Later Playlist</h2>
+            <ReviewTable items={inReview} />
+            <h2 style={{ marginTop: 28 }}>Completed Reviews</h2>
+            <ReviewTable items={completed} />
+          </section>
+        </div>
+      </main>
+    );
   }
 
   if (screen === "referee") {
     const myReviews = session ? assignedReviewsForReferee(session.user.id) : [];
-    return <main><Header
-      session={session}
-      onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
-      onAdmin={() => setScreen("database")}
-      onLogout={logout}
-    /><div className="layout one-col"><section className="panel"><p className="eyebrow">Referee Portal</p><h1>Welcome, {session?.profile.name}</h1><p className="hint">Only submitted/completed evaluations appear here.</p><table><thead><tr><th>Game</th><th>Status</th><th>Educator</th><th>Submitted</th><th>Clips</th><th></th></tr></thead><tbody>{myReviews.map(review => { const slot = slotForUser(session?.user.id || "", review); const visible = tags.filter(t => t.reviewId === review.id && tagAppliesToSlot(t, slot)); return <tr key={review.id}><td>{review.game}</td><td><span className="status done">{review.status}</span></td><td>{review.educatorName}</td><td>{review.submittedAt ? new Date(review.submittedAt).toLocaleDateString() : "—"}</td><td>{visible.length}</td><td><button onClick={() => { setActiveReviewId(review.id); setViewerClipSeconds(0); setViewerAutoplay(false); setScreen("refereeReview") }}><Eye size={16} /> View Clips</button></td></tr> })}</tbody></table></section></div></main>;
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
+          onAdmin={() => setScreen("database")}
+          onLogout={logout}
+        />
+        <div className="layout one-col">
+          <section className="panel">
+            <p className="eyebrow">Referee Portal</p>
+            <h1>Welcome, {session?.profile.name}</h1>
+            <p className="hint">Only submitted/completed evaluations appear here.</p>
+            <table>
+              <thead><tr><th>Game</th><th>Status</th><th>Educator</th><th>Submitted</th><th>Clips</th><th></th></tr></thead>
+              <tbody>
+                {myReviews.map(review => {
+                  const slot = slotForUser(session?.user.id || "", review);
+                  const visible = tags.filter(t => t.reviewId === review.id && tagAppliesToSlot(t, slot));
+                  return (
+                    <tr key={review.id}>
+                      <td>{review.game}</td>
+                      <td><span className="status done">{review.status}</span></td>
+                      <td>{review.educatorName}</td>
+                      <td>{review.submittedAt ? new Date(review.submittedAt).toLocaleDateString() : "—"}</td>
+                      <td>{visible.length}</td>
+                      <td><button onClick={() => { setActiveReviewId(review.id); setViewerClipSeconds(0); setViewerAutoplay(false); setScreen("refereeReview"); }}><Eye size={16} /> View Clips</button></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </section>
+        </div>
+      </main>
+    );
   }
 
   if (screen === "refereeReview") {
@@ -916,7 +988,7 @@ export default function Home() {
       onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
       onAdmin={() => setScreen("database")}
       onLogout={logout}
-    /><div className="layout"><section className="panel"><p className="eyebrow">Referee Evaluation</p><h1>{review?.game}</h1><p className="hint">Educator: {review?.educatorName} · Status: {review?.status}</p>{currentEmbed ? <div className="video-placeholder"><h2>Video Viewer</h2>{isIframe ? <iframe className="video-frame" src={currentEmbed} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /> : isDirectVideo ? <video key={viewerClipSeconds} controls src={currentEmbed + `#t=${Math.floor(viewerClipSeconds)}`} className="video-frame" /> : <p className="hint">This video link cannot be embedded here. Add a YouTube or direct video file link to use the in-page viewer.</p>}<p className="hint">Selected clip time: {formatTime(viewerClipSeconds)}</p></div> : <p className="hint">No video link added. Ask your educator to attach a playable video link.</p>}<h2>View Clips</h2><table><thead><tr><th>Time</th><th>Action</th><th>Type</th><th>Outcome</th><th>Coverage</th><th>Position</th><th>Category</th><th>Comments</th></tr></thead><tbody>{visibleTags.map(tag => { const relation = tag.refereeTarget === mySlot ? "Tagged Call" : tag.refereeTarget === "All Referees" ? "Crew" : "Review Only"; return <tr key={tag.id}><td>{tag.adjustedTime}</td><td><button className="primary" onClick={() => { setViewerClipSeconds(tag.adjustedSeconds); setViewerAutoplay(true); }}>View Clip</button></td><td>{relation}</td><td>{tag.outcome}</td><td>{tag.coverage}</td><td>{tag.position}</td><td>{tag.category}</td><td>{tag.notes}</td></tr> })}</tbody></table></section><aside className="panel side-panel"><div className="analytics-card"><h2>Your Analytics</h2><div className="metric-grid"><div className="metric-tile"><div className="number">{viewerAnalytics.total}</div><div className="hint">Clips</div></div><div className="metric-tile"><div className="number">{viewerAnalytics.accuracy}</div><div className="hint">Accuracy</div></div></div></div><div className="analytics-card"><h3>Outcome Breakdown</h3>{viewerAnalytics.outcomeCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Category Breakdown</h3>{viewerAnalytics.categoryCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div></aside></div></main>;
+    /><div className="layout"><section className="panel"><p className="eyebrow">Referee Evaluation</p><h1>{review?.game}</h1><p className="hint">Educator: {review?.educatorName} · Status: {review?.status}</p>{currentEmbed ? <div className="video-placeholder"><h2>Video Viewer</h2>{isIframe ? <iframe className="video-frame" src={currentEmbed} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /> : isDirectVideo ? <video key={viewerClipSeconds} controls src={currentEmbed + `#t=${Math.floor(viewerClipSeconds)}`} className="video-frame" /> : <p className="hint">This video link cannot be embedded here. Add a YouTube or direct video file link to use the in-page viewer.</p>}<p className="hint">Selected clip time: {formatTime(viewerClipSeconds)}</p></div> : <p className="hint">No video link added. Ask your educator to attach a playable video link.</p>}<h2>View Clips</h2><table><thead><tr><th>Time</th><th>Action</th><th>Type</th><th>Outcome</th><th>Coverage</th><th>Position</th><th>Category</th><th>Comments</th></tr></thead><tbody>{visibleTags.map(tag => { const relation = tag.refereeTarget === mySlot ? "Tagged Call" : tag.refereeTarget === "All Referees" ? "Crew" : "Review Only"; return <tr key={tag.id}><td>{tag.adjustedTime}</td><td><button className="primary" onClick={() => { setViewerClipSeconds(tag.adjustedSeconds); setViewerAutoplay(true); }}>View Clip</button></td><td>{relation}</td><td>{tag.outcome}</td><td>{tag.coverage}</td><td>{tag.position}</td><td>{tag.category}</td><td>{tag.notes}</td></tr>; })}</tbody></table></section><aside className="panel side-panel"><div className="analytics-card"><h2>Your Analytics</h2><div className="metric-grid"><div className="metric-tile"><div className="number">{viewerAnalytics.total}</div><div className="hint">Clips</div></div><div className="metric-tile"><div className="number">{viewerAnalytics.accuracy}</div><div className="hint">Accuracy</div></div></div></div><div className="analytics-card"><h3>Outcome Breakdown</h3>{viewerAnalytics.outcomeCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Category Breakdown</h3>{viewerAnalytics.categoryCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div></aside></div></main>;
   }
 
   return <main><Header
@@ -924,5 +996,5 @@ export default function Home() {
     onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
     onAdmin={() => setScreen("database")}
     onLogout={logout}
-  /><div className="layout"><section className="panel"><h2>Review setup</h2><div className="mode-switch"><button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false) }}>Video Review</button><button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button></div><div className="setup-grid"><label>Game<input value={reviewGame} onChange={e => setReviewGame(e.target.value)} onBlur={() => saveReviewMeta()} /></label><label>Educator<input value={activeReview?.educatorName || session?.profile.name || ""} disabled /></label><label>Organisation<input value={organisationName(activeReview?.organisationId || session?.activeOrganisation?.id || "")} disabled /></label><label>Status<input value={activeReview?.status || "In Review"} disabled /></label></div><div className="setup-grid"><label>Referee 1<select value={reviewRef1} onChange={e => setReviewRef1(e.target.value)} onBlur={() => saveReviewMeta()}><option value="">Select referee</option>{refereeUsers.map(u => <option value={u.id} key={u.id}>{u.name}</option>)}</select></label><label>Referee 2<select value={reviewRef2} onChange={e => setReviewRef2(e.target.value)} onBlur={() => saveReviewMeta()}><option value="">Select referee</option>{refereeUsers.map(u => <option value={u.id} key={u.id}>{u.name}</option>)}</select></label><label>Referee 3<select value={reviewRef3} onChange={e => setReviewRef3(e.target.value)} onBlur={() => saveReviewMeta()}><option value="">Select referee</option>{refereeUsers.map(u => <option value={u.id} key={u.id}>{u.name}</option>)}</select></label></div><div className="grid-2" style={{ marginTop: 12 }}><label>Video link for referee portal<input value={reviewVideoLink} onChange={e => setReviewVideoLink(e.target.value)} onBlur={() => saveReviewMeta()} placeholder="YouTube, direct MP4/WebM link, Hudl/GloryLeague link, etc." /></label><label>Timestamp offset, seconds<input type="number" step="1" max="0" value={reviewOffset} onChange={e => setReviewOffset(-Math.abs(Math.trunc(Number(e.target.value) || 0)))} onBlur={() => { setReviewOffset(v => -Math.abs(Math.trunc(Number(v) || 0))); saveReviewMeta(); }} /></label></div>{mode === "video" ? <><div className="toolbar"><label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file) }} /></label><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={16} /> / <Pause size={16} /></button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5) }}>-5s</button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5 }}>+5s</button><button className="primary" onClick={openVideoCoding}>Tag Moment</button></div>{usingYouTubeVideo ? <div className="video-placeholder"><div ref={youtubeContainerRef} className="video-frame" /><p className="hint">YouTube iframe mode · Current time: {formatTime(youtubeCurrent)}{youtubeReady ? "" : " · loading player..."}</p></div> : <video ref={videoRef} controls onLoadedMetadata={e => setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e => setVideoCurrent(e.currentTarget.currentTime)} />}</> : <div className="timer-card"><div className="timer">{formatTime(timerSeconds)}</div><div className="toolbar"><button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button><button onClick={() => setTimerSeconds(0)}>Reset</button><button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button><button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button></div><p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p></div>}<div className="timeline"><div className="progress" style={{ width: `${progressPct}%` }} />{reviewTags.map(tag => <div key={tag.id} className="marker" title={`${tag.adjustedTime} — ${slotName(tag.refereeTarget, activeReview)} — ${tag.outcome || tag.category || "Tag"}`} style={{ left: `${Math.min(100, (tag.adjustedSeconds / scaleSeconds) * 100)}%` }} />)}</div></section><aside className="panel side-panel"><div className="export-row"><button className="warn" onClick={saveCompleteLater}>Save & Complete Later</button><button className="good" onClick={submitReview}>Submit Review</button></div><div className="export-row"><button onClick={exportCsv}><Download size={16} /> CSV</button><button className="primary" onClick={exportExcel}><Download size={16} /> Excel</button></div><div className="analytics-card"><h2>Performance Analytics</h2><label>Analytics view<select value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div className="metric-grid" style={{ marginTop: 10 }}><div className="metric-tile"><div className="number">{analytics.total}</div><div className="hint">Total clips</div></div><div className="metric-tile"><div className="number">{analytics.accuracy}</div><div className="hint">Coded accuracy</div></div><div className="metric-tile"><div className="number">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="hint">Correct decisions</div></div><div className="metric-tile"><div className="number">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="hint">Incorrect decisions</div></div></div></div><div className="analytics-card"><h3>Outcome Breakdown</h3>{analytics.outcomeCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Category Breakdown</h3>{analytics.categoryCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div>{mode === "video" ? <div className="analytics-card"><button className="primary big-tag" onClick={openVideoCoding}>Tag Moment</button><p className="hint">Shortcut: X opens the video coding panel.</p></div> : <div className="analytics-card"><h2>Non-video hotkeys</h2><div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div></div>}</aside><section className="panel table-panel"><div className="table-head"><h2>Coded clips</h2><button className="danger" onClick={async () => { if (!confirm("Clear all tags?")) return; const { error } = await supabase.from("clips").delete().eq("review_id", activeReviewId); if (error) { alert(error.message); return; } setTags(items => items.filter(t => t.reviewId !== activeReviewId)); }}><Trash2 size={16} /> Clear Tags</button></div><table><thead><tr><th>Time</th><th>Referees</th><th>Link</th><th>Mode</th><th>Outcome</th><th>Coverage</th><th>Position</th><th>Category</th><th>Comments</th><th></th></tr></thead><tbody>{reviewTags.map(tag => <tr key={tag.id}><td><button onClick={() => jump(tag.adjustedSeconds)}>{tag.adjustedTime}</button></td><td><strong>{slotName(tag.refereeTarget, activeReview)}</strong> <span className="hint">(Call)</span><br />{(tag.extraReviewOfficials || []).map(s => <span className="chip" key={s}>{slotName(s, activeReview)} Review</span>)}</td><td>{tag.timestampLink ? <a href={tag.timestampLink} target="_blank">Open timestamp</a> : <span className="hint">No link</span>}</td><td>{tag.mode}</td><td>{tag.outcome}</td><td>{tag.coverage}</td><td>{tag.position}</td><td>{tag.category}</td><td>{tag.notes}</td><td>{tag.mode === "video" && <button onClick={() => openEditTag(tag)}>Edit</button>}<button className="danger" onClick={async () => { const { error } = await supabase.from("clips").delete().eq("id", tag.id); if (error) { alert(error.message); return; } setTags(items => items.filter(item => item.id !== tag.id)); }}>Delete</button></td></tr>)}</tbody></table></section></div>{codingOpen && <div className="modal-backdrop"><div className="modal"><div className="modal-title"><div><p className="eyebrow">{editingTagId ? "Edit clip" : "Coding timestamp"}</p><h1>{formatTime(codingSecond)}</h1><p className="hint">Adjusted video time: {formatTime(Math.max(0, codingSecond + Number(activeReview?.timestampOffset || 0)))}</p></div><button onClick={() => { setCodingOpen(false); setEditingTagId(null); if (shouldResumeVideo) playActiveVideo() }}>Close</button></div><div className="modal-grid"><div className="code-group"><h2>Group 1: Outcome</h2><div className="code-grid">{OUTCOMES.map(item => <button key={item} className={draftOutcome === item ? "selected" : ""} onClick={() => setDraftOutcome(item)}>{item}</button>)}</div></div><div className="code-group"><h2>Group 2: Coverage</h2><div className="code-grid">{COVERAGE.map(item => <button key={item} className={draftCoverage === item ? "selected" : ""} onClick={() => setDraftCoverage(item)}>{item}</button>)}</div></div><div className="code-group"><h2>Group 3: Position</h2><div className="code-grid">{POSITIONS.map(item => <button key={item} className={draftPosition === item ? "selected" : ""} onClick={() => setDraftPosition(item)}>{item}</button>)}</div></div><div className="code-group"><h2>Group 4: Call Category</h2><div className="code-grid">{CATEGORIES.map(item => <button key={item} className={draftCategory === item ? "selected" : ""} onClick={() => setDraftCategory(item)}>{item}</button>)}</div></div><div className="code-group note-area"><h2>Group 5: Officials + Comments</h2><div className="grid-2"><label>Tagged official for call<select value={draftRefereeTarget} onChange={e => { setDraftRefereeTarget(e.target.value as RefSlot); setDraftExtraOfficials(items => items.filter(s => s !== e.target.value)) }}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div><label>Add other officials as review-only</label><div className="toolbar">{REF_SLOTS.filter(s => s !== "All Referees" && s !== draftRefereeTarget).map(s => <button type="button" key={s} className={draftExtraOfficials.includes(s) ? "selected" : ""} onClick={() => toggleExtra(s)}>{slotName(s, activeReview)}</button>)}</div></div></div><p className="hint">Extra officials are attached to the clip for review only. They are not counted as the official responsible for the call. Same comments apply to all officials attached to the clip.</p><textarea value={draftNotes} onChange={e => setDraftNotes(e.target.value)} placeholder="Optional comments" /></div></div><div className="action-row"><button onClick={resetDrafts}>Clear</button><button className="primary" onClick={saveVideoCode}>{editingTagId ? "Save Changes" : "Save Code & Resume"}</button></div></div></div>}</main>;
+  /><div className="layout"><section className="panel"><h2>Review setup</h2><div className="mode-switch"><button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button><button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button></div><div className="setup-grid"><label>Game<input value={reviewGame} onChange={e => setReviewGame(e.target.value)} onBlur={() => saveReviewMeta()} /></label><label>Educator<input value={activeReview?.educatorName || session?.profile.name || ""} disabled /></label><label>Organisation<input value={organisationName(activeReview?.organisationId || session?.activeOrganisation?.id || "")} disabled /></label><label>Status<input value={activeReview?.status || "In Review"} disabled /></label></div><div className="setup-grid"><label>Referee 1<select value={reviewRef1} onChange={e => setReviewRef1(e.target.value)} onBlur={() => saveReviewMeta()}><option value="">Select referee</option>{refereeMembers.map(m => <option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label>Referee 2<select value={reviewRef2} onChange={e => setReviewRef2(e.target.value)} onBlur={() => saveReviewMeta()}><option value="">Select referee</option>{refereeMembers.map(m => <option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label>Referee 3<select value={reviewRef3} onChange={e => setReviewRef3(e.target.value)} onBlur={() => saveReviewMeta()}><option value="">Select referee</option>{refereeMembers.map(m => <option value={m.id} key={m.id}>{m.name}</option>)}</select></label></div><div className="grid-2" style={{ marginTop: 12 }}><label>Video link for referee portal<input value={reviewVideoLink} onChange={e => setReviewVideoLink(e.target.value)} onBlur={() => saveReviewMeta()} placeholder="YouTube, direct MP4/WebM link, Hudl/GloryLeague link, etc." /></label><label>Timestamp offset, seconds<input type="number" step="1" max="0" value={reviewOffset} onChange={e => setReviewOffset(-Math.abs(Math.trunc(Number(e.target.value) || 0)))} onBlur={() => { setReviewOffset(v => -Math.abs(Math.trunc(Number(v) || 0))); saveReviewMeta(); }} /></label></div>{mode === "video" ? <><div className="toolbar"><label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={16} /> / <Pause size={16} /></button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>-5s</button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>+5s</button><button className="primary" onClick={openVideoCoding}>Tag Moment</button></div>{usingYouTubeVideo ? <div className="video-placeholder"><div ref={youtubeContainerRef} className="video-frame" /><p className="hint">YouTube iframe mode · Current time: {formatTime(youtubeCurrent)}{youtubeReady ? "" : " · loading player..."}</p></div> : <video ref={videoRef} controls onLoadedMetadata={e => setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e => setVideoCurrent(e.currentTarget.currentTime)} />}</> : <div className="timer-card"><div className="timer">{formatTime(timerSeconds)}</div><div className="toolbar"><button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button><button onClick={() => setTimerSeconds(0)}>Reset</button><button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button><button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button></div><p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p></div>}<div className="timeline"><div className="progress" style={{ width: `${progressPct}%` }} />{reviewTags.map(tag => <div key={tag.id} className="marker" title={`${tag.adjustedTime} — ${slotName(tag.refereeTarget, activeReview)} — ${tag.outcome || tag.category || "Tag"}`} style={{ left: `${Math.min(100, (tag.adjustedSeconds / scaleSeconds) * 100)}%` }} />)}</div></section><aside className="panel side-panel"><div className="export-row"><button className="warn" onClick={saveCompleteLater}>Save & Complete Later</button><button className="good" onClick={submitReview}>Submit Review</button></div><div className="export-row"><button onClick={exportCsv}><Download size={16} /> CSV</button><button className="primary" onClick={exportExcel}><Download size={16} /> Excel</button></div><div className="analytics-card"><h2>Performance Analytics</h2><label>Analytics view<select value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div className="metric-grid" style={{ marginTop: 10 }}><div className="metric-tile"><div className="number">{analytics.total}</div><div className="hint">Total clips</div></div><div className="metric-tile"><div className="number">{analytics.accuracy}</div><div className="hint">Coded accuracy</div></div><div className="metric-tile"><div className="number">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="hint">Correct decisions</div></div><div className="metric-tile"><div className="number">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="hint">Incorrect decisions</div></div></div></div><div className="analytics-card"><h3>Outcome Breakdown</h3>{analytics.outcomeCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Category Breakdown</h3>{analytics.categoryCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div>{mode === "video" ? <div className="analytics-card"><button className="primary big-tag" onClick={openVideoCoding}>Tag Moment</button><p className="hint">Shortcut: X opens the video coding panel.</p></div> : <div className="analytics-card"><h2>Non-video hotkeys</h2><div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div></div>}</aside><section className="panel table-panel"><div className="table-head"><h2>Coded clips</h2><button className="danger" onClick={async () => { if (!confirm("Clear all tags?")) return; const { error } = await supabase.from("clips").delete().eq("review_id", activeReviewId); if (error) { alert(error.message); return; } setTags(items => items.filter(t => t.reviewId !== activeReviewId)); }}><Trash2 size={16} /> Clear Tags</button></div><table><thead><tr><th>Time</th><th>Referees</th><th>Link</th><th>Mode</th><th>Outcome</th><th>Coverage</th><th>Position</th><th>Category</th><th>Comments</th><th></th></tr></thead><tbody>{reviewTags.map(tag => <tr key={tag.id}><td><button onClick={() => jump(tag.adjustedSeconds)}>{tag.adjustedTime}</button></td><td><strong>{slotName(tag.refereeTarget, activeReview)}</strong> <span className="hint">(Call)</span><br />{(tag.extraReviewOfficials || []).map(s => <span className="chip" key={s}>{slotName(s, activeReview)} Review</span>)}</td><td>{tag.timestampLink ? <a href={tag.timestampLink} target="_blank">Open timestamp</a> : <span className="hint">No link</span>}</td><td>{tag.mode}</td><td>{tag.outcome}</td><td>{tag.coverage}</td><td>{tag.position}</td><td>{tag.category}</td><td>{tag.notes}</td><td>{tag.mode === "video" && <button onClick={() => openEditTag(tag)}>Edit</button>}<button className="danger" onClick={async () => { const { error } = await supabase.from("clips").delete().eq("id", tag.id); if (error) { alert(error.message); return; } setTags(items => items.filter(item => item.id !== tag.id)); }}>Delete</button></td></tr>)}</tbody></table></section></div>{codingOpen && <div className="modal-backdrop"><div className="modal"><div className="modal-title"><div><p className="eyebrow">{editingTagId ? "Edit clip" : "Coding timestamp"}</p><h1>{formatTime(codingSecond)}</h1><p className="hint">Adjusted video time: {formatTime(Math.max(0, codingSecond + Number(activeReview?.timestampOffset || 0)))}</p></div><button onClick={() => { setCodingOpen(false); setEditingTagId(null); if (shouldResumeVideo) playActiveVideo(); }}>Close</button></div><div className="modal-grid"><div className="code-group"><h2>Group 1: Outcome</h2><div className="code-grid">{OUTCOMES.map(item => <button key={item} className={draftOutcome === item ? "selected" : ""} onClick={() => setDraftOutcome(item)}>{item}</button>)}</div></div><div className="code-group"><h2>Group 2: Coverage</h2><div className="code-grid">{COVERAGE.map(item => <button key={item} className={draftCoverage === item ? "selected" : ""} onClick={() => setDraftCoverage(item)}>{item}</button>)}</div></div><div className="code-group"><h2>Group 3: Position</h2><div className="code-grid">{POSITIONS.map(item => <button key={item} className={draftPosition === item ? "selected" : ""} onClick={() => setDraftPosition(item)}>{item}</button>)}</div></div><div className="code-group"><h2>Group 4: Call Category</h2><div className="code-grid">{CATEGORIES.map(item => <button key={item} className={draftCategory === item ? "selected" : ""} onClick={() => setDraftCategory(item)}>{item}</button>)}</div></div><div className="code-group note-area"><h2>Group 5: Officials + Comments</h2><div className="grid-2"><label>Tagged official for call<select value={draftRefereeTarget} onChange={e => { setDraftRefereeTarget(e.target.value as RefSlot); setDraftExtraOfficials(items => items.filter(s => s !== e.target.value)); }}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div><label>Add other officials as review-only</label><div className="toolbar">{REF_SLOTS.filter(s => s !== "All Referees" && s !== draftRefereeTarget).map(s => <button type="button" key={s} className={draftExtraOfficials.includes(s) ? "selected" : ""} onClick={() => toggleExtra(s)}>{slotName(s, activeReview)}</button>)}</div></div></div><p className="hint">Extra officials are attached to the clip for review only. They are not counted as the official responsible for the call. Same comments apply to all officials attached to the clip.</p><textarea value={draftNotes} onChange={e => setDraftNotes(e.target.value)} placeholder="Optional comments" /></div></div><div className="action-row"><button onClick={resetDrafts}>Clear</button><button className="primary" onClick={saveVideoCode}>{editingTagId ? "Save Changes" : "Save Code & Resume"}</button></div></div></div>}</main>;
 }
