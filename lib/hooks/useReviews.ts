@@ -23,7 +23,6 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
 
   useEffect(() => {
     getReviewsWithClips().then((supabaseReviews: any[]) => {
-      if (!supabaseReviews.length) return;
       const mappedReviews: ReviewRecord[] = supabaseReviews.map((r: any) => ({
         id: r.id,
         organisationId: r.organisation_id || "",
@@ -123,7 +122,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
 
   async function saveReviewMeta(status?: Status) {
     if (!activeReviewId) return;
-    // Phase 2: name lookups use members (Supabase) instead of localStorage users
+    // Name lookups resolve member IDs against the Supabase-loaded members list
     const r1 = members.find(m => m.id === reviewRef1);
     const r2 = members.find(m => m.id === reviewRef2);
     const r3 = members.find(m => m.id === reviewRef3);

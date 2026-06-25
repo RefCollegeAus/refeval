@@ -6,9 +6,8 @@ import { getMembersForOrganisation } from "@/lib/services/memberships";
 import type { OrganisationRecord } from "@/lib/types/organisations";
 import type { MemberRecord } from "@/lib/types/members";
 
-// Phase 2 note: members are always scoped to the active organisation.
-// super_admin sees members of their active organisation only — not all orgs.
-// All-org member visibility is deferred to Phase 7 (RLS + service-role queries).
+// Members are scoped to the active organisation via getMembersForOrganisation.
+// RLS (Phase 7) enforces this at the database layer for all roles.
 export function useOrganisations(activeOrgId: string | undefined) {
   const [organisations, setOrganisations] = useState<OrganisationRecord[]>([]);
   const [members, setMembers] = useState<MemberRecord[]>([]);

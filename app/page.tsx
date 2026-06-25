@@ -342,6 +342,14 @@ export default function Home() {
     } else setTimerSeconds(seconds);
   }
 
+  // Guard: non-admin roles cannot visit the database screen.
+  // Must be declared before any early return to satisfy the Rules of Hooks.
+  useEffect(() => {
+    if (screen === "database" && session?.activeRole !== "admin" && session?.activeRole !== "super_admin") {
+      setScreen("educator");
+    }
+  }, [screen, session?.activeRole]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
@@ -435,12 +443,8 @@ export default function Home() {
       </main>
     );
 
-  if (screen === "database" && session?.activeRole !== "admin" && session?.activeRole !== "super_admin") setScreen("educator");
-
   if (screen === "database") {
-    // Phase 2 note: member counts reflect the active organisation only.
-    // super_admin sees members of their currently selected organisation, not all orgs.
-    // All-org member visibility requires Phase 7 (service-role queries).
+    // Members are scoped to the active organisation. RLS (Phase 7) enforces this at the database layer.
     const orgReviews = reviews.filter(r => r.organisationId === session?.activeOrganisation?.id);
 
     const MemberTable = ({ title, items }: { title: string; items: typeof adminMembers }) => (
