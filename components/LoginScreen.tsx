@@ -1,8 +1,4 @@
-type Role = "super_admin" | "admin" | "educator" | "referee";
-
 export function LoginScreen({
-  loginRole,
-  setLoginRole,
   loginName,
   setLoginName,
   loginPassword,
@@ -10,8 +6,6 @@ export function LoginScreen({
   loginError,
   login,
 }: {
-  loginRole: Role;
-  setLoginRole: (role: Role) => void;
   loginName: string;
   setLoginName: (value: string) => void;
   loginPassword: string;
@@ -29,28 +23,13 @@ export function LoginScreen({
         <p className="eyebrow">Login</p>
         <h1>Referee Development Platform</h1>
 
-        <div className="mode-switch" style={{ marginTop: 18 }}>
-          <button className={loginRole === "super_admin" ? "primary" : ""} onClick={() => setLoginRole("super_admin")}>Super Admin</button>
-          <button className={loginRole === "admin" ? "primary" : ""} onClick={() => setLoginRole("admin")}>Org Admin</button>
-          <button className={loginRole === "educator" ? "primary" : ""} onClick={() => setLoginRole("educator")}>Educator</button>
-          <button className={loginRole === "referee" ? "primary" : ""} onClick={() => setLoginRole("referee")}>Referee</button>
-        </div>
-
         <div className="form-stack" style={{ marginTop: 18 }}>
           <label>
-            Name
+            Email
             <input
               value={loginName}
               onChange={(e) => setLoginName(e.target.value)}
-              placeholder={
-                loginRole === "super_admin"
-                  ? "Logan Bilby"
-                  : loginRole === "admin"
-                  ? "Demo Admin"
-                  : loginRole === "educator"
-                  ? "Demo Educator"
-                  : "Demo Referee"
-              }
+              placeholder="Email address"
             />
           </label>
 
@@ -60,7 +39,7 @@ export function LoginScreen({
               type="password"
               value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)}
-              placeholder={loginRole === "referee" ? "demo" : loginRole === "educator" ? "educator" : "admin"}
+              placeholder="Password"
             />
           </label>
 
@@ -69,7 +48,7 @@ export function LoginScreen({
           {loginError && <p className="danger-text">{loginError}</p>}
 
           <p className="hint">
-            Defaults: Super Admin Logan Bilby / admin · Org Admin Demo Admin / admin · Educator Demo Educator / educator · Referee Demo Referee / demo.
+            Sign in using your RefEval email and password.
           </p>
         </div>
       </section>

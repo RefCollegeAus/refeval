@@ -150,6 +150,7 @@ export default function Home() {
   const youtubeContainerRef = useRef<HTMLDivElement | null>(null);
   const youtubePlayerRef = useRef<any>(null);
   const [organisations, setOrganisations] = useState<OrganisationRecord[]>([]);
+  const [loginOrganisationId, setLoginOrganisationId] = useState("");
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
   const [tags, setTags] = useState<CodedTag[]>([]);
@@ -159,6 +160,7 @@ export default function Home() {
   const [loginName, setLoginName] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [authChecked, setAuthChecked] = useState(false);
   const [newUserRole, setNewUserRole] = useState<Role>("referee");
   const [newUserOrganisation, setNewUserOrganisation] = useState("");
   const [newOrgName, setNewOrgName] = useState("");
@@ -248,7 +250,28 @@ export default function Home() {
     saveJson(USERS_KEY, storedUsers);
     setOrganisations(storedOrgs);
     setUsers(storedUsers);
-    
+        supabase
+      .from("organisations")
+      .select("id, name, status, created_at")
+      .order("name")
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Could not load organisations from Supabase:", error.message);
+          return;
+        }
+
+        if (data && data.length) {
+          setOrganisations(
+            data.map((org: any) => ({
+              id: org.id,
+              name: org.name,
+              status: org.status || "Active",
+              createdAt: org.created_at || new Date().toISOString(),
+            }))
+          );
+        }
+      });
+
     getReviewsWithClips().then((supabaseReviews: any[]) => {
       if (!supabaseReviews.length) return;
 
@@ -298,6 +321,45 @@ export default function Home() {
     });
 
   }, []);
+
+    useEffect(() => {
+    async function restoreSession() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setAuthChecked(true);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, role, organisation_id")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile) {
+        await supabase.auth.signOut();
+        setAuthChecked(true);
+        return;
+      }
+
+      setCurrentUser({
+        id: profile.id,
+        role: profile.role as Role,
+        name: profile.full_name,
+        password: "",
+        organisationId: profile.organisation_id,
+      });
+
+      setScreen(profile.role === "referee" ? "referee" : "educator");
+      setAuthChecked(true);
+    }
+
+    restoreSession();
+  }, []);
+
   useEffect(() => { saveJson(ORGS_KEY, organisations); }, [organisations]);
   useEffect(() => { saveJson(USERS_KEY, users); }, [users]);
   // useEffect(() => { saveJson(REVIEWS_KEY, reviews); }, [reviews]);
@@ -355,12 +417,71 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [timerRunning, mode]);
 
-  function login() {
-    const user = users.find(u => u.role === loginRole && u.name.trim().toLowerCase() === loginName.trim().toLowerCase() && u.password === loginPassword);
-    if (!user) { setLoginError("Login failed. Check name, password and role."); return; }
-    setCurrentUser(user); setLoginError(""); setLoginPassword(""); setScreen(user.role === "referee" ? "referee" : "educator");
+  async function login() {
+  const email = loginName.trim();
+
+  if (!email) {
+    setLoginError("Please enter your email.");
+    return;
   }
-  function logout() { setCurrentUser(null); setActiveReviewId(""); setScreen("login"); }
+
+  const { data: authData, error: authError } =
+    await supabase.auth.signInWithPassword({
+      email,
+      password: loginPassword,
+    });
+
+  if (authError || !authData.user) {
+    setLoginError(authError?.message || "Login failed.");
+    return;
+  }
+
+  const { data: memberships, error: membershipError } = await supabase
+    .from("organisation_members")
+    .select("role, organisation_id")
+    .eq("user_id", authData.user.id);
+
+  if (membershipError) {
+    await supabase.auth.signOut();
+    setLoginError(membershipError.message);
+    return;
+  }
+
+  if (!memberships || memberships.length === 0) {
+    await supabase.auth.signOut();
+    setLoginError("Your account is not assigned to any organisation yet.");
+    return;
+  }
+
+  const selectedMembership = memberships[0];
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", authData.user.id)
+    .single();
+
+  setCurrentUser({
+    id: authData.user.id,
+    role: selectedMembership.role as Role,
+    name: profile?.name || authData.user.email || "User",
+    password: "",
+    organisationId: selectedMembership.organisation_id,
+  });
+
+  setLoginRole(selectedMembership.role as Role);
+  setLoginOrganisationId(selectedMembership.organisation_id);
+  setLoginError("");
+  setLoginPassword("");
+  setScreen(selectedMembership.role === "referee" ? "referee" : "educator");
+}
+
+  async function logout() {
+  await supabase.auth.signOut();
+  setCurrentUser(null);
+  setActiveReviewId("");
+  setScreen("login");
+}
   function addOrganisation() {
     if (!newOrgName.trim()) return;
     setOrganisations(items => [...items, { id: crypto.randomUUID(), name: newOrgName.trim(), status: "Active", createdAt: new Date().toISOString() }]);
@@ -729,6 +850,9 @@ setReviews(items =>
 
           <LoginScreen
             loginRole={loginRole}
+            organisations={organisations}
+            loginOrganisationId={loginOrganisationId}
+            setLoginOrganisationId={setLoginOrganisationId}
             setLoginRole={setLoginRole}
             loginName={loginName}
             setLoginName={setLoginName}
