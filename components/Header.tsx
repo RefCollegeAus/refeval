@@ -1,22 +1,13 @@
 import { LogOut, Settings } from "lucide-react";
-
-type Role = "super_admin" | "admin" | "educator" | "referee";
-
-type UserRecord = {
-  id: string;
-  role: Role;
-  name: string;
-  password: string;
-  organisationId: string;
-};
+import type { RefEvalSession } from "@/lib/types/auth";
 
 export function Header({
-  currentUser,
+  session,
   onHome,
   onAdmin,
   onLogout,
 }: {
-  currentUser: UserRecord | null;
+  session: RefEvalSession | null;
   onHome: () => void;
   onAdmin: () => void;
   onLogout: () => void;
@@ -31,11 +22,11 @@ export function Header({
         </div>
       </div>
 
-      {currentUser && (
+      {session && (
         <div className="export-row">
           <button onClick={onHome}>Home</button>
 
-          {(currentUser.role === "admin" || currentUser.role === "super_admin") && (
+          {(session.activeRole === "admin" || session.activeRole === "super_admin") && (
             <button onClick={onAdmin}>
               <Settings size={16} /> Admin Dashboard
             </button>
