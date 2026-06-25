@@ -185,6 +185,19 @@ export default function Home() {
   const [inviteSuccess, setInviteSuccess] = useState("");
   const [memberActionError, setMemberActionError] = useState("");
 
+  // --- Auth callback error (from ?error= param set by /auth/callback on failure) ---
+  const [urlAuthError, setUrlAuthError] = useState("");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error");
+    if (err) {
+      setUrlAuthError(decodeURIComponent(err));
+      // Remove the param from the URL without reloading.
+      const clean = window.location.pathname;
+      window.history.replaceState({}, "", clean);
+    }
+  }, []);
+
   // --- Derived values ---
   const reviewTags = useMemo(() => tags.filter(t => t.reviewId === activeReviewId).sort((a, b) => a.seconds - b.seconds), [tags, activeReviewId]);
   const analyticsTags = useMemo(() => {
@@ -436,7 +449,7 @@ export default function Home() {
         <LoginScreen
           loginName={loginName} setLoginName={setLoginName}
           loginPassword={loginPassword} setLoginPassword={setLoginPassword}
-          loginError={loginError} login={login}
+          loginError={loginError || urlAuthError} login={login}
         />
       </main>
     );
