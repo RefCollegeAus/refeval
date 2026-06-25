@@ -67,6 +67,7 @@ create table if not exists public.reviews (
 create table if not exists public.clips (
   id                     uuid primary key default gen_random_uuid(),
   review_id              uuid not null references public.reviews(id) on delete cascade,
+  organisation_id        uuid references public.organisations(id), -- denormalised for scoped queries
   -- Timing
   time                   text,                 -- formatted mm:ss display string
   seconds                integer,              -- raw video seconds
@@ -86,6 +87,10 @@ create table if not exists public.clips (
   notes                  text,
   created_at             timestamptz default now()
 );
+
+-- Phase 5: add organisation_id to existing clips table
+-- Run this in the Supabase SQL editor if the table already exists without this column:
+-- alter table public.clips add column if not exists organisation_id uuid references public.organisations(id);
 
 -- ============================================================
 -- Row-Level Security

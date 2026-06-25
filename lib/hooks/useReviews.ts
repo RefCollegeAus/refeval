@@ -46,6 +46,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
         (r.clips || []).map((c: any) => ({
           id: c.id,
           reviewId: r.id,
+          organisationId: c.organisation_id || r.organisation_id || "",
           time: c.time || formatTime(c.timestamp_seconds || c.seconds || 0),
           seconds: Number(c.seconds ?? c.timestamp_seconds ?? 0),
           adjustedSeconds: Number(c.adjusted_seconds ?? c.timestamp_seconds ?? c.seconds ?? 0),
@@ -164,17 +165,24 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
 
   async function upsertClip(tag: CodedTag) {
     const dbClip = {
-      id: tag.id, review_id: tag.reviewId, time: tag.time,
+      id: tag.id,
+      review_id: tag.reviewId,
+      organisation_id: tag.organisationId || null,
+      time: tag.time,
       seconds: Math.round(tag.seconds),
       timestamp_seconds: Math.round(tag.seconds),
       adjusted_seconds: Math.round(tag.adjustedSeconds),
       adjusted_time: tag.adjustedTime,
-      mode: tag.mode, referee_target: tag.refereeTarget,
+      mode: tag.mode,
+      referee_target: tag.refereeTarget,
       extra_review_officials: tag.extraReviewOfficials,
       clip_officials: tag.clipOfficials,
       timestamp_link: tag.timestampLink,
-      outcome: tag.outcome, category: tag.category,
-      position: tag.position, coverage: tag.coverage, notes: tag.notes,
+      outcome: tag.outcome,
+      category: tag.category,
+      position: tag.position,
+      coverage: tag.coverage,
+      notes: tag.notes,
       created_at: tag.createdAt,
     };
     const { error } = await supabase.from("clips").upsert(dbClip);

@@ -26,6 +26,7 @@ export type ReviewRecord = {
 export type CodedTag = {
   id: string;
   reviewId: string;
+  organisationId: string;
   time: string;
   seconds: number;
   adjustedSeconds: number;

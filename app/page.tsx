@@ -278,7 +278,10 @@ export default function Home() {
     const primary = patch.refereeTarget || draftRefereeTarget || "All Referees";
     const extras = patch.extraReviewOfficials || draftExtraOfficials || [];
     return {
-      id: patch.id || crypto.randomUUID(), reviewId: activeReviewId, seconds, time: formatTime(seconds), adjustedSeconds, adjustedTime: formatTime(adjustedSeconds),
+      id: patch.id || crypto.randomUUID(),
+      reviewId: activeReviewId,
+      organisationId: activeReview?.organisationId || session?.activeOrganisation?.id || "",
+      seconds, time: formatTime(seconds), adjustedSeconds, adjustedTime: formatTime(adjustedSeconds),
       mode: tagMode, refereeTarget: primary, extraReviewOfficials: extras,
       clipOfficials: [{ slot: primary, type: "Call" }, ...extras.map(slot => ({ slot, type: "Review" as const }))],
       timestampLink: makeTimestampLink(activeReview?.videoLink || "", adjustedSeconds),
@@ -343,9 +346,11 @@ export default function Home() {
     if (shouldResumeVideo) playActiveVideo();
   }
 
-  function quickNonVideoTag(patch: Partial<CodedTag>) {
+  async function quickNonVideoTag(patch: Partial<CodedTag>) {
     saveReviewMeta();
-    setTags(items => [...items, buildTag(timerSeconds - 10, "non-video", { ...patch, refereeTarget: "All Referees", extraReviewOfficials: [] })]);
+    const tag = buildTag(timerSeconds - 10, "non-video", { ...patch, refereeTarget: "All Referees", extraReviewOfficials: [] });
+    setTags(items => [...items, tag]);
+    await upsertClip(tag);
   }
 
   function toggleExtra(slot: RefSlot) {
