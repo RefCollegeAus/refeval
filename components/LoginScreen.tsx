@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 export function LoginScreen({
   loginName,
@@ -37,7 +37,7 @@ export function LoginScreen({
       (typeof window !== "undefined" ? window.location.origin : "");
     const redirectTo = `${base}/auth/callback`;
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    const { error } = await getSupabaseClient().auth.resetPasswordForEmail(email, { redirectTo });
 
     if (error) {
       setForgotStatus("error");

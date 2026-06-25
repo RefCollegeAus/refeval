@@ -1,7 +1,7 @@
-import { supabase } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 export async function getReviewsWithClips() {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from("reviews")
     .select("*, clips(*)")
     .order("created_at", { ascending: false });

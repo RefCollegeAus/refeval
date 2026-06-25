@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import type { RefEvalSession, Role, Screen } from "@/lib/types/auth";
 
 export function useAuthSession(setScreen: (s: Screen) => void) {
@@ -14,19 +14,19 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
 
   useEffect(() => {
     async function restoreSession() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSupabaseClient().auth.getUser();
       if (!user) { setAuthChecked(true); return; }
 
-      const { data: profileData } = await supabase
+      const { data: profileData } = await getSupabaseClient()
         .from("profiles").select("id, email, name").eq("id", user.id).single();
 
-      const { data: membershipRows } = await supabase
+      const { data: membershipRows } = await getSupabaseClient()
         .from("organisation_members")
         .select("role, organisation_id, organisations(name)")
         .eq("user_id", user.id);
 
       if (!membershipRows || membershipRows.length === 0) {
-        await supabase.auth.signOut();
+        await getSupabaseClient().auth.signOut();
         setAuthChecked(true);
         return;
       }
@@ -68,22 +68,22 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
     const email = loginName.trim();
     if (!email) { setLoginError("Please enter your email."); return; }
 
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    const { data: authData, error: authError } = await getSupabaseClient().auth.signInWithPassword({
       email, password: loginPassword,
     });
     if (authError || !authData.user) { setLoginError(authError?.message || "Login failed."); return; }
 
-    const { data: profileData } = await supabase
+    const { data: profileData } = await getSupabaseClient()
       .from("profiles").select("id, email, name").eq("id", authData.user.id).single();
 
-    const { data: membershipRows, error: membershipError } = await supabase
+    const { data: membershipRows, error: membershipError } = await getSupabaseClient()
       .from("organisation_members")
       .select("role, organisation_id, organisations(name)")
       .eq("user_id", authData.user.id);
 
-    if (membershipError) { await supabase.auth.signOut(); setLoginError(membershipError.message); return; }
+    if (membershipError) { await getSupabaseClient().auth.signOut(); setLoginError(membershipError.message); return; }
     if (!membershipRows || membershipRows.length === 0) {
-      await supabase.auth.signOut();
+      await getSupabaseClient().auth.signOut();
       setLoginError("Your account is not assigned to any organisation yet.");
       return;
     }
@@ -122,7 +122,7 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
   }
 
   async function logout() {
-    await supabase.auth.signOut();
+    await getSupabaseClient().auth.signOut();
     setSession(null);
     setPendingSession(null);
     setScreen("login");

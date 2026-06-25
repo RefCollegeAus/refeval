@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { getReviewsWithClips } from "@/lib/services/reviews";
 import { formatTime } from "@/lib/utils/time";
 import type { RefEvalSession } from "@/lib/types/auth";
@@ -87,7 +87,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
     const now = new Date().toISOString();
     const orgId = session.activeOrganisation?.id || "";
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from("reviews")
       .insert({
         game: "New Review", title: "New Review",
@@ -137,7 +137,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
       status: nextStatus === "Completed" ? "completed" : "in_review",
       submitted_at: submittedAt || null,
     };
-    const { error } = await supabase.from("reviews").update(patch).eq("id", activeReviewId);
+    const { error } = await getSupabaseClient().from("reviews").update(patch).eq("id", activeReviewId);
     if (error) { console.error("Save review meta error:", error); alert(error.message); return; }
     setReviews(items => items.map(r => {
       if (r.id !== activeReviewId) return r;
@@ -154,9 +154,9 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
 
   async function deleteReview(id: string) {
     if (!confirm("Delete this review and all tags?")) return;
-    const { error: clipError } = await supabase.from("clips").delete().eq("review_id", id);
+    const { error: clipError } = await getSupabaseClient().from("clips").delete().eq("review_id", id);
     if (clipError) { console.error("Delete clips error:", clipError); alert(clipError.message); return; }
-    const { error: reviewError } = await supabase.from("reviews").delete().eq("id", id);
+    const { error: reviewError } = await getSupabaseClient().from("reviews").delete().eq("id", id);
     if (reviewError) { console.error("Delete review error:", reviewError); alert(reviewError.message); return; }
     setReviews(items => items.filter(r => r.id !== id));
     setTags(items => items.filter(t => t.reviewId !== id));
@@ -184,18 +184,18 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
       notes: tag.notes,
       created_at: tag.createdAt,
     };
-    const { error } = await supabase.from("clips").upsert(dbClip);
+    const { error } = await getSupabaseClient().from("clips").upsert(dbClip);
     if (error) { console.error("Save clip error:", error); alert(error.message); throw error; }
   }
 
   async function deleteClip(id: string) {
-    const { error } = await supabase.from("clips").delete().eq("id", id);
+    const { error } = await getSupabaseClient().from("clips").delete().eq("id", id);
     if (error) { console.error("Delete clip error:", error); alert(error.message); throw error; }
     setTags(items => items.filter(t => t.id !== id));
   }
 
   async function clearReviewClips(reviewId: string) {
-    const { error } = await supabase.from("clips").delete().eq("review_id", reviewId);
+    const { error } = await getSupabaseClient().from("clips").delete().eq("review_id", reviewId);
     if (error) { alert(error.message); throw error; }
     setTags(items => items.filter(t => t.reviewId !== reviewId));
   }

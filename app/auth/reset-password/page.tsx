@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -15,10 +15,12 @@ export default function ResetPasswordPage() {
   // Verify there is a live session (token was exchanged by /auth/callback).
   // If not, the user arrived here directly — send them home.
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) router.replace("/");
+    async function checkSession() {
+      const { data } = await getSupabaseClient().auth.getUser();
+      if (!data.user) router.replace("/");
       else setChecked(true);
-    });
+    }
+    checkSession();
   }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -35,7 +37,7 @@ export default function ResetPasswordPage() {
     }
 
     setLoading(true);
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    const { error: updateError } = await getSupabaseClient().auth.updateUser({ password });
     setLoading(false);
 
     if (updateError) {

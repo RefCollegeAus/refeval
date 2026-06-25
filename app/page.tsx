@@ -6,7 +6,7 @@ import { OrganisationSelector } from "@/components/OrganisationSelector";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Pause, Play, Trash2, Plus, Eye } from "lucide-react";
 import * as XLSX from "xlsx";
-import { supabase } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { useAuthSession } from "@/lib/hooks/useAuthSession";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { useReviews } from "@/lib/hooks/useReviews";

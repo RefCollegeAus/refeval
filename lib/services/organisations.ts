@@ -1,8 +1,8 @@
-import { supabase } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import type { OrganisationRecord } from "@/lib/types/organisations";
 
 export async function getOrganisations(): Promise<OrganisationRecord[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabaseClient()
     .from("organisations")
     .select("id, name, status, created_at")
     .order("name");
