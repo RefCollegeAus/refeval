@@ -1,4 +1,7 @@
-import { createServerClient } from "@supabase/ssr";
+// Import from the specific module file, not the barrel index.
+// The barrel re-exports createBrowserClient which pulls in @supabase/supabase-js
+// and its process.version call — incompatible with Vercel Edge Runtime.
+import { createServerClient } from "@supabase/ssr/dist/module/createServerClient";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
