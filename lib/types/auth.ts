@@ -1,5 +1,14 @@
 export type Role = "super_admin" | "admin" | "educator" | "referee";
 
+export type Screen =
+  | "login"
+  | "org-selector"
+  | "educator"
+  | "referee"
+  | "database"
+  | "reviewer"
+  | "refereeReview";
+
 export type RefEvalSession = {
   user: {
     id: string;

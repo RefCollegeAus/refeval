@@ -1,0 +1,222 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase/client";
+import { getReviewsWithClips } from "@/lib/services/reviews";
+import { formatTime } from "@/lib/utils/time";
+import type { RefEvalSession } from "@/lib/types/auth";
+import type { MemberRecord } from "@/lib/types/members";
+import type { ReviewRecord, CodedTag, Status } from "@/lib/types/reviews";
+
+export function useReviews(session: RefEvalSession | null, members: MemberRecord[]) {
+  const [reviews, setReviews] = useState<ReviewRecord[]>([]);
+  const [tags, setTags] = useState<CodedTag[]>([]);
+  const [activeReviewId, setActiveReviewId] = useState("");
+  const [reviewGame, setReviewGame] = useState("");
+  const [reviewRef1, setReviewRef1] = useState("");
+  const [reviewRef2, setReviewRef2] = useState("");
+  const [reviewRef3, setReviewRef3] = useState("");
+  const [reviewVideoLink, setReviewVideoLink] = useState("");
+  const [reviewOffset, setReviewOffset] = useState(0);
+
+  const activeReview = reviews.find(r => r.id === activeReviewId);
+
+  useEffect(() => {
+    getReviewsWithClips().then((supabaseReviews: any[]) => {
+      if (!supabaseReviews.length) return;
+      const mappedReviews: ReviewRecord[] = supabaseReviews.map((r: any) => ({
+        id: r.id,
+        organisationId: r.organisation_id || "",
+        game: r.game || r.title || "Untitled Review",
+        educatorId: r.educator_id || "",
+        educatorName: r.educator_name || "",
+        referee1Id: r.referee1_id || "",
+        referee2Id: r.referee2_id || "",
+        referee3Id: r.referee3_id || "",
+        referee1Name: r.referee1_name || "",
+        referee2Name: r.referee2_name || "",
+        referee3Name: r.referee3_name || "",
+        videoLink: r.video_link || r.video_url || "",
+        timestampOffset: r.timestamp_offset || 0,
+        status: r.status === "completed" ? "Completed" : "In Review",
+        createdAt: r.created_at || new Date().toISOString(),
+        submittedAt: r.submitted_at || undefined,
+      }));
+      const mappedTags: CodedTag[] = supabaseReviews.flatMap((r: any) =>
+        (r.clips || []).map((c: any) => ({
+          id: c.id,
+          reviewId: r.id,
+          time: c.time || formatTime(c.timestamp_seconds || c.seconds || 0),
+          seconds: Number(c.seconds ?? c.timestamp_seconds ?? 0),
+          adjustedSeconds: Number(c.adjusted_seconds ?? c.timestamp_seconds ?? c.seconds ?? 0),
+          adjustedTime: c.adjusted_time || formatTime(c.timestamp_seconds || c.seconds || 0),
+          mode: c.mode || "video",
+          refereeTarget: c.referee_target || "All Referees",
+          extraReviewOfficials: c.extra_review_officials || [],
+          clipOfficials: c.clip_officials || [],
+          timestampLink: c.timestamp_link || "",
+          outcome: c.outcome || "",
+          category: c.category || "",
+          position: c.position || "",
+          coverage: c.coverage || "",
+          notes: c.notes || "",
+          createdAt: c.created_at || new Date().toISOString(),
+        }))
+      );
+      setReviews(mappedReviews);
+      setTags(mappedTags);
+    });
+  }, []);
+
+  function openForEdit(review: ReviewRecord, alreadyCreated = false) {
+    if (!alreadyCreated) {
+      setReviews(items => items.map(r => r.id === review.id ? { ...r, status: r.status || "In Review" } : r));
+    }
+    setActiveReviewId(review.id);
+    setReviewGame(review.game);
+    setReviewRef1(review.referee1Id);
+    setReviewRef2(review.referee2Id);
+    setReviewRef3(review.referee3Id);
+    setReviewVideoLink(review.videoLink);
+    setReviewOffset(-Math.abs(Math.trunc(Number(review.timestampOffset) || 0)));
+  }
+
+  async function startNewReview(): Promise<ReviewRecord | null> {
+    if (!session) return null;
+    const r1 = members.filter(m => m.role === "referee")[0];
+    const now = new Date().toISOString();
+    const orgId = session.activeOrganisation?.id || "";
+
+    const { data, error } = await supabase
+      .from("reviews")
+      .insert({
+        game: "New Review", title: "New Review",
+        organisation_id: orgId,
+        educator_id: session.user.id,
+        educator_name: session.profile.name,
+        referee1_name: r1?.name || "",
+        referee2_name: "", referee3_name: "",
+        video_link: "", timestamp_offset: 0, status: "in_review",
+      })
+      .select()
+      .single();
+
+    if (error) { console.error("Create review error:", error); alert(error.message); return null; }
+
+    const savedReview: ReviewRecord = {
+      id: data.id,
+      organisationId: data.organisation_id || orgId,
+      game: "New Review",
+      educatorId: session.user.id,
+      educatorName: session.profile.name,
+      referee1Id: r1?.id || "", referee2Id: "", referee3Id: "",
+      referee1Name: r1?.name || "", referee2Name: "", referee3Name: "",
+      videoLink: "", timestampOffset: 0,
+      status: "In Review",
+      createdAt: data.created_at || now,
+    };
+
+    setReviews(items => [savedReview, ...items]);
+    return savedReview;
+  }
+
+  async function saveReviewMeta(status?: Status) {
+    if (!activeReviewId) return;
+    // Phase 2: name lookups use members (Supabase) instead of localStorage users
+    const r1 = members.find(m => m.id === reviewRef1);
+    const r2 = members.find(m => m.id === reviewRef2);
+    const r3 = members.find(m => m.id === reviewRef3);
+    const nextStatus = status || activeReview?.status || "In Review";
+    const submittedAt = nextStatus === "Completed" ? new Date().toISOString() : activeReview?.submittedAt;
+    const patch = {
+      game: reviewGame, title: reviewGame,
+      referee1_id: reviewRef1 || null, referee2_id: reviewRef2 || null, referee3_id: reviewRef3 || null,
+      referee1_name: r1?.name || "", referee2_name: r2?.name || "", referee3_name: r3?.name || "",
+      video_link: reviewVideoLink,
+      timestamp_offset: -Math.abs(Math.trunc(Number(reviewOffset) || 0)),
+      status: nextStatus === "Completed" ? "completed" : "in_review",
+      submitted_at: submittedAt || null,
+    };
+    const { error } = await supabase.from("reviews").update(patch).eq("id", activeReviewId);
+    if (error) { console.error("Save review meta error:", error); alert(error.message); return; }
+    setReviews(items => items.map(r => {
+      if (r.id !== activeReviewId) return r;
+      return {
+        ...r, game: reviewGame,
+        referee1Id: reviewRef1, referee2Id: reviewRef2, referee3Id: reviewRef3,
+        referee1Name: r1?.name || "", referee2Name: r2?.name || "", referee3Name: r3?.name || "",
+        videoLink: reviewVideoLink,
+        timestampOffset: -Math.abs(Math.trunc(Number(reviewOffset) || 0)),
+        status: nextStatus, submittedAt,
+      };
+    }));
+  }
+
+  async function deleteReview(id: string) {
+    if (!confirm("Delete this review and all tags?")) return;
+    const { error: clipError } = await supabase.from("clips").delete().eq("review_id", id);
+    if (clipError) { console.error("Delete clips error:", clipError); alert(clipError.message); return; }
+    const { error: reviewError } = await supabase.from("reviews").delete().eq("id", id);
+    if (reviewError) { console.error("Delete review error:", reviewError); alert(reviewError.message); return; }
+    setReviews(items => items.filter(r => r.id !== id));
+    setTags(items => items.filter(t => t.reviewId !== id));
+  }
+
+  async function upsertClip(tag: CodedTag) {
+    const dbClip = {
+      id: tag.id, review_id: tag.reviewId, time: tag.time,
+      seconds: Math.round(tag.seconds),
+      timestamp_seconds: Math.round(tag.seconds),
+      adjusted_seconds: Math.round(tag.adjustedSeconds),
+      adjusted_time: tag.adjustedTime,
+      mode: tag.mode, referee_target: tag.refereeTarget,
+      extra_review_officials: tag.extraReviewOfficials,
+      clip_officials: tag.clipOfficials,
+      timestamp_link: tag.timestampLink,
+      outcome: tag.outcome, category: tag.category,
+      position: tag.position, coverage: tag.coverage, notes: tag.notes,
+      created_at: tag.createdAt,
+    };
+    const { error } = await supabase.from("clips").upsert(dbClip);
+    if (error) { console.error("Save clip error:", error); alert(error.message); throw error; }
+  }
+
+  async function deleteClip(id: string) {
+    const { error } = await supabase.from("clips").delete().eq("id", id);
+    if (error) { console.error("Delete clip error:", error); alert(error.message); throw error; }
+    setTags(items => items.filter(t => t.id !== id));
+  }
+
+  async function clearReviewClips(reviewId: string) {
+    const { error } = await supabase.from("clips").delete().eq("review_id", reviewId);
+    if (error) { alert(error.message); throw error; }
+    setTags(items => items.filter(t => t.reviewId !== reviewId));
+  }
+
+  function assignedReviewsForReferee(refereeId: string) {
+    return reviews.filter(r =>
+      r.status === "Completed" &&
+      [r.referee1Id, r.referee2Id, r.referee3Id].includes(refereeId)
+    );
+  }
+
+  return {
+    reviews, tags, setTags,
+    activeReviewId, setActiveReviewId,
+    activeReview,
+    reviewGame, setReviewGame,
+    reviewRef1, setReviewRef1,
+    reviewRef2, setReviewRef2,
+    reviewRef3, setReviewRef3,
+    reviewVideoLink, setReviewVideoLink,
+    reviewOffset, setReviewOffset,
+    openForEdit,
+    startNewReview,
+    saveReviewMeta,
+    deleteReview,
+    upsertClip,
+    deleteClip,
+    clearReviewClips,
+    assignedReviewsForReferee,
+  };
+}
