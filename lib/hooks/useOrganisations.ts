@@ -21,6 +21,11 @@ export function useOrganisations(activeOrgId: string | undefined) {
     getMembersForOrganisation(activeOrgId).then(setMembers);
   }, [activeOrgId]);
 
+  function refreshMembers() {
+    if (!activeOrgId) return;
+    getMembersForOrganisation(activeOrgId).then(setMembers);
+  }
+
   const refereeMembers = members.filter(m => m.role === "referee");
   const adminMembers = members.filter(m => m.role === "admin");
   const educatorMembers = members.filter(m => m.role === "educator");
@@ -28,7 +33,7 @@ export function useOrganisations(activeOrgId: string | undefined) {
   const organisationName = (id: string) => organisations.find(o => o.id === id)?.name || "Unassigned";
 
   return {
-    organisations, members,
+    organisations, members, refreshMembers,
     refereeMembers, adminMembers, educatorMembers, superAdminMembers,
     organisationName,
   };

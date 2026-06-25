@@ -12,7 +12,8 @@ import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { useReviews } from "@/lib/hooks/useReviews";
 import { formatTime, makeTimestampLink } from "@/lib/utils/time";
 import { makeAnalytics } from "@/lib/utils/analytics";
-import type { Screen } from "@/lib/types/auth";
+import { inviteMember, updateMemberRole, removeMember } from "@/lib/services/memberships";
+import type { Screen, Role } from "@/lib/types/auth";
 import type { ReviewRecord, CodedTag, Mode, RefSlot } from "@/lib/types/reviews";
 
 declare global {
@@ -100,7 +101,7 @@ export default function Home() {
   } = useAuthSession(setScreen);
 
   const {
-    organisations, members,
+    organisations, members, refreshMembers,
     refereeMembers, adminMembers, educatorMembers, superAdminMembers,
     organisationName,
   } = useOrganisations(session?.activeOrganisation?.id);
@@ -174,6 +175,15 @@ export default function Home() {
   const [draftNotes, setDraftNotes] = useState("");
 
   const [viewerClipSeconds, setViewerClipSeconds] = useState(0);
+
+  // --- Admin invite / member management state ---
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteRole, setInviteRole] = useState<Role>("referee");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [inviteSuccess, setInviteSuccess] = useState("");
+  const [memberActionError, setMemberActionError] = useState("");
 
   // --- Derived values ---
   const reviewTags = useMemo(() => tags.filter(t => t.reviewId === activeReviewId).sort((a, b) => a.seconds - b.seconds), [tags, activeReviewId]);
@@ -446,21 +456,102 @@ export default function Home() {
   if (screen === "database") {
     // Members are scoped to the active organisation. RLS (Phase 7) enforces this at the database layer.
     const orgReviews = reviews.filter(r => r.organisationId === session?.activeOrganisation?.id);
+    const isSuperAdmin = session?.activeRole === "super_admin";
+    const activeOrgId = session?.activeOrganisation?.id || "";
+
+    const handleInvite = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setInviteError("");
+      setInviteSuccess("");
+      if (!inviteEmail.trim() || !inviteName.trim()) {
+        setInviteError("Email and name are required.");
+        return;
+      }
+      setInviteLoading(true);
+      const result = await inviteMember({
+        email: inviteEmail.trim(),
+        name: inviteName.trim(),
+        role: inviteRole,
+        organisationId: activeOrgId,
+      });
+      setInviteLoading(false);
+      if ("error" in result) {
+        setInviteError(result.error);
+      } else {
+        setInviteSuccess(`Invitation sent to ${inviteEmail.trim()}.`);
+        setInviteEmail("");
+        setInviteName("");
+        setInviteRole("referee");
+        refreshMembers();
+      }
+    };
+
+    const handleRoleChange = async (userId: string, role: Role) => {
+      setMemberActionError("");
+      const result = await updateMemberRole({ userId, organisationId: activeOrgId, role });
+      if ("error" in result) setMemberActionError(result.error);
+      else refreshMembers();
+    };
+
+    const handleRemoveMember = async (userId: string, name: string) => {
+      if (!confirm(`Remove ${name} from this organisation?`)) return;
+      setMemberActionError("");
+      const result = await removeMember({ userId, organisationId: activeOrgId });
+      if ("error" in result) setMemberActionError(result.error);
+      else refreshMembers();
+    };
+
+    // Roles the current admin can assign in the dropdowns
+    const assignableRoles: Role[] = isSuperAdmin
+      ? ["referee", "educator", "admin", "super_admin"]
+      : ["referee", "educator"];
 
     const MemberTable = ({ title, items }: { title: string; items: typeof adminMembers }) => (
       <>
         <h2 style={{ marginTop: 24 }}>{title}</h2>
         <table>
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
           <tbody>
             {items.map(m => (
               <tr key={m.id}>
                 <td>{m.name}</td>
                 <td>{m.email}</td>
-                <td>{roleLabel(m.role)}</td>
+                <td>
+                  {m.id === session?.user.id ? (
+                    <span>{roleLabel(m.role)}</span>
+                  ) : (
+                    <select
+                      value={m.role}
+                      onChange={e => handleRoleChange(m.id, e.target.value as Role)}
+                      style={{ fontSize: "0.85rem" }}
+                    >
+                      {assignableRoles.map(r => (
+                        <option key={r} value={r}>{roleLabel(r)}</option>
+                      ))}
+                    </select>
+                  )}
+                </td>
+                <td>
+                  {m.id !== session?.user.id && (
+                    <button
+                      className="danger"
+                      style={{ fontSize: "0.8rem", padding: "2px 8px" }}
+                      onClick={() => handleRemoveMember(m.id, m.name)}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
-            {items.length === 0 && <tr><td colSpan={3}><span className="hint">No members found.</span></td></tr>}
+            {items.length === 0 && <tr><td colSpan={4}><span className="hint">No members found.</span></td></tr>}
           </tbody>
         </table>
       </>
@@ -471,11 +562,11 @@ export default function Home() {
         <Header session={session} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")} onAdmin={() => setScreen("database")} onLogout={logout} />
         <div className="layout one-col">
           <section className="panel">
-            <p className="eyebrow">{session?.activeRole === "super_admin" ? "Platform licensing" : organisationName(session?.activeOrganisation?.id || "")}</p>
+            <p className="eyebrow">{isSuperAdmin ? "Platform licensing" : organisationName(activeOrgId)}</p>
             <h1>Admin Dashboard</h1>
             <p className="hint">Organisation admins manage only their own educators, referees and evaluations. Super Admin can see all organisations.</p>
 
-            {session?.activeRole === "super_admin" && (
+            {isSuperAdmin && (
               <div className="analytics-card">
                 <h2>Organisations</h2>
                 <p className="hint">Member counts are scoped to your active organisation. Switch organisations to view another org&apos;s members.</p>
@@ -494,10 +585,6 @@ export default function Home() {
               </div>
             )}
 
-            <p className="hint" style={{ marginTop: 16 }}>
-              Showing members of <strong>{session?.activeOrganisation?.name}</strong>. User management is handled in the Supabase dashboard.
-            </p>
-
             <div className="analytics-card" style={{ marginTop: 16 }}>
               <h2>Organisation Summary</h2>
               <p className="hint" style={{ marginBottom: 8 }}>{session?.activeOrganisation?.name}</p>
@@ -515,7 +602,57 @@ export default function Home() {
               </div>
             </div>
 
-            {session?.activeRole === "super_admin" && <MemberTable title="Super Admins" items={superAdminMembers} />}
+            {/* Invite user form */}
+            <div className="analytics-card" style={{ marginTop: 24 }}>
+              <h2>Invite User</h2>
+              <p className="hint">An invitation email will be sent. The user sets their password on first login.</p>
+              <form onSubmit={handleInvite} style={{ marginTop: 12 }}>
+                <div className="setup-grid">
+                  <label>
+                    Email
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={e => { setInviteEmail(e.target.value); setInviteError(""); setInviteSuccess(""); }}
+                      placeholder="user@example.com"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Full name
+                    <input
+                      type="text"
+                      value={inviteName}
+                      onChange={e => { setInviteName(e.target.value); setInviteError(""); setInviteSuccess(""); }}
+                      placeholder="Jane Smith"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Role
+                    <select value={inviteRole} onChange={e => setInviteRole(e.target.value as Role)}>
+                      <option value="referee">Referee</option>
+                      <option value="educator">Educator</option>
+                      {isSuperAdmin && <option value="admin">Org Admin</option>}
+                      {isSuperAdmin && <option value="super_admin">Super Admin</option>}
+                    </select>
+                  </label>
+                </div>
+                {inviteError && <p className="hint" style={{ color: "var(--color-danger, #e53e3e)", marginTop: 8 }}>{inviteError}</p>}
+                {inviteSuccess && <p className="hint" style={{ color: "var(--color-good, #38a169)", marginTop: 8 }}>{inviteSuccess}</p>}
+                <div style={{ marginTop: 12 }}>
+                  <button type="submit" className="primary" disabled={inviteLoading}>
+                    {inviteLoading ? "Sending…" : "Send Invitation"}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {memberActionError && (
+              <p className="hint" style={{ color: "var(--color-danger, #e53e3e)", marginTop: 12 }}>{memberActionError}</p>
+            )}
+
+            {isSuperAdmin && <MemberTable title="Super Admins" items={superAdminMembers} />}
             <MemberTable title="Organisation Admins" items={adminMembers} />
             <MemberTable title="Educators" items={educatorMembers} />
             <MemberTable title="Referees" items={refereeMembers} />
