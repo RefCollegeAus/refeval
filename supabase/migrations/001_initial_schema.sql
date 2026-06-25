@@ -94,44 +94,14 @@ create table if not exists public.clips (
 
 -- ============================================================
 -- Row-Level Security
--- NOTE: RLS policies are managed in the Supabase dashboard.
--- The policies below are a reference only — apply them manually
--- or via the Supabase dashboard to match the live configuration.
+-- Phase 7: RLS policies are defined in 002_rls_policies.sql.
+-- Run 002_rls_policies.sql in the Supabase SQL editor after this
+-- migration to apply enforcement policies for all roles.
 -- ============================================================
 
--- Enable RLS on all tables
+-- Enable RLS on all tables (required before policies can be applied)
 alter table public.profiles          enable row level security;
 alter table public.organisations     enable row level security;
 alter table public.organisation_members enable row level security;
 alter table public.reviews           enable row level security;
 alter table public.clips             enable row level security;
-
--- Example policies (adjust to match live dashboard configuration):
-
--- Profiles: users can read/update their own profile
--- create policy "users can read own profile"   on public.profiles for select using (auth.uid() = id);
--- create policy "users can update own profile" on public.profiles for update using (auth.uid() = id);
-
--- Reviews: members of the organisation can read reviews
--- create policy "org members can read reviews"
---   on public.reviews for select
---   using (organisation_id in (
---     select organisation_id from public.organisation_members where user_id = auth.uid()
---   ));
-
--- Reviews: educators can insert reviews for their organisation
--- create policy "educators can insert reviews"
---   on public.reviews for insert
---   with check (organisation_id in (
---     select organisation_id from public.organisation_members
---     where user_id = auth.uid() and role in ('educator', 'admin', 'super_admin')
---   ));
-
--- Clips: inherit access from parent review
--- create policy "org members can read clips"
---   on public.clips for select
---   using (review_id in (select id from public.reviews));
-
--- create policy "educators can write clips"
---   on public.clips for all
---   using (review_id in (select id from public.reviews));
