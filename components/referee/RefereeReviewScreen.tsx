@@ -6,7 +6,7 @@ import { ReviewComments } from "@/components/ReviewComments";
 import { makeAnalytics } from "@/lib/utils/analytics";
 import { embedUrl } from "@/lib/utils/video";
 import { MessageSquare } from "lucide-react";
-import type { ReviewRecord, CodedTag, RefSlot } from "@/lib/types/reviews";
+import type { ReviewRecord, CodedTag, RefSlot, OfficialSummary } from "@/lib/types/reviews";
 import type { RefEvalSession } from "@/lib/types/auth";
 
 import type { UnreadCounts } from "@/lib/hooks/useUnreadCounts";
@@ -18,6 +18,7 @@ type Props = {
   session: RefEvalSession | null;
   unreadCounts?: UnreadCounts;
   onRead?: () => void;
+  officialSummary?: OfficialSummary | null;
   onHome: () => void;
   onAdmin: () => void;
   onProfile: () => void;
@@ -53,6 +54,7 @@ export function RefereeReviewScreen({
   session,
   unreadCounts,
   onRead,
+  officialSummary,
   onHome,
   onAdmin,
   onProfile,
@@ -120,8 +122,33 @@ export function RefereeReviewScreen({
             <button onClick={onHome}>← All Reviews</button>
           </div>
 
+          {/* Final summary card — only shown when educator has written one */}
+          {officialSummary && (officialSummary.positives || officialSummary.workOns || officialSummary.nextFocus) && (
+            <div className="panel rv-summary-card">
+              <p className="eyebrow" style={{ marginBottom: 6 }}>Your Performance Summary</p>
+              {officialSummary.positives && (
+                <div className="rv-summary-field">
+                  <span className="rv-summary-label">Positives</span>
+                  <p className="rv-summary-value">{officialSummary.positives}</p>
+                </div>
+              )}
+              {officialSummary.workOns && (
+                <div className="rv-summary-field">
+                  <span className="rv-summary-label">Areas to work on</span>
+                  <p className="rv-summary-value">{officialSummary.workOns}</p>
+                </div>
+              )}
+              {officialSummary.nextFocus && (
+                <div className="rv-summary-field">
+                  <span className="rv-summary-label">Focus for next game</span>
+                  <p className="rv-summary-value">{officialSummary.nextFocus}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Video player */}
-          <div className="video-placeholder" style={{ margin: 0 }}>
+          <div className="video-placeholder" style={{ margin: 0, aspectRatio: "16 / 9", overflow: "hidden", padding: 0 }}>
             {currentEmbed ? (
               isIframe ? (
                 <iframe

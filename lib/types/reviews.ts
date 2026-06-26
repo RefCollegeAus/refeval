@@ -2,6 +2,15 @@ export type Mode = "video" | "non-video";
 export type Status = "In Review" | "Completed";
 export type RefSlot = "All Referees" | "Referee 1" | "Referee 2" | "Referee 3";
 
+export type OfficialSummary = {
+  positives: string;
+  workOns: string;
+  nextFocus: string;
+};
+
+// keyed by referee user_id
+export type OfficialSummaries = Record<string, OfficialSummary>;
+
 export type ClipReferee = { slot: RefSlot; type: "Call" | "Review" };
 
 export type ReviewRecord = {
@@ -22,6 +31,7 @@ export type ReviewRecord = {
   gameDate?: string;
   createdAt: string;
   submittedAt?: string;
+  officialSummaries?: OfficialSummaries;
 };
 
 export type CodedTag = {

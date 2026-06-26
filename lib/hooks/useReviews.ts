@@ -6,7 +6,7 @@ import { getReviewsWithClips } from "@/lib/services/reviews";
 import { formatTime } from "@/lib/utils/time";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { MemberRecord } from "@/lib/types/members";
-import type { ReviewRecord, CodedTag, Status } from "@/lib/types/reviews";
+import type { ReviewRecord, CodedTag, Status, OfficialSummaries } from "@/lib/types/reviews";
 
 export function useReviews(session: RefEvalSession | null, members: MemberRecord[]) {
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
@@ -42,6 +42,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
         gameDate: r.game_date || "",
         createdAt: r.created_at || new Date().toISOString(),
         submittedAt: r.submitted_at || undefined,
+        officialSummaries: r.official_summaries || undefined,
       }));
       const mappedTags: CodedTag[] = supabaseReviews.flatMap((r: any) =>
         (r.clips || []).map((c: any) => ({
@@ -121,7 +122,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
     return savedReview;
   }
 
-  async function saveReviewMeta(status?: Status) {
+  async function saveReviewMeta(status?: Status, officialSummaries?: OfficialSummaries) {
     if (!activeReviewId) return;
     // Name lookups resolve member IDs against the Supabase-loaded members list
     const r1 = members.find(m => m.id === reviewRef1);
@@ -138,6 +139,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
       timestamp_offset: -Math.abs(Math.trunc(Number(reviewOffset) || 0)),
       status: nextStatus === "Completed" ? "completed" : "in_review",
       submitted_at: submittedAt || null,
+      ...(officialSummaries !== undefined ? { official_summaries: officialSummaries } : {}),
     };
     const { error } = await getSupabaseClient().from("reviews").update(patch).eq("id", activeReviewId);
     if (error) { console.error("Save review meta error:", error); alert(error.message); return; }
@@ -150,6 +152,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
         videoLink: reviewVideoLink,
         timestampOffset: -Math.abs(Math.trunc(Number(reviewOffset) || 0)),
         status: nextStatus, submittedAt,
+        ...(officialSummaries !== undefined ? { officialSummaries } : {}),
       };
     }));
   }
