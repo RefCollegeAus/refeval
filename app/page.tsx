@@ -548,7 +548,6 @@ export default function Home() {
     const allReferees = Array.from(new Set(
       visibleReviews.flatMap(r => [r.referee1Name, r.referee2Name, r.referee3Name].filter(Boolean))
     )).sort();
-    const allGames = Array.from(new Set(visibleReviews.map(r => r.game).filter(Boolean))).sort();
 
     let filteredReviews = visibleReviews.filter(r => {
       if (filterStatus !== "All" && r.status !== filterStatus) return false;
@@ -587,6 +586,7 @@ export default function Home() {
     const formatRelativeTime = (ts: string) => {
       const diff = Date.now() - new Date(ts).getTime();
       const mins = Math.floor(diff / 60000);
+      if (mins < 1) return "just now";
       if (mins < 60) return `${mins}m ago`;
       const hrs = Math.floor(mins / 60);
       if (hrs < 24) return `${hrs}h ago`;
@@ -621,7 +621,7 @@ export default function Home() {
               </div>
               <div className="ed-summary-card ed-summary-inprogress">
                 <div className="ed-summary-number">{inProgressReviews.length}</div>
-                <div className="ed-summary-label">In Progress</div>
+                <div className="ed-summary-label">In Review</div>
               </div>
               <div className="ed-summary-card ed-summary-done">
                 <div className="ed-summary-number">{completedReviews.length}</div>
@@ -669,14 +669,17 @@ export default function Home() {
                   />
                   <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as typeof filterStatus)}>
                     <option value="All">All statuses</option>
-                    <option value="In Review">In Progress</option>
+                    <option value="In Review">In Review</option>
                     <option value="Completed">Completed</option>
                   </select>
                   <select value={filterReferee} onChange={e => setFilterReferee(e.target.value)}>
                     <option value="">All referees</option>
                     {allReferees.map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
-                  <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} title="Filter by game date" />
+                  <label className="ed-date-filter-label">
+                    Game date
+                    <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+                  </label>
                   <label className="ed-video-toggle">
                     <input type="checkbox" checked={filterHasVideo} onChange={e => setFilterHasVideo(e.target.checked)} />
                     Has video
