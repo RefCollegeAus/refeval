@@ -5,14 +5,19 @@ import { Header } from "@/components/Header";
 import { ReviewComments } from "@/components/ReviewComments";
 import { makeAnalytics } from "@/lib/utils/analytics";
 import { embedUrl } from "@/lib/utils/video";
+import { MessageSquare } from "lucide-react";
 import type { ReviewRecord, CodedTag, RefSlot } from "@/lib/types/reviews";
 import type { RefEvalSession } from "@/lib/types/auth";
+
+import type { UnreadCounts } from "@/lib/hooks/useUnreadCounts";
 
 type Props = {
   review: ReviewRecord | undefined;
   visibleTags: CodedTag[];
   mySlot: RefSlot | null;
   session: RefEvalSession | null;
+  unreadCounts?: UnreadCounts;
+  onRead?: () => void;
   onHome: () => void;
   onAdmin: () => void;
   onProfile: () => void;
@@ -46,6 +51,8 @@ export function RefereeReviewScreen({
   visibleTags,
   mySlot,
   session,
+  unreadCounts,
+  onRead,
   onHome,
   onAdmin,
   onProfile,
@@ -54,6 +61,7 @@ export function RefereeReviewScreen({
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [seekSeconds, setSeekSeconds] = useState(0);
   const [seekAutoplay, setSeekAutoplay] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   const analytics = makeAnalytics(visibleTags);
   const total = visibleTags.length;
@@ -235,9 +243,6 @@ export function RefereeReviewScreen({
             </>
           )}
 
-          {review?.id && (
-            <ReviewComments reviewId={review.id} session={session} />
-          )}
         </div>
 
         {/* ── Sidebar: clip list ── */}
@@ -256,7 +261,12 @@ export function RefereeReviewScreen({
                     onClick={() => selectClip(i)}
                   >
                     <div className="rv-clip-header">
-                      <span className="rv-clip-num">#{i + 1}</span>
+                      <div className="badge-wrap">
+                        <span className="rv-clip-num">#{i + 1}</span>
+                        {(unreadCounts?.[`${review?.id}::${tag.id}`] ?? 0) > 0 && (
+                          <span className="badge-count">{Math.min(unreadCounts![`${review!.id}::${tag.id}`], 99)}</span>
+                        )}
+                      </div>
                       <span className="rv-clip-time">{tag.adjustedTime}</span>
                       {tag.outcome && (
                         <span
@@ -298,11 +308,39 @@ export function RefereeReviewScreen({
                             {tag.notes}
                           </div>
                         )}
+                        <div style={{ gridColumn: "1/-1", marginTop: 4 }}>
+                          <div className="badge-wrap" style={{ display: "inline-flex" }}>
+                            <button
+                              className="clip-action-btn"
+                              onClick={() => setShowComments(v => !v)}
+                            >
+                              <MessageSquare size={11} />
+                              {showComments ? "Hide comments" : "View comments"}
+                            </button>
+                            {(unreadCounts?.[`${review?.id}::${tag.id}`] ?? 0) > 0 && (
+                              <span className="badge-count">
+                                {Math.min(unreadCounts![`${review!.id}::${tag.id}`], 99)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Comments panel — rendered once below the clip list for the selected clip */}
+          {showComments && selectedTag && review?.id && (
+            <div style={{ marginTop: 8 }}>
+              <ReviewComments
+                reviewId={review.id}
+                tagId={selectedTag.id}
+                session={session}
+                onRead={onRead}
+              />
             </div>
           )}
         </aside>

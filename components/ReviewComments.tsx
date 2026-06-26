@@ -22,10 +22,14 @@ function formatTs(ts: string): string {
 
 export function ReviewComments({
   reviewId,
+  tagId,
   session,
+  onRead,
 }: {
   reviewId: string;
+  tagId?: string;
   session: RefEvalSession | null;
+  onRead?: () => void;
 }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,15 +40,33 @@ export function ReviewComments({
 
   useEffect(() => {
     if (reviewId) load();
-  }, [reviewId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewId, tagId]);
+
+  async function markRead() {
+    if (!session?.user.id || !tagId) return;
+    const now = new Date().toISOString();
+    await getSupabaseClient()
+      .from("review_comment_reads")
+      .upsert(
+        { user_id: session.user.id, review_id: reviewId, tag_id: tagId, last_read_at: now, updated_at: now },
+        { onConflict: "user_id,review_id,tag_id" }
+      );
+    onRead?.();
+  }
 
   async function load() {
     setLoading(true);
-    const { data, error: fetchErr } = await getSupabaseClient()
+    let q = getSupabaseClient()
       .from("review_comments")
       .select("id, user_id, author_name, message, created_at")
-      .eq("review_id", reviewId)
-      .order("created_at", { ascending: true });
+      .eq("review_id", reviewId);
+    if (tagId) {
+      q = q.eq("tag_id", tagId);
+    } else {
+      q = q.is("tag_id", null);
+    }
+    const { data, error: fetchErr } = await q.order("created_at", { ascending: true });
     if (!fetchErr) {
       setComments(
         (data || []).map((c: any) => ({
@@ -57,6 +79,8 @@ export function ReviewComments({
       );
     }
     setLoading(false);
+    // Mark thread as read whenever comments are loaded/viewed
+    await markRead();
   }
 
   async function send() {
@@ -68,6 +92,7 @@ export function ReviewComments({
       .from("review_comments")
       .insert({
         review_id: reviewId,
+        tag_id: tagId ?? null,
         user_id: session.user.id,
         author_name: session.profile.name,
         message: msg,
@@ -85,25 +110,25 @@ export function ReviewComments({
     });
   }
 
-  const lastTs = comments.length > 0 ? comments[comments.length - 1].createdAt : null;
+  const label = tagId ? "Comments on this clip" : "Discussion";
 
   return (
     <section className="panel disc-panel">
       <div className="disc-header">
-        <h2 style={{ margin: 0 }}>Discussion</h2>
-        {lastTs && (
-          <p className="hint" style={{ margin: 0 }}>
-            Last updated {formatTs(lastTs)}
-          </p>
+        <h2 style={{ margin: 0 }}>
+          💬 {label}
+        </h2>
+        {!loading && (
+          <span className="disc-count">{comments.length} {comments.length === 1 ? "comment" : "comments"}</span>
         )}
       </div>
 
       {loading ? (
-        <p className="hint" style={{ marginTop: 12 }}>Loading…</p>
+        <p className="hint" style={{ padding: "12px 0" }}>Loading…</p>
       ) : (
         <div className="disc-list" ref={listRef}>
           {comments.length === 0 ? (
-            <p className="hint disc-empty">No messages yet. Start the conversation.</p>
+            <p className="hint disc-empty">No comments yet. Be the first to add feedback.</p>
           ) : (
             comments.map(c => {
               const isMe = c.userId === session?.user.id;
@@ -123,32 +148,33 @@ export function ReviewComments({
         </div>
       )}
 
-      {error && <p className="danger-text" style={{ margin: "10px 0 0" }}>{error}</p>}
-
-      <div className="disc-compose">
-        <textarea
-          className="disc-textarea"
-          placeholder="Write a message…"
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
-          }}
-          rows={3}
-          disabled={sending}
-        />
-        <button
-          className="primary disc-send"
-          onClick={send}
-          disabled={!draft.trim() || sending}
-        >
-          <Send size={15} />
-          {sending ? "Sending…" : "Send"}
-        </button>
+      <div className="disc-reply-area">
+        {error && <p className="danger-text" style={{ margin: "0 0 4px" }}>{error}</p>}
+        <div className="disc-compose">
+          <textarea
+            className="disc-textarea"
+            placeholder="Write a comment…"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
+            }}
+            rows={3}
+            disabled={sending}
+          />
+          <button
+            className="primary disc-send"
+            onClick={send}
+            disabled={!draft.trim() || sending}
+          >
+            <Send size={15} />
+            {sending ? "Sending…" : "Send"}
+          </button>
+        </div>
+        <p className="hint" style={{ fontSize: 11 }}>
+          Ctrl+Enter / ⌘+Enter to send
+        </p>
       </div>
-      <p className="hint" style={{ marginTop: 6, fontSize: 11 }}>
-        Ctrl+Enter / ⌘+Enter to send
-      </p>
     </section>
   );
 }
