@@ -19,6 +19,7 @@ export type ReviewRecord = {
   videoLink: string;
   timestampOffset: number;
   status: Status;
+  gameDate?: string;
   createdAt: string;
   submittedAt?: string;
 };

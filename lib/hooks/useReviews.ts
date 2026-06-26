@@ -13,6 +13,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
   const [tags, setTags] = useState<CodedTag[]>([]);
   const [activeReviewId, setActiveReviewId] = useState("");
   const [reviewGame, setReviewGame] = useState("");
+  const [reviewGameDate, setReviewGameDate] = useState("");
   const [reviewRef1, setReviewRef1] = useState("");
   const [reviewRef2, setReviewRef2] = useState("");
   const [reviewRef3, setReviewRef3] = useState("");
@@ -38,6 +39,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
         videoLink: r.video_link || r.video_url || "",
         timestampOffset: r.timestamp_offset || 0,
         status: r.status === "completed" ? "Completed" : "In Review",
+        gameDate: r.game_date || "",
         createdAt: r.created_at || new Date().toISOString(),
         submittedAt: r.submitted_at || undefined,
       }));
@@ -74,6 +76,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
     }
     setActiveReviewId(review.id);
     setReviewGame(review.game);
+    setReviewGameDate(review.gameDate || "");
     setReviewRef1(review.referee1Id);
     setReviewRef2(review.referee2Id);
     setReviewRef3(review.referee3Id);
@@ -83,7 +86,6 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
 
   async function startNewReview(): Promise<ReviewRecord | null> {
     if (!session) return null;
-    const r1 = members.filter(m => m.role === "referee")[0];
     const now = new Date().toISOString();
     const orgId = session.activeOrganisation?.id || "";
 
@@ -94,8 +96,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
         organisation_id: orgId,
         educator_id: session.user.id,
         educator_name: session.profile.name,
-        referee1_name: r1?.name || "",
-        referee2_name: "", referee3_name: "",
+        referee1_name: "", referee2_name: "", referee3_name: "",
         video_link: "", timestamp_offset: 0, status: "in_review",
       })
       .select()
@@ -109,8 +110,8 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
       game: "New Review",
       educatorId: session.user.id,
       educatorName: session.profile.name,
-      referee1Id: r1?.id || "", referee2Id: "", referee3Id: "",
-      referee1Name: r1?.name || "", referee2Name: "", referee3Name: "",
+      referee1Id: "", referee2Id: "", referee3Id: "",
+      referee1Name: "", referee2Name: "", referee3Name: "",
       videoLink: "", timestampOffset: 0,
       status: "In Review",
       createdAt: data.created_at || now,
@@ -130,6 +131,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
     const submittedAt = nextStatus === "Completed" ? new Date().toISOString() : activeReview?.submittedAt;
     const patch = {
       game: reviewGame, title: reviewGame,
+      game_date: reviewGameDate || null,
       referee1_id: reviewRef1 || null, referee2_id: reviewRef2 || null, referee3_id: reviewRef3 || null,
       referee1_name: r1?.name || "", referee2_name: r2?.name || "", referee3_name: r3?.name || "",
       video_link: reviewVideoLink,
@@ -142,7 +144,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
     setReviews(items => items.map(r => {
       if (r.id !== activeReviewId) return r;
       return {
-        ...r, game: reviewGame,
+        ...r, game: reviewGame, gameDate: reviewGameDate || "",
         referee1Id: reviewRef1, referee2Id: reviewRef2, referee3Id: reviewRef3,
         referee1Name: r1?.name || "", referee2Name: r2?.name || "", referee3Name: r3?.name || "",
         videoLink: reviewVideoLink,
@@ -212,6 +214,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
     activeReviewId, setActiveReviewId,
     activeReview,
     reviewGame, setReviewGame,
+    reviewGameDate, setReviewGameDate,
     reviewRef1, setReviewRef1,
     reviewRef2, setReviewRef2,
     reviewRef3, setReviewRef3,
