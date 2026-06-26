@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Header } from "@/components/Header";
+import { ReviewComments } from "@/components/ReviewComments";
 import { makeAnalytics } from "@/lib/utils/analytics";
 import { embedUrl } from "@/lib/utils/video";
 import type { ReviewRecord, CodedTag, RefSlot } from "@/lib/types/reviews";
@@ -232,6 +233,10 @@ export function RefereeReviewScreen({
                 <div className="analytics-card"><h3>Coverage</h3>{bars(analytics.coverageCounts)}</div>
               </div>
             </>
+          )}
+
+          {review?.id && (
+            <ReviewComments reviewId={review.id} session={session} />
           )}
         </div>
 
