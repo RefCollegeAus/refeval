@@ -1,15 +1,17 @@
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, User } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 
 export function Header({
   session,
   onHome,
   onAdmin,
+  onProfile,
   onLogout,
 }: {
   session: RefEvalSession | null;
   onHome: () => void;
   onAdmin: () => void;
+  onProfile: () => void;
   onLogout: () => void;
 }) {
   return (
@@ -31,6 +33,10 @@ export function Header({
               <Settings size={16} /> Admin Dashboard
             </button>
           )}
+
+          <button onClick={onProfile} title={`Profile: ${session.profile.name}`}>
+            <User size={16} /> {session.profile.name}
+          </button>
 
           <button onClick={onLogout}>
             <LogOut size={16} /> Logout

@@ -3,4 +3,7 @@ export type OrganisationRecord = {
   name: string;
   status: "Active" | "Suspended";
   createdAt: string;
+  timezone: string;
+  brandColour: string;
+  logoUrl: string | null;
 };

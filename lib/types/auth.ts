@@ -7,7 +7,9 @@ export type Screen =
   | "referee"
   | "database"
   | "reviewer"
-  | "refereeReview";
+  | "refereeReview"
+  | "org-settings"
+  | "user-profile";
 
 export type RefEvalSession = {
   user: {

@@ -1,56 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { getServiceRoleClient, getCallerSession, resolveCallerRole } from "@/lib/supabase/adminAuth";
 import type { Role } from "@/lib/types/auth";
 
 const ADMIN_ASSIGNABLE_ROLES: Role[] = ["educator", "referee"];
 const SUPER_ADMIN_ONLY_ROLES: Role[] = ["admin", "super_admin"];
 const ALL_VALID_ROLES: Role[] = [...ADMIN_ASSIGNABLE_ROLES, ...SUPER_ADMIN_ONLY_ROLES];
 
-function getServiceRoleClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY is not configured. Add it to .env.local and your deployment environment."
-    );
-  }
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-}
-
-async function getCallerSession() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (toSet) => toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)),
-      },
-    }
-  );
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  return { supabase, user };
-}
-
-async function resolveCallerRole(
-  supabase: ReturnType<typeof createServerClient>,
-  callerId: string,
-  organisationId: string
-): Promise<Role | null> {
-  const { data } = await supabase
-    .from("organisation_members")
-    .select("role")
-    .eq("user_id", callerId)
-    .eq("organisation_id", organisationId)
-    .single();
-  return (data?.role as Role) ?? null;
-}
-
-// PATCH /api/admin/member — update a member's role within an organisation
 export async function PATCH(request: NextRequest) {
   let body: { userId?: string; organisationId?: string; role?: string };
   try {
@@ -70,7 +25,6 @@ export async function PATCH(request: NextRequest) {
   const caller = await getCallerSession();
   if (!caller) return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
 
-  // Prevent self-demotion
   if (caller.user.id === userId) {
     return NextResponse.json({ error: "You cannot change your own role." }, { status: 403 });
   }
@@ -109,7 +63,6 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ success: true }, { status: 200 });
 }
 
-// DELETE /api/admin/member — remove a member from an organisation
 export async function DELETE(request: NextRequest) {
   let body: { userId?: string; organisationId?: string };
   try {

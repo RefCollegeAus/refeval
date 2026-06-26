@@ -7,3 +7,10 @@ export type MemberRecord = {
   role: Role;
   organisationId: string;
 };
+
+export type EnrichedMember = MemberRecord & {
+  joinedAt: string | null;
+  invitedAt: string | null;
+  lastSignInAt: string | null;
+  invitationStatus: "pending" | "active";
+};

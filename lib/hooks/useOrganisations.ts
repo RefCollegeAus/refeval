@@ -6,8 +6,6 @@ import { getMembersForOrganisation } from "@/lib/services/memberships";
 import type { OrganisationRecord } from "@/lib/types/organisations";
 import type { MemberRecord } from "@/lib/types/members";
 
-// Members are scoped to the active organisation via getMembersForOrganisation.
-// RLS (Phase 7) enforces this at the database layer for all roles.
 export function useOrganisations(activeOrgId: string | undefined) {
   const [organisations, setOrganisations] = useState<OrganisationRecord[]>([]);
   const [members, setMembers] = useState<MemberRecord[]>([]);
@@ -26,15 +24,21 @@ export function useOrganisations(activeOrgId: string | undefined) {
     getMembersForOrganisation(activeOrgId).then(setMembers);
   }
 
+  function refreshOrganisations() {
+    getOrganisations().then(setOrganisations);
+  }
+
   const refereeMembers = members.filter(m => m.role === "referee");
   const adminMembers = members.filter(m => m.role === "admin");
   const educatorMembers = members.filter(m => m.role === "educator");
   const superAdminMembers = members.filter(m => m.role === "super_admin");
   const organisationName = (id: string) => organisations.find(o => o.id === id)?.name || "Unassigned";
+  const activeOrg = organisations.find(o => o.id === activeOrgId) || null;
 
   return {
-    organisations, members, refreshMembers,
+    organisations, members,
+    refreshMembers, refreshOrganisations,
     refereeMembers, adminMembers, educatorMembers, superAdminMembers,
-    organisationName,
+    organisationName, activeOrg,
   };
 }

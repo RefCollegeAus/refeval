@@ -140,11 +140,25 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
     setScreen(membership.role === "referee" ? "referee" : "educator");
   }
 
+  function switchOrganisation(membership: RefEvalSession["memberships"][number]) {
+    if (!session) return;
+    setSession({
+      ...session,
+      activeOrganisation: { id: membership.organisationId, name: membership.organisationName },
+      activeRole: membership.role,
+    });
+    setScreen(membership.role === "referee" ? "referee" : "educator");
+  }
+
+  function updateSessionProfile(name: string) {
+    setSession(s => s ? { ...s, profile: { ...s.profile, name } } : null);
+  }
+
   return {
     session, pendingSession, authChecked,
     loginName, setLoginName,
     loginPassword, setLoginPassword,
     loginError,
-    login, logout, selectOrganisation,
+    login, logout, selectOrganisation, switchOrganisation, updateSessionProfile,
   };
 }
