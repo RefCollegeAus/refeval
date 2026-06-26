@@ -11,7 +11,7 @@ label{display:grid;gap:7px;font-size:13px;font-weight:800;color:var(--muted)} a{
 .header{display:flex;justify-content:space-between;align-items:center;padding:24px 32px;border-bottom:1px solid var(--border);gap:12px}.eyebrow{margin:0 0 4px;color:var(--accent);text-transform:uppercase;letter-spacing:.13em;font-size:12px;font-weight:900} h1,h2,h3,p{margin-top:0} h1{margin-bottom:0} h2{font-size:18px;margin-bottom:12px}
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;padding:18px}.one-col{grid-template-columns:1fr}.panel{background:var(--panel);border:1px solid var(--border);border-radius:22px;padding:18px;box-shadow:0 20px 70px rgba(0,0,0,.30)}.side-panel{display:grid;gap:10px;align-content:start}
 .login-wrap{min-height:calc(100vh - 90px);display:grid;place-items:center;padding:18px}.login-panel{width:min(540px,100%)}.form-stack{display:grid;gap:12px}.mode-switch,.toolbar,.export-row,.action-row{display:flex;gap:10px;flex-wrap:wrap}.setup-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px}.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.file-picker{display:inline-block;border:1px solid var(--border);background:var(--panel3);padding:11px 14px;border-radius:14px;cursor:pointer;font-weight:800}.file-picker input{display:none} video,.video-frame{width:100%;max-height:56vh;border-radius:18px;background:#000;margin-top:14px;border:2px solid var(--accent)} iframe.video-frame{height:100%;display:block}
+.file-picker{display:inline-block;border:1px solid var(--border);background:var(--panel3);padding:11px 14px;border-radius:14px;cursor:pointer;font-weight:800}.file-picker input{display:none} video,.video-frame{width:100%;max-height:56vh;border-radius:18px;background:#000;margin-top:14px;border:2px solid var(--accent)} iframe.video-frame{height:100%;width:100%;display:block}.video-placeholder iframe,.video-placeholder video{width:100%!important;height:100%!important;display:block;border:none!important;margin:0!important;max-height:none!important;border-radius:0!important}
 .timer-card,.code-group,.analytics-card,.video-placeholder{background:var(--panel2);border:1px solid var(--border);border-radius:18px;padding:10px}.timer{font-size:clamp(70px,12vw,150px);font-weight:950;letter-spacing:-.08em;line-height:1;font-variant-numeric:tabular-nums}
 .timeline{position:relative;height:22px;background:#101010;border:1px solid var(--border);border-radius:999px;overflow:hidden;margin:16px 0}.progress{height:100%;background:rgba(165,106,27,.35)}.marker{position:absolute;top:-5px;width:8px;height:32px;border-radius:8px;background:var(--accent);transform:translateX(-50%)}
 .code-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.big-tag{width:100%;padding:18px;font-size:18px;margin-bottom:12px}.hint{color:var(--muted);font-size:13px}.danger-text{color:#fecaca;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.45);border-radius:12px;padding:10px}
@@ -154,6 +154,39 @@ label{display:grid;gap:7px;font-size:13px;font-weight:800;color:var(--muted)} a{
   .ref-reviews-table td::before{content:attr(data-label);font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;flex-shrink:0;margin-right:8px}
   .ref-reviews-table td[data-label=""]::before{display:none}
 }
+/* Phase 16D — Tagging wizard */
+.wizard-modal{max-width:500px}
+.wizard-dots{display:flex;gap:5px;justify-content:center;margin:10px 0 18px}
+.wizard-dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:background .15s}
+.wizard-dot--active{background:var(--accent)}
+.wizard-dot--done{background:rgba(165,106,27,.45)}
+.wizard-prompt{font-size:14px;color:var(--muted);margin:0 0 14px}
+.wizard-opts{display:flex;flex-direction:column;gap:8px}
+.wizard-opts--wrap{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wizard-opt{text-align:left;padding:13px 16px;font-size:15px;font-weight:700;border-radius:12px;border:1.5px solid var(--border);background:var(--panel2);cursor:pointer;transition:border-color .12s,background .12s;line-height:1.3}
+.wizard-opt:hover{border-color:rgba(165,106,27,.5);background:rgba(165,106,27,.07)}
+.wizard-opt.selected{border-color:var(--accent)!important;background:rgba(165,106,27,.18)!important}
+.wizard-review-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--panel2);border:1px solid var(--border);border-radius:10px}
+.wizard-review-row--error{border-color:rgba(239,68,68,.5)!important}
+.wizard-nav{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:8px}
+@media(max-width:560px){.wizard-opts--wrap{grid-template-columns:1fr}}
+/* Phase 16C — Review setup bar */
+.review-setup-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;padding:8px 12px;background:var(--panel3);border:1px solid var(--border);border-radius:12px}
+.review-setup-info{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1;min-width:0}
+.review-setup-name{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Phase 16 — Interactive analytics */
+.metric-row.clickable{cursor:pointer;transition:border-color .12s,background .12s}
+.metric-row.clickable:hover{border-color:rgba(165,106,27,.45);background:rgba(165,106,27,.07)}
+.metric-row.analytics-active{border-color:var(--accent)!important;background:rgba(165,106,27,.16)!important;font-weight:800}
+.metric-tile.clickable{cursor:pointer;transition:border-color .12s,background .12s}
+.metric-tile.clickable:hover{border-color:rgba(165,106,27,.45);background:rgba(165,106,27,.06)}
+.metric-tile.analytics-active{border-color:var(--accent)!important;box-shadow:0 0 0 2px rgba(165,106,27,.15)!important}
+.analytics-filter-banner{display:flex;align-items:center;gap:10px;background:rgba(165,106,27,.10);border:1px solid rgba(165,106,27,.30);border-radius:10px;padding:8px 12px;font-size:13px;flex-wrap:wrap}
+.analytics-filter-banner strong{color:var(--accent)}
+/* Phase 16 — Date range presets */
+.date-preset-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.date-preset-btn{padding:4px 10px!important;font-size:12px!important;border-radius:10px!important;line-height:1.4}
+.date-preset-btn.active{background:linear-gradient(135deg,#a56a1b,#bf7c21)!important;border-color:transparent!important;color:#fff!important}
 /* Phase 12 — Referee review screen */
 /* Referee personal summary card */
 .rv-summary-card{border-top:3px solid var(--accent)!important;display:flex;flex-direction:column;gap:12px}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { ReviewComments } from "@/components/ReviewComments";
 import { makeAnalytics } from "@/lib/utils/analytics";
@@ -65,9 +65,33 @@ export function RefereeReviewScreen({
   const [seekAutoplay, setSeekAutoplay] = useState(false);
   const [showComments, setShowComments] = useState(false);
 
+  // Analytics filter: clicking a breakdown row filters the visible clip list
+  type AnalyticsFilter = { field: string; value: string; label: string };
+  const [analyticsFilter, setAnalyticsFilter] = useState<AnalyticsFilter | null>(null);
+
+  // Reset comments when clip changes or filter changes
+  useEffect(() => { setShowComments(false); }, [selectedIdx]);
+  useEffect(() => { setSelectedIdx(0); setShowComments(false); }, [analyticsFilter]);
+
+  // Analytics always computed from full tag list so all breakdown options remain visible
   const analytics = makeAnalytics(visibleTags);
-  const total = visibleTags.length;
-  const selectedTag = total > 0 ? visibleTags[selectedIdx] ?? null : null;
+
+  // Clip list filtered by active analytics selection
+  const filteredTags = analyticsFilter
+    ? visibleTags.filter(tag => {
+        const { field, value } = analyticsFilter;
+        // "outcome-group" matches outcomes that start with the value (Correct/Incorrect)
+        if (field === "outcome-group") return (tag.outcome || "").startsWith(value);
+        if (field === "outcome") return tag.outcome === value;
+        if (field === "category") return tag.category === value;
+        if (field === "position") return tag.position === value;
+        if (field === "coverage") return tag.coverage === value;
+        return true;
+      })
+    : visibleTags;
+
+  const total = filteredTags.length;
+  const selectedTag = total > 0 ? filteredTags[selectedIdx] ?? null : null;
 
   const currentEmbed = review?.videoLink
     ? embedUrl(review.videoLink, seekSeconds, seekAutoplay)
@@ -76,24 +100,39 @@ export function RefereeReviewScreen({
   const isDirectVideo = /\.(mp4|webm|ogg)(\?|#|$)/i.test(currentEmbed);
 
   function selectClip(idx: number) {
-    const tag = visibleTags[idx];
+    const tag = filteredTags[idx];
     if (!tag) return;
     setSelectedIdx(idx);
     setSeekSeconds(tag.adjustedSeconds);
     setSeekAutoplay(true);
   }
 
-  function bars(counts: [string, number][]) {
+  function toggleFilter(field: string, value: string, label: string) {
+    setAnalyticsFilter(f => f?.field === field && f.value === value ? null : { field, value, label });
+  }
+
+  function bars(counts: [string, number][], field: string) {
     const max = Math.max(...counts.map(([, c]) => c), 1);
-    return counts.map(([name, count]) => (
-      <div className="metric-row" key={name}>
-        <span>{name}</span>
-        <div className="mini-bar">
-          <div className="mini-bar-fill" style={{ width: `${Math.round((count / max) * 100)}%` }} />
+    return counts.map(([name, count]) => {
+      const isActive = analyticsFilter?.field === field && analyticsFilter.value === name;
+      return (
+        <div
+          key={name}
+          className={"metric-row clickable" + (isActive ? " analytics-active" : "")}
+          role="button"
+          tabIndex={0}
+          onClick={() => toggleFilter(field, name, name)}
+          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter(field, name, name); } }}
+          title={isActive ? "Click to clear filter" : `Filter clips: ${name}`}
+        >
+          <span>{name}</span>
+          <div className="mini-bar">
+            <div className="mini-bar-fill" style={{ width: `${Math.round((count / max) * 100)}%` }} />
+          </div>
+          <strong>{count}</strong>
         </div>
-        <strong>{count}</strong>
-      </div>
-    ));
+      );
+    });
   }
 
   return (
@@ -233,15 +272,30 @@ export function RefereeReviewScreen({
             </>
           )}
 
-          {total === 0 && (
+          {visibleTags.length === 0 && (
             <div className="empty-state">No clips have been tagged for this review yet.</div>
+          )}
+          {visibleTags.length > 0 && total === 0 && analyticsFilter && (
+            <div className="empty-state">No clips match this filter. <button style={{ fontSize: 13 }} onClick={() => setAnalyticsFilter(null)}>Clear</button></div>
           )}
 
           {/* Performance summary */}
-          {total > 0 && (
+          {visibleTags.length > 0 && (
             <>
+              {analyticsFilter ? (
+                <div className="analytics-filter-banner">
+                  <span>Showing: <strong>{analyticsFilter.label}</strong> · {total} of {visibleTags.length} clips</span>
+                  <button style={{ marginLeft: "auto", fontSize: 12, padding: "2px 8px" }} onClick={() => setAnalyticsFilter(null)}>
+                    Clear filter ×
+                  </button>
+                </div>
+              ) : (
+                <p className="hint" style={{ fontSize: 12, margin: 0 }}>
+                  💡 Click any statistic or bar below to filter clips.
+                </p>
+              )}
               <div className="analytics-card">
-                <h3>Performance Summary</h3>
+                <h3>Performance Summary {analyticsFilter ? <span className="hint" style={{ fontWeight: 400, fontSize: 12 }}>(full review)</span> : null}</h3>
                 <div className="metric-grid" style={{ marginTop: 8 }}>
                   <div className="metric-tile">
                     <div className="number">{analytics.total}</div>
@@ -251,21 +305,35 @@ export function RefereeReviewScreen({
                     <div className="number">{analytics.accuracy}</div>
                     <div className="hint">Accuracy</div>
                   </div>
-                  <div className="metric-tile">
+                  <div
+                    className={"metric-tile clickable" + (analyticsFilter?.field === "outcome-group" && analyticsFilter.value === "Correct" ? " analytics-active" : "")}
+                    role="button"
+                    tabIndex={0}
+                    title="Filter to correct decisions"
+                    onClick={() => toggleFilter("outcome-group", "Correct", "Correct decisions")}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("outcome-group", "Correct", "Correct decisions"); } }}
+                  >
                     <div className="number">{analytics.correctCalls + analytics.correctNoCalls}</div>
-                    <div className="hint">Correct</div>
+                    <div className="hint">Correct ↗</div>
                   </div>
-                  <div className="metric-tile">
+                  <div
+                    className={"metric-tile clickable" + (analyticsFilter?.field === "outcome-group" && analyticsFilter.value === "Incorrect" ? " analytics-active" : "")}
+                    role="button"
+                    tabIndex={0}
+                    title="Filter to incorrect decisions"
+                    onClick={() => toggleFilter("outcome-group", "Incorrect", "Incorrect decisions")}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("outcome-group", "Incorrect", "Incorrect decisions"); } }}
+                  >
                     <div className="number">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div>
-                    <div className="hint">Incorrect</div>
+                    <div className="hint">Incorrect ↗</div>
                   </div>
                 </div>
               </div>
               <div className="rv-stats-breakdowns">
-                <div className="analytics-card"><h3>Outcome</h3>{bars(analytics.outcomeCounts)}</div>
-                <div className="analytics-card"><h3>Category</h3>{bars(analytics.categoryCounts)}</div>
-                <div className="analytics-card"><h3>Position</h3>{bars(analytics.positionCounts)}</div>
-                <div className="analytics-card"><h3>Coverage</h3>{bars(analytics.coverageCounts)}</div>
+                <div className="analytics-card"><h3>Outcome <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>{bars(analytics.outcomeCounts, "outcome")}</div>
+                <div className="analytics-card"><h3>Category <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>{bars(analytics.categoryCounts, "category")}</div>
+                <div className="analytics-card"><h3>Position <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>{bars(analytics.positionCounts, "position")}</div>
+                <div className="analytics-card"><h3>Coverage <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>{bars(analytics.coverageCounts, "coverage")}</div>
               </div>
             </>
           )}
@@ -274,12 +342,15 @@ export function RefereeReviewScreen({
 
         {/* ── Sidebar: clip list ── */}
         <aside className="rv-sidebar">
-          <p className="rv-sidebar-heading">Clips ({total})</p>
+          <p className="rv-sidebar-heading">
+            Clips ({total}{analyticsFilter ? ` of ${visibleTags.length}` : ""})
+            {analyticsFilter && <button style={{ fontSize: 11, marginLeft: 6, padding: "1px 6px" }} onClick={() => setAnalyticsFilter(null)}>✕ clear</button>}
+          </p>
           {total === 0 ? (
             <p className="hint">No clips available.</p>
           ) : (
             <div className="rv-clip-list">
-              {visibleTags.map((tag, i) => {
+              {filteredTags.map((tag, i) => {
                 const sel = i === selectedIdx;
                 return (
                   <div
@@ -313,7 +384,8 @@ export function RefereeReviewScreen({
                       </p>
                     )}
                     {sel && (
-                      <div className="rv-clip-expand">
+                      /* stopPropagation prevents the card's onClick from seeking the video when clicking expand content */
+                      <div className="rv-clip-expand" onClick={e => e.stopPropagation()}>
                         {tag.coverage && (
                           <div className="rv-clip-field">
                             <span className="rv-clip-field-label">Coverage</span>
@@ -339,6 +411,7 @@ export function RefereeReviewScreen({
                           <div className="badge-wrap" style={{ display: "inline-flex" }}>
                             <button
                               className="clip-action-btn"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                               onClick={() => setShowComments(v => !v)}
                             >
                               <MessageSquare size={11} />
@@ -351,6 +424,17 @@ export function RefereeReviewScreen({
                             )}
                           </div>
                         </div>
+                        {/* Comments panel inside the expanded clip card — no scroll hunting */}
+                        {showComments && review?.id && (
+                          <div style={{ gridColumn: "1/-1", marginTop: 8 }}>
+                            <ReviewComments
+                              reviewId={review.id}
+                              tagId={tag.id}
+                              session={session}
+                              onRead={onRead}
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -359,17 +443,6 @@ export function RefereeReviewScreen({
             </div>
           )}
 
-          {/* Comments panel — rendered once below the clip list for the selected clip */}
-          {showComments && selectedTag && review?.id && (
-            <div style={{ marginTop: 8 }}>
-              <ReviewComments
-                reviewId={review.id}
-                tagId={selectedTag.id}
-                session={session}
-                onRead={onRead}
-              />
-            </div>
-          )}
         </aside>
       </div>
     </main>
