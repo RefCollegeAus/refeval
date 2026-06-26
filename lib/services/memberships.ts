@@ -57,23 +57,45 @@ export async function updateProfileName(name: string): Promise<ApiResult> {
 // ---------- Read ----------
 
 export async function getMembersForOrganisation(organisationId: string): Promise<MemberRecord[]> {
-  const { data, error } = await getSupabaseClient()
+  const client = getSupabaseClient();
+
+  const { data: memberRows, error: membersError } = await client
     .from("organisation_members")
-    .select("role, organisation_id, user_id, profiles(id, name, email)")
+    .select("role, organisation_id, user_id")
     .eq("organisation_id", organisationId);
 
-  if (error) {
-    console.error("Failed to load members:", error.message);
+  if (membersError) {
+    console.error("Failed to load members:", membersError.message);
+    return [];
+  }
+  if (!memberRows || memberRows.length === 0) return [];
+
+  const userIds = memberRows.map((m: any) => m.user_id);
+
+  const { data: profileRows, error: profilesError } = await client
+    .from("profiles")
+    .select("id, name, email")
+    .in("id", userIds);
+
+  if (profilesError) {
+    console.error("Failed to load profiles:", profilesError.message);
     return [];
   }
 
-  return (data || []).map((m: any) => ({
-    id: m.user_id,
-    name: (m.profiles as any)?.name || (m.profiles as any)?.email || "Unknown",
-    email: (m.profiles as any)?.email || "",
-    role: m.role as Role,
-    organisationId: m.organisation_id,
-  }));
+  const profileMap = new Map<string, { id: string; name: string | null; email: string | null }>(
+    (profileRows ?? []).map((p: any) => [p.id, p])
+  );
+
+  return memberRows.map((m: any) => {
+    const p = profileMap.get(m.user_id);
+    return {
+      id: m.user_id,
+      name: p?.name || p?.email || "Unknown",
+      email: p?.email || "",
+      role: m.role as Role,
+      organisationId: m.organisation_id,
+    };
+  });
 }
 
 export async function getEnrichedMembers(organisationId: string): Promise<EnrichedMember[]> {
@@ -82,8 +104,8 @@ export async function getEnrichedMembers(organisationId: string): Promise<Enrich
   );
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
-    console.error("Failed to load enriched members:", (json as any).error);
-    return [];
+    const msg = (json as any).error ?? `HTTP ${res.status}`;
+    throw new Error(msg);
   }
   const json = await res.json();
   return (json as any).members || [];

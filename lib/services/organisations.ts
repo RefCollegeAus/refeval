@@ -4,7 +4,7 @@ import type { OrganisationRecord } from "@/lib/types/organisations";
 export async function getOrganisations(): Promise<OrganisationRecord[]> {
   const { data, error } = await getSupabaseClient()
     .from("organisations")
-    .select("id, name, status, created_at, timezone, brand_colour, logo_url")
+    .select("id, name, created_at, timezone, brand_colour, logo_url")
     .order("name");
 
   if (error) {
@@ -15,7 +15,6 @@ export async function getOrganisations(): Promise<OrganisationRecord[]> {
   return (data || []).map((org: any) => ({
     id: org.id,
     name: org.name,
-    status: (org.status as "Active" | "Suspended") || "Active",
     createdAt: org.created_at || new Date().toISOString(),
     timezone: org.timezone || "Australia/Melbourne",
     brandColour: org.brand_colour || "#a56a1b",

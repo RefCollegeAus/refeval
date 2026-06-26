@@ -62,9 +62,14 @@ export function MembersScreen({
   async function load() {
     setLoading(true);
     setPageError("");
-    const data = await getEnrichedMembers(orgId);
-    setMembers(data);
-    setLoading(false);
+    try {
+      const data = await getEnrichedMembers(orgId);
+      setMembers(data);
+    } catch (err: unknown) {
+      setPageError(err instanceof Error ? err.message : "Failed to load members.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps

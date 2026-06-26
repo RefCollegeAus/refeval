@@ -26,11 +26,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 503 });
   }
 
+  // Step 1: fetch organisation_members without any embedded join.
   const { data: memberRows, error: membersError } = await admin
     .from("organisation_members")
-    .select("role, organisation_id, user_id, joined_at, profiles(id, name, email)")
-    .eq("organisation_id", organisationId)
-    .order("joined_at", { ascending: true });
+    .select("role, organisation_id, user_id, joined_at")
+    .eq("organisation_id", organisationId);
 
   if (membersError) {
     return NextResponse.json({ error: membersError.message }, { status: 500 });
@@ -40,18 +40,36 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ members: [] });
   }
 
-  // Fetch auth metadata for all org members in one call.
+  // Step 2: fetch profiles separately using the collected user_ids.
+  const userIds = memberRows.map((m: any) => m.user_id);
+
+  const { data: profileRows, error: profilesError } = await admin
+    .from("profiles")
+    .select("id, name, email")
+    .in("id", userIds);
+
+  if (profilesError) {
+    return NextResponse.json({ error: profilesError.message }, { status: 500 });
+  }
+
+  const profileMap = new Map(
+    (profileRows ?? []).map((p: any) => [p.id, p])
+  );
+
+  // Step 3: fetch auth metadata for invitation status and last sign-in.
   // perPage 1000 is sufficient for any realistic org size.
   const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
   const userMap = new Map((authData?.users ?? []).map((u: any) => [u.id, u]));
 
+  // Step 4: merge all three data sources.
   const members: EnrichedMember[] = memberRows.map((m: any) => {
+    const profile = profileMap.get(m.user_id);
     const authUser = userMap.get(m.user_id);
     const confirmed = !!(authUser?.email_confirmed_at || authUser?.confirmed_at);
     return {
       id: m.user_id,
-      name: (m.profiles as any)?.name || (m.profiles as any)?.email || "Unknown",
-      email: (m.profiles as any)?.email || "",
+      name: profile?.name || profile?.email || "Unknown",
+      email: profile?.email || "",
       role: m.role,
       organisationId: m.organisation_id,
       joinedAt: m.joined_at ?? null,
