@@ -153,6 +153,14 @@ export default function Home() {
   const [draftNotes, setDraftNotes] = useState("");
   const [codingError, setCodingError] = useState("");
 
+  // --- Educator dashboard filters & sort ---
+  const [filterStatus, setFilterStatus] = useState<"All" | "In Review" | "Completed">("All");
+  const [filterReferee, setFilterReferee] = useState("");
+  const [filterGame, setFilterGame] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+  const [filterHasVideo, setFilterHasVideo] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "updated" | "referee" | "game">("newest");
+
   // --- Auth callback error (from ?error= param set by /auth/callback on failure) ---
   const [urlAuthError, setUrlAuthError] = useState("");
   useEffect(() => {
@@ -508,68 +516,256 @@ export default function Home() {
   }
 
   if (screen === "educator") {
+    const portalLabel = session?.activeRole === "super_admin" ? "Super Admin Portal" : session?.activeRole === "admin" ? "Organisation Admin Portal" : "Educator Portal";
+    const portalHint = session?.activeRole === "super_admin" ? "All organisation evaluations are visible." : session?.activeRole === "admin" ? "Evaluations for your organisation are visible." : "Only evaluations created by you are visible.";
+
     const visibleReviews = session?.activeRole === "super_admin"
       ? reviews
       : session?.activeRole === "admin"
         ? reviews.filter(r => r.organisationId === session.activeOrganisation?.id)
         : reviews.filter(r => r.educatorId === session?.user.id && r.organisationId === session?.activeOrganisation?.id);
-    const inReview = visibleReviews.filter(r => r.status !== "Completed");
-    const completed = visibleReviews.filter(r => r.status === "Completed");
-    const withVideo = visibleReviews.filter(r => r.videoLink).length;
-    const withClips = visibleReviews.filter(r => tags.some(t => t.reviewId === r.id)).length;
-    const completionRate = visibleReviews.length > 0 ? `${Math.round((completed.length / visibleReviews.length) * 100)}%` : "—";
 
-    const ReviewTable = ({ items }: { items: ReviewRecord[] }) => (
-      <table>
-        <thead><tr><th>Game</th><th>Status</th><th>Educator</th><th>Referees</th><th>Tags</th><th></th></tr></thead>
-        <tbody>
-          {items.map(review => (
-            <tr key={review.id}>
-              <td>{review.game}</td>
-              <td><span className={`status ${review.status === "Completed" ? "done" : "review"}`}>{review.status}</span></td>
-              <td>{review.educatorName}</td>
-              <td>{[review.referee1Name, review.referee2Name, review.referee3Name].filter(Boolean).join(", ")}</td>
-              <td>{tags.filter(t => t.reviewId === review.id).length}</td>
-              <td>
-                <button onClick={() => openReviewForEdit(review)}>Open</button>
-                <button className="danger" onClick={() => deleteReview(review.id)}>Delete</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
+    // --- Summary stats ---
+    const inProgressReviews = visibleReviews.filter(r => r.status !== "Completed");
+    const completedReviews = visibleReviews.filter(r => r.status === "Completed");
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const thisWeekReviews = visibleReviews.filter(r => r.createdAt >= oneWeekAgo);
+
+    // --- Action required (in-progress, most recent first) ---
+    const actionReviews = [...inProgressReviews].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 6);
+
+    // --- Recent activity feed ---
+    type ActivityItem = { label: string; detail: string; ts: string };
+    const activityItems: ActivityItem[] = [];
+    visibleReviews.forEach(r => {
+      activityItems.push({ label: "Review created", detail: r.game, ts: r.createdAt });
+      if (r.submittedAt) activityItems.push({ label: "Review completed", detail: r.game, ts: r.submittedAt });
+    });
+    activityItems.sort((a, b) => b.ts.localeCompare(a.ts));
+    const recentActivity = activityItems.slice(0, 12);
+
+    // --- Filters ---
+    const allReferees = Array.from(new Set(
+      visibleReviews.flatMap(r => [r.referee1Name, r.referee2Name, r.referee3Name].filter(Boolean))
+    )).sort();
+    const allGames = Array.from(new Set(visibleReviews.map(r => r.game).filter(Boolean))).sort();
+
+    let filteredReviews = visibleReviews.filter(r => {
+      if (filterStatus !== "All" && r.status !== filterStatus) return false;
+      if (filterReferee && ![r.referee1Name, r.referee2Name, r.referee3Name].includes(filterReferee)) return false;
+      if (filterGame && !r.game.toLowerCase().includes(filterGame.toLowerCase())) return false;
+      if (filterDate) {
+        const dateStr = r.gameDate || r.createdAt.slice(0, 10);
+        if (dateStr !== filterDate) return false;
+      }
+      if (filterHasVideo && !r.videoLink) return false;
+      return true;
+    });
+
+    // --- Sort ---
+    filteredReviews = [...filteredReviews].sort((a, b) => {
+      switch (sortOrder) {
+        case "oldest": return a.createdAt.localeCompare(b.createdAt);
+        case "updated": {
+          const aTs = a.submittedAt || a.createdAt;
+          const bTs = b.submittedAt || b.createdAt;
+          return bTs.localeCompare(aTs);
+        }
+        case "referee": return (a.referee1Name || "").localeCompare(b.referee1Name || "");
+        case "game": return a.game.localeCompare(b.game);
+        default: return b.createdAt.localeCompare(a.createdAt);
+      }
+    });
+
+    const activeFilters = [filterStatus !== "All", !!filterReferee, !!filterGame, !!filterDate, filterHasVideo].filter(Boolean).length;
+
+    const clearFilters = () => {
+      setFilterStatus("All"); setFilterReferee(""); setFilterGame("");
+      setFilterDate(""); setFilterHasVideo(false);
+    };
+
+    const formatRelativeTime = (ts: string) => {
+      const diff = Date.now() - new Date(ts).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      if (days < 7) return `${days}d ago`;
+      return new Date(ts).toLocaleDateString();
+    };
+
     return (
       <main>
         <Header session={session} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")} onAdmin={() => setScreen("database")} onProfile={() => setScreen("user-profile")} onLogout={logout} />
-        <div className="layout one-col">
-          <section className="panel">
-            <div className="table-head">
+        <div className="ed-layout">
+
+          {/* ── Main column ── */}
+          <div className="ed-main">
+
+            {/* Page header */}
+            <div className="panel ed-page-header">
               <div>
-                <p className="eyebrow">{session?.activeRole === "super_admin" ? "Super Admin Portal" : session?.activeRole === "admin" ? "Organisation Admin Portal" : "Educator Portal"}</p>
-                <h1>Welcome, {session?.profile.name}</h1>
+                <p className="eyebrow">{portalLabel}</p>
+                <h1 style={{ marginBottom: 2 }}>Welcome, {session?.profile.name}</h1>
+                <p className="hint" style={{ margin: 0 }}>{portalHint}</p>
               </div>
               <button className="primary" onClick={startNewReview}><Plus size={16} /> New Review</button>
             </div>
-            <p className="hint">{session?.activeRole === "super_admin" ? "Super Admin view: all organisation evaluations are visible." : session?.activeRole === "admin" ? "Organisation Admin view: evaluations for your organisation are visible." : "Educator view: only evaluations created by you are visible."}</p>
-            {visibleReviews.length > 0 && (
-              <div className="analytics-card" style={{ marginTop: 16, marginBottom: 24 }}>
-                <h3>Evaluations Summary</h3>
-                <div className="metric-grid">
-                  <div className="metric-tile"><div className="number">{visibleReviews.length}</div><div className="hint">Total</div></div>
-                  <div className="metric-tile"><div className="number">{completed.length}</div><div className="hint">Completed</div></div>
-                  <div className="metric-tile"><div className="number">{inReview.length}</div><div className="hint">Outstanding</div></div>
-                  <div className="metric-tile"><div className="number">{completionRate}</div><div className="hint">Completion rate</div></div>
-                  <div className="metric-tile"><div className="number">{withVideo}</div><div className="hint">With video</div></div>
-                  <div className="metric-tile"><div className="number">{withClips}</div><div className="hint">With coded clips</div></div>
+
+            {/* Summary cards */}
+            <div className="ed-summary-grid">
+              <div className="ed-summary-card">
+                <div className="ed-summary-number">{visibleReviews.length}</div>
+                <div className="ed-summary-label">Total Reviews</div>
+              </div>
+              <div className="ed-summary-card ed-summary-inprogress">
+                <div className="ed-summary-number">{inProgressReviews.length}</div>
+                <div className="ed-summary-label">In Progress</div>
+              </div>
+              <div className="ed-summary-card ed-summary-done">
+                <div className="ed-summary-number">{completedReviews.length}</div>
+                <div className="ed-summary-label">Completed</div>
+              </div>
+              <div className="ed-summary-card ed-summary-week">
+                <div className="ed-summary-number">{thisWeekReviews.length}</div>
+                <div className="ed-summary-label">This Week</div>
+              </div>
+            </div>
+
+            {/* Action required */}
+            {actionReviews.length > 0 && (
+              <div className="panel">
+                <h2 style={{ marginBottom: 12 }}>Action Required</h2>
+                <div className="ed-action-grid">
+                  {actionReviews.map(review => (
+                    <button key={review.id} className="ed-action-card" onClick={() => openReviewForEdit(review)}>
+                      <div className="ed-action-top">
+                        <span className="ed-action-game">{review.game || "Untitled Review"}</span>
+                        <span className={`status ${review.status === "Completed" ? "done" : "review"}`}>{review.status}</span>
+                      </div>
+                      <div className="ed-action-meta">
+                        {[review.referee1Name, review.referee2Name, review.referee3Name].filter(Boolean).join(", ") || "No referees assigned"}
+                      </div>
+                      <div className="ed-action-footer">
+                        <span className="hint">{tags.filter(t => t.reviewId === review.id).length} clips</span>
+                        <span className="hint">{formatRelativeTime(review.createdAt)}</span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
-            <h2>Save & Complete Later Playlist</h2>
-            <ReviewTable items={inReview} />
-            <h2 style={{ marginTop: 28 }}>Completed Reviews</h2>
-            <ReviewTable items={completed} />
-          </section>
+
+            {/* Filters + sort */}
+            <div className="panel">
+              <div className="ed-filter-bar">
+                <div className="ed-filter-row">
+                  <input
+                    className="ed-filter-search"
+                    placeholder="Search competition / game…"
+                    value={filterGame}
+                    onChange={e => setFilterGame(e.target.value)}
+                  />
+                  <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as typeof filterStatus)}>
+                    <option value="All">All statuses</option>
+                    <option value="In Review">In Progress</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                  <select value={filterReferee} onChange={e => setFilterReferee(e.target.value)}>
+                    <option value="">All referees</option>
+                    {allReferees.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} title="Filter by game date" />
+                  <label className="ed-video-toggle">
+                    <input type="checkbox" checked={filterHasVideo} onChange={e => setFilterHasVideo(e.target.checked)} />
+                    Has video
+                  </label>
+                </div>
+                <div className="ed-filter-row" style={{ justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span className="hint">Sort:</span>
+                    <select value={sortOrder} onChange={e => setSortOrder(e.target.value as typeof sortOrder)}>
+                      <option value="newest">Newest first</option>
+                      <option value="oldest">Oldest first</option>
+                      <option value="updated">Last updated</option>
+                      <option value="referee">Referee name</option>
+                      <option value="game">Competition</option>
+                    </select>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span className="hint">{filteredReviews.length} of {visibleReviews.length} reviews</span>
+                    {activeFilters > 0 && <button onClick={clearFilters}>Clear filters ({activeFilters})</button>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Review table */}
+              {filteredReviews.length === 0 ? (
+                <div className="empty-state" style={{ marginTop: 16 }}>No reviews match the current filters.</div>
+              ) : (
+                <div className="ref-reviews-table" style={{ marginTop: 12 }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Game</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Educator</th>
+                        <th>Referees</th>
+                        <th>Clips</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredReviews.map(review => (
+                        <tr key={review.id}>
+                          <td data-label="Game">{review.game}</td>
+                          <td data-label="Date">{review.gameDate || review.createdAt.slice(0, 10)}</td>
+                          <td data-label="Status"><span className={`status ${review.status === "Completed" ? "done" : "review"}`}>{review.status}</span></td>
+                          <td data-label="Educator">{review.educatorName}</td>
+                          <td data-label="Referees">{[review.referee1Name, review.referee2Name, review.referee3Name].filter(Boolean).join(", ") || "—"}</td>
+                          <td data-label="Clips">{tags.filter(t => t.reviewId === review.id).length}</td>
+                          <td data-label="">
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <button onClick={() => openReviewForEdit(review)}>Open</button>
+                              <button className="danger" onClick={() => deleteReview(review.id)}>Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Sidebar ── */}
+          <aside className="ed-sidebar">
+
+            {/* Recent activity */}
+            <div className="panel">
+              <h3 style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--muted)" }}>Recent Activity</h3>
+              {recentActivity.length === 0 ? (
+                <p className="hint">No activity yet.</p>
+              ) : (
+                <div className="ed-activity-list">
+                  {recentActivity.map((item, i) => (
+                    <div key={i} className="ed-activity-item">
+                      <div className="ed-activity-dot" />
+                      <div className="ed-activity-body">
+                        <p className="ed-activity-label">{item.label}</p>
+                        <p className="ed-activity-detail">{item.detail}</p>
+                        <p className="ed-activity-time">{formatRelativeTime(item.ts)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </aside>
         </div>
       </main>
     );
@@ -593,26 +789,28 @@ export default function Home() {
             {myReviews.length === 0 ? (
               <p className="hint" style={{ marginTop: 24 }}>No completed evaluations yet.</p>
             ) : (
-              <table>
-                <thead><tr><th>Game</th><th>Status</th><th>Educator</th><th>Submitted</th><th>Clips</th><th>Accuracy</th><th></th></tr></thead>
-                <tbody>
-                  {myReviews.map(review => {
-                    const slot = slotForUser(session?.user.id || "", review);
-                    const visible = tags.filter(t => t.reviewId === review.id && tagAppliesToSlot(t, slot));
-                    return (
-                      <tr key={review.id}>
-                        <td>{review.game}</td>
-                        <td><span className="status done">{review.status}</span></td>
-                        <td>{review.educatorName}</td>
-                        <td>{review.submittedAt ? new Date(review.submittedAt).toLocaleDateString() : "—"}</td>
-                        <td>{visible.length}</td>
-                        <td>{makeAnalytics(visible).accuracy}</td>
-                        <td><button onClick={() => { setActiveReviewId(review.id); setScreen("refereeReview"); }}><Eye size={16} /> View Clips</button></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="ref-reviews-table">
+                <table>
+                  <thead><tr><th>Game</th><th>Status</th><th>Educator</th><th>Submitted</th><th>Clips</th><th>Accuracy</th><th></th></tr></thead>
+                  <tbody>
+                    {myReviews.map(review => {
+                      const slot = slotForUser(session?.user.id || "", review);
+                      const visible = tags.filter(t => t.reviewId === review.id && tagAppliesToSlot(t, slot));
+                      return (
+                        <tr key={review.id}>
+                          <td data-label="Game">{review.game}</td>
+                          <td data-label="Status"><span className="status done">{review.status}</span></td>
+                          <td data-label="Educator">{review.educatorName}</td>
+                          <td data-label="Submitted">{review.submittedAt ? new Date(review.submittedAt).toLocaleDateString() : "—"}</td>
+                          <td data-label="Clips">{visible.length}</td>
+                          <td data-label="Accuracy">{makeAnalytics(visible).accuracy}</td>
+                          <td data-label=""><button className="primary" onClick={() => { setActiveReviewId(review.id); setScreen("refereeReview"); }}><Eye size={16} /> View Clips</button></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </section>
           <aside className="panel side-panel">
