@@ -1,16 +1,19 @@
+"use client";
+
 import { createBrowserClient } from "@supabase/ssr";
 
-// createBrowserClient is called lazily (not at module evaluation time) so that
-// Next.js static prerender does not attempt to instantiate the client before
-// NEXT_PUBLIC_* env vars are available in the browser bundle.
-let _client: ReturnType<typeof createBrowserClient> | null = null;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+let browserClient: ReturnType<typeof createBrowserClient> | null = null;
 
 export function getSupabaseClient() {
-  if (!_client) {
-    _client = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+  if (!supabaseUrl) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  if (!supabaseAnonKey) throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
+  if (!browserClient) {
+    browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey);
   }
-  return _client;
+
+  return browserClient;
 }
