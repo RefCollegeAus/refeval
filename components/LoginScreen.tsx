@@ -109,8 +109,8 @@ export function LoginScreen({
           <img src="/rca-logo.png" alt="Referee College of Australia logo" className="login-logo" />
         </div>
 
-        <p className="eyebrow">Login</p>
-        <h1>Referee Development Platform</h1>
+        <p className="eyebrow">RefCoach</p>
+        <h1>Sign in to your account</h1>
 
         <div className="form-stack" style={{ marginTop: 18 }}>
           <label>

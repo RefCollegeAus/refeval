@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Referee Coder v5",
-  description: "Referee evaluation platform prototype.",
+  title: "RefCoach",
+  description: "Referee evaluation and coaching platform.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -20,7 +20,7 @@ export function Header({
         <img src="/rca-logo.png" alt="Referee College of Australia logo" className="brand-logo" />
         <div>
           <p className="eyebrow">Referee College of Australia</p>
-          <h1>Referee Coder v5</h1>
+          <h1>RefCoach</h1>
         </div>
       </div>
 
