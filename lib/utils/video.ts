@@ -13,6 +13,20 @@ export function getYouTubeId(link: string): string {
   return "";
 }
 
+const DIRECT_VIDEO_EXTS = /\.(mp4|webm|ogg|mov|m4v)$/i;
+
+export function isDirectVideoUrl(link: string): boolean {
+  if (!link.trim()) return false;
+  try {
+    const pathname = new URL(link.trim()).pathname;
+    return DIRECT_VIDEO_EXTS.test(pathname);
+  } catch {
+    // Fallback for relative or malformed URLs: check before any query/hash
+    const path = link.trim().split(/[?#]/)[0];
+    return DIRECT_VIDEO_EXTS.test(path);
+  }
+}
+
 export function embedUrl(link: string, seconds: number, autoplay = false): string {
   if (!link.trim()) return "";
   const videoId = getYouTubeId(link);

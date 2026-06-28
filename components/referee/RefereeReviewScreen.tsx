@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { ReviewComments } from "@/components/ReviewComments";
 import { makeAnalytics } from "@/lib/utils/analytics";
-import { embedUrl } from "@/lib/utils/video";
+import { embedUrl, isDirectVideoUrl } from "@/lib/utils/video";
 import { MessageSquare } from "lucide-react";
 import type { ReviewRecord, CodedTag, RefSlot, OfficialSummary } from "@/lib/types/reviews";
 import type { RefEvalSession } from "@/lib/types/auth";
@@ -68,6 +68,7 @@ export function RefereeReviewScreen({
   // Analytics filter: clicking a breakdown row filters the visible clip list
   type AnalyticsFilter = { field: string; value: string; label: string };
   const [analyticsFilter, setAnalyticsFilter] = useState<AnalyticsFilter | null>(null);
+  const [videoError, setVideoError] = useState(false);
 
   // Reset comments when clip changes or filter changes
   useEffect(() => { setShowComments(false); }, [selectedIdx]);
@@ -76,14 +77,47 @@ export function RefereeReviewScreen({
   // Analytics always computed from full tag list so all breakdown options remain visible
   const analytics = makeAnalytics(visibleTags);
 
+  // Group "Foul — Push" → "Foul" for referee-facing category display
+  const groupedCategoryCounts: [string, number][] = (() => {
+    const counts: Record<string, number> = {};
+    for (const tag of visibleTags) {
+      const cat = tag.category || "";
+      const sep = cat.indexOf(" — ");
+      const group = sep !== -1 ? cat.slice(0, sep) : (cat || "Uncoded");
+      counts[group] = (counts[group] || 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  })();
+
+  // Derive the active category group for sub-filter (works for both category-group and category-specific filters)
+  const activeGroupForSub: string | null =
+    analyticsFilter?.field === "category-group" ? analyticsFilter.value :
+    analyticsFilter?.field === "category-specific" ? analyticsFilter.value.split(" — ")[0] : null;
+
+  // Specific tags present in visibleTags for the active group — drives the drill-down row
+  const categorySubCounts: [string, string, number][] = (() => {
+    if (!activeGroupForSub) return [];
+    const counts: Record<string, number> = {};
+    for (const tag of visibleTags) {
+      const cat = tag.category || "";
+      if (cat.startsWith(activeGroupForSub + " — ")) {
+        const specific = cat.slice(activeGroupForSub.length + 3);
+        if (specific) counts[specific] = (counts[specific] || 0) + 1;
+      }
+    }
+    // [label, fullCategoryValue, count]
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([s, c]) => [s, `${activeGroupForSub} — ${s}`, c]);
+  })();
+
   // Clip list filtered by active analytics selection
   const filteredTags = analyticsFilter
     ? visibleTags.filter(tag => {
         const { field, value } = analyticsFilter;
-        // "outcome-group" matches outcomes that start with the value (Correct/Incorrect)
         if (field === "outcome-group") return (tag.outcome || "").startsWith(value);
         if (field === "outcome") return tag.outcome === value;
         if (field === "category") return tag.category === value;
+        if (field === "category-group") return (tag.category || "").startsWith(value + " — ");
+        if (field === "category-specific") return tag.category === value;
         if (field === "position") return tag.position === value;
         if (field === "coverage") return tag.coverage === value;
         return true;
@@ -97,7 +131,7 @@ export function RefereeReviewScreen({
     ? embedUrl(review.videoLink, seekSeconds, seekAutoplay)
     : "";
   const isIframe = currentEmbed.includes("youtube.com/embed");
-  const isDirectVideo = /\.(mp4|webm|ogg)(\?|#|$)/i.test(currentEmbed);
+  const isDirectVideo = review?.videoLink ? isDirectVideoUrl(review.videoLink) : false;
 
   function selectClip(idx: number) {
     const tag = filteredTags[idx];
@@ -105,6 +139,7 @@ export function RefereeReviewScreen({
     setSelectedIdx(idx);
     setSeekSeconds(tag.adjustedSeconds);
     setSeekAutoplay(true);
+    setVideoError(false);
   }
 
   function toggleFilter(field: string, value: string, label: string) {
@@ -197,12 +232,20 @@ export function RefereeReviewScreen({
                   allowFullScreen
                 />
               ) : isDirectVideo ? (
-                <video
-                  key={seekSeconds}
-                  controls
-                  src={currentEmbed + `#t=${Math.floor(seekSeconds)}`}
-                  className="video-frame"
-                />
+                videoError ? (
+                  <div style={{ padding: 16, color: "var(--muted)", fontSize: 13, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <span>Video could not be loaded.</span>
+                    <a href={review!.videoLink} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>Open source video ↗</a>
+                  </div>
+                ) : (
+                  <video
+                    key={seekSeconds}
+                    controls
+                    src={review!.videoLink + `#t=${Math.floor(seekSeconds)}`}
+                    className="video-frame"
+                    onError={() => setVideoError(true)}
+                  />
+                )
               ) : (
                 <p className="hint" style={{ padding: 4 }}>
                   This video link cannot be embedded. Ask your educator to attach a YouTube or direct video link.
@@ -331,7 +374,54 @@ export function RefereeReviewScreen({
               </div>
               <div className="rv-stats-breakdowns">
                 <div className="analytics-card"><h3>Outcome <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>{bars(analytics.outcomeCounts, "outcome")}</div>
-                <div className="analytics-card"><h3>Category <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>{bars(analytics.categoryCounts, "category")}</div>
+                <div className="analytics-card">
+                  <h3>Category <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>
+                  {(() => {
+                    const maxG = Math.max(...groupedCategoryCounts.map(([, c]) => c), 1);
+                    return groupedCategoryCounts.map(([group, count]) => {
+                      const isGroupActive =
+                        (analyticsFilter?.field === "category-group" && analyticsFilter.value === group) ||
+                        (analyticsFilter?.field === "category-specific" && analyticsFilter.value.startsWith(group + " — "));
+                      return (
+                        <div key={group} className={"metric-row clickable" + (isGroupActive ? " analytics-active" : "")}
+                          role="button" tabIndex={0}
+                          onClick={() => toggleFilter("category-group", group, `${group} clips`)}
+                          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("category-group", group, `${group} clips`); } }}
+                          title={isGroupActive && analyticsFilter?.field === "category-group" ? "Click to clear filter" : `Filter clips: ${group}`}
+                        >
+                          <span>{group}</span>
+                          <div className="mini-bar"><div className="mini-bar-fill" style={{ width: `${Math.round((count / maxG) * 100)}%` }} /></div>
+                          <strong>{count}</strong>
+                        </div>
+                      );
+                    });
+                  })()}
+                  {categorySubCounts.length > 0 && (
+                    <div style={{ marginTop: 10 }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                        {activeGroupForSub} — specific tags
+                      </p>
+                      {(() => {
+                        const maxS = Math.max(...categorySubCounts.map(([,, c]) => c), 1);
+                        return categorySubCounts.map(([specific, fullVal, count]) => {
+                          const isSubActive = analyticsFilter?.field === "category-specific" && analyticsFilter.value === fullVal;
+                          return (
+                            <div key={fullVal} className={"metric-row clickable" + (isSubActive ? " analytics-active" : "")}
+                              role="button" tabIndex={0}
+                              onClick={() => toggleFilter("category-specific", fullVal, `${activeGroupForSub} → ${specific}`)}
+                              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("category-specific", fullVal, `${activeGroupForSub} → ${specific}`); } }}
+                              title={isSubActive ? "Click to clear filter" : `Filter clips: ${fullVal}`}
+                            >
+                              <span style={{ paddingLeft: 8, fontSize: 13 }}>↳ {specific}</span>
+                              <div className="mini-bar"><div className="mini-bar-fill" style={{ width: `${Math.round((count / maxS) * 100)}%` }} /></div>
+                              <strong>{count}</strong>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+                </div>
                 <div className="analytics-card"><h3>Position <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>{bars(analytics.positionCounts, "position")}</div>
                 <div className="analytics-card"><h3>Coverage <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>{bars(analytics.coverageCounts, "coverage")}</div>
               </div>
