@@ -137,9 +137,10 @@ label{display:grid;gap:7px;font-size:13px;font-weight:800;color:var(--muted)} a{
 .cl-filter-search{position:relative}
 .cl-filter-search input{font-size:13px;padding:8px 11px 8px 30px;border-radius:8px;width:100%;box-sizing:border-box}
 .cl-filter-search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted)}
-.cl-filter-grid{display:flex;flex-wrap:wrap;gap:10px}
-.cl-field{display:flex;flex-direction:column;gap:4px;flex:1 1 130px;min-width:110px;max-width:220px}
-.cl-field--date{flex:1 1 120px;min-width:110px;max-width:160px}
+.cl-filter-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:700px){.cl-filter-grid{grid-template-columns:repeat(2,1fr)}}
+.cl-field{display:flex;flex-direction:column;gap:4px}
+.cl-field--date{}
 .cl-field-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .cl-field select{width:100%;font-size:12px;padding:6px 10px;border-radius:8px;background:var(--panel3)}
 .cl-field input[type="date"]{width:100%;font-size:12px;padding:6px 8px;border-radius:8px;background:var(--panel3)}

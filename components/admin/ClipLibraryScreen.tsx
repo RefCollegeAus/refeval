@@ -266,8 +266,9 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
               placeholder="Search notes, game, referee…"
             />
           </div>
-          {/* Field grid */}
+          {/* Field grid — 4 columns × 2 rows */}
           <div className="cl-filter-grid">
+            {/* Row 1: classification */}
             <label className="cl-field">
               <span className="cl-field-label">Outcome</span>
               <select value={fOutcome} onChange={e => setFOutcome(e.target.value)}>
@@ -290,6 +291,14 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
               </select>
             </label>
             <label className="cl-field">
+              <span className="cl-field-label">Game</span>
+              <select value={fGame} onChange={e => setFGame(e.target.value)}>
+                <option value="">All games</option>
+                {games.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </label>
+            {/* Row 2: people + date range */}
+            <label className="cl-field">
               <span className="cl-field-label">Referee</span>
               <select value={fReferee} onChange={e => setFReferee(e.target.value)}>
                 <option value="">All referees</option>
@@ -303,13 +312,6 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
                 {educators.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
             </label>
-            <label className="cl-field">
-              <span className="cl-field-label">Game</span>
-              <select value={fGame} onChange={e => setFGame(e.target.value)}>
-                <option value="">All games</option>
-                {games.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
-            </label>
             <label className="cl-field cl-field--date">
               <span className="cl-field-label">From</span>
               <input type="date" value={fDateFrom} onChange={e => setFDateFrom(e.target.value)} />
@@ -318,14 +320,15 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
               <span className="cl-field-label">To</span>
               <input type="date" value={fDateTo} onChange={e => setFDateTo(e.target.value)} />
             </label>
-            {activeFilterCount > 0 && (
-              <div className="cl-field" style={{ justifyContent: "flex-end" }}>
-                <button style={{ fontSize: 12, padding: "6px 10px", display: "flex", alignItems: "center", gap: 4 }} onClick={clearFilters}>
-                  <X size={12} /> Clear ({activeFilterCount})
-                </button>
-              </div>
-            )}
           </div>
+          {/* Clear — below grid, right-aligned */}
+          {activeFilterCount > 0 && (
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button style={{ fontSize: 12, padding: "5px 10px", display: "flex", alignItems: "center", gap: 4 }} onClick={clearFilters}>
+                <X size={12} /> Clear ({activeFilterCount})
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Selection bar */}
