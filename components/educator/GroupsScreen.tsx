@@ -10,6 +10,7 @@ import type { Group, CreateGroupInput, UpdateGroupInput } from "@/lib/types/grou
 import { GROUP_COLOURS } from "@/lib/types/groups";
 import type { MemberRecord } from "@/lib/types/members";
 import { fmtDate } from "@/lib/utils/time";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -224,10 +225,11 @@ function GroupDetail({
   onSetMembers: (groupId: string, userIds: string[]) => Promise<void>;
   onClose: () => void;
 }) {
-  const [editOpen, setEditOpen] = useState(false);
-  const [memberSearch, setMemberSearch] = useState("");
-  const [delConfirm, setDelConfirm] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [editOpen, setEditOpen]               = useState(false);
+  const [memberSearch, setMemberSearch]       = useState("");
+  const [confirmDelete, setConfirmDelete]     = useState(false);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [busy, setBusy]                       = useState(false);
 
   const memberIds = useMemo(() => new Set(group.members.map(m => m.userId)), [group.members]);
 
@@ -248,6 +250,7 @@ function GroupDetail({
 
   async function handleRemoveMember(userId: string) {
     setBusy(true);
+    setPendingRemoveId(null);
     try {
       const next = Array.from(memberIds).filter(id => id !== userId);
       await onSetMembers(group.id, next);
@@ -288,19 +291,10 @@ function GroupDetail({
             <button style={{ fontSize: 12, padding: "4px 12px" }} onClick={() => setEditOpen(true)}>
               <Pencil size={12} /> Edit
             </button>
-            {canDelete && !delConfirm && (
-              <button className="danger" style={{ fontSize: 12, padding: "4px 12px" }} onClick={() => setDelConfirm(true)}>
+            {canDelete && (
+              <button className="danger" style={{ fontSize: 12, padding: "4px 12px" }} onClick={() => setConfirmDelete(true)}>
                 <Trash2 size={12} /> Delete
               </button>
-            )}
-            {delConfirm && (
-              <>
-                <span className="hint" style={{ fontSize: 12, alignSelf: "center" }}>Confirm delete?</span>
-                <button className="danger" style={{ fontSize: 12, padding: "4px 12px" }} onClick={handleDelete} disabled={busy}>
-                  {busy ? "Deleting…" : "Yes, Delete"}
-                </button>
-                <button style={{ fontSize: 12, padding: "4px 12px" }} onClick={() => setDelConfirm(false)}>Cancel</button>
-              </>
             )}
           </div>
         )}
@@ -345,7 +339,7 @@ function GroupDetail({
                   <button
                     title="Remove from group"
                     style={{ padding: "2px 6px", flexShrink: 0 }}
-                    onClick={() => handleRemoveMember(m!.id)}
+                    onClick={() => setPendingRemoveId(m!.id)}
                     disabled={busy}
                   >
                     <X size={12} />
@@ -369,6 +363,32 @@ function GroupDetail({
           onClose={() => setEditOpen(false)}
         />
       )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete Group"
+          message={`Delete "${group.name}"? This will remove all members from the group. This cannot be undone.`}
+          confirmLabel="Yes, Delete"
+          busy={busy}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+
+      {pendingRemoveId && (() => {
+        const m = members.find(x => x.id === pendingRemoveId);
+        return (
+          <ConfirmModal
+            title="Remove Member"
+            message={`Remove ${m?.name || "this member"} from "${group.name}"?`}
+            confirmLabel="Yes, Remove"
+            busyLabel="Removing…"
+            busy={busy}
+            onConfirm={() => handleRemoveMember(pendingRemoveId)}
+            onCancel={() => setPendingRemoveId(null)}
+          />
+        );
+      })()}
     </>
   );
 }
@@ -406,13 +426,13 @@ export function GroupsScreen({
   onDeleteGroup: (id: string) => Promise<void>;
   onSetGroupMembers: (groupId: string, userIds: string[]) => Promise<void>;
 }) {
-  const [search, setSearch]             = useState("");
-  const [sort, setSort]                 = useState<SortKey>("name");
-  const [sortAsc, setSortAsc]           = useState(true);
-  const [createOpen, setCreateOpen]     = useState(false);
-  const [selectedId, setSelectedId]     = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [deletingId, setDeletingId]     = useState<string | null>(null);
+  const [search, setSearch]               = useState("");
+  const [sort, setSort]                   = useState<SortKey>("name");
+  const [sortAsc, setSortAsc]             = useState(true);
+  const [createOpen, setCreateOpen]       = useState(false);
+  const [selectedId, setSelectedId]       = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId]       = useState<string | null>(null);
 
   function toggleSort(key: SortKey) {
     if (sort === key) setSortAsc(a => !a);
@@ -550,48 +570,20 @@ export function GroupsScreen({
                   <span>{fmtDate(g.createdAt)}</span>
                 </div>
                 <div className="groups-card-actions" onClick={e => e.stopPropagation()}>
-                  {confirmDeleteId === g.id ? (
-                    <>
-                      <span className="hint" style={{ fontSize: 11, alignSelf: "center" }}>Delete group?</span>
-                      <button
-                        className="danger"
-                        style={{ fontSize: 12, padding: "3px 10px" }}
-                        disabled={deletingId === g.id}
-                        onClick={async () => {
-                          setDeletingId(g.id);
-                          try {
-                            await onDeleteGroup(g.id);
-                            if (selectedId === g.id) setSelectedId(null);
-                          } finally {
-                            setDeletingId(null);
-                            setConfirmDeleteId(null);
-                          }
-                        }}
-                      >
-                        {deletingId === g.id ? "…" : "Yes, Delete"}
-                      </button>
-                      <button style={{ fontSize: 12, padding: "3px 10px" }} onClick={() => setConfirmDeleteId(null)}>
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        style={{ fontSize: 12, padding: "3px 10px" }}
-                        onClick={() => setSelectedId(prev => prev === g.id ? null : g.id)}
-                      >
-                        <ChevronRight size={12} /> View
-                      </button>
-                      {canDelete && (
-                        <button
-                          className="danger"
-                          style={{ fontSize: 12, padding: "3px 10px" }}
-                          onClick={() => setConfirmDeleteId(g.id)}
-                        >
-                          <Trash2 size={12} /> Delete
-                        </button>
-                      )}
-                    </>
+                  <button
+                    style={{ fontSize: 12, padding: "3px 10px" }}
+                    onClick={() => setSelectedId(prev => prev === g.id ? null : g.id)}
+                  >
+                    <ChevronRight size={12} /> View
+                  </button>
+                  {canDelete && (
+                    <button
+                      className="danger"
+                      style={{ fontSize: 12, padding: "3px 10px" }}
+                      onClick={() => setPendingDeleteId(g.id)}
+                    >
+                      <Trash2 size={12} /> Delete
+                    </button>
                   )}
                 </div>
               </div>
@@ -658,6 +650,29 @@ export function GroupsScreen({
           onClose={() => setCreateOpen(false)}
         />
       )}
+
+      {pendingDeleteId && (() => {
+        const g = groups.find(x => x.id === pendingDeleteId);
+        return (
+          <ConfirmModal
+            title="Delete Group"
+            message={`Delete "${g?.name ?? "this group"}"? This will remove all members from the group. This cannot be undone.`}
+            confirmLabel="Yes, Delete"
+            busy={deletingId === pendingDeleteId}
+            onConfirm={async () => {
+              setDeletingId(pendingDeleteId);
+              try {
+                await onDeleteGroup(pendingDeleteId);
+                if (selectedId === pendingDeleteId) setSelectedId(null);
+              } finally {
+                setDeletingId(null);
+                setPendingDeleteId(null);
+              }
+            }}
+            onCancel={() => setPendingDeleteId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

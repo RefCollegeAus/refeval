@@ -238,6 +238,8 @@ export default function Home() {
 
   const {
     groups,
+    loading: groupsLoading,
+    error: groupsError,
     createGroup,
     updateGroup,
     deleteGroup,
@@ -1105,8 +1107,8 @@ export default function Home() {
           session={session}
           groups={groups}
           members={members}
-          loading={false}
-          error=""
+          loading={groupsLoading}
+          error={groupsError}
           canCreate={canCreateGroups}
           canEdit={canEditGroups}
           canDelete={canDeleteGroups}
