@@ -161,9 +161,10 @@ export function useAssignments(orgId: string, currentUserId: string) {
     assignmentUserId: string,
     status: AssignmentStatus,
   ): Promise<void> {
-    const patch: Record<string, string> = { status };
-    if (status === "Started")   patch.started_at   = new Date().toISOString();
-    if (status === "Completed") patch.completed_at  = new Date().toISOString();
+    const patch: Record<string, string | null> = { status };
+    if (status === "Started")   { patch.started_at = new Date().toISOString(); }
+    if (status === "Completed") { patch.completed_at = new Date().toISOString(); }
+    if (status === "Assigned")  { patch.started_at = null; patch.completed_at = null; }
     const { error: err } = await getSupabaseClient()
       .from("learning_assignment_users")
       .update(patch)

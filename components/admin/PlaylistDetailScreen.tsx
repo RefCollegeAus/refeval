@@ -1088,13 +1088,13 @@ export function PlaylistDetailScreen({
           members={members}
           groups={groups}
           assignments={assignments}
-          onSave={onCreateAssignment}
-          onAddToExisting={onAddToAssignment}
-          onClose={() => {
-            setAssignModalOpen(false);
+          onSave={async (input) => {
+            await onCreateAssignment(input);
             setAssignSuccess(true);
             setTimeout(() => setAssignSuccess(false), 4000);
           }}
+          onAddToExisting={onAddToAssignment}
+          onClose={() => setAssignModalOpen(false)}
         />
       )}
 

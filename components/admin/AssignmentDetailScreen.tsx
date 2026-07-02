@@ -130,7 +130,7 @@ function AddUsersPanel({
   const assignedIds = new Set(assignment.assignmentUsers.map(u => u.userId));
 
   const q = query.trim().toLowerCase();
-  const unassigned = members.filter(m => !assignedIds.has(m.id));
+  const unassigned = members.filter(m => !assignedIds.has(m.id) && m.role === "referee");
   const filtered = q
     ? unassigned.filter(m =>
         (m.name || "").toLowerCase().includes(q) ||
