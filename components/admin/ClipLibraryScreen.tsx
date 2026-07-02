@@ -257,62 +257,73 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
 
         {/* Filters */}
         <div className="cl-filter-bar">
-          {/* Row 1: search */}
-          <div className="cl-filter-row">
-            <div className="cl-filter-search" style={{ position: "relative" }}>
-              <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-              <input
-                value={fText}
-                onChange={e => setFText(e.target.value)}
-                placeholder="Search notes, game, referee…"
-              />
-            </div>
+          {/* Search — full width */}
+          <div className="cl-filter-search">
+            <Search size={13} />
+            <input
+              value={fText}
+              onChange={e => setFText(e.target.value)}
+              placeholder="Search notes, game, referee…"
+            />
           </div>
-          {/* Row 2: outcome / category / subtype */}
-          <div className="cl-filter-row">
-            <span className="cl-filter-group-label">Outcome</span>
-            <select value={fOutcome} onChange={e => setFOutcome(e.target.value)}>
-              <option value="">All</option>
-              {outcomes.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-            <span className="cl-filter-group-label" style={{ marginLeft: 6 }}>Category</span>
-            <select value={fCatGroup} onChange={e => { setFCatGroup(e.target.value); setFSubtype(""); }}>
-              <option value="">All</option>
-              {catGroups.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <span className="cl-filter-group-label" style={{ marginLeft: 6 }}>Subtype</span>
-            <select value={fSubtype} onChange={e => setFSubtype(e.target.value)}>
-              <option value="">All</option>
-              {subtypes.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          {/* Row 3: people + date range + clear */}
-          <div className="cl-filter-row">
-            <span className="cl-filter-group-label">Referee</span>
-            <select value={fReferee} onChange={e => setFReferee(e.target.value)}>
-              <option value="">All</option>
-              {referees.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-            <span className="cl-filter-group-label" style={{ marginLeft: 6 }}>Educator</span>
-            <select value={fEducator} onChange={e => setFEducator(e.target.value)}>
-              <option value="">All</option>
-              {educators.map(e => <option key={e} value={e}>{e}</option>)}
-            </select>
-            <span className="cl-filter-group-label" style={{ marginLeft: 6 }}>Game</span>
-            <select value={fGame} onChange={e => setFGame(e.target.value)}>
-              <option value="">All</option>
-              {games.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <label className="cl-date-label" style={{ marginLeft: 6 }}>
-              From <input type="date" value={fDateFrom} onChange={e => setFDateFrom(e.target.value)} />
+          {/* Field grid */}
+          <div className="cl-filter-grid">
+            <label className="cl-field">
+              <span className="cl-field-label">Outcome</span>
+              <select value={fOutcome} onChange={e => setFOutcome(e.target.value)}>
+                <option value="">All outcomes</option>
+                {outcomes.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
             </label>
-            <label className="cl-date-label">
-              To <input type="date" value={fDateTo} onChange={e => setFDateTo(e.target.value)} />
+            <label className="cl-field">
+              <span className="cl-field-label">Category</span>
+              <select value={fCatGroup} onChange={e => { setFCatGroup(e.target.value); setFSubtype(""); }}>
+                <option value="">All categories</option>
+                {catGroups.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <label className="cl-field">
+              <span className="cl-field-label">Subtype</span>
+              <select value={fSubtype} onChange={e => setFSubtype(e.target.value)}>
+                <option value="">All subtypes</option>
+                {subtypes.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </label>
+            <label className="cl-field">
+              <span className="cl-field-label">Referee</span>
+              <select value={fReferee} onChange={e => setFReferee(e.target.value)}>
+                <option value="">All referees</option>
+                {referees.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </label>
+            <label className="cl-field">
+              <span className="cl-field-label">Educator</span>
+              <select value={fEducator} onChange={e => setFEducator(e.target.value)}>
+                <option value="">All educators</option>
+                {educators.map(e => <option key={e} value={e}>{e}</option>)}
+              </select>
+            </label>
+            <label className="cl-field">
+              <span className="cl-field-label">Game</span>
+              <select value={fGame} onChange={e => setFGame(e.target.value)}>
+                <option value="">All games</option>
+                {games.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </label>
+            <label className="cl-field cl-field--date">
+              <span className="cl-field-label">From</span>
+              <input type="date" value={fDateFrom} onChange={e => setFDateFrom(e.target.value)} />
+            </label>
+            <label className="cl-field cl-field--date">
+              <span className="cl-field-label">To</span>
+              <input type="date" value={fDateTo} onChange={e => setFDateTo(e.target.value)} />
             </label>
             {activeFilterCount > 0 && (
-              <button style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 4, marginLeft: "auto" }} onClick={clearFilters}>
-                <X size={12} /> Clear ({activeFilterCount})
-              </button>
+              <div className="cl-field" style={{ justifyContent: "flex-end" }}>
+                <button style={{ fontSize: 12, padding: "6px 10px", display: "flex", alignItems: "center", gap: 4 }} onClick={clearFilters}>
+                  <X size={12} /> Clear ({activeFilterCount})
+                </button>
+              </div>
             )}
           </div>
         </div>
