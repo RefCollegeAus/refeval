@@ -260,8 +260,10 @@ export function AssignmentsScreen({
                       <td style={{ padding: "10px 10px", color: "var(--muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {a._playlistTitle}
                       </td>
-                      <td style={{ padding: "10px 10px", textAlign: "center", fontWeight: 600 }}>
-                        {a._userCount || <span className="hint">—</span>}
+                      <td style={{ padding: "10px 10px", textAlign: "center" }}>
+                        {a._userCount > 0
+                          ? <span className="chip" style={{ fontSize: 11 }}>{a._userCount}</span>
+                          : <span className="hint">—</span>}
                       </td>
                       <td style={{ padding: "10px 10px", minWidth: 130 }}>
                         {a._userCount > 0 ? (
