@@ -208,7 +208,7 @@ export function AssignmentsScreen({
 
         {/* Empty states */}
         {!loading && assignments.length === 0 && (
-          <div style={{ padding: "40px 24px", textAlign: "center", color: "var(--muted)" }}>
+          <div className="empty-state">
             <BookOpen size={32} style={{ opacity: 0.3, marginBottom: 10 }} />
             <p style={{ margin: 0, fontWeight: 700 }}>No assignments yet</p>
             <p className="hint" style={{ margin: "6px 0 0" }}>

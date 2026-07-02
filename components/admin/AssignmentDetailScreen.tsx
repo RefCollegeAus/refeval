@@ -165,7 +165,7 @@ function AddUsersPanel({
 
   return (
     <div style={{ marginTop: 20 }}>
-      <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 10px", display: "flex", alignItems: "center", gap: 6 }}>
+      <h3 className="ed-section-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <UserPlus size={14} /> Add Team Members
       </h3>
       <div style={{ position: "relative", marginBottom: 8 }}>
@@ -325,7 +325,7 @@ export function AssignmentDetailScreen({
 
       {/* Users panel */}
       <div className="panel">
-        <h2 style={{ fontSize: 16, margin: "0 0 14px" }}>Assigned Members</h2>
+        <h2 className="ed-section-title">Assigned Members</h2>
 
         {assignment.assignmentUsers.length === 0 ? (
           <p className="hint">No members assigned yet. Use the section below to add members.</p>

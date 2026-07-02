@@ -267,9 +267,7 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
       {/* Pending */}
       {pending.length > 0 && (
         <div style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", margin: "0 0 12px" }}>
-            To Do · {pending.length}
-          </h2>
+          <h2 className="ed-section-title">To Do · {pending.length}</h2>
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
             {pending.map(a => renderCard(a))}
           </div>
@@ -279,9 +277,7 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
       {/* Completed */}
       {completed.length > 0 && (
         <div>
-          <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", margin: "0 0 12px" }}>
-            Completed · {completed.length}
-          </h2>
+          <h2 className="ed-section-title">Completed · {completed.length}</h2>
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
             {completed.map(a => renderCard(a))}
           </div>

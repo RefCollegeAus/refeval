@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ListVideo, ChevronUp, ChevronDown, Trash2, Edit2, Users, Search, AlertCircle, BookOpen, MessageSquare, AlertTriangle } from "lucide-react";
+import { ListVideo, ChevronLeft, ChevronUp, ChevronDown, Trash2, Edit2, Users, Search, AlertCircle, BookOpen, MessageSquare, AlertTriangle } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { Playlist, PlaylistItem } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
@@ -815,7 +815,7 @@ export function PlaylistDetailScreen({
                 <Trash2 size={13} /> Delete
               </button>
             )}
-            <button onClick={onBack}>← Back</button>
+            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}><ChevronLeft size={15} /> Back</button>
           </div>
         </div>
       </div>
