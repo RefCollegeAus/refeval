@@ -176,12 +176,13 @@ export function LearningProgress({ session, assignments, members, groups, setScr
             <input
               style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
               placeholder="Search referees…"
+              aria-label="Search referees"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
           {search && (
-            <button onClick={() => setSearch("")} style={{ border: "none", background: "none", padding: "4px 6px", cursor: "pointer", flexShrink: 0 }}>
+            <button onClick={() => setSearch("")} aria-label="Clear search" style={{ border: "none", background: "none", padding: "4px 6px", cursor: "pointer", flexShrink: 0 }}>
               <X size={13} />
             </button>
           )}
@@ -189,6 +190,7 @@ export function LearningProgress({ session, assignments, members, groups, setScr
             <select
               value={groupFilter}
               onChange={e => setGroupFilter(e.target.value)}
+              aria-label="Filter by group"
               style={{ fontSize: 12, padding: "6px 10px", width: "auto", flexShrink: 0, borderRadius: 8 }}
             >
               <option value="all">All Groups</option>
@@ -255,6 +257,10 @@ export function LearningProgress({ session, assignments, members, groups, setScr
                         key={s.id}
                         className={"ed-review-row" + (selectedMemberId === s.id ? " lh-row--selected" : "")}
                         onClick={() => setSelectedMemberId(prev => prev === s.id ? null : s.id)}
+                        tabIndex={0}
+                        aria-label={`${s.name} — view learning profile`}
+                        aria-selected={selectedMemberId === s.id}
+                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedMemberId(prev => prev === s.id ? null : s.id); } }}
                       >
                         <td data-label="Referee">
                           <div style={{ fontWeight: 700 }}>{s.name}</div>
@@ -276,7 +282,7 @@ export function LearningProgress({ session, assignments, members, groups, setScr
                         <td data-label="Progress" style={{ minWidth: 120 }}>
                           {s.assigned > 0 ? (
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <div className="lh-progress-bar" style={{ flex: 1 }}>
+                              <div className="lh-progress-bar" style={{ flex: 1 }} aria-hidden="true">
                                 <div className="lh-progress-fill" style={{ width: `${s.pct}%`, background: pctColor }} />
                               </div>
                               <span style={{ fontSize: 12, fontWeight: 700, minWidth: 34, color: pctColor }}>{s.pct}%</span>

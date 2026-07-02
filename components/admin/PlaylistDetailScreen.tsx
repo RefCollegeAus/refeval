@@ -82,7 +82,7 @@ function EditMetaModal({
             <p className="eyebrow">Edit Playlist</p>
             <h1 style={{ fontSize: 20, margin: 0 }}>Update details</h1>
           </div>
-          <button onClick={onClose}>✕</button>
+          <button onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
           <label>
@@ -397,7 +397,7 @@ function AssignModal({
             <p className="eyebrow">Playlist</p>
             <h1 style={{ fontSize: 20, margin: 0 }}>Assign Playlist</h1>
           </div>
-          <button onClick={onClose}>✕</button>
+          <button onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         {/* Mode toggle — only shown when existing assignments exist */}
@@ -569,7 +569,7 @@ function AssignmentsHistoryModal({
               {assignments.length} assignment{assignments.length !== 1 ? "s" : ""} created from this playlist
             </p>
           </div>
-          <button onClick={onClose}>✕</button>
+          <button onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", marginTop: 12 }}>
@@ -945,7 +945,12 @@ export function PlaylistDetailScreen({
               return (
                 <div
                   key={row.itemId}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isPreviewing}
+                  aria-label={`Clip ${i + 1}: ${row.categoryGroup}${row.subtype ? ` – ${row.subtype}` : ""}`}
                   onClick={() => setPreviewIndex(i)}
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPreviewIndex(i); } }}
                   style={{ display: "flex", gap: 8, padding: "10px 8px 10px 10px", borderBottom: "1px solid var(--border)", cursor: "pointer", background: isPreviewing ? "var(--panel2)" : undefined, borderLeft: isPreviewing ? "3px solid var(--accent)" : "3px solid transparent" }}
                 >
                   {/* Reorder controls */}

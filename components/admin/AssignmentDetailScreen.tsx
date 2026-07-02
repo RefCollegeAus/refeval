@@ -69,7 +69,7 @@ function EditModal({
             <p className="eyebrow">Edit Assignment</p>
             <h1 style={{ fontSize: 20, margin: 0 }}>Update details</h1>
           </div>
-          <button onClick={onClose}>✕</button>
+          <button onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
           <label>
@@ -368,6 +368,7 @@ export function AssignmentDetailScreen({
                               value={au.status}
                               disabled={isUpdating}
                               onChange={e => handleStatusChange(au.id, e.target.value as AssignmentStatus, m?.name || "this referee")}
+                              aria-label={`Learning status for ${m?.name || "this referee"}`}
                               style={{
                                 fontSize: 12,
                                 fontWeight: 700,

@@ -173,11 +173,12 @@ export function AssignmentsScreen({
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder="Search assignments…"
+                aria-label="Search assignments"
                 style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
               />
             </div>
             {query && (
-              <button onClick={() => setQuery("")} style={{ border: "none", background: "none", padding: "4px 6px", cursor: "pointer" }}>
+              <button onClick={() => setQuery("")} aria-label="Clear search" style={{ border: "none", background: "none", padding: "4px 6px", cursor: "pointer" }}>
                 <X size={13} />
               </button>
             )}
@@ -267,7 +268,7 @@ export function AssignmentsScreen({
                       <td style={{ padding: "10px 10px", minWidth: 130 }}>
                         {a._userCount > 0 ? (
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div className="lh-progress-bar" style={{ flex: 1 }}>
+                            <div className="lh-progress-bar" style={{ flex: 1 }} aria-hidden="true">
                               <div className="lh-progress-fill" style={{ width: `${a._pct}%`, background: pctColor }} />
                             </div>
                             <span style={{ fontSize: 12, fontWeight: 700, minWidth: 34, color: pctColor }}>{a._pct}%</span>
