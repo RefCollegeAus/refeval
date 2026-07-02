@@ -873,7 +873,7 @@ export function PlaylistDetailScreen({
               {/* Mark Complete / Completed state */}
               {isCompleted ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-                  <span style={{ fontSize: 15, color: "#bbf7d0", fontWeight: 700 }}>✓ Completed</span>
+                  <span style={{ fontSize: 15, color: STATUS_COLORS.Completed, fontWeight: 700 }}>✓ Completed</span>
                   {learningContext.assignmentUser.completedAt && (
                     <span style={{ fontSize: 11, color: "var(--muted)" }}>
                       {new Date(learningContext.assignmentUser.completedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
@@ -914,7 +914,7 @@ export function PlaylistDetailScreen({
 
       {/* Assignment success banner */}
       {assignSuccess && (
-        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 8, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.3)", color: "#bbf7d0", fontSize: 13, fontWeight: 600 }}>
+        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 8, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.3)", color: STATUS_COLORS.Completed, fontSize: 13, fontWeight: 600 }}>
           ✓ Assignment created successfully. Assigned referees will see it in My Learning.
         </div>
       )}

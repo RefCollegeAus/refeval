@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { BookOpen, Trash2, Eye, Search, ArrowUpDown, ChevronLeft, X } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { Assignment } from "@/lib/types/assignments";
-import { REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
+import { REQUIRED_BADGE_STYLE, learningPctColor } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 
@@ -240,7 +240,7 @@ export function AssignmentsScreen({
                 {filtered.map(a => {
                   const isOverdue = a._statusFilter === "overdue";
                   const isDone    = a._statusFilter === "completed";
-                  const pctColor  = isDone ? "#22c55e" : a._pct >= 50 ? "#3b82f6" : "var(--accent)";
+                  const pctColor  = learningPctColor(isDone ? 100 : a._pct);
                   return (
                     <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
                       <td style={{ padding: "10px 10px" }}>

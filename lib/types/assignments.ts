@@ -25,6 +25,14 @@ export const STATUS_BORDER: Record<AssignmentStatus, string> = {
   Completed: "rgba(34,197,94,.3)",
 };
 
+// Progress-bar / percentage colour ramp (used in table and card progress bars).
+// Returns a CSS colour string. #22c55e at 100 %, #3b82f6 at ≥ 50 %, accent below.
+export function learningPctColor(pct: number): string {
+  if (pct >= 100) return "#22c55e";
+  if (pct >= 50)  return "#3b82f6";
+  return "var(--accent)";
+}
+
 export const REQUIRED_BADGE_STYLE: CSSProperties = {
   fontSize: 11,
   padding: "2px 7px",

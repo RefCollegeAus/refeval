@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
 import type { Assignment, AssignmentUser } from "@/lib/types/assignments";
-import { STATUS_COLORS, STATUS_BG, STATUS_BORDER } from "@/lib/types/assignments";
+import { STATUS_COLORS, STATUS_BG, STATUS_BORDER, learningPctColor } from "@/lib/types/assignments";
 import type { MemberRecord } from "@/lib/types/members";
 import type { Group } from "@/lib/types/groups";
 import { fmtDate, fmtRel } from "@/lib/utils/time";
@@ -249,7 +249,7 @@ export function LearningProgress({ session, assignments, members, groups, setScr
                 </thead>
                 <tbody>
                   {filtered.map(s => {
-                    const pctColor = s.pct === 100 ? "#22c55e" : s.pct >= 50 ? "#3b82f6" : "var(--accent)";
+                    const pctColor = learningPctColor(s.pct);
                     return (
                       <tr
                         key={s.id}
@@ -288,7 +288,7 @@ export function LearningProgress({ session, assignments, members, groups, setScr
                             <span style={{ color: "#ef4444", fontWeight: 700 }}>{s.overdue}</span>
                           ) : (
                             s.assigned > 0
-                              ? <span style={{ color: "#22c55e", fontSize: 13 }}>✓</span>
+                              ? <CheckCircle2 size={14} style={{ color: "#22c55e" }} />
                               : <span className="hint">—</span>
                           )}
                         </td>
@@ -409,7 +409,9 @@ export function LearningProgress({ session, assignments, members, groups, setScr
                             </span>
                           )}
                           {row.completedAt && (
-                            <span style={{ fontSize: 11, color: "#22c55e" }}>✓ {fmtDate(row.completedAt)}</span>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, color: "#22c55e" }}>
+                              <CheckCircle2 size={11} /> {fmtDate(row.completedAt)}
+                            </span>
                           )}
                         </div>
                       </div>

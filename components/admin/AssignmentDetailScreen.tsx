@@ -304,7 +304,7 @@ export function AssignmentDetailScreen({
           </div>
           <div>
             <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Progress</div>
-            <div style={{ fontWeight: 600, color: completedCount === total && total > 0 ? "#bbf7d0" : "var(--text)" }}>
+            <div style={{ fontWeight: 600, color: completedCount === total && total > 0 ? STATUS_COLORS.Completed : "var(--text)" }}>
               {completedCount}/{total} Completed
             </div>
           </div>
