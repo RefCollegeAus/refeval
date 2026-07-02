@@ -6,6 +6,7 @@ import type { RefEvalSession } from "@/lib/types/auth";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 import type { Assignment } from "@/lib/types/assignments";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface Props {
   session: RefEvalSession;
@@ -36,15 +37,16 @@ export function PlaylistsScreen({
   session, playlists, loading, error, members, assignments = [],
   onViewPlaylist, onDeletePlaylist, onBack, canDelete = true,
 }: Props) {
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [query, setQuery]       = useState("");
-  const [sort, setSort]         = useState<SortKey>("created");
-  const [sortAsc, setSortAsc]   = useState(false);
+  const [deleting, setDeleting]               = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [query, setQuery]                     = useState("");
+  const [sort, setSort]                       = useState<SortKey>("created");
+  const [sortAsc, setSortAsc]                 = useState(false);
 
-  async function handleDelete(pl: Playlist) {
-    if (!confirm(`Delete "${pl.title}"? This cannot be undone.`)) return;
-    setDeleting(pl.id);
-    try { await onDeletePlaylist(pl.id); } finally { setDeleting(null); }
+  async function handleDelete(id: string) {
+    setPendingDeleteId(null);
+    setDeleting(id);
+    try { await onDeletePlaylist(id); } finally { setDeleting(null); }
   }
 
   // Assignment count per playlist
@@ -227,7 +229,7 @@ export function PlaylistsScreen({
                             <button
                               className="danger"
                               style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
-                              onClick={() => handleDelete(pl)}
+                              onClick={() => setPendingDeleteId(pl.id)}
                               disabled={deleting === pl.id}
                             >
                               <Trash2 size={12} /> {deleting === pl.id ? "…" : "Delete"}
@@ -243,6 +245,20 @@ export function PlaylistsScreen({
           </div>
         )}
       </div>
+
+      {pendingDeleteId && (() => {
+        const pl = playlists.find(p => p.id === pendingDeleteId);
+        return (
+          <ConfirmModal
+            title="Delete Playlist"
+            message={`Delete "${pl?.title ?? "this playlist"}"? Any existing assignments referencing it will lose their content. This cannot be undone.`}
+            confirmLabel="Yes, Delete"
+            busy={deleting === pendingDeleteId}
+            onConfirm={() => handleDelete(pendingDeleteId)}
+            onCancel={() => setPendingDeleteId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
