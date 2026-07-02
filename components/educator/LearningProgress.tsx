@@ -216,7 +216,7 @@ export function LearningProgress({ session, assignments, members, groups, setScr
         {refereeMembers.length === 0 ? (
           <div className="empty-state panel">
             <BookOpen size={28} style={{ opacity: 0.3, marginBottom: 8 }} />
-            <p style={{ margin: 0, fontWeight: 700 }}>No referees in this organisation.</p>
+            <p style={{ margin: 0, fontWeight: 700 }}>No referees in this organisation</p>
             <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>Add referee members to start tracking learning progress.</p>
           </div>
         ) : filtered.length === 0 ? (

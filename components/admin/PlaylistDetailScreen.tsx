@@ -925,7 +925,7 @@ export function PlaylistDetailScreen({
           <ListVideo size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
           <p style={{ margin: 0, fontWeight: 700 }}>This playlist is empty</p>
           <p className="hint" style={{ margin: "6px 0 0" }}>
-            Clips may have been removed from their reviews, or the playlist has no items.
+            Clips may have been removed from their source reviews, or none have been added yet.
           </p>
         </div>
       )}

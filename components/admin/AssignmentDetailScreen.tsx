@@ -328,7 +328,7 @@ export function AssignmentDetailScreen({
         <h2 className="ed-section-title">Assigned Members</h2>
 
         {assignment.assignmentUsers.length === 0 ? (
-          <p className="hint">No members assigned yet. Use the section below to add members.</p>
+          <p className="hint">No members assigned yet.</p>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
