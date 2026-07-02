@@ -19,7 +19,7 @@ interface Props {
   setScreen: (screen: Screen) => void;
 }
 
-type SortKey = "name" | "assigned" | "completed" | "pct" | "overdue";
+type SortKey = "name" | "assigned" | "started" | "completed" | "pct" | "overdue" | "lastActive";
 
 function statusColor(status: AssignmentUser["status"]) {
   if (status === "Completed") return "#22c55e";
@@ -27,23 +27,21 @@ function statusColor(status: AssignmentUser["status"]) {
   return "#f59e0b";
 }
 
-
 export function LearningProgress({ session, assignments, members, groups, setScreen }: Props) {
-  const [search, setSearch] = useState("");
-  const [groupFilter, setGroupFilter] = useState<string>("all");
-  const [sort, setSort] = useState<SortKey>("name");
-  const [sortAsc, setSortAsc] = useState(true);
+  const [search, setSearch]               = useState("");
+  const [groupFilter, setGroupFilter]     = useState<string>("all");
+  const [showOverdue, setShowOverdue]     = useState(false);
+  const [sort, setSort]                   = useState<SortKey>("name");
+  const [sortAsc, setSortAsc]             = useState(true);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
   const now = new Date().toISOString().slice(0, 10);
 
-  // Referees with at least one assignment row, plus any referee with zero rows
   const refereeMembers = useMemo(
     () => members.filter(m => m.role === "referee"),
-    [members]
+    [members],
   );
 
-  // Build per-referee stats
   type RefereeStat = {
     id: string;
     name: string;
@@ -78,52 +76,67 @@ export function LearningProgress({ session, assignments, members, groups, setScr
     });
   }, [refereeMembers, assignments, now]);
 
+  const overdueTotal = useMemo(() => stats.reduce((n, s) => n + s.overdue, 0), [stats]);
+
   const filtered = useMemo(() => {
-    // Build the group member ID set inside this memo so it's always in sync with groups + groupFilter.
     const groupMemberIds: Set<string> = (() => {
       if (groupFilter === "all") return new Set<string>();
       const g = groups.find(x => x.id === groupFilter);
-      if (!g) return new Set<string>();
-      return new Set<string>(g.members.map(m => m.userId));
+      return g ? new Set<string>(g.members.map(m => m.userId)) : new Set<string>();
     })();
 
     let out = stats.filter(s => {
       if (search && !s.name.toLowerCase().includes(search.toLowerCase()) && !s.email.toLowerCase().includes(search.toLowerCase())) return false;
       if (groupFilter !== "all" && !groupMemberIds.has(s.id)) return false;
+      if (showOverdue && s.overdue === 0) return false;
       return true;
     });
+
     out = [...out].sort((a, b) => {
       let cmp = 0;
-      if (sort === "name")      cmp = a.name.localeCompare(b.name);
+      if      (sort === "name")       cmp = a.name.localeCompare(b.name);
       else if (sort === "assigned")   cmp = a.assigned - b.assigned;
+      else if (sort === "started")    cmp = a.started - b.started;
       else if (sort === "completed")  cmp = a.completed - b.completed;
       else if (sort === "pct")        cmp = a.pct - b.pct;
       else if (sort === "overdue")    cmp = a.overdue - b.overdue;
+      else if (sort === "lastActive") {
+        const ta = a.lastActivity ?? "";
+        const tb = b.lastActivity ?? "";
+        cmp = ta.localeCompare(tb);
+      }
       return sortAsc ? cmp : -cmp;
     });
     return out;
-  }, [stats, search, sort, sortAsc]);
+  }, [stats, search, groupFilter, groups, showOverdue, sort, sortAsc]);
 
   function toggleSort(key: SortKey) {
     if (sort === key) setSortAsc(a => !a);
-    else { setSort(key); setSortAsc(true); }
+    else { setSort(key); setSortAsc(false); } // default desc for numeric cols feels natural
   }
 
-  function SortTh({ col, label }: { col: SortKey; label: string }) {
+  // Name defaults to asc; others default to desc
+  function handleSortTh(key: SortKey) {
+    if (sort === key) { setSortAsc(a => !a); return; }
+    setSort(key);
+    setSortAsc(key === "name");
+  }
+
+  function SortTh({ col, label, right }: { col: SortKey; label: string; right?: boolean }) {
+    const active = sort === col;
     return (
       <th
-        style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
-        onClick={() => toggleSort(col)}
+        style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: right ? "right" : undefined }}
+        onClick={() => handleSortTh(col)}
       >
         <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
           {label}
-          <ArrowUpDown size={11} style={{ opacity: sort === col ? 1 : 0.35 }} />
+          <ArrowUpDown size={11} style={{ opacity: active ? 1 : 0.3, color: active ? "var(--accent)" : undefined }} />
         </span>
       </th>
     );
   }
 
-  // --- Referee profile panel ---
   const selectedStat = selectedMemberId ? stats.find(s => s.id === selectedMemberId) ?? null : null;
 
   const selectedRows = useMemo(() => {
@@ -135,7 +148,7 @@ export function LearningProgress({ session, assignments, members, groups, setScr
     ).sort((a, b) => b.assignedAt.localeCompare(a.assignedAt));
   }, [selectedMemberId, assignments]);
 
-  const weekAgo  = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const weekAgo  = new Date(Date.now() - 7  * 24 * 60 * 60 * 1000).toISOString();
   const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const completedThisWeek  = selectedRows.filter(r => r.completedAt && r.completedAt >= weekAgo).length;
   const completedThisMonth = selectedRows.filter(r => r.completedAt && r.completedAt >= monthAgo).length;
@@ -160,17 +173,20 @@ export function LearningProgress({ session, assignments, members, groups, setScr
           </button>
         </div>
 
-        {/* Search + group filter */}
-        <div className="panel" style={{ padding: "12px 16px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <Search size={15} style={{ color: "var(--muted)", flexShrink: 0 }} />
-          <input
-            style={{ border: "none", background: "transparent", outline: "none", flex: "1 1 160px", fontSize: 14, padding: 0, color: "var(--text)", minWidth: 120 }}
-            placeholder="Search referees…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+        {/* Filter bar */}
+        <div className="panel" style={{ padding: "10px 14px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {/* Search */}
+          <div style={{ position: "relative", flex: "1 1 160px", minWidth: 140 }}>
+            <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+            <input
+              style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
+              placeholder="Search referees…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
           {search && (
-            <button onClick={() => setSearch("")} style={{ border: "none", background: "none", padding: 4, cursor: "pointer" }}>
+            <button onClick={() => setSearch("")} style={{ border: "none", background: "none", padding: "4px 6px", cursor: "pointer", flexShrink: 0 }}>
               <X size={13} />
             </button>
           )}
@@ -178,7 +194,7 @@ export function LearningProgress({ session, assignments, members, groups, setScr
             <select
               value={groupFilter}
               onChange={e => setGroupFilter(e.target.value)}
-              style={{ fontSize: 12, padding: "5px 8px", width: "auto", flexShrink: 0 }}
+              style={{ fontSize: 12, padding: "6px 10px", width: "auto", flexShrink: 0, borderRadius: 8 }}
             >
               <option value="all">All Groups</option>
               {groups.map(g => (
@@ -186,6 +202,19 @@ export function LearningProgress({ session, assignments, members, groups, setScr
               ))}
             </select>
           )}
+          {/* Overdue filter toggle */}
+          <button
+            onClick={() => setShowOverdue(v => !v)}
+            className={showOverdue ? "selected" : ""}
+            style={{
+              fontSize: 12, padding: "6px 10px", display: "flex", alignItems: "center", gap: 5,
+              flexShrink: 0, borderRadius: 8,
+              ...(showOverdue ? {} : {}),
+            }}
+          >
+            <AlertCircle size={13} style={{ color: showOverdue ? "#ef4444" : undefined }} />
+            Overdue{overdueTotal > 0 ? ` (${overdueTotal})` : ""}
+          </button>
         </div>
 
         {/* Progress table */}
@@ -196,63 +225,87 @@ export function LearningProgress({ session, assignments, members, groups, setScr
             <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>Add referee members to start tracking learning progress.</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="empty-state panel">No referees match your search.</div>
+          <div className="empty-state panel">
+            {showOverdue ? (
+              <>
+                <CheckCircle2 size={28} style={{ opacity: 0.3, marginBottom: 8, color: "#22c55e" }} />
+                <p style={{ margin: 0, fontWeight: 700 }}>No overdue referees</p>
+                <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>All referees are up to date with their learning.</p>
+              </>
+            ) : (
+              <p style={{ margin: 0 }}>No referees match your search.</p>
+            )}
+          </div>
         ) : (
           <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
             <div className="ref-reviews-table">
               <table>
                 <thead>
                   <tr>
-                    <SortTh col="name"      label="Referee" />
-                    <SortTh col="assigned"  label="Assigned" />
-                    <th>Started</th>
-                    <SortTh col="completed" label="Completed" />
-                    <SortTh col="pct"       label="%" />
-                    <SortTh col="overdue"   label="Overdue" />
+                    <SortTh col="name"       label="Referee" />
+                    <SortTh col="assigned"   label="Assigned"   right />
+                    <SortTh col="started"    label="Started"    right />
+                    <SortTh col="completed"  label="Completed"  right />
+                    <SortTh col="pct"        label="Progress"   />
+                    <SortTh col="overdue"    label="Overdue"    right />
+                    <SortTh col="lastActive" label="Last Active" />
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(s => (
-                    <tr
-                      key={s.id}
-                      className={"ed-review-row" + (selectedMemberId === s.id ? " lh-row--selected" : "")}
-                      onClick={() => setSelectedMemberId(prev => prev === s.id ? null : s.id)}
-                    >
-                      <td data-label="Referee">
-                        <div style={{ fontWeight: 700 }}>{s.name}</div>
-                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{s.email}</div>
-                      </td>
-                      <td data-label="Assigned">{s.assigned || "—"}</td>
-                      <td data-label="Started">{s.started || "—"}</td>
-                      <td data-label="Completed">
-                        {s.completed > 0 ? (
-                          <span style={{ color: "#22c55e", fontWeight: 700 }}>{s.completed}</span>
-                        ) : "—"}
-                      </td>
-                      <td data-label="%">
-                        {s.assigned > 0 ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div className="lh-progress-bar">
-                              <div className="lh-progress-fill" style={{ width: `${s.pct}%`, background: s.pct === 100 ? "#22c55e" : s.pct > 50 ? "#3b82f6" : "var(--accent)" }} />
+                  {filtered.map(s => {
+                    const pctColor = s.pct === 100 ? "#22c55e" : s.pct >= 50 ? "#3b82f6" : "var(--accent)";
+                    return (
+                      <tr
+                        key={s.id}
+                        className={"ed-review-row" + (selectedMemberId === s.id ? " lh-row--selected" : "")}
+                        onClick={() => setSelectedMemberId(prev => prev === s.id ? null : s.id)}
+                      >
+                        <td data-label="Referee">
+                          <div style={{ fontWeight: 700 }}>{s.name}</div>
+                          <div style={{ fontSize: 11, color: "var(--muted)" }}>{s.email}</div>
+                        </td>
+                        <td data-label="Assigned" style={{ textAlign: "right" }}>
+                          {s.assigned || <span className="hint">—</span>}
+                        </td>
+                        <td data-label="Started" style={{ textAlign: "right" }}>
+                          {s.started > 0 ? (
+                            <span style={{ color: "#3b82f6", fontWeight: 700 }}>{s.started}</span>
+                          ) : <span className="hint">—</span>}
+                        </td>
+                        <td data-label="Completed" style={{ textAlign: "right" }}>
+                          {s.completed > 0 ? (
+                            <span style={{ color: "#22c55e", fontWeight: 700 }}>{s.completed}</span>
+                          ) : <span className="hint">—</span>}
+                        </td>
+                        <td data-label="Progress" style={{ minWidth: 120 }}>
+                          {s.assigned > 0 ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div className="lh-progress-bar" style={{ flex: 1 }}>
+                                <div className="lh-progress-fill" style={{ width: `${s.pct}%`, background: pctColor }} />
+                              </div>
+                              <span style={{ fontSize: 12, fontWeight: 700, minWidth: 34, color: pctColor }}>{s.pct}%</span>
                             </div>
-                            <span style={{ fontSize: 12, fontWeight: 700, minWidth: 30 }}>{s.pct}%</span>
-                          </div>
-                        ) : <span className="hint">—</span>}
-                      </td>
-                      <td data-label="Overdue">
-                        {s.overdue > 0 ? (
-                          <span style={{ color: "#ef4444", fontWeight: 700 }}>{s.overdue}</span>
-                        ) : <span style={{ color: "#22c55e", fontSize: 12 }}>✓</span>}
-                      </td>
-                      <td>
-                        <ChevronRight
-                          size={14}
-                          style={{ opacity: 0.4, transition: "opacity .1s" }}
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                          ) : <span className="hint">—</span>}
+                        </td>
+                        <td data-label="Overdue" style={{ textAlign: "right" }}>
+                          {s.overdue > 0 ? (
+                            <span style={{ color: "#ef4444", fontWeight: 700 }}>{s.overdue}</span>
+                          ) : (
+                            s.assigned > 0
+                              ? <span style={{ color: "#22c55e", fontSize: 13 }}>✓</span>
+                              : <span className="hint">—</span>
+                          )}
+                        </td>
+                        <td data-label="Last Active" style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                          {s.lastActivity ? fmtRel(s.lastActivity) : <span className="hint">—</span>}
+                        </td>
+                        <td>
+                          <ChevronRight size={14} style={{ opacity: 0.4 }} />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -311,6 +364,13 @@ export function LearningProgress({ session, assignments, members, groups, setScr
                   <span>{completedThisMonth} this month</span>
                 </div>
               </div>
+
+              {/* Last active */}
+              {selectedStat.lastActivity && (
+                <p className="hint" style={{ margin: "10px 0 0", fontSize: 12 }}>
+                  Last active {fmtRel(selectedStat.lastActivity)}
+                </p>
+              )}
             </div>
 
             {/* Assignment history */}
@@ -345,7 +405,7 @@ export function LearningProgress({ session, assignments, members, groups, setScr
                           <span className="hint" style={{ fontSize: 11 }}>Assigned {fmtDate(row.assignedAt)}</span>
                           {row.assignment.dueDate && (
                             <span className="hint" style={{ fontSize: 11, color: isOverdue ? "#ef4444" : undefined }}>
-                              Due {fmtDate(row.assignment.dueDate)}{isOverdue ? " · OVERDUE" : ""}
+                              Due {fmtDate(row.assignment.dueDate)}{isOverdue ? " · Overdue" : ""}
                             </span>
                           )}
                           {row.completedAt && (
@@ -360,7 +420,6 @@ export function LearningProgress({ session, assignments, members, groups, setScr
             </div>
           </>
         ) : (
-          /* Empty sidebar state */
           <div className="panel" style={{ textAlign: "center", padding: "32px 20px" }}>
             <BookOpen size={28} style={{ opacity: 0.25, marginBottom: 10 }} />
             <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>Select a referee</p>
