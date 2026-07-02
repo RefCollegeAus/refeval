@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ListVideo, Search, X, CheckSquare, Square } from "lucide-react";
+import { ListVideo, Search, X, CheckSquare, Square, ChevronLeft, AlertTriangle } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import { ClipPreview, ClipRow, splitCategory, slotName, outcomeClass } from "@/components/common/ClipPreview";
@@ -216,7 +216,9 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
   }
 
   const activeFilterCount = [fOutcome, fCatGroup, fSubtype, fReferee, fEducator, fGame, fDateFrom, fDateTo, fText].filter(Boolean).length;
-  const selCount = selected.size;
+  const visibleIdSet = useMemo(() => new Set(visibleIds), [visibleIds]);
+  const effectiveSelCount = useMemo(() => Array.from(selected).filter(id => visibleIdSet.has(id)).length, [selected, visibleIdSet]);
+  const hiddenSelCount = selected.size - effectiveSelCount;
 
   return (
     <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
@@ -237,68 +239,83 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {canCreatePlaylists && (
               <button
-                className={selCount > 0 ? "primary" : ""}
-                disabled={selCount === 0}
+                className={effectiveSelCount > 0 ? "primary" : ""}
+                disabled={effectiveSelCount === 0}
                 onClick={() => setCreateModalOpen(true)}
-                title={selCount === 0 ? "Select clips to create a playlist" : `Create playlist from ${selCount} clip${selCount !== 1 ? "s" : ""}`}
-                style={{ whiteSpace: "nowrap" }}
+                title={effectiveSelCount === 0 ? "Select clips to create a playlist" : `Create playlist from ${effectiveSelCount} clip${effectiveSelCount !== 1 ? "s" : ""}`}
+                style={{ whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}
               >
-                🎬 Create Playlist{selCount > 0 ? ` (${selCount})` : ""}
+                <ListVideo size={14} />
+                Create Playlist{effectiveSelCount > 0 ? ` (${effectiveSelCount})` : ""}
               </button>
             )}
-            <button onClick={onBack}>← Back</button>
+            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <ChevronLeft size={15} /> Back
+            </button>
           </div>
         </div>
 
-        {/* Filters */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "10px 12px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)" }}>
-          <div style={{ position: "relative", flex: "1 1 200px", minWidth: 160 }}>
-            <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-            <input
-              value={fText}
-              onChange={e => setFText(e.target.value)}
-              placeholder="Search notes, game, referee…"
-              style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
-            />
+        {/* Filters — two rows */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)" }}>
+          {/* Row 1: search + primary filters */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <div style={{ position: "relative", flex: "1 1 200px", minWidth: 160 }}>
+              <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+              <input
+                value={fText}
+                onChange={e => setFText(e.target.value)}
+                placeholder="Search notes, game, referee…"
+                style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
+              />
+            </div>
+            <select style={{ fontSize: 13 }} value={fOutcome} onChange={e => setFOutcome(e.target.value)}>
+              <option value="">All outcomes</option>
+              {outcomes.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <select style={{ fontSize: 13 }} value={fCatGroup} onChange={e => { setFCatGroup(e.target.value); setFSubtype(""); }}>
+              <option value="">All categories</option>
+              {catGroups.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select style={{ fontSize: 13 }} value={fSubtype} onChange={e => setFSubtype(e.target.value)}>
+              <option value="">All subtypes</option>
+              {subtypes.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
-          <select style={{ fontSize: 13 }} value={fOutcome} onChange={e => setFOutcome(e.target.value)}>
-            <option value="">All outcomes</option>
-            {outcomes.map(o => <option key={o} value={o}>{o}</option>)}
-          </select>
-          <select style={{ fontSize: 13 }} value={fCatGroup} onChange={e => { setFCatGroup(e.target.value); setFSubtype(""); }}>
-            <option value="">All categories</option>
-            {catGroups.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select style={{ fontSize: 13 }} value={fSubtype} onChange={e => setFSubtype(e.target.value)}>
-            <option value="">All subtypes</option>
-            {subtypes.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select style={{ fontSize: 13 }} value={fReferee} onChange={e => setFReferee(e.target.value)}>
-            <option value="">All referees</option>
-            {referees.map(r => <option key={r} value={r}>{r}</option>)}
-          </select>
-          <select style={{ fontSize: 13 }} value={fEducator} onChange={e => setFEducator(e.target.value)}>
-            <option value="">All educators</option>
-            {educators.map(e => <option key={e} value={e}>{e}</option>)}
-          </select>
-          <select style={{ fontSize: 13 }} value={fGame} onChange={e => setFGame(e.target.value)}>
-            <option value="">All games</option>
-            {games.map(g => <option key={g} value={g}>{g}</option>)}
-          </select>
-          <input type="date" style={{ fontSize: 13 }} value={fDateFrom} onChange={e => setFDateFrom(e.target.value)} title="From date" />
-          <input type="date" style={{ fontSize: 13 }} value={fDateTo} onChange={e => setFDateTo(e.target.value)} title="To date" />
-          {activeFilterCount > 0 && (
-            <button style={{ fontSize: 12, padding: "5px 10px", display: "flex", alignItems: "center", gap: 4 }} onClick={clearFilters}>
-              <X size={12} /> Clear ({activeFilterCount})
-            </button>
-          )}
+          {/* Row 2: contextual filters + date range + clear */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <select style={{ fontSize: 13 }} value={fReferee} onChange={e => setFReferee(e.target.value)}>
+              <option value="">All referees</option>
+              {referees.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <select style={{ fontSize: 13 }} value={fEducator} onChange={e => setFEducator(e.target.value)}>
+              <option value="">All educators</option>
+              {educators.map(e => <option key={e} value={e}>{e}</option>)}
+            </select>
+            <select style={{ fontSize: 13 }} value={fGame} onChange={e => setFGame(e.target.value)}>
+              <option value="">All games</option>
+              {games.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+            <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+              From
+              <input type="date" style={{ fontSize: 13 }} value={fDateFrom} onChange={e => setFDateFrom(e.target.value)} />
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+              To
+              <input type="date" style={{ fontSize: 13 }} value={fDateTo} onChange={e => setFDateTo(e.target.value)} />
+            </label>
+            {activeFilterCount > 0 && (
+              <button style={{ fontSize: 12, padding: "5px 10px", display: "flex", alignItems: "center", gap: 4 }} onClick={clearFilters}>
+                <X size={12} /> Clear ({activeFilterCount})
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Selection bar */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, fontSize: 13, color: "var(--muted)" }}>
           <span>
             <strong style={{ color: "var(--text)" }}>{visibleRows.length}</strong> clip{visibleRows.length !== 1 ? "s" : ""} shown
-            {canCreatePlaylists && selCount > 0 && <span style={{ marginLeft: 10, color: "var(--accent)", fontWeight: 700 }}>· {selCount} selected</span>}
+            {canCreatePlaylists && effectiveSelCount > 0 && <span style={{ marginLeft: 10, color: "var(--accent)", fontWeight: 700 }}>· {effectiveSelCount} selected</span>}
           </span>
           {canCreatePlaylists && visibleRows.length > 0 && (
             <button style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }} onClick={toggleSelectAll}>
@@ -306,6 +323,21 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
             </button>
           )}
         </div>
+        {/* Hidden-selection warning */}
+        {canCreatePlaylists && hiddenSelCount > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, padding: "7px 10px", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 6, fontSize: 12, color: "var(--text)" }}>
+            <AlertTriangle size={13} style={{ color: "#f59e0b", flexShrink: 0 }} />
+            <span>
+              <strong>{hiddenSelCount}</strong> selected clip{hiddenSelCount !== 1 ? "s are" : " is"} hidden by filters and won&apos;t be included in the playlist.{" "}
+              <button style={{ padding: 0, background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline" }} onClick={clearFilters}>
+                Clear filters
+              </button>{" "}to include them, or{" "}
+              <button style={{ padding: 0, background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline" }} onClick={() => setSelected(prev => { const n = new Set(prev); Array.from(prev).filter(id => !visibleIdSet.has(id)).forEach(id => n.delete(id)); return n; })}>
+                deselect hidden
+              </button>.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── Empty states ── */}
@@ -395,7 +427,7 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
       {/* ── Create Playlist Modal ── */}
       {createModalOpen && (
         <CreatePlaylistModal
-          clipCount={selCount}
+          clipCount={effectiveSelCount}
           onSave={handleCreatePlaylist}
           onClose={() => setCreateModalOpen(false)}
         />
