@@ -781,8 +781,8 @@ export function PlaylistDetailScreen({
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {saving && <span className="hint" style={{ fontSize: 12 }}>Saving…</span>}
-            {!learningContext && assignments.length > 0 && (
+            {saving && !delConfirm && <span className="hint" style={{ fontSize: 12 }}>Saving…</span>}
+            {!delConfirm && !learningContext && assignments.length > 0 && (
               <button
                 style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
                 onClick={() => setAssignedUsersOpen(true)}
@@ -791,7 +791,7 @@ export function PlaylistDetailScreen({
                 Assignments ({assignments.length})
               </button>
             )}
-            {canAssign && members && onCreateAssignment && onAddToAssignment && (
+            {!delConfirm && canAssign && members && onCreateAssignment && onAddToAssignment && (
               <button
                 style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
                 onClick={() => setAssignModalOpen(true)}
@@ -799,7 +799,7 @@ export function PlaylistDetailScreen({
                 <Users size={13} /> Assign Playlist
               </button>
             )}
-            {canEdit && (
+            {canEdit && !delConfirm && (
               <button
                 style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
                 onClick={() => setEditModalOpen(true)}
