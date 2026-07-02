@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { BookOpen, UserPlus, Trash2, Edit2, Search, X } from "lucide-react";
+import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft } from "lucide-react";
 import type { Assignment, AssignmentStatus } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
+import { ASSIGNMENT_STATUSES as ALL_STATUSES } from "@/lib/types/assignments";
 
 interface Props {
   assignment: Assignment;
@@ -17,6 +18,7 @@ interface Props {
   onDelete: (id: string) => Promise<void>;
   onAddUsers: (assignmentId: string, userIds: string[]) => Promise<{ added: number; skipped: number }>;
   onRemoveUser: (assignmentUserId: string) => Promise<void>;
+  onUpdateStatus?: (assignmentUserId: string, status: AssignmentStatus) => Promise<void>;
 }
 
 const STATUS_COLORS: Record<AssignmentStatus, string> = {
@@ -223,11 +225,12 @@ function AddUsersPanel({
 
 export function AssignmentDetailScreen({
   assignment, playlist, members, canEdit, canDelete,
-  onBack, onUpdate, onDelete, onAddUsers, onRemoveUser,
+  onBack, onUpdate, onDelete, onAddUsers, onRemoveUser, onUpdateStatus,
 }: Props) {
-  const [editOpen, setEditOpen]   = useState(false);
-  const [removing, setRemoving]   = useState<string | null>(null);
-  const [deleting, setDeleting]   = useState(false);
+  const [editOpen, setEditOpen]       = useState(false);
+  const [removing, setRemoving]       = useState<string | null>(null);
+  const [deleting, setDeleting]       = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   const assignedIds = useMemo(
     () => new Set(assignment.assignmentUsers.map(u => u.userId)),
@@ -248,6 +251,13 @@ export function AssignmentDetailScreen({
     if (!confirm(`Delete assignment "${assignment.title}"?\n\nThis will remove all user progress. This cannot be undone.`)) return;
     setDeleting(true);
     try { await onDelete(assignment.id); } finally { setDeleting(false); }
+  }
+
+  async function handleStatusChange(assignmentUserId: string, newStatus: AssignmentStatus, memberName: string) {
+    if (!onUpdateStatus) return;
+    if (!confirm(`Set ${memberName}'s status to "${newStatus}"?`)) return;
+    setUpdatingStatus(assignmentUserId);
+    try { await onUpdateStatus(assignmentUserId, newStatus); } catch { /* toast in future */ } finally { setUpdatingStatus(null); }
   }
 
   const completedCount = assignment.assignmentUsers.filter(u => u.status === "Completed").length;
@@ -284,7 +294,9 @@ export function AssignmentDetailScreen({
                 <Trash2 size={13} /> {deleting ? "Deleting…" : "Delete"}
               </button>
             )}
-            <button onClick={onBack}>← Back</button>
+            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <ChevronLeft size={15} /> Back
+            </button>
           </div>
         </div>
 
@@ -330,41 +342,69 @@ export function AssignmentDetailScreen({
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  <th style={{ textAlign: "left", padding: "6px 10px", fontWeight: 600 }}>Name</th>
-                  <th style={{ textAlign: "left", padding: "6px 10px", fontWeight: 600 }}>Email</th>
-                  <th style={{ textAlign: "left", padding: "6px 10px", fontWeight: 600 }}>Role</th>
-                  <th style={{ textAlign: "left", padding: "6px 10px", fontWeight: 600 }}>Status</th>
-                  <th style={{ textAlign: "left", padding: "6px 10px", fontWeight: 600 }}>Started</th>
-                  <th style={{ textAlign: "left", padding: "6px 10px", fontWeight: 600 }}>Completed</th>
-                  {canEdit && <th style={{ padding: "6px 10px" }} />}
+                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Name</th>
+                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Role</th>
+                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Status</th>
+                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Assigned</th>
+                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Started</th>
+                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Completed</th>
+                  {canEdit && <th style={{ padding: "8px 10px" }} />}
                 </tr>
               </thead>
               <tbody>
                 {assignment.assignmentUsers.map(au => {
                   const m = memberOf(au.userId);
+                  const isUpdating = updatingStatus === au.id;
+                  const isRemoving = removing === au.id;
                   return (
-                    <tr key={au.id} style={{ borderBottom: "1px solid var(--border)", opacity: removing === au.id ? 0.5 : 1 }}>
-                      <td style={{ padding: "10px 10px", fontWeight: 600 }}>{m?.name || "Unknown"}</td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)" }}>{m?.email || "—"}</td>
+                    <tr key={au.id} style={{ borderBottom: "1px solid var(--border)", opacity: isRemoving ? 0.5 : 1 }}>
+                      <td style={{ padding: "10px 10px" }}>
+                        <div style={{ fontWeight: 600 }}>{m?.name || "Unknown"}</div>
+                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{m?.email || "—"}</div>
+                      </td>
                       <td style={{ padding: "10px 10px" }}>
                         {m && <span className={`role-badge role-${m.role}`}>{m.role}</span>}
                       </td>
                       <td style={{ padding: "10px 10px" }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: STATUS_COLORS[au.status] }}>
-                          {au.status}
-                        </span>
+                        {canEdit && onUpdateStatus ? (
+                          <select
+                            value={au.status}
+                            disabled={isUpdating}
+                            onChange={e => handleStatusChange(au.id, e.target.value as AssignmentStatus, m?.name || "this referee")}
+                            style={{
+                              fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 6, width: "auto",
+                              color: STATUS_COLORS[au.status],
+                              background: au.status === "Completed" ? "rgba(34,197,94,.1)" : au.status === "Started" ? "rgba(253,230,138,.1)" : "var(--panel3)",
+                              border: `1px solid ${STATUS_COLORS[au.status]}55`,
+                              opacity: isUpdating ? 0.5 : 1,
+                            }}
+                          >
+                            {ALL_STATUSES.map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: STATUS_COLORS[au.status] }}>
+                            {au.status}
+                          </span>
+                        )}
                       </td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap" }}>
+                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12 }}>
+                        {fmt(au.assignedAt)}
+                      </td>
+                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12 }}>
                         {fmt(au.startedAt)}
                       </td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                        {fmt(au.completedAt)}
+                      <td style={{ padding: "10px 10px", whiteSpace: "nowrap", fontSize: 12 }}>
+                        {au.completedAt
+                          ? <span style={{ color: "#22c55e" }}>✓ {fmt(au.completedAt)}</span>
+                          : <span className="hint">—</span>}
                       </td>
                       {canEdit && (
                         <td style={{ padding: "10px 10px", textAlign: "right" }}>
                           <button
                             onClick={() => handleRemove(au.id, m?.name || "this referee")}
-                            disabled={removing === au.id}
+                            disabled={isRemoving}
                             style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", display: "flex", alignItems: "center" }}
                             title="Remove from assignment"
                           >

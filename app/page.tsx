@@ -939,6 +939,7 @@ export default function Home() {
           onDelete={async (id) => { await deleteAssignment(id); setActiveAssignmentId(null); setScreen("assignments"); }}
           onAddUsers={addUsersToAssignment}
           onRemoveUser={removeUserFromAssignment}
+          onUpdateStatus={updateAssignmentUserStatus}
         />
       </main>
     );
