@@ -216,6 +216,10 @@ label{display:grid;gap:7px;font-size:13px;font-weight:800;color:var(--muted)} a{
 /* Assignment history rows */
 .lh-assignment-row{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;transition:border-color .15s}
 .lh-assignment-row--overdue{border-color:rgba(239,68,68,.35);background:linear-gradient(135deg,rgba(239,68,68,.04),transparent)}
+/* PlaylistDetail master-detail clip split */
+.lh-clip-split{display:flex;gap:16px;align-items:flex-start}
+.lh-clip-split__list{flex:0 0 38%}
+@media(max-width:640px){.lh-clip-split{flex-wrap:wrap}.lh-clip-split__list{flex:1 1 100%;max-height:40vh}}
 /* Responsive */
 @media(max-width:1100px){.lh-layout{grid-template-columns:1fr}.lh-sidebar{position:static;max-height:none}}
 @media(max-width:700px){.lh-nav-grid{grid-template-columns:1fr}.lh-stats-row{grid-template-columns:repeat(2,1fr)}}

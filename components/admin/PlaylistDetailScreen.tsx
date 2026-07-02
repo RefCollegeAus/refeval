@@ -932,10 +932,10 @@ export function PlaylistDetailScreen({
 
       {/* Master–detail split */}
       {clipRows.length > 0 && (
-        <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        <div className="lh-clip-split">
 
           {/* Left: ordered clip list */}
-          <div style={{ flex: "0 0 38%", maxHeight: "72vh", overflowY: "auto", borderRadius: 8, border: "1px solid var(--border)", background: "var(--panel)" }}>
+          <div className="lh-clip-split__list" style={{ maxHeight: "72vh", overflowY: "auto", borderRadius: 8, border: "1px solid var(--border)", background: "var(--panel)" }}>
             <div style={{ position: "sticky", top: 0, zIndex: 1, padding: "8px 10px", background: "var(--panel2)", borderBottom: "1px solid var(--border)", fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               {clipRows.length} clip{clipRows.length !== 1 ? "s" : ""}
             </div>
