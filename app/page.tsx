@@ -810,6 +810,7 @@ export default function Home() {
           loading={playlistsLoading}
           error={playlistsError}
           members={members}
+          assignments={assignments}
           onViewPlaylist={(id) => { setPlaylistDetailId(id); setScreen("playlist-detail"); }}
           onDeletePlaylist={deletePlaylist}
           canDelete={canDeletePlaylists}
