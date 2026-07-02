@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft } from "lucide-react";
+import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, CheckCircle2 } from "lucide-react";
 import type { Assignment, AssignmentStatus } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
@@ -255,7 +255,7 @@ export function AssignmentDetailScreen({
 
   async function handleStatusChange(assignmentUserId: string, newStatus: AssignmentStatus, memberName: string) {
     if (!onUpdateStatus) return;
-    if (!confirm(`Set ${memberName}'s status to "${newStatus}"?`)) return;
+    if (!confirm(`Manually set ${memberName}'s learning status to "${newStatus}"?\n\nThis overrides their recorded progress.`)) return;
     setUpdatingStatus(assignmentUserId);
     try { await onUpdateStatus(assignmentUserId, newStatus); } catch { /* toast in future */ } finally { setUpdatingStatus(null); }
   }
@@ -352,10 +352,18 @@ export function AssignmentDetailScreen({
                 </tr>
               </thead>
               <tbody>
-                {assignment.assignmentUsers.map(au => {
+                {[...assignment.assignmentUsers]
+                  .sort((a, b) => (memberOf(a.userId)?.name || "").localeCompare(memberOf(b.userId)?.name || ""))
+                  .map(au => {
                   const m = memberOf(au.userId);
                   const isUpdating = updatingStatus === au.id;
                   const isRemoving = removing === au.id;
+                  const statusColor = STATUS_COLORS[au.status];
+                  const statusBg = au.status === "Completed"
+                    ? "rgba(34,197,94,.12)"
+                    : au.status === "Started"
+                    ? "rgba(253,230,138,.12)"
+                    : "var(--panel3)";
                   return (
                     <tr key={au.id} style={{ borderBottom: "1px solid var(--border)", opacity: isRemoving ? 0.5 : 1 }}>
                       <td style={{ padding: "10px 10px" }}>
@@ -367,38 +375,64 @@ export function AssignmentDetailScreen({
                       </td>
                       <td style={{ padding: "10px 10px" }}>
                         {canEdit && onUpdateStatus ? (
-                          <select
-                            value={au.status}
-                            disabled={isUpdating}
-                            onChange={e => handleStatusChange(au.id, e.target.value as AssignmentStatus, m?.name || "this referee")}
-                            style={{
-                              fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 6, width: "auto",
-                              color: STATUS_COLORS[au.status],
-                              background: au.status === "Completed" ? "rgba(34,197,94,.1)" : au.status === "Started" ? "rgba(253,230,138,.1)" : "var(--panel3)",
-                              border: `1px solid ${STATUS_COLORS[au.status]}55`,
-                              opacity: isUpdating ? 0.5 : 1,
-                            }}
-                          >
-                            {ALL_STATUSES.map(s => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
-                          </select>
+                          <div style={{ position: "relative", display: "inline-block" }}>
+                            <select
+                              value={au.status}
+                              disabled={isUpdating}
+                              onChange={e => handleStatusChange(au.id, e.target.value as AssignmentStatus, m?.name || "this referee")}
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                padding: "4px 22px 4px 8px",
+                                borderRadius: 6,
+                                width: "auto",
+                                color: statusColor,
+                                background: statusBg,
+                                border: `1px solid ${statusColor}44`,
+                                opacity: isUpdating ? 0.5 : 1,
+                                cursor: isUpdating ? "default" : "pointer",
+                                appearance: "none",
+                                WebkitAppearance: "none",
+                              }}
+                            >
+                              {ALL_STATUSES.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                            <ChevronDown
+                              size={10}
+                              style={{
+                                position: "absolute",
+                                right: 6,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                pointerEvents: "none",
+                                color: statusColor,
+                                opacity: 0.7,
+                              }}
+                            />
+                          </div>
                         ) : (
-                          <span style={{ fontSize: 12, fontWeight: 700, color: STATUS_COLORS[au.status] }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: statusColor }}>
                             {au.status}
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12 }}>
+                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12, minWidth: 90 }}>
                         {fmt(au.assignedAt)}
                       </td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12 }}>
+                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12, minWidth: 90 }}>
                         {fmt(au.startedAt)}
                       </td>
-                      <td style={{ padding: "10px 10px", whiteSpace: "nowrap", fontSize: 12 }}>
-                        {au.completedAt
-                          ? <span style={{ color: "#22c55e" }}>✓ {fmt(au.completedAt)}</span>
-                          : <span className="hint">—</span>}
+                      <td style={{ padding: "10px 10px", whiteSpace: "nowrap", fontSize: 12, minWidth: 90 }}>
+                        {au.completedAt ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#22c55e", fontWeight: 600 }}>
+                            <CheckCircle2 size={12} />
+                            {fmt(au.completedAt)}
+                          </span>
+                        ) : (
+                          <span className="hint">—</span>
+                        )}
                       </td>
                       {canEdit && (
                         <td style={{ padding: "10px 10px", textAlign: "right" }}>
