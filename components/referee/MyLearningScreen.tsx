@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { BookOpen, Calendar, AlertCircle, ChevronLeft, CheckCircle2, ChevronDown, ChevronUp, ListVideo } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { Assignment, AssignmentUser } from "@/lib/types/assignments";
+import { STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 
@@ -131,18 +132,16 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
             {/* Status badge */}
             {!isCompleted && (
               <span style={{
-                fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999,
-                background: au.status === "Started" ? "rgba(253,230,138,.15)" : "rgba(148,163,184,.1)",
-                color: au.status === "Started" ? "#fde68a" : "var(--muted)",
-                border: `1px solid ${au.status === "Started" ? "rgba(253,230,138,.35)" : "var(--border)"}`,
+                fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999,
+                background: STATUS_BG[au.status],
+                color: STATUS_COLORS[au.status],
+                border: `1px solid ${STATUS_BORDER[au.status]}`,
               }}>
                 {au.status}
               </span>
             )}
             {a.required && (
-              <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(239,68,68,.15)", color: "#fca5a5", border: "1px solid rgba(239,68,68,.3)", fontWeight: 700 }}>
-                Required
-              </span>
+              <span style={REQUIRED_BADGE_STYLE}>Required</span>
             )}
           </div>
         </div>

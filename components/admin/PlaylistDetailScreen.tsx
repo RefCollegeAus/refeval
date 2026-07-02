@@ -6,6 +6,7 @@ import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { Playlist, PlaylistItem } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 import type { Assignment, AssignmentUser, CreateAssignmentInput } from "@/lib/types/assignments";
+import { STATUS_COLORS, REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
 import type { Group } from "@/lib/types/groups";
 import { ClipPreview, ClipRow, splitCategory, slotName, outcomeClass } from "@/components/common/ClipPreview";
 
@@ -597,9 +598,7 @@ function AssignmentsHistoryModal({
                       <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {a.title}
                         {a.required && (
-                          <span style={{ marginLeft: 6, fontSize: 10, padding: "1px 5px", borderRadius: 999, background: "rgba(239,68,68,.15)", color: "#fca5a5", border: "1px solid rgba(239,68,68,.3)", fontWeight: 700, verticalAlign: "middle" }}>
-                            Required
-                          </span>
+                          <span style={{ ...REQUIRED_BADGE_STYLE, marginLeft: 6, verticalAlign: "middle" }}>Required</span>
                         )}
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 16px", marginTop: 4 }}>
@@ -865,7 +864,7 @@ export function PlaylistDetailScreen({
                       {overdueLC && " — Overdue"}
                     </span>
                   )}
-                  <span style={{ fontWeight: 700, color: isCompleted ? "#bbf7d0" : learningContext.assignmentUser.status === "Started" ? "#fde68a" : "var(--muted)" }}>
+                  <span style={{ fontWeight: 700, color: STATUS_COLORS[learningContext.assignmentUser.status] }}>
                     {learningContext.assignmentUser.status}
                   </span>
                 </div>

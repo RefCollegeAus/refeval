@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
 import type { Assignment, AssignmentUser } from "@/lib/types/assignments";
+import { STATUS_COLORS, STATUS_BG, STATUS_BORDER } from "@/lib/types/assignments";
 import type { MemberRecord } from "@/lib/types/members";
 import type { Group } from "@/lib/types/groups";
 import { fmtDate, fmtRel } from "@/lib/utils/time";
@@ -20,12 +21,6 @@ interface Props {
 }
 
 type SortKey = "name" | "assigned" | "started" | "completed" | "pct" | "overdue" | "lastActive";
-
-function statusColor(status: AssignmentUser["status"]) {
-  if (status === "Completed") return "#22c55e";
-  if (status === "Started")   return "#3b82f6";
-  return "#f59e0b";
-}
 
 export function LearningProgress({ session, assignments, members, groups, setScreen }: Props) {
   const [search, setSearch]               = useState("");
@@ -270,12 +265,12 @@ export function LearningProgress({ session, assignments, members, groups, setScr
                         </td>
                         <td data-label="Started" style={{ textAlign: "right" }}>
                           {s.started > 0 ? (
-                            <span style={{ color: "#3b82f6", fontWeight: 700 }}>{s.started}</span>
+                            <span style={{ color: STATUS_COLORS.Started, fontWeight: 700 }}>{s.started}</span>
                           ) : <span className="hint">—</span>}
                         </td>
                         <td data-label="Completed" style={{ textAlign: "right" }}>
                           {s.completed > 0 ? (
-                            <span style={{ color: "#22c55e", fontWeight: 700 }}>{s.completed}</span>
+                            <span style={{ color: STATUS_COLORS.Completed, fontWeight: 700 }}>{s.completed}</span>
                           ) : <span className="hint">—</span>}
                         </td>
                         <td data-label="Progress" style={{ minWidth: 120 }}>
@@ -390,11 +385,16 @@ export function LearningProgress({ session, assignments, members, groups, setScr
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
                           <span style={{ fontWeight: 700, fontSize: 13, flex: 1 }}>{row.assignment.title}</span>
                           <span
-                            className="status-badge"
                             style={{
-                              background: row.status === "Completed" ? "rgba(34,197,94,.16)" : row.status === "Started" ? "rgba(59,130,246,.16)" : "rgba(245,158,11,.16)",
-                              color: statusColor(row.status),
-                              border: `1px solid ${statusColor(row.status)}44`,
+                              display: "inline-block",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              padding: "2px 7px",
+                              borderRadius: 999,
+                              whiteSpace: "nowrap",
+                              background: STATUS_BG[row.status],
+                              color: STATUS_COLORS[row.status],
+                              border: `1px solid ${STATUS_BORDER[row.status]}`,
                               flexShrink: 0,
                             }}
                           >

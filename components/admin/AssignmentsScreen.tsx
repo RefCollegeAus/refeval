@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { BookOpen, Trash2, Eye, Search, ArrowUpDown, ChevronLeft, X } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { Assignment } from "@/lib/types/assignments";
+import { REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 
@@ -246,9 +247,7 @@ export function AssignmentsScreen({
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <span style={{ fontWeight: 600 }}>{a.title}</span>
                           {a.required && (
-                            <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(239,68,68,.15)", color: "#fca5a5", border: "1px solid rgba(239,68,68,.3)", fontWeight: 700, whiteSpace: "nowrap" }}>
-                              Required
-                            </span>
+                            <span style={REQUIRED_BADGE_STYLE}>Required</span>
                           )}
                           {isOverdue && (
                             <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(239,68,68,.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,.3)", fontWeight: 700, whiteSpace: "nowrap" }}>

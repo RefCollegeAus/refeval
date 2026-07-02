@@ -5,7 +5,7 @@ import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown,
 import type { Assignment, AssignmentStatus } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
-import { ASSIGNMENT_STATUSES as ALL_STATUSES } from "@/lib/types/assignments";
+import { ASSIGNMENT_STATUSES as ALL_STATUSES, STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
 
 interface Props {
   assignment: Assignment;
@@ -20,12 +20,6 @@ interface Props {
   onRemoveUser: (assignmentUserId: string) => Promise<void>;
   onUpdateStatus?: (assignmentUserId: string, status: AssignmentStatus) => Promise<void>;
 }
-
-const STATUS_COLORS: Record<AssignmentStatus, string> = {
-  Assigned:  "var(--muted)",
-  Started:   "#fde68a",
-  Completed: "#bbf7d0",
-};
 
 function fmt(iso: string | null | undefined) {
   if (!iso) return "—";
@@ -276,9 +270,7 @@ export function AssignmentDetailScreen({
               <h1 style={{ margin: 0, fontSize: 22, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 {assignment.title}
                 {assignment.required && (
-                  <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: "rgba(239,68,68,.15)", color: "#fca5a5", border: "1px solid rgba(239,68,68,.3)", fontWeight: 700 }}>
-                    Required
-                  </span>
+                  <span style={REQUIRED_BADGE_STYLE}>Required</span>
                 )}
               </h1>
             </div>
@@ -359,11 +351,7 @@ export function AssignmentDetailScreen({
                   const isUpdating = updatingStatus === au.id;
                   const isRemoving = removing === au.id;
                   const statusColor = STATUS_COLORS[au.status];
-                  const statusBg = au.status === "Completed"
-                    ? "rgba(34,197,94,.12)"
-                    : au.status === "Started"
-                    ? "rgba(253,230,138,.12)"
-                    : "var(--panel3)";
+                  const statusBg = STATUS_BG[au.status];
                   return (
                     <tr key={au.id} style={{ borderBottom: "1px solid var(--border)", opacity: isRemoving ? 0.5 : 1 }}>
                       <td style={{ padding: "10px 10px" }}>
@@ -388,7 +376,7 @@ export function AssignmentDetailScreen({
                                 width: "auto",
                                 color: statusColor,
                                 background: statusBg,
-                                border: `1px solid ${statusColor}44`,
+                                border: `1px solid ${STATUS_BORDER[au.status]}`,
                                 opacity: isUpdating ? 0.5 : 1,
                                 cursor: isUpdating ? "default" : "pointer",
                                 appearance: "none",
