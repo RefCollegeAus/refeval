@@ -14,6 +14,19 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
+const COLOUR_NAMES: Record<string, string> = {
+  "#3b82f6": "Blue",
+  "#22c55e": "Green",
+  "#f59e0b": "Amber",
+  "#ef4444": "Red",
+  "#8b5cf6": "Purple",
+  "#06b6d4": "Cyan",
+  "#f97316": "Orange",
+  "#ec4899": "Pink",
+  "#14b8a6": "Teal",
+  "#6366f1": "Indigo",
+};
+
 function ColourPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   return (
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
@@ -22,12 +35,14 @@ function ColourPicker({ value, onChange }: { value: string; onChange: (c: string
           key={c}
           type="button"
           onClick={() => onChange(c)}
+          aria-label={COLOUR_NAMES[c] ?? c}
+          aria-pressed={value === c}
           style={{
             width: 28, height: 28, borderRadius: "50%", background: c, border: "none",
             cursor: "pointer", outline: value === c ? `3px solid var(--text)` : "none",
             outlineOffset: 2, flexShrink: 0,
           }}
-          title={c}
+          title={COLOUR_NAMES[c] ?? c}
         />
       ))}
     </div>
@@ -271,11 +286,14 @@ function GroupDetail({
 
   return (
     <>
+      {/* Single panel for both header and member list */}
       <div className="panel" style={{ borderLeft: `4px solid ${group.colour}` }}>
+
+        {/* Group header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
           <div>
             <p className="eyebrow" style={{ margin: "0 0 2px" }}>Group</p>
-            <h2 style={{ margin: 0, fontSize: 20 }}>{group.name}</h2>
+            <h2 style={{ margin: 0, fontSize: 18 }}>{group.name}</h2>
             {group.description && (
               <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>{group.description}</p>
             )}
@@ -283,11 +301,12 @@ function GroupDetail({
               {group.members.length} member{group.members.length !== 1 ? "s" : ""} · Created {fmtDate(group.createdAt)}
             </p>
           </div>
-          <button onClick={onClose} title="Close"><X size={14} /></button>
+          <button onClick={onClose} title="Close" style={{ padding: "4px 8px", flexShrink: 0 }}><X size={14} /></button>
         </div>
 
+        {/* Edit / Delete actions */}
         {canEdit && (
-          <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
             <button style={{ fontSize: 12, padding: "4px 12px" }} onClick={() => setEditOpen(true)}>
               <Pencil size={12} /> Edit
             </button>
@@ -298,57 +317,88 @@ function GroupDetail({
             )}
           </div>
         )}
-      </div>
 
-      {/* Member list */}
-      <div className="panel">
-        <h3 className="ed-section-title" style={{ marginBottom: 10 }}>
-          Members ({group.members.length})
-        </h3>
-        {group.members.length > 0 && (
-          <div style={{ position: "relative", marginBottom: 8 }}>
-            <Search size={12} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-            <input
-              value={memberSearch}
-              onChange={e => setMemberSearch(e.target.value)}
-              placeholder="Search members…"
-              style={{ paddingLeft: 26, fontSize: 12, width: "100%", boxSizing: "border-box" }}
-            />
+        {/* Section divider — full-bleed within panel */}
+        <div style={{ margin: "14px -18px 0", borderTop: "1px solid var(--border)" }} />
+
+        {/* Members section */}
+        <div style={{ marginTop: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <h3 className="ed-section-title" style={{ margin: 0 }}>
+              Members ({group.members.length})
+            </h3>
           </div>
-        )}
-        {group.members.length === 0 ? (
-          <div className="empty-state" style={{ padding: "16px 10px" }}>
-            <p className="hint" style={{ margin: 0, fontSize: 13 }}>No members yet.</p>
-            {canEdit && (
-              <button style={{ marginTop: 8, fontSize: 12 }} onClick={() => setEditOpen(true)}>
-                Add Members
-              </button>
-            )}
-          </div>
-        ) : filteredMembers.length === 0 ? (
-          <p className="hint" style={{ fontSize: 13, padding: "8px 0" }}>No members match your search.</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {filteredMembers.map(({ gm, member: m }) => (
-              <div key={gm.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: "var(--panel2)", border: "1px solid var(--border)" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{m!.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)" }}>{m!.email}</div>
-                </div>
-                {canEdit && (
-                  <button
-                    title="Remove from group"
-                    style={{ padding: "2px 6px", flexShrink: 0 }}
-                    onClick={() => setPendingRemoveId(m!.id)}
-                    disabled={busy}
-                  >
-                    <X size={12} />
-                  </button>
-                )}
+
+          {/* Member search */}
+          {group.members.length > 0 && (
+            <div style={{ display: "flex", gap: 4, marginBottom: 8, alignItems: "center" }}>
+              <div style={{ position: "relative", flex: 1 }}>
+                <Search size={12} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+                <input
+                  value={memberSearch}
+                  onChange={e => setMemberSearch(e.target.value)}
+                  placeholder="Search members…"
+                  style={{ paddingLeft: 26, fontSize: 12, width: "100%", boxSizing: "border-box" }}
+                />
               </div>
-            ))}
-          </div>
-        )}
+              {memberSearch && (
+                <button
+                  onClick={() => setMemberSearch("")}
+                  aria-label="Clear search"
+                  style={{ border: "none", background: "none", padding: "4px 5px", cursor: "pointer", flexShrink: 0 }}
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Member list */}
+          {group.members.length === 0 ? (
+            <div className="empty-state" style={{ padding: "16px 10px" }}>
+              <p className="hint" style={{ margin: 0, fontSize: 13 }}>No members yet.</p>
+              {canEdit ? (
+                <button style={{ marginTop: 8, fontSize: 12 }} onClick={() => setEditOpen(true)}>
+                  Add Members
+                </button>
+              ) : (
+                <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
+                  Contact an administrator to add members to this group.
+                </p>
+              )}
+            </div>
+          ) : filteredMembers.length === 0 ? (
+            <p className="hint" style={{ fontSize: 13, padding: "8px 0", margin: 0 }}>No members match your search.</p>
+          ) : (
+            <div>
+              {filteredMembers.map(({ gm, member: m }, i) => (
+                <div
+                  key={gm.id}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "9px 0",
+                    borderBottom: i < filteredMembers.length - 1 ? "1px solid var(--border)" : "none",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{m!.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted)" }}>{m!.email}</div>
+                  </div>
+                  {canEdit && (
+                    <button
+                      title="Remove from group"
+                      style={{ padding: "2px 6px", flexShrink: 0 }}
+                      onClick={() => setPendingRemoveId(m!.id)}
+                      disabled={busy}
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {editOpen && (
@@ -426,13 +476,13 @@ export function GroupsScreen({
   onDeleteGroup: (id: string) => Promise<void>;
   onSetGroupMembers: (groupId: string, userIds: string[]) => Promise<void>;
 }) {
-  const [search, setSearch]               = useState("");
-  const [sort, setSort]                   = useState<SortKey>("name");
-  const [sortAsc, setSortAsc]             = useState(true);
-  const [createOpen, setCreateOpen]       = useState(false);
-  const [selectedId, setSelectedId]       = useState<string | null>(null);
+  const [search, setSearch]                   = useState("");
+  const [sort, setSort]                       = useState<SortKey>("name");
+  const [sortAsc, setSortAsc]                 = useState(true);
+  const [createOpen, setCreateOpen]           = useState(false);
+  const [selectedId, setSelectedId]           = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [deletingId, setDeletingId]       = useState<string | null>(null);
+  const [deletingId, setDeletingId]           = useState<string | null>(null);
 
   function toggleSort(key: SortKey) {
     if (sort === key) setSortAsc(a => !a);
@@ -477,52 +527,69 @@ export function GroupsScreen({
       {/* ── Main column ── */}
       <div className="lh-main">
 
-        {/* Header */}
-        <div className="panel" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
-          <div>
-            <p className="eyebrow" style={{ margin: 0 }}>Learning Hub</p>
-            <h1 style={{ margin: 0, fontSize: 22 }}>Groups</h1>
+        {/* Header + search bar in one panel */}
+        <div className="panel">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+            <div>
+              <p className="eyebrow" style={{ margin: 0 }}>Learning Hub</p>
+              <h1 style={{ margin: 0, fontSize: 22 }}>Groups</h1>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {canCreate && (
+                <button className="primary" onClick={() => setCreateOpen(true)}>
+                  <Plus size={14} /> New Group
+                </button>
+              )}
+              <button onClick={onBack}><ChevronLeft size={15} /> Back</button>
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {canCreate && (
-              <button className="primary" onClick={() => setCreateOpen(true)}>
-                <Plus size={14} /> New Group
-              </button>
-            )}
-            <button onClick={onBack}><ChevronLeft size={15} /> Back</button>
-          </div>
-        </div>
 
-        {/* Search + sort bar */}
-        <div className="panel" style={{ padding: "10px 14px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ position: "relative", flex: "1 1 200px" }}>
-            <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search groups…"
-              style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
-            />
-          </div>
-          <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
-            <span className="hint" style={{ fontSize: 12 }}>Sort:</span>
-            <SortBtn col="name" label="Name" />
-            <SortBtn col="members" label="Members" />
-            <SortBtn col="created" label="Date" />
-          </div>
+          {/* Inline search/sort — only when groups exist */}
+          {!loading && groups.length > 0 && (
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ position: "relative", flex: "1 1 200px" }}>
+                <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search groups…"
+                  aria-label="Search groups"
+                  style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
+                />
+              </div>
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  aria-label="Clear search"
+                  style={{ border: "none", background: "none", padding: "4px 6px", cursor: "pointer", flexShrink: 0 }}
+                >
+                  <X size={13} />
+                </button>
+              )}
+              <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap", marginLeft: "auto" }}>
+                {search ? `${filtered.length} of ${groups.length}` : groups.length} group{groups.length !== 1 ? "s" : ""}
+              </span>
+              <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
+                <span className="hint" style={{ fontSize: 12 }}>Sort:</span>
+                <SortBtn col="name" label="Name" />
+                <SortBtn col="members" label="Members" />
+                <SortBtn col="created" label="Date" />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Error */}
-        {error && <div className="panel"><p className="danger-text" style={{ margin: 0 }}>{error}</p></div>}
+        {error && <p className="danger-text" style={{ margin: 0 }}>{error}</p>}
 
         {/* Loading */}
         {loading && (
-          <div className="panel empty-state"><p className="hint">Loading groups…</p></div>
+          <div className="empty-state"><p className="hint" style={{ margin: 0 }}>Loading groups…</p></div>
         )}
 
-        {/* Empty state */}
-        {!loading && groups.length === 0 && (
-          <div className="panel empty-state">
+        {/* Empty state — no groups yet */}
+        {!loading && groups.length === 0 && !error && (
+          <div className="empty-state">
             <Users size={32} style={{ opacity: 0.25, marginBottom: 10 }} />
             <p style={{ margin: 0, fontWeight: 700 }}>No groups yet</p>
             <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
@@ -538,8 +605,10 @@ export function GroupsScreen({
 
         {/* No search results */}
         {!loading && groups.length > 0 && filtered.length === 0 && (
-          <div className="panel empty-state">
-            <p className="hint">No groups match your search.</p>
+          <div className="empty-state">
+            <Search size={28} style={{ opacity: 0.25, marginBottom: 10 }} />
+            <p style={{ margin: 0, fontWeight: 700 }}>No groups match your search</p>
+            <button style={{ marginTop: 10, fontSize: 13 }} onClick={() => setSearch("")}>Clear search</button>
           </div>
         )}
 
@@ -606,8 +675,8 @@ export function GroupsScreen({
             onClose={() => setSelectedId(null)}
           />
         ) : (
-          <div className="panel" style={{ textAlign: "center", padding: "32px 20px" }}>
-            <Users size={28} style={{ opacity: 0.25, marginBottom: 10 }} />
+          <div className="empty-state" style={{ textAlign: "center", padding: "28px 20px" }}>
+            <Users size={26} style={{ opacity: 0.2, marginBottom: 10 }} />
             <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>Select a group</p>
             <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
               Click a group card to view members and manage the group.
@@ -616,18 +685,18 @@ export function GroupsScreen({
         )}
 
         {/* Summary */}
-        <div className="panel">
-          <h3 className="ed-section-title" style={{ marginBottom: 8 }}>Summary</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+        <div className="panel" style={{ boxShadow: "none" }}>
+          <h3 className="ed-section-title" style={{ marginBottom: 10 }}>Summary</h3>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "7px 0", borderBottom: "1px solid var(--border)" }}>
               <span className="hint">Total Groups</span>
               <strong>{groups.length}</strong>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-              <span className="hint">Total Members</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "7px 0", borderBottom: "1px solid var(--border)" }}>
+              <span className="hint">Unique Members</span>
               <strong>{new Set(groups.flatMap(g => g.members.map(m => m.userId))).size}</strong>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "7px 0" }}>
               <span className="hint">Avg Size</span>
               <strong>
                 {groups.length > 0
