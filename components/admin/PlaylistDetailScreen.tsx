@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ListVideo, ChevronUp, ChevronDown, Trash2, Edit2, Users, Search, AlertCircle } from "lucide-react";
+import { ListVideo, ChevronUp, ChevronDown, Trash2, Edit2, Users, Search, AlertCircle, BookOpen } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { Playlist, PlaylistItem } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 import type { Assignment, AssignmentUser, CreateAssignmentInput } from "@/lib/types/assignments";
+import type { Group } from "@/lib/types/groups";
 import { ClipPreview, ClipRow, splitCategory, slotName, outcomeClass } from "@/components/common/ClipPreview";
 
 export type LearningContext = {
@@ -30,10 +31,13 @@ interface Props {
   canDelete?: boolean;
   // Assign playlist
   members?: MemberRecord[];
+  groups?: Group[];
   canAssign?: boolean;
   onCreateAssignment?: (input: CreateAssignmentInput) => Promise<void>;
-  // Assigned users visibility (admin)
+  onAddToAssignment?: (assignmentId: string, userIds: string[]) => Promise<{ added: number; skipped: number }>;
+  // Assignment history (read-only list, management only)
   assignments?: Assignment[];
+  onViewAssignment?: (assignmentId: string) => void;
   // Per-clip learning note editing
   onUpdateItemNote?: (itemId: string, note: string | null) => Promise<void>;
   // Referee learning context (read-only view with complete button)
@@ -108,173 +112,415 @@ function EditMetaModal({
 
 // ── Assign Playlist Modal ─────────────────────────────────────────────────────
 
+type AssignTab = "users" | "groups" | "org";
+type AssignMode = "new" | "existing";
+
+// Shared user/group/org picker.
+// When alreadyAssignedIds is provided (existing-assignment mode), only eligible
+// referees are shown and per-group/org eligibility counts are displayed.
+function RecipientPicker({
+  members,
+  groups,
+  tab,
+  setTab,
+  selected,
+  setSelected,
+  selGroups,
+  setSelGroups,
+  alreadyAssignedIds,
+}: {
+  members: MemberRecord[];
+  groups: Group[];
+  tab: AssignTab;
+  setTab: (t: AssignTab) => void;
+  selected: Set<string>;
+  setSelected: (s: Set<string>) => void;
+  selGroups: Set<string>;
+  setSelGroups: (s: Set<string>) => void;
+  alreadyAssignedIds?: Set<string>;
+}) {
+  const [query, setQuery] = useState("");
+  const referees = useMemo(() => members.filter(m => m.role === "referee"), [members]);
+
+  // In existing mode, only show referees not yet assigned.
+  const eligibleReferees = useMemo(
+    () => alreadyAssignedIds ? referees.filter(m => !alreadyAssignedIds.has(m.id)) : referees,
+    [referees, alreadyAssignedIds],
+  );
+
+  const q = query.trim().toLowerCase();
+  const filteredUsers  = q ? eligibleReferees.filter(m => (m.name || "").toLowerCase().includes(q) || m.email.toLowerCase().includes(q)) : eligibleReferees;
+  const filteredGroups = q ? groups.filter(g => g.name.toLowerCase().includes(q) || (g.description || "").toLowerCase().includes(q)) : groups;
+
+  function toggleUser(id: string)  { setSelected((prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })(selected)); }
+  function toggleGroup(id: string) { setSelGroups((prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })(selGroups)); }
+
+  const alreadyCount  = alreadyAssignedIds ? alreadyAssignedIds.size : 0;
+  const eligibleCount = eligibleReferees.length;
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Assign To *</div>
+
+      {/* Eligibility summary — only in existing-assignment mode */}
+      {alreadyAssignedIds && (
+        <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 12 }}>
+          <span style={{ color: "var(--muted)" }}>Already assigned: <strong>{alreadyCount}</strong></span>
+          <span style={{ color: "var(--accent)" }}>Available to add: <strong>{eligibleCount}</strong></span>
+        </div>
+      )}
+
+      <div className="assign-tabs">
+        <button className={"assign-tab" + (tab === "users"  ? " assign-tab--active" : "")} onClick={() => { setTab("users");  setQuery(""); }}>Users</button>
+        {groups.length > 0 && (
+          <button className={"assign-tab" + (tab === "groups" ? " assign-tab--active" : "")} onClick={() => { setTab("groups"); setQuery(""); }}>Groups</button>
+        )}
+        <button className={"assign-tab" + (tab === "org"   ? " assign-tab--active" : "")} onClick={() => { setTab("org");   setQuery(""); }}>Organisation</button>
+      </div>
+
+      {/* Users tab */}
+      {tab === "users" && (
+        <>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 6, alignItems: "center" }}>
+            {selected.size > 0 && <span style={{ color: "var(--accent)", fontWeight: 700, fontSize: 12 }}>{selected.size} selected</span>}
+            <button type="button" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => setSelected(new Set(filteredUsers.map(m => m.id)))}>Select All</button>
+            <button type="button" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => setSelected(new Set())}>Clear All</button>
+          </div>
+          <div style={{ position: "relative", marginBottom: 6 }}>
+            <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search referees…" style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }} />
+          </div>
+          <div style={{ border: "1px solid var(--border)", borderRadius: 8, maxHeight: 200, overflowY: "auto" }}>
+            {filteredUsers.length === 0 && (
+              <p className="hint" style={{ padding: "10px 12px", margin: 0 }}>
+                {alreadyAssignedIds && eligibleReferees.length === 0 ? "All referees are already assigned." : "No referees found."}
+              </p>
+            )}
+            {filteredUsers.map(m => (
+              <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--border)", background: selected.has(m.id) ? "var(--panel2)" : undefined }}>
+                <input type="checkbox" checked={selected.has(m.id)} onChange={() => toggleUser(m.id)} style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name || m.email}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>{m.email}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Groups tab */}
+      {tab === "groups" && (
+        <>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 6, alignItems: "center" }}>
+            {selGroups.size > 0 && <span style={{ color: "var(--accent)", fontWeight: 700, fontSize: 12 }}>{selGroups.size} group{selGroups.size !== 1 ? "s" : ""} selected</span>}
+            <button type="button" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => setSelGroups(new Set(filteredGroups.map(g => g.id)))}>Select All</button>
+            <button type="button" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => setSelGroups(new Set())}>Clear All</button>
+          </div>
+          <div style={{ position: "relative", marginBottom: 6 }}>
+            <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search groups…" style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }} />
+          </div>
+          <div style={{ border: "1px solid var(--border)", borderRadius: 8, maxHeight: 200, overflowY: "auto" }}>
+            {filteredGroups.length === 0 && <p className="hint" style={{ padding: "10px 12px", margin: 0 }}>No groups found.</p>}
+            {filteredGroups.map(g => {
+              const totalMembers   = g.members.length;
+              const eligibleMembers = alreadyAssignedIds
+                ? g.members.filter(gm => !alreadyAssignedIds.has(gm.userId)).length
+                : totalMembers;
+              const assignedMembers = totalMembers - eligibleMembers;
+              return (
+                <label key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--border)", background: selGroups.has(g.id) ? "var(--panel2)" : undefined }}>
+                  <input type="checkbox" checked={selGroups.has(g.id)} onChange={() => toggleGroup(g.id)} style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }} />
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: g.colour, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{g.name}</div>
+                    {alreadyAssignedIds ? (
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                        {totalMembers} member{totalMembers !== 1 ? "s" : ""}
+                        {" · "}<span style={{ color: "var(--accent)" }}>{eligibleMembers} eligible</span>
+                        {assignedMembers > 0 && ` · ${assignedMembers} already assigned`}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                        {totalMembers} member{totalMembers !== 1 ? "s" : ""}{g.description ? ` · ${g.description}` : ""}
+                      </div>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Organisation tab */}
+      {tab === "org" && (
+        <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px", background: "var(--panel2)" }}>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>Assign to entire organisation</p>
+          {alreadyAssignedIds ? (
+            <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
+              {referees.length} referee{referees.length !== 1 ? "s" : ""} total
+              {" · "}<span style={{ color: "var(--accent)" }}>{eligibleCount} eligible</span>
+              {alreadyCount > 0 && ` · ${alreadyCount} already assigned`}
+            </p>
+          ) : (
+            <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
+              All {referees.length} referee{referees.length !== 1 ? "s" : ""} in your organisation. Duplicates will be skipped automatically.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AssignModal({
   playlist,
   members,
+  groups,
+  assignments,
   onSave,
+  onAddToExisting,
   onClose,
 }: {
   playlist: Playlist;
   members: MemberRecord[];
+  groups: Group[];
+  assignments: Assignment[];
   onSave: (input: CreateAssignmentInput) => Promise<void>;
+  onAddToExisting: (assignmentId: string, userIds: string[]) => Promise<{ added: number; skipped: number }>;
   onClose: () => void;
 }) {
-  const [title, setTitle]       = useState(playlist.title);
-  const [instructions, setInst] = useState("");
-  const [dueDate, setDueDate]   = useState("");
-  const [required, setRequired] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [query, setQuery]       = useState("");
-  const [saving, setSaving]     = useState(false);
-  const [err, setErr]           = useState("");
+  const hasExisting = assignments.length > 0;
+  const [mode, setMode]           = useState<AssignMode>("new");
 
-  const q = query.trim().toLowerCase();
-  const filtered = q
-    ? members.filter(m =>
-        (m.name || "").toLowerCase().includes(q) ||
-        m.email.toLowerCase().includes(q) ||
-        m.role.toLowerCase().includes(q)
-      )
-    : members;
+  // New assignment fields
+  const [title, setTitle]         = useState(playlist.title);
+  const [instructions, setInst]   = useState("");
+  const [dueDate, setDueDate]     = useState("");
+  const [required, setRequired]   = useState(false);
 
-  function toggle(id: string) {
-    setSelected(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  // Existing assignment fields
+  const [selAssignment, setSelAssignment] = useState<string>("");
+
+  // Shared recipient state
+  const [tab, setTab]             = useState<AssignTab>("users");
+  const [selected, setSelected]   = useState<Set<string>>(new Set());
+  const [selGroups, setSelGroups] = useState<Set<string>>(new Set());
+
+  const [saving, setSaving]       = useState(false);
+  const [err, setErr]             = useState("");
+  const [success, setSuccess]     = useState("");
+
+  const referees = useMemo(() => members.filter(m => m.role === "referee"), [members]);
+
+  // IDs already assigned to the selected existing assignment.
+  const alreadyAssignedIds = useMemo<Set<string> | undefined>(() => {
+    if (mode !== "existing" || !selAssignment) return undefined;
+    const a = assignments.find(x => x.id === selAssignment);
+    return a ? new Set(a.assignmentUsers.map(u => u.userId)) : new Set();
+  }, [mode, selAssignment, assignments]);
+
+  function resolveUserIds(): string[] {
+    const ids = new Set<string>();
+    selected.forEach(id => ids.add(id));
+    // In existing mode, only add eligible group members (skip already-assigned).
+    groups.filter(g => selGroups.has(g.id)).forEach(g =>
+      g.members.forEach(m => {
+        if (!alreadyAssignedIds || !alreadyAssignedIds.has(m.userId)) ids.add(m.userId);
+      }),
+    );
+    if (tab === "org") {
+      referees.forEach(m => {
+        if (!alreadyAssignedIds || !alreadyAssignedIds.has(m.id)) ids.add(m.id);
+      });
+    }
+    return Array.from(ids);
+  }
+
+  function resetRecipients() {
+    setTab("users");
+    setSelected(new Set());
+    setSelGroups(new Set());
+  }
+
+  function switchMode(m: AssignMode) {
+    setMode(m);
+    setErr("");
+    setSuccess("");
+    resetRecipients();
   }
 
   async function handleSave() {
-    if (!title.trim()) { setErr("Title is required."); return; }
-    if (selected.size === 0) { setErr("Select at least one team member."); return; }
-    setSaving(true); setErr("");
-    try {
-      await onSave({
-        playlistId: playlist.id,
-        title: title.trim(),
-        instructions: instructions.trim(),
-        dueDate: dueDate || null,
-        required,
-        userIds: Array.from(selected),
-      });
-      onClose();
-    } catch (e: any) {
-      setErr(e?.message || "Failed to create assignment.");
-      setSaving(false);
+    setErr(""); setSuccess("");
+    if (mode === "new") {
+      if (!title.trim()) { setErr("Title is required."); return; }
+      const userIds = resolveUserIds();
+      if (userIds.length === 0) { setErr("No referees selected."); return; }
+      setSaving(true);
+      try {
+        await onSave({ playlistId: playlist.id, title: title.trim(), instructions: instructions.trim(), dueDate: dueDate || null, required, userIds });
+        onClose();
+      } catch (e: any) {
+        setErr(e?.message || "Failed to create assignment.");
+        setSaving(false);
+      }
+    } else {
+      if (!selAssignment) { setErr("Please select an existing assignment."); return; }
+      const userIds = resolveUserIds();
+      if (userIds.length === 0) { setErr("No referees selected."); return; }
+      setSaving(true);
+      try {
+        const { added, skipped } = await onAddToExisting(selAssignment, userIds);
+        resetRecipients();
+        setSaving(false);
+        const msg = skipped > 0
+          ? `Added ${added} referee${added !== 1 ? "s" : ""}. ${skipped} were already assigned.`
+          : `Added ${added} referee${added !== 1 ? "s" : ""}.`;
+        setSuccess(msg);
+      } catch (e: any) {
+        setErr(e?.message || "Failed to add users.");
+        setSaving(false);
+      }
     }
   }
+
+  const resolvedCount = resolveUserIds().length;
 
   return (
     <div className="modal-backdrop">
       <div className="modal" style={{ maxWidth: 560, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
         <div className="modal-title" style={{ flexShrink: 0 }}>
           <div>
-            <p className="eyebrow">New Assignment</p>
+            <p className="eyebrow">Playlist</p>
             <h1 style={{ fontSize: 20, margin: 0 }}>Assign Playlist</h1>
           </div>
           <button onClick={onClose}>✕</button>
         </div>
 
+        {/* Mode toggle — only shown when existing assignments exist */}
+        {hasExisting && (
+          <div style={{ flexShrink: 0, display: "flex", gap: 6, marginTop: 12, marginBottom: 4 }}>
+            <button
+              style={{ fontSize: 12, padding: "5px 14px", background: mode === "new" ? "var(--accent)" : undefined, color: mode === "new" ? "#fff" : undefined }}
+              onClick={() => switchMode("new")}
+            >
+              Create new assignment
+            </button>
+            <button
+              style={{ fontSize: 12, padding: "5px 14px", background: mode === "existing" ? "var(--accent)" : undefined, color: mode === "existing" ? "#fff" : undefined }}
+              onClick={() => switchMode("existing")}
+            >
+              Add to existing assignment
+            </button>
+          </div>
+        )}
+
         <div style={{ overflowY: "auto", flex: 1, paddingTop: 4 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12 }}>
-            <label>
-              Assignment Title *
-              <input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
-            </label>
-            <label>
-              Instructions <span className="hint">(optional)</span>
-              <textarea
-                value={instructions}
-                onChange={e => setInst(e.target.value)}
-                rows={3}
-                placeholder="What should the referee focus on?"
-                style={{ width: "100%", boxSizing: "border-box", resize: "vertical" }}
-              />
-            </label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "end" }}>
-              <label>
-                Due Date <span className="hint">(optional)</span>
-                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", paddingBottom: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={required}
-                  onChange={e => setRequired(e.target.checked)}
-                  style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer" }}
-                />
-                <span style={{ fontSize: 13, whiteSpace: "nowrap" }}>Required</span>
-              </label>
-            </div>
 
-            {/* Assign To */}
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>Assign To *</span>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {selected.size > 0 && (
-                    <span style={{ color: "var(--accent)", fontWeight: 700 }}>{selected.size} selected</span>
-                  )}
-                  <button
-                    type="button"
-                    style={{ fontSize: 11, padding: "2px 8px" }}
-                    onClick={() => setSelected(new Set(filtered.map(m => m.id)))}
-                  >
-                    Select All
-                  </button>
-                  <button
-                    type="button"
-                    style={{ fontSize: 11, padding: "2px 8px" }}
-                    onClick={() => setSelected(new Set())}
-                  >
-                    Clear All
-                  </button>
-                </div>
-              </div>
-              <div style={{ position: "relative", marginBottom: 6 }}>
-                <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-                <input
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  placeholder="Search team members…"
-                  style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
-                />
-              </div>
-              <div style={{ border: "1px solid var(--border)", borderRadius: 8, maxHeight: 200, overflowY: "auto" }}>
-                {filtered.length === 0 && (
-                  <p className="hint" style={{ padding: "10px 12px", margin: 0 }}>No members found.</p>
-                )}
-                {filtered.map(m => (
-                  <label
-                    key={m.id}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--border)", background: selected.has(m.id) ? "var(--panel2)" : undefined }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.has(m.id)}
-                      onChange={() => toggle(m.id)}
-                      style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name || m.email}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</div>
-                    </div>
-                    <span className={`role-badge role-${m.role}`} style={{ fontSize: 10, flexShrink: 0 }}>{m.role}</span>
+            {/* ── Create new mode ── */}
+            {mode === "new" && (
+              <>
+                <label>
+                  Assignment Title *
+                  <input value={title} onChange={e => setTitle(e.target.value)} autoFocus={!hasExisting} />
+                </label>
+                <label>
+                  Instructions <span className="hint">(optional)</span>
+                  <textarea value={instructions} onChange={e => setInst(e.target.value)} rows={3} placeholder="What should the referee focus on?" style={{ width: "100%", boxSizing: "border-box", resize: "vertical" }} />
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "end" }}>
+                  <label>
+                    Due Date <span className="hint">(optional)</span>
+                    <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
                   </label>
-                ))}
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", paddingBottom: 8 }}>
+                    <input type="checkbox" checked={required} onChange={e => setRequired(e.target.checked)} style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer" }} />
+                    <span style={{ fontSize: 13, whiteSpace: "nowrap" }}>Required</span>
+                  </label>
+                </div>
+              </>
+            )}
+
+            {/* ── Add to existing mode ── */}
+            {mode === "existing" && (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Select Assignment *</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto", marginBottom: 4, paddingRight: 2 }}>
+                  {assignments.map(a => {
+                    const completedCount = a.assignmentUsers.filter(u => u.status === "Completed").length;
+                    const totalUsers     = a.assignmentUsers.length;
+                    const isSelected     = selAssignment === a.id;
+                    const displayTitle   = a.title.trim() || `Assignment created ${fmtShort(a.createdAt)}`;
+                    return (
+                      <div
+                        key={a.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => { setSelAssignment(a.id); resetRecipients(); setErr(""); setSuccess(""); }}
+                        onKeyDown={e => e.key === "Enter" && setSelAssignment(a.id)}
+                        style={{
+                          border: `1px solid ${isSelected ? "var(--accent)" : "var(--border)"}`,
+                          borderRadius: 10,
+                          padding: "10px 14px",
+                          cursor: "pointer",
+                          background: isSelected ? "rgba(165,106,27,.06)" : "var(--panel2)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 4,
+                          outline: "none",
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayTitle}</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px", fontSize: 11, color: "var(--muted)" }}>
+                          <span>{totalUsers} user{totalUsers !== 1 ? "s" : ""} assigned</span>
+                          <span>{completedCount}/{totalUsers} completed</span>
+                          {a.dueDate && <span>Due {fmtShort(a.dueDate)}</span>}
+                          <span>Created {fmtShort(a.createdAt)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {success && (
+                  <div style={{ background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.3)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#22c55e", marginTop: 4 }}>
+                    {success}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
+
+            {/* Recipient picker — shared by both modes; in existing mode filters to eligible only */}
+            <RecipientPicker
+              members={members}
+              groups={groups}
+              tab={tab}
+              setTab={setTab}
+              selected={selected}
+              setSelected={setSelected}
+              selGroups={selGroups}
+              setSelGroups={setSelGroups}
+              alreadyAssignedIds={alreadyAssignedIds}
+            />
           </div>
         </div>
 
         <div style={{ flexShrink: 0, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
           {err && <p className="danger-text" style={{ margin: "0 0 10px" }}>{err}</p>}
           <div className="action-row">
-            <button onClick={onClose}>Cancel</button>
-            <button className="primary" onClick={handleSave} disabled={saving}>
-              {saving ? "Assigning…" : `Assign to ${selected.size > 0 ? selected.size : ""} member${selected.size !== 1 ? "s" : ""}`}
-            </button>
+            <button onClick={onClose}>{success ? "Done" : "Cancel"}</button>
+            {!success && (
+              <button className="primary" onClick={handleSave} disabled={saving}>
+                {saving
+                  ? mode === "new" ? "Assigning…" : "Adding…"
+                  : mode === "new"
+                    ? `Assign to ${resolvedCount > 0 ? resolvedCount : ""} referee${resolvedCount !== 1 ? "s" : ""}`
+                    : `Add ${resolvedCount > 0 ? resolvedCount : ""} referee${resolvedCount !== 1 ? "s" : ""}`
+                }
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -282,209 +528,105 @@ function AssignModal({
   );
 }
 
-// ── Assigned Users Modal ──────────────────────────────────────────────────────
-
-type AssignedRow = {
-  assignmentId: string;
-  assignmentTitle: string;
-  required: boolean;
-  dueDate: string | null;
-  assignmentUser: AssignmentUser;
-  memberName: string;
-  memberEmail: string;
-};
-
-type AssignedFilter = "All" | "Assigned" | "Started" | "Completed" | "Overdue";
+// ── Assignment History Modal ──────────────────────────────────────────────────
 
 function fmt(iso: string | null | undefined) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function isOverdue(dueDate: string | null, status: string) {
-  if (!dueDate || status === "Completed") return false;
-  return new Date(dueDate).getTime() < Date.now();
+function fmtShort(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
 }
 
-function AssignedUsersModal({
+function AssignmentsHistoryModal({
   playlistTitle,
   assignments,
-  members,
+  onViewAssignment,
   onClose,
 }: {
   playlistTitle: string;
   assignments: Assignment[];
-  members: MemberRecord[];
+  onViewAssignment?: (assignmentId: string) => void;
   onClose: () => void;
 }) {
-  const [filter, setFilter] = useState<AssignedFilter>("All");
-  const [query, setQuery]   = useState("");
-
-  const memberMap = useMemo(() => {
-    const m = new Map<string, MemberRecord>();
-    for (const mb of members) m.set(mb.id, mb);
-    return m;
-  }, [members]);
-
-  const allRows = useMemo<AssignedRow[]>(() => {
-    const rows: AssignedRow[] = [];
-    for (const a of assignments) {
-      for (const au of a.assignmentUsers) {
-        const mb = memberMap.get(au.userId);
-        rows.push({
-          assignmentId:    a.id,
-          assignmentTitle: a.title,
-          required:        a.required,
-          dueDate:         a.dueDate,
-          assignmentUser:  au,
-          memberName:      mb?.name || mb?.email || "Unknown",
-          memberEmail:     mb?.email || "",
-        });
-      }
-    }
-    // Sort: overdue first, then Assigned/Started before Completed, then name
-    rows.sort((a, b) => {
-      const ao = isOverdue(a.dueDate, a.assignmentUser.status);
-      const bo = isOverdue(b.dueDate, b.assignmentUser.status);
-      if (ao !== bo) return ao ? -1 : 1;
-      const order: Record<string, number> = { Assigned: 0, Started: 1, Completed: 2 };
-      const sd = (order[a.assignmentUser.status] ?? 0) - (order[b.assignmentUser.status] ?? 0);
-      if (sd !== 0) return sd;
-      return a.memberName.localeCompare(b.memberName);
-    });
-    return rows;
-  }, [assignments, memberMap]);
-
-  const counts = useMemo(() => ({
-    All:       allRows.length,
-    Assigned:  allRows.filter(r => r.assignmentUser.status === "Assigned").length,
-    Started:   allRows.filter(r => r.assignmentUser.status === "Started").length,
-    Completed: allRows.filter(r => r.assignmentUser.status === "Completed").length,
-    Overdue:   allRows.filter(r => isOverdue(r.dueDate, r.assignmentUser.status)).length,
-  }), [allRows]);
-
-  const q = query.trim().toLowerCase();
-  const filtered = allRows.filter(r => {
-    if (filter === "Overdue"   && !isOverdue(r.dueDate, r.assignmentUser.status)) return false;
-    if (filter !== "All" && filter !== "Overdue" && r.assignmentUser.status !== filter) return false;
-    if (q) {
-      return (
-        r.memberName.toLowerCase().includes(q) ||
-        r.memberEmail.toLowerCase().includes(q) ||
-        r.assignmentTitle.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
-
-  const STATUS_COLOR: Record<string, string> = {
-    Assigned:  "var(--muted)",
-    Started:   "#fde68a",
-    Completed: "#bbf7d0",
-  };
-
-  const FILTER_TABS: AssignedFilter[] = ["All", "Assigned", "Started", "Completed", "Overdue"];
+  // Most-recently-created first
+  const sorted = useMemo(
+    () => [...assignments].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [assignments],
+  );
 
   return (
     <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 720, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+      <div className="modal" style={{ maxWidth: 640, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
         <div className="modal-title" style={{ flexShrink: 0 }}>
           <div>
             <p className="eyebrow">Playlist</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>Assigned Users — {playlistTitle}</h1>
-            <p className="hint" style={{ margin: "2px 0 0" }}>{allRows.length} assignment{allRows.length !== 1 ? "s" : ""} across {assignments.length} assignment group{assignments.length !== 1 ? "s" : ""}</p>
+            <h1 style={{ fontSize: 20, margin: 0 }}>Assignments — {playlistTitle}</h1>
+            <p className="hint" style={{ margin: "2px 0 0" }}>
+              {assignments.length} assignment{assignments.length !== 1 ? "s" : ""} created from this playlist
+            </p>
           </div>
           <button onClick={onClose}>✕</button>
         </div>
 
-        {/* Filter tabs */}
-        <div style={{ flexShrink: 0, display: "flex", gap: 6, flexWrap: "wrap", padding: "12px 0 8px" }}>
-          {FILTER_TABS.map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              style={{
-                fontSize: 12, padding: "3px 10px",
-                background: filter === f ? "var(--accent)" : undefined,
-                color:      filter === f ? "#fff" : undefined,
-                opacity:    counts[f] === 0 ? 0.45 : 1,
-              }}
-            >
-              {f} {counts[f] > 0 ? `· ${counts[f]}` : ""}
-            </button>
-          ))}
-        </div>
-
-        {/* Search */}
-        <div style={{ flexShrink: 0, position: "relative", marginBottom: 10 }}>
-          <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search by name, email or assignment title…"
-            style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
-          />
-        </div>
-
-        {/* Table */}
-        <div style={{ flex: 1, overflowY: "auto" }}>
-          {filtered.length === 0 ? (
-            <p className="hint" style={{ padding: "16px 0", margin: 0 }}>No results match the current filter.</p>
+        <div style={{ flex: 1, overflowY: "auto", marginTop: 12 }}>
+          {sorted.length === 0 ? (
+            <p className="hint" style={{ padding: "16px 0", margin: 0 }}>No assignments yet.</p>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  <th style={{ textAlign: "left", padding: "5px 8px", fontWeight: 600 }}>Referee</th>
-                  <th style={{ textAlign: "left", padding: "5px 8px", fontWeight: 600 }}>Assignment</th>
-                  <th style={{ textAlign: "left", padding: "5px 8px", fontWeight: 600 }}>Status</th>
-                  <th style={{ textAlign: "left", padding: "5px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>Assigned</th>
-                  <th style={{ textAlign: "left", padding: "5px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>Due</th>
-                  <th style={{ textAlign: "left", padding: "5px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>Completed</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(r => {
-                  const overdue = isOverdue(r.dueDate, r.assignmentUser.status);
-                  return (
-                    <tr
-                      key={`${r.assignmentId}-${r.assignmentUser.userId}`}
-                      style={{ borderBottom: "1px solid var(--border)", background: overdue ? "rgba(239,68,68,.04)" : undefined }}
-                    >
-                      <td style={{ padding: "9px 8px" }}>
-                        <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>{r.memberName}</div>
-                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{r.memberEmail}</div>
-                      </td>
-                      <td style={{ padding: "9px 8px" }}>
-                        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{r.assignmentTitle}</div>
-                        {r.required && (
-                          <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 999, background: "rgba(239,68,68,.15)", color: "#fca5a5", border: "1px solid rgba(239,68,68,.3)", fontWeight: 700 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {sorted.map(a => {
+                const completedCount = a.assignmentUsers.filter(u => u.status === "Completed").length;
+                const totalUsers     = a.assignmentUsers.length;
+                const allDone        = totalUsers > 0 && completedCount === totalUsers;
+                return (
+                  <div
+                    key={a.id}
+                    style={{
+                      background: "var(--panel2)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 10,
+                      padding: "12px 14px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 14,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {a.title}
+                        {a.required && (
+                          <span style={{ marginLeft: 6, fontSize: 10, padding: "1px 5px", borderRadius: 999, background: "rgba(239,68,68,.15)", color: "#fca5a5", border: "1px solid rgba(239,68,68,.3)", fontWeight: 700, verticalAlign: "middle" }}>
                             Required
                           </span>
                         )}
-                      </td>
-                      <td style={{ padding: "9px 8px", whiteSpace: "nowrap" }}>
-                        <span style={{ fontWeight: 700, color: STATUS_COLOR[r.assignmentUser.status] ?? "var(--muted)", display: "flex", alignItems: "center", gap: 4 }}>
-                          {overdue && <AlertCircle size={12} style={{ color: "#fca5a5", flexShrink: 0 }} />}
-                          {r.assignmentUser.status}
-                          {overdue && <span style={{ fontSize: 10, color: "#fca5a5", fontWeight: 400 }}>Overdue</span>}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 16px", marginTop: 4 }}>
+                        <span className="hint" style={{ fontSize: 11 }}>
+                          {totalUsers} user{totalUsers !== 1 ? "s" : ""}
                         </span>
-                      </td>
-                      <td style={{ padding: "9px 8px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12 }}>
-                        {fmt(r.assignmentUser.assignedAt)}
-                      </td>
-                      <td style={{ padding: "9px 8px", whiteSpace: "nowrap", fontSize: 12 }}>
-                        <span style={{ color: overdue ? "#fca5a5" : "var(--muted)" }}>
-                          {fmt(r.dueDate)}
+                        <span style={{ fontSize: 11, color: allDone ? "#22c55e" : "var(--muted)" }}>
+                          {completedCount}/{totalUsers} completed
                         </span>
-                      </td>
-                      <td style={{ padding: "9px 8px", color: "#bbf7d0", whiteSpace: "nowrap", fontSize: 12 }}>
-                        {r.assignmentUser.completedAt ? fmt(r.assignmentUser.completedAt) : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        {a.dueDate && (
+                          <span className="hint" style={{ fontSize: 11 }}>Due {fmt(a.dueDate)}</span>
+                        )}
+                        <span className="hint" style={{ fontSize: 11 }}>Created {fmt(a.createdAt)}</span>
+                      </div>
+                    </div>
+                    {onViewAssignment && (
+                      <button
+                        style={{ fontSize: 12, padding: "5px 12px", flexShrink: 0, whiteSpace: "nowrap" }}
+                        onClick={() => { onViewAssignment(a.id); onClose(); }}
+                      >
+                        View Assignment
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
 
@@ -513,8 +655,11 @@ export function PlaylistDetailScreen({
   canEdit = true,
   canDelete = true,
   members,
+  groups = [],
   canAssign = false,
   onCreateAssignment,
+  onAddToAssignment,
+  onViewAssignment,
   assignments = [],
   onUpdateItemNote,
   learningContext,
@@ -624,19 +769,16 @@ export function PlaylistDetailScreen({
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {saving && <span className="hint" style={{ fontSize: 12 }}>Saving…</span>}
-            {!learningContext && assignments.length > 0 && members && (
+            {!learningContext && assignments.length > 0 && (
               <button
-                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, position: "relative" }}
+                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
                 onClick={() => setAssignedUsersOpen(true)}
               >
-                <Users size={13} />
-                Assigned Users
-                <span style={{ fontSize: 10, background: "var(--accent)", color: "#fff", borderRadius: 999, padding: "1px 5px", marginLeft: 2 }}>
-                  {assignments.reduce((n, a) => n + a.assignmentUsers.length, 0)}
-                </span>
+                <BookOpen size={13} />
+                Assignments ({assignments.length})
               </button>
             )}
-            {canAssign && members && onCreateAssignment && (
+            {canAssign && members && onCreateAssignment && onAddToAssignment && (
               <button
                 style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
                 onClick={() => setAssignModalOpen(true)}
@@ -670,7 +812,7 @@ export function PlaylistDetailScreen({
       {/* Learning context banner (referee view) */}
       {learningContext && (() => {
         const isCompleted = learningContext.assignmentUser.status === "Completed";
-        const overdueLC   = isOverdue(learningContext.dueDate, learningContext.assignmentUser.status);
+        const overdueLC   = !!learningContext.dueDate && learningContext.assignmentUser.status !== "Completed" && new Date(learningContext.dueDate).getTime() < Date.now();
         return (
           <div
             className="panel"
@@ -894,11 +1036,14 @@ export function PlaylistDetailScreen({
       )}
 
       {/* Assign playlist modal */}
-      {canAssign && assignModalOpen && members && onCreateAssignment && (
+      {canAssign && assignModalOpen && members && onCreateAssignment && onAddToAssignment && (
         <AssignModal
           playlist={playlist}
           members={members}
+          groups={groups}
+          assignments={assignments}
           onSave={onCreateAssignment}
+          onAddToExisting={onAddToAssignment}
           onClose={() => {
             setAssignModalOpen(false);
             setAssignSuccess(true);
@@ -907,12 +1052,12 @@ export function PlaylistDetailScreen({
         />
       )}
 
-      {/* Assigned users modal */}
-      {assignedUsersOpen && members && (
-        <AssignedUsersModal
+      {/* Assignments history modal */}
+      {assignedUsersOpen && (
+        <AssignmentsHistoryModal
           playlistTitle={playlist.title}
           assignments={assignments}
-          members={members}
+          onViewAssignment={onViewAssignment}
           onClose={() => setAssignedUsersOpen(false)}
         />
       )}

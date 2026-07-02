@@ -15,7 +15,7 @@ interface Props {
   onBack: () => void;
   onUpdate: (id: string, data: { title: string; instructions: string | null; dueDate: string | null; required: boolean }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onAddUsers: (assignmentId: string, userIds: string[]) => Promise<void>;
+  onAddUsers: (assignmentId: string, userIds: string[]) => Promise<{ added: number; skipped: number }>;
   onRemoveUser: (assignmentUserId: string) => Promise<void>;
 }
 
@@ -124,7 +124,7 @@ function AddUsersPanel({
 }: {
   assignment: Assignment;
   members: MemberRecord[];
-  onAdd: (userIds: string[]) => Promise<void>;
+  onAdd: (userIds: string[]) => Promise<{ added: number; skipped: number }>;
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -238,7 +238,8 @@ export function AssignmentDetailScreen({
     return members.find(m => m.id === userId);
   }
 
-  async function handleRemove(assignmentUserId: string) {
+  async function handleRemove(assignmentUserId: string, memberName: string) {
+    if (!confirm(`Remove ${memberName} from this assignment?\n\nTheir progress will be deleted. This cannot be undone.`)) return;
     setRemoving(assignmentUserId);
     try { await onRemoveUser(assignmentUserId); } finally { setRemoving(null); }
   }
@@ -362,7 +363,7 @@ export function AssignmentDetailScreen({
                       {canEdit && (
                         <td style={{ padding: "10px 10px", textAlign: "right" }}>
                           <button
-                            onClick={() => handleRemove(au.id)}
+                            onClick={() => handleRemove(au.id, m?.name || "this referee")}
                             disabled={removing === au.id}
                             style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", display: "flex", alignItems: "center" }}
                             title="Remove from assignment"

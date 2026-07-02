@@ -39,6 +39,12 @@ export const PERMISSIONS = {
   USERS_RESET_PASSWORDS:    "users.reset_passwords",
   USERS_MANAGE_PERMISSIONS: "users.manage_permissions",
 
+  // Groups
+  GROUPS_VIEW:   "groups.view",
+  GROUPS_CREATE: "groups.create",
+  GROUPS_EDIT:   "groups.edit",
+  GROUPS_DELETE: "groups.delete",
+
   // Organisation
   ORG_MANAGE:       "org.manage",
   ORG_COMPETITIONS: "org.competitions",
@@ -109,6 +115,15 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    label: "Groups",
+    permissions: [
+      { key: PERMISSIONS.GROUPS_VIEW,   label: "View Groups" },
+      { key: PERMISSIONS.GROUPS_CREATE, label: "Create Groups" },
+      { key: PERMISSIONS.GROUPS_EDIT,   label: "Edit Groups" },
+      { key: PERMISSIONS.GROUPS_DELETE, label: "Delete Groups" },
+    ],
+  },
+  {
     label: "Organisation",
     permissions: [
       { key: PERMISSIONS.ORG_MANAGE,       label: "Manage Organisation" },
@@ -142,6 +157,10 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<Role, PermissionKey[]> = {
     PERMISSIONS.ASSIGNMENTS_CREATE,
     PERMISSIONS.ASSIGNMENTS_EDIT,
     PERMISSIONS.ASSIGNMENTS_DELETE,
+    PERMISSIONS.GROUPS_VIEW,
+    PERMISSIONS.GROUPS_CREATE,
+    PERMISSIONS.GROUPS_EDIT,
+    PERMISSIONS.GROUPS_DELETE,
     PERMISSIONS.ANALYTICS_VIEW,
   ],
 

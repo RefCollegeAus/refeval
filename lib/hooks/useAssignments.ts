@@ -59,11 +59,20 @@ export function useAssignments(orgId: string, currentUserId: string) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Assignments where the current user is an assigned learner
-  const myAssignments = useMemo(
-    () => assignments.filter(a => a.assignmentUsers.some(u => u.userId === currentUserId)),
-    [assignments, currentUserId],
-  );
+  // Assignments where the current user is an assigned learner.
+  // Deduplicated by playlistId — if the same playlist was assigned twice (e.g. via group
+  // and individually), keep only the most recently created one to avoid duplicate cards.
+  const myAssignments = useMemo(() => {
+    const mine = assignments.filter(a => a.assignmentUsers.some(u => u.userId === currentUserId));
+    const seen = new Map<string, typeof mine[number]>();
+    for (const a of mine) {
+      const existing = seen.get(a.playlistId);
+      if (!existing || a.createdAt > existing.createdAt) {
+        seen.set(a.playlistId, a);
+      }
+    }
+    return Array.from(seen.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [assignments, currentUserId]);
 
   async function createAssignment(input: CreateAssignmentInput): Promise<string> {
     const supabase = getSupabaseClient();
@@ -83,10 +92,11 @@ export function useAssignments(orgId: string, currentUserId: string) {
     if (insErr) { console.error("[useAssignments] createAssignment insert error:", insErr); throw insErr; }
     if (!row) throw new Error("Assignment was not created — check Supabase RLS policies for learning_assignments.");
 
-    if (input.userIds.length > 0) {
+    const uniqueUserIds = Array.from(new Set(input.userIds));
+    if (uniqueUserIds.length > 0) {
       const { error: usersErr } = await supabase
         .from("learning_assignment_users")
-        .insert(input.userIds.map(uid => ({ assignment_id: row.id, user_id: uid })));
+        .insert(uniqueUserIds.map(uid => ({ assignment_id: row.id, user_id: uid })));
       if (usersErr) { console.error("[useAssignments] addUsers error:", usersErr); throw usersErr; }
     }
     await load();
@@ -119,13 +129,23 @@ export function useAssignments(orgId: string, currentUserId: string) {
     await load();
   }
 
-  async function addUsersToAssignment(assignmentId: string, userIds: string[]): Promise<void> {
-    if (userIds.length === 0) return;
-    const { error: err } = await getSupabaseClient()
-      .from("learning_assignment_users")
-      .insert(userIds.map(uid => ({ assignment_id: assignmentId, user_id: uid })));
-    if (err) throw err;
+  async function addUsersToAssignment(
+    assignmentId: string,
+    userIds: string[],
+  ): Promise<{ added: number; skipped: number }> {
+    const assignment = assignments.find(a => a.id === assignmentId);
+    const alreadyAssigned = new Set(assignment?.assignmentUsers.map(u => u.userId) ?? []);
+    const unique = Array.from(new Set(userIds));
+    const toAdd = unique.filter(id => !alreadyAssigned.has(id));
+    const skipped = unique.length - toAdd.length;
+    if (toAdd.length > 0) {
+      const { error: err } = await getSupabaseClient()
+        .from("learning_assignment_users")
+        .insert(toAdd.map(uid => ({ assignment_id: assignmentId, user_id: uid })));
+      if (err) throw err;
+    }
     await load();
+    return { added: toAdd.length, skipped };
   }
 
   async function removeUserFromAssignment(assignmentUserId: string): Promise<void> {

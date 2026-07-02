@@ -1,19 +1,23 @@
-import { LogOut, Settings, User } from "lucide-react";
+import { LogOut, Settings, User, GraduationCap } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 
 export function Header({
   session,
   onHome,
   onAdmin,
+  onLearning,
   onProfile,
   onLogout,
 }: {
   session: RefEvalSession | null;
   onHome: () => void;
   onAdmin: () => void;
+  onLearning?: () => void;
   onProfile: () => void;
   onLogout: () => void;
 }) {
+  const isManagement = session?.activeRole === "educator" || session?.activeRole === "admin" || session?.activeRole === "super_admin";
+
   return (
     <header className="header">
       <div className="brand">
@@ -27,6 +31,12 @@ export function Header({
       {session && (
         <div className="export-row">
           <button onClick={onHome}>Home</button>
+
+          {isManagement && onLearning && (
+            <button onClick={onLearning}>
+              <GraduationCap size={16} /> Learning
+            </button>
+          )}
 
           {(session.activeRole === "admin" || session.activeRole === "super_admin") && (
             <button onClick={onAdmin}>

@@ -19,7 +19,10 @@ export type Screen =
   | "team-management"
   | "assignments"
   | "assignment-detail"
-  | "my-learning";
+  | "my-learning"
+  | "learning-hub"
+  | "learning-progress"
+  | "groups";
 
 export type RefEvalSession = {
   user: {

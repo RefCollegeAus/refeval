@@ -150,6 +150,81 @@ label{display:grid;gap:7px;font-size:13px;font-weight:800;color:var(--muted)} a{
 @media(max-width:1100px){.ed-layout{grid-template-columns:1fr}.ed-sidebar{position:static;max-height:none}.ed-summary-grid{grid-template-columns:repeat(2,1fr)}.ed-action-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.ed-summary-grid{grid-template-columns:repeat(2,1fr)}.ed-action-grid{grid-template-columns:1fr}}
 
+/* Phase 5 — Learning Hub */
+/* Shared layout (reuses ed-layout grid proportions) */
+.lh-layout{display:grid;grid-template-columns:1fr 300px;gap:18px;padding:18px;align-items:start}
+.lh-main{display:flex;flex-direction:column;gap:14px}
+.lh-sidebar{position:sticky;top:18px;max-height:calc(100vh - 90px);overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+/* Hero header */
+.lh-hero{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.lh-hero-icon-wrap{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,rgba(165,106,27,.25),rgba(165,106,27,.1));border:1px solid rgba(165,106,27,.4);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0}
+/* Stats row */
+.lh-stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.lh-stat-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;cursor:pointer;transition:border-color .15s;text-align:left;width:100%}
+.lh-stat-card:hover{border-color:var(--accent)}
+.lh-stat-card--good{border-color:rgba(34,197,94,.3);background:linear-gradient(135deg,rgba(34,197,94,.06),transparent)}
+.lh-stat-card--danger{border-color:rgba(239,68,68,.3);background:linear-gradient(135deg,rgba(239,68,68,.06),transparent)}
+.lh-stat-icon{color:var(--accent);opacity:.8}
+.lh-stat-number{font-size:28px;font-weight:950;letter-spacing:-.04em;line-height:1}
+.lh-stat-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+/* Section title (shared with ed-section-title but scoped for clarity) */
+.lh-section-title{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+/* Nav cards */
+.lh-nav-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.lh-nav-card{display:flex;align-items:center;gap:14px;padding:16px 18px;background:var(--panel);border:1px solid var(--border);border-radius:16px;cursor:pointer;text-align:left;transition:border-color .15s,background .15s;width:100%}
+.lh-nav-card:hover{border-color:var(--accent);background:rgba(165,106,27,.06)}
+.lh-nav-card--accent{background:linear-gradient(135deg,rgba(165,106,27,.12),rgba(165,106,27,.04));border-color:rgba(165,106,27,.4)}
+.lh-nav-card--accent:hover{border-color:var(--accent);background:linear-gradient(135deg,rgba(165,106,27,.22),rgba(165,106,27,.08))}
+.lh-nav-card-icon{color:var(--accent);flex-shrink:0}
+.lh-nav-card-body{flex:1;min-width:0}
+.lh-nav-card-label{font-size:15px;font-weight:800}
+.lh-nav-card-hint{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lh-nav-chevron{color:var(--muted);flex-shrink:0;opacity:.5}
+/* Sidebar quick-nav links */
+.lh-sidebar-link{display:flex;justify-content:space-between;align-items:center;width:100%;padding:8px 10px;border-radius:10px;border:1px solid transparent;background:none;cursor:pointer;font-size:13px;font-weight:700;transition:background .1s,border-color .1s;text-align:left}
+.lh-sidebar-link:hover{background:rgba(165,106,27,.08);border-color:rgba(165,106,27,.2)}
+/* Learning Snapshot widget */
+.lh-snapshot-row{display:flex;align-items:center;gap:10px;padding:10px 2px;border:none;border-bottom:1px solid var(--border);background:none;width:100%;text-align:left;cursor:pointer;border-radius:0;transition:background .1s;font-size:13px;color:var(--text)}
+.lh-snapshot-row:last-child,.lh-snapshot-row--last{border-bottom:none}
+.lh-snapshot-row:hover{background:rgba(165,106,27,.06)}
+.lh-snapshot-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.lh-snapshot-label{flex:1;color:var(--muted);font-size:12px}
+.lh-snapshot-value{font-size:15px;font-weight:800;min-width:24px;text-align:right}
+/* Learning Progress table */
+.lh-row--selected{background:rgba(165,106,27,.08)!important;outline:2px solid rgba(165,106,27,.3);outline-offset:-2px}
+.lh-progress-bar{flex:1;height:5px;background:rgba(165,106,27,.15);border-radius:3px;min-width:40px;max-width:80px;overflow:hidden}
+.lh-progress-fill{height:100%;border-radius:3px;transition:width .3s}
+/* Referee profile */
+.lh-profile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.lh-profile-stat{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;text-align:center}
+.lh-profile-stat--good{border-color:rgba(34,197,94,.25)}
+.lh-profile-stat-num{font-size:22px;font-weight:950;letter-spacing:-.04em;line-height:1;margin-bottom:2px}
+.lh-profile-stat-lbl{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.lh-cadence-chip{display:inline-flex;align-items:center;gap:5px;background:rgba(165,106,27,.12);border:1px solid rgba(165,106,27,.25);border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700;color:var(--accent)}
+/* Assignment history rows */
+.lh-assignment-row{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;transition:border-color .15s}
+.lh-assignment-row--overdue{border-color:rgba(239,68,68,.35);background:linear-gradient(135deg,rgba(239,68,68,.04),transparent)}
+/* Responsive */
+@media(max-width:1100px){.lh-layout{grid-template-columns:1fr}.lh-sidebar{position:static;max-height:none}}
+@media(max-width:700px){.lh-nav-grid{grid-template-columns:1fr}.lh-stats-row{grid-template-columns:repeat(2,1fr)}}
+
+/* Phase 6 — Groups & Cohorts */
+.groups-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.groups-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;cursor:pointer;transition:border-color .15s,background .15s;display:flex;flex-direction:column;gap:8px}
+.groups-card:hover{border-color:var(--accent)}
+.groups-card--selected{border-color:var(--accent)!important;background:rgba(165,106,27,.06)}
+.groups-card-header{display:flex;align-items:center;gap:8px}
+.groups-card-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.groups-card-name{font-size:15px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.groups-card-desc{margin:0;font-size:12px;color:var(--muted);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.groups-card-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);gap:6px;align-items:center}
+.groups-card-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+/* Assign modal tabs */
+.assign-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:14px}
+.assign-tab{background:transparent;border:none;border-bottom:2px solid transparent;border-radius:0;padding:8px 14px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;margin-bottom:-1px}
+.assign-tab--active{color:var(--accent);border-bottom-color:var(--accent)}
+@media(max-width:700px){.groups-grid{grid-template-columns:1fr}}
+
 /* Phase 4 — Educator Dashboard redesign */
 /* Dashboard page header */
 .ed-dash-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
