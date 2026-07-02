@@ -221,10 +221,17 @@ export function AssignmentDetailScreen({
   assignment, playlist, members, canEdit, canDelete,
   onBack, onUpdate, onDelete, onAddUsers, onRemoveUser, onUpdateStatus,
 }: Props) {
-  const [editOpen, setEditOpen]       = useState(false);
-  const [removing, setRemoving]       = useState<string | null>(null);
-  const [deleting, setDeleting]       = useState(false);
+  const [editOpen, setEditOpen]             = useState(false);
+  const [removing, setRemoving]             = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [deleting, setDeleting]             = useState(false);
+  const [delConfirm, setDelConfirm]         = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus]   = useState<{
+    auId: string;
+    status: AssignmentStatus;
+    memberName: string;
+  } | null>(null);
 
   const assignedIds = useMemo(
     () => new Set(assignment.assignmentUsers.map(u => u.userId)),
@@ -235,23 +242,24 @@ export function AssignmentDetailScreen({
     return members.find(m => m.id === userId);
   }
 
-  async function handleRemove(assignmentUserId: string, memberName: string) {
-    if (!confirm(`Remove ${memberName} from this assignment?\n\nTheir progress will be deleted. This cannot be undone.`)) return;
+  async function handleRemove(assignmentUserId: string) {
+    setConfirmRemoveId(null);
     setRemoving(assignmentUserId);
     try { await onRemoveUser(assignmentUserId); } finally { setRemoving(null); }
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete assignment "${assignment.title}"?\n\nThis will remove all user progress. This cannot be undone.`)) return;
+    setDelConfirm(false);
     setDeleting(true);
     try { await onDelete(assignment.id); } finally { setDeleting(false); }
   }
 
-  async function handleStatusChange(assignmentUserId: string, newStatus: AssignmentStatus, memberName: string) {
-    if (!onUpdateStatus) return;
-    if (!confirm(`Manually set ${memberName}'s learning status to "${newStatus}"?\n\nThis overrides their recorded progress.`)) return;
-    setUpdatingStatus(assignmentUserId);
-    try { await onUpdateStatus(assignmentUserId, newStatus); } catch { /* toast in future */ } finally { setUpdatingStatus(null); }
+  async function confirmStatusChange() {
+    if (!onUpdateStatus || !pendingStatus) return;
+    const { auId, status } = pendingStatus;
+    setPendingStatus(null);
+    setUpdatingStatus(auId);
+    try { await onUpdateStatus(auId, status); } catch { /* toast in future */ } finally { setUpdatingStatus(null); }
   }
 
   const completedCount = assignment.assignmentUsers.filter(u => u.status === "Completed").length;
@@ -276,19 +284,31 @@ export function AssignmentDetailScreen({
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {canEdit && (
+            {canEdit && !delConfirm && (
               <button style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} onClick={() => setEditOpen(true)}>
                 <Edit2 size={13} /> Edit
               </button>
             )}
             {canDelete && (
-              <button className="danger" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} onClick={handleDelete} disabled={deleting}>
-                <Trash2 size={13} /> {deleting ? "Deleting…" : "Delete"}
+              delConfirm ? (
+                <>
+                  <span className="hint" style={{ fontSize: 12, whiteSpace: "nowrap" }}>Delete assignment?</span>
+                  <button className="danger" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} onClick={handleDelete} disabled={deleting}>
+                    {deleting ? "Deleting…" : "Yes, Delete"}
+                  </button>
+                  <button style={{ fontSize: 13 }} onClick={() => setDelConfirm(false)}>Cancel</button>
+                </>
+              ) : (
+                <button className="danger" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} onClick={() => setDelConfirm(true)} disabled={deleting}>
+                  <Trash2 size={13} /> Delete
+                </button>
+              )
+            )}
+            {!delConfirm && (
+              <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <ChevronLeft size={15} /> Back
               </button>
             )}
-            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <ChevronLeft size={15} /> Back
-            </button>
           </div>
         </div>
 
@@ -365,9 +385,9 @@ export function AssignmentDetailScreen({
                         {canEdit && onUpdateStatus ? (
                           <div style={{ position: "relative", display: "inline-block" }}>
                             <select
-                              value={au.status}
+                              value={pendingStatus?.auId === au.id ? pendingStatus.status : au.status}
                               disabled={isUpdating}
-                              onChange={e => handleStatusChange(au.id, e.target.value as AssignmentStatus, m?.name || "this referee")}
+                              onChange={e => setPendingStatus({ auId: au.id, status: e.target.value as AssignmentStatus, memberName: m?.name || "this referee" })}
                               aria-label={`Learning status for ${m?.name || "this referee"}`}
                               style={{
                                 fontSize: 12,
@@ -424,15 +444,35 @@ export function AssignmentDetailScreen({
                         )}
                       </td>
                       {canEdit && (
-                        <td style={{ padding: "10px 10px", textAlign: "right" }}>
-                          <button
-                            onClick={() => handleRemove(au.id, m?.name || "this referee")}
-                            disabled={isRemoving}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", display: "flex", alignItems: "center" }}
-                            title="Remove from assignment"
-                          >
-                            <X size={14} />
-                          </button>
+                        <td style={{ padding: "10px 10px", textAlign: "right", whiteSpace: "nowrap" }}>
+                          {confirmRemoveId === au.id ? (
+                            <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+                              <span className="hint" style={{ fontSize: 11 }}>Remove?</span>
+                              <button
+                                className="danger"
+                                style={{ fontSize: 11, padding: "3px 8px" }}
+                                onClick={() => handleRemove(au.id)}
+                                disabled={isRemoving}
+                              >
+                                {isRemoving ? "…" : "Yes"}
+                              </button>
+                              <button
+                                style={{ fontSize: 11, padding: "3px 8px" }}
+                                onClick={() => setConfirmRemoveId(null)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmRemoveId(au.id)}
+                              disabled={isRemoving}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", display: "flex", alignItems: "center" }}
+                              title="Remove from assignment"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
                         </td>
                       )}
                     </tr>
@@ -440,6 +480,31 @@ export function AssignmentDetailScreen({
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pending status change confirm */}
+        {pendingStatus && (
+          <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 8, background: "rgba(245,158,11,.1)", border: "1px solid rgba(245,158,11,.3)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, flex: 1, minWidth: 0 }}>
+              Set <strong>{pendingStatus.memberName}</strong>&apos;s status to <strong>{pendingStatus.status}</strong>? This overrides their recorded progress.
+            </span>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <button
+                className="primary"
+                style={{ fontSize: 12, padding: "5px 14px" }}
+                disabled={!!updatingStatus}
+                onClick={confirmStatusChange}
+              >
+                {updatingStatus ? "Saving…" : "Confirm"}
+              </button>
+              <button
+                style={{ fontSize: 12, padding: "5px 14px" }}
+                onClick={() => setPendingStatus(null)}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 

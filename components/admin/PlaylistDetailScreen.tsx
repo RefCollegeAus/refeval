@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ListVideo, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Trash2, Edit2, Users, Search, AlertCircle, BookOpen, MessageSquare, AlertTriangle } from "lucide-react";
+import { ListVideo, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Trash2, Edit2, Users, Search, AlertCircle, BookOpen, MessageSquare, AlertTriangle, X } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { Playlist, PlaylistItem } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
@@ -677,6 +677,8 @@ export function PlaylistDetailScreen({
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [confirmComplete, setConfirmComplete] = useState(false);
+  const [delConfirm, setDelConfirm] = useState(false);
+  const [confirmRemoveItemId, setConfirmRemoveItemId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
 
@@ -744,7 +746,7 @@ export function PlaylistDetailScreen({
   // ── Remove ────────────────────────────────────────────────────────────────────
 
   async function handleRemove(itemId: string, idx: number) {
-    if (!confirm("Remove this clip from the playlist?")) return;
+    setConfirmRemoveItemId(null);
     setSaving(true);
     // Optimistic removal
     const next = localItems.filter(it => it.id !== itemId);
@@ -756,7 +758,7 @@ export function PlaylistDetailScreen({
   // ── Delete playlist ───────────────────────────────────────────────────────────
 
   async function handleDelete() {
-    if (!confirm(`Delete "${playlist.title}"? This cannot be undone.`)) return;
+    setDelConfirm(false);
     setSaving(true);
     try { await onDelete(playlist.id); } finally { setSaving(false); }
   }
@@ -806,16 +808,33 @@ export function PlaylistDetailScreen({
               </button>
             )}
             {canDelete && (
-              <button
-                className="danger"
-                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
-                onClick={handleDelete}
-                disabled={saving}
-              >
-                <Trash2 size={13} /> Delete
-              </button>
+              delConfirm ? (
+                <>
+                  <span className="hint" style={{ fontSize: 12, whiteSpace: "nowrap" }}>Delete playlist?</span>
+                  <button
+                    className="danger"
+                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
+                    onClick={handleDelete}
+                    disabled={saving}
+                  >
+                    {saving ? "Deleting…" : "Yes, Delete"}
+                  </button>
+                  <button style={{ fontSize: 13 }} onClick={() => setDelConfirm(false)}>Cancel</button>
+                </>
+              ) : (
+                <button
+                  className="danger"
+                  style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
+                  onClick={() => setDelConfirm(true)}
+                  disabled={saving}
+                >
+                  <Trash2 size={13} /> Delete
+                </button>
+              )
             )}
-            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}><ChevronLeft size={15} /> Back</button>
+            {!delConfirm && (
+              <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}><ChevronLeft size={15} /> Back</button>
+            )}
           </div>
         </div>
       </div>
@@ -1000,14 +1019,37 @@ export function PlaylistDetailScreen({
 
                   {/* Remove */}
                   {canEdit && (
-                    <button
-                      onClick={e => { e.stopPropagation(); handleRemove(row.itemId, i); }}
-                      disabled={saving}
-                      style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", alignSelf: "center" }}
-                      title="Remove from playlist"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    confirmRemoveItemId === row.itemId ? (
+                      <div
+                        style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={e => { e.stopPropagation(); handleRemove(row.itemId, i); }}
+                          disabled={saving}
+                          style={{ padding: "1px 4px", fontSize: 10, color: "#ef4444" }}
+                          title="Confirm remove"
+                        >
+                          <CheckCircle2 size={13} style={{ color: "#22c55e" }} />
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); setConfirmRemoveItemId(null); }}
+                          style={{ padding: "1px 4px" }}
+                          title="Cancel"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={e => { e.stopPropagation(); setConfirmRemoveItemId(row.itemId); }}
+                        disabled={saving}
+                        style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", alignSelf: "center" }}
+                        title="Remove from playlist"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )
                   )}
                 </div>
               );

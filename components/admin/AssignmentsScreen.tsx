@@ -52,6 +52,7 @@ export function AssignmentsScreen({
   canDelete, onView, onDelete, onBack,
 }: Props) {
   const [deleting, setDeleting]       = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [query, setQuery]             = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sort, setSort]               = useState<SortKey>("created");
@@ -59,10 +60,10 @@ export function AssignmentsScreen({
 
   const now = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  async function handleDelete(a: Assignment) {
-    if (!confirm(`Delete assignment "${a.title}"?\n\nThis will remove all user progress. This cannot be undone.`)) return;
-    setDeleting(a.id);
-    try { await onDelete(a.id); } finally { setDeleting(null); }
+  async function handleDelete(id: string) {
+    setDeleting(id);
+    setConfirmDeleteId(null);
+    try { await onDelete(id); } finally { setDeleting(null); }
   }
 
   const enriched = useMemo<EnrichedAssignment[]>(() =>
@@ -285,22 +286,44 @@ export function AssignmentsScreen({
                         {fmt(a.createdAt)}
                       </td>
                       <td style={{ padding: "10px 10px", whiteSpace: "nowrap" }}>
-                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                          <button
-                            style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
-                            onClick={() => onView(a.id)}
-                          >
-                            <Eye size={12} /> View
-                          </button>
-                          {canDelete && (
+                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
+                          {confirmDeleteId !== a.id && (
                             <button
-                              className="danger"
                               style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
-                              onClick={() => handleDelete(a)}
-                              disabled={deleting === a.id}
+                              onClick={() => onView(a.id)}
                             >
-                              <Trash2 size={12} /> {deleting === a.id ? "…" : "Delete"}
+                              <Eye size={12} /> View
                             </button>
+                          )}
+                          {canDelete && (
+                            confirmDeleteId === a.id ? (
+                              <>
+                                <span className="hint" style={{ fontSize: 11, whiteSpace: "nowrap" }}>Delete assignment?</span>
+                                <button
+                                  className="danger"
+                                  style={{ fontSize: 12, padding: "4px 10px", whiteSpace: "nowrap" }}
+                                  onClick={() => handleDelete(a.id)}
+                                  disabled={deleting === a.id}
+                                >
+                                  {deleting === a.id ? "…" : "Yes, Delete"}
+                                </button>
+                                <button
+                                  style={{ fontSize: 12, padding: "4px 10px" }}
+                                  onClick={() => setConfirmDeleteId(null)}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                className="danger"
+                                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
+                                onClick={() => setConfirmDeleteId(a.id)}
+                                disabled={deleting === a.id}
+                              >
+                                <Trash2 size={12} /> Delete
+                              </button>
+                            )
                           )}
                         </div>
                       </td>
