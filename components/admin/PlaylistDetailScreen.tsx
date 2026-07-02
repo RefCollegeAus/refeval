@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ListVideo, ChevronUp, ChevronDown, Trash2, Edit2, Users, Search, AlertCircle, BookOpen } from "lucide-react";
+import { ListVideo, ChevronUp, ChevronDown, Trash2, Edit2, Users, Search, AlertCircle, BookOpen, MessageSquare, AlertTriangle } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { Playlist, PlaylistItem } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
@@ -677,6 +677,7 @@ export function PlaylistDetailScreen({
   const [assignSuccess, setAssignSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [confirmComplete, setConfirmComplete] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
 
@@ -708,6 +709,16 @@ export function PlaylistDetailScreen({
     }
     return rows;
   }, [localItems, reviewMap, tagMap]);
+
+  const duplicateTagIds = useMemo(() => {
+    const seen = new Set<string>();
+    const dupes = new Set<string>();
+    for (const item of localItems) {
+      if (seen.has(item.tagId)) dupes.add(item.tagId);
+      else seen.add(item.tagId);
+    }
+    return dupes;
+  }, [localItems]);
 
   const safePreviewIndex = Math.min(previewIndex, Math.max(0, clipRows.length - 1));
   const previewClip = clipRows.length > 0 ? clipRows[safePreviewIndex] : null;
@@ -762,9 +773,10 @@ export function PlaylistDetailScreen({
             <div>
               <p className="eyebrow" style={{ margin: 0 }}>Playlist</p>
               <h1 style={{ margin: 0, fontSize: 22 }}>{playlist.title}</h1>
-              {playlist.description && (
-                <p className="hint" style={{ margin: "2px 0 0" }}>{playlist.description}</p>
-              )}
+              <p className="hint" style={{ margin: "2px 0 0" }}>
+                {clipRows.length} clip{clipRows.length !== 1 ? "s" : ""}
+                {playlist.description ? ` · ${playlist.description}` : ""}
+              </p>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -808,6 +820,14 @@ export function PlaylistDetailScreen({
           </div>
         </div>
       </div>
+
+      {/* Duplicate clip warning */}
+      {duplicateTagIds.size > 0 && canEdit && (
+        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 8, background: "rgba(245,158,11,.1)", border: "1px solid rgba(245,158,11,.3)", color: "#fde68a", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+          <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+          This playlist contains {duplicateTagIds.size} duplicate clip{duplicateTagIds.size !== 1 ? "s" : ""}. Consider removing the duplicates to avoid repetition.
+        </div>
+      )}
 
       {/* Learning context banner (referee view) */}
       {learningContext && (() => {
@@ -861,17 +881,31 @@ export function PlaylistDetailScreen({
                     </span>
                   )}
                 </div>
+              ) : confirmComplete ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Mark this assignment as complete?</span>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button style={{ fontSize: 13, padding: "6px 14px" }} onClick={() => setConfirmComplete(false)}>Cancel</button>
+                    <button
+                      className="primary"
+                      style={{ fontSize: 13, padding: "6px 14px" }}
+                      disabled={completing}
+                      onClick={async () => {
+                        setCompleting(true);
+                        try { await learningContext.onMarkComplete(); } finally { setCompleting(false); setConfirmComplete(false); }
+                      }}
+                    >
+                      {completing ? "Saving…" : "Yes, Mark Complete"}
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <button
                   className="primary"
                   style={{ fontSize: 14, padding: "9px 20px", whiteSpace: "nowrap", flexShrink: 0 }}
-                  disabled={completing}
-                  onClick={async () => {
-                    setCompleting(true);
-                    try { await learningContext.onMarkComplete(); } finally { setCompleting(false); }
-                  }}
+                  onClick={() => setConfirmComplete(true)}
                 >
-                  {completing ? "Saving…" : "✓ Mark as Complete"}
+                  ✓ Mark as Complete
                 </button>
               )}
             </div>
@@ -945,11 +979,19 @@ export function PlaylistDetailScreen({
                     <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", marginBottom: 2 }}>
                       {row.tag.outcome && <span className={outcomeClass(row.tag.outcome)} style={{ fontSize: 11, padding: "1px 6px" }}>{row.tag.outcome}</span>}
                       {row.categoryGroup && <span className="chip" style={{ fontSize: 11 }}>{row.categoryGroup}</span>}
+                      {duplicateTagIds.has(row.tag.id) && (
+                        <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 999, background: "rgba(245,158,11,.15)", color: "#fde68a", border: "1px solid rgba(245,158,11,.3)", fontWeight: 700 }}>Dup</span>
+                      )}
                       <span style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", color: "var(--muted)", marginLeft: "auto" }}>{row.tag.adjustedTime}</span>
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.refereeName}</div>
                     <div style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.review.game || "Untitled game"}</div>
                     {row.subtype && <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{row.subtype}</div>}
+                    {row.creatorNote && (
+                      <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 2, display: "flex", alignItems: "center", gap: 3 }}>
+                        <MessageSquare size={10} /> Note
+                      </div>
+                    )}
                   </div>
 
                   {/* Remove */}
