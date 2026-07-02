@@ -1,6 +1,7 @@
 "use client";
 
-import { BookOpen, Calendar, AlertCircle } from "lucide-react";
+import { useMemo, useState } from "react";
+import { BookOpen, Calendar, AlertCircle, ChevronLeft, CheckCircle2, ChevronDown, ChevronUp, ListVideo } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { Assignment, AssignmentUser } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
@@ -15,12 +16,6 @@ interface Props {
   onBack: () => void;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  Assigned:  "var(--muted)",
-  Started:   "#fde68a",
-  Completed: "#bbf7d0",
-};
-
 function fmt(iso: string | null | undefined) {
   if (!iso) return null;
   return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
@@ -29,7 +24,7 @@ function fmt(iso: string | null | undefined) {
 function isDueSoon(dueDate: string | null) {
   if (!dueDate) return false;
   const diff = new Date(dueDate).getTime() - Date.now();
-  return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000; // within 7 days
+  return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000;
 }
 
 function isOverdue(dueDate: string | null) {
@@ -37,25 +32,69 @@ function isOverdue(dueDate: string | null) {
   return new Date(dueDate).getTime() < Date.now();
 }
 
+// Sort priority: 0 = overdue, 1 = due soon, 2 = future, 3 = no due date
+function pendingSortKey(a: Assignment): [number, number] {
+  if (!a.dueDate) return [3, 0];
+  const t = new Date(a.dueDate).getTime();
+  if (t < Date.now()) return [0, t];         // overdue — earliest first
+  if (t < Date.now() + 7 * 24 * 60 * 60 * 1000) return [1, t]; // due soon
+  return [2, t];                             // future
+}
+
+const INSTRUCTIONS_THRESHOLD = 200;
+
 export function MyLearningScreen({ session, myAssignments, playlists, members, onOpenPlaylist, onBack }: Props) {
   const userId = session.user.id;
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const pending   = myAssignments.filter(a => {
-    const au = a.assignmentUsers.find(u => u.userId === userId);
-    return au && au.status !== "Completed";
-  });
-  const completed = myAssignments.filter(a => {
-    const au = a.assignmentUsers.find(u => u.userId === userId);
-    return au && au.status === "Completed";
-  });
+  function toggleExpand(id: string) {
+    setExpanded(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  }
+
+  const pending = useMemo(() => {
+    const list = myAssignments.filter(a => {
+      const au = a.assignmentUsers.find(u => u.userId === userId);
+      return au && au.status !== "Completed";
+    });
+    return list.sort((a, b) => {
+      const [pa, ta] = pendingSortKey(a);
+      const [pb, tb] = pendingSortKey(b);
+      return pa !== pb ? pa - pb : ta - tb;
+    });
+  }, [myAssignments, userId]);
+
+  const completed = useMemo(() =>
+    myAssignments.filter(a => {
+      const au = a.assignmentUsers.find(u => u.userId === userId);
+      return au && au.status === "Completed";
+    }).sort((a, b) => {
+      const au = a.assignmentUsers.find(u => u.userId === userId);
+      const bu = b.assignmentUsers.find(u => u.userId === userId);
+      const ta = au?.completedAt ? new Date(au.completedAt).getTime() : 0;
+      const tb = bu?.completedAt ? new Date(bu.completedAt).getTime() : 0;
+      return tb - ta; // most recently completed first
+    }),
+  [myAssignments, userId]);
+
+  const overdueCount = useMemo(
+    () => pending.filter(a => isOverdue(a.dueDate)).length,
+    [pending],
+  );
 
   function renderCard(a: Assignment) {
     const au = a.assignmentUsers.find(u => u.userId === userId);
     if (!au) return null;
     const playlist = playlists.find(p => p.id === a.playlistId);
     const assigner = members.find(m => m.id === (a.assignedBy ?? ""));
-    const overdue = isOverdue(a.dueDate) && au.status !== "Completed";
-    const dueSoon = isDueSoon(a.dueDate) && au.status !== "Completed";
+    const overdue  = isOverdue(a.dueDate) && au.status !== "Completed";
+    const dueSoon  = isDueSoon(a.dueDate) && au.status !== "Completed";
+    const isCompleted = au.status === "Completed";
+    const isExpanded  = expanded.has(a.id);
+    const longInstructions = a.instructions && a.instructions.length > INSTRUCTIONS_THRESHOLD;
 
     return (
       <div
@@ -72,6 +111,8 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
             ? "4px solid rgba(239,68,68,.6)"
             : dueSoon
             ? "4px solid rgba(245,158,11,.6)"
+            : isCompleted
+            ? "4px solid rgba(34,197,94,.4)"
             : "4px solid var(--border)",
         }}
       >
@@ -81,14 +122,23 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
             <div style={{ fontWeight: 700, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {a.title}
             </div>
-            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-              📋 {playlist?.title ?? "Playlist"} · {playlist?.items.length ?? 0} clip{playlist?.items.length !== 1 ? "s" : ""}
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
+              <ListVideo size={11} style={{ flexShrink: 0 }} />
+              {playlist?.title ?? "Playlist"} · {playlist?.items.length ?? 0} clip{playlist?.items.length !== 1 ? "s" : ""}
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLORS[au.status] ?? "var(--muted)" }}>
-              {au.status}
-            </span>
+            {/* Status badge */}
+            {!isCompleted && (
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999,
+                background: au.status === "Started" ? "rgba(253,230,138,.15)" : "rgba(148,163,184,.1)",
+                color: au.status === "Started" ? "#fde68a" : "var(--muted)",
+                border: `1px solid ${au.status === "Started" ? "rgba(253,230,138,.35)" : "var(--border)"}`,
+              }}>
+                {au.status}
+              </span>
+            )}
             {a.required && (
               <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(239,68,68,.15)", color: "#fca5a5", border: "1px solid rgba(239,68,68,.3)", fontWeight: 700 }}>
                 Required
@@ -97,19 +147,47 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
           </div>
         </div>
 
-        {/* Instructions */}
-        {a.instructions && (
-          <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
-            {a.instructions}
-          </p>
+        {/* Completion banner for completed assignments */}
+        {isCompleted && au.completedAt && (
+          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 10px", background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.25)", borderRadius: 8 }}>
+            <CheckCircle2 size={14} style={{ color: "#22c55e", flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: "#86efac", fontWeight: 600 }}>
+              Completed {fmt(au.completedAt)}
+            </span>
+          </div>
         )}
 
-        {/* Meta */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 12, color: "var(--muted)" }}>
+        {/* Instructions */}
+        {a.instructions && (
+          <div>
+            <p style={{
+              margin: 0, fontSize: 13, color: "var(--muted)",
+              ...(!isExpanded && longInstructions ? {
+                overflow: "hidden",
+                display: "-webkit-box",
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: "vertical" as const,
+              } : {}),
+            }}>
+              {a.instructions}
+            </p>
+            {longInstructions && (
+              <button
+                onClick={() => toggleExpand(a.id)}
+                style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 5, padding: 0, background: "none", border: "none", fontSize: 12, color: "var(--accent)", cursor: "pointer", fontWeight: 600 }}
+              >
+                {isExpanded ? <><ChevronUp size={13} /> Show less</> : <><ChevronDown size={13} /> Show more</>}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Meta row */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 12, color: "var(--muted)" }}>
           {assigner && (
             <span>Assigned by {assigner.name || assigner.email}</span>
           )}
-          {a.dueDate && (
+          {a.dueDate && !isCompleted && (
             <span style={{ display: "flex", alignItems: "center", gap: 4, color: overdue ? "#fca5a5" : dueSoon ? "#fde68a" : "var(--muted)" }}>
               {(overdue || dueSoon) && <AlertCircle size={12} />}
               <Calendar size={11} />
@@ -118,13 +196,10 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
               {!overdue && dueSoon && " — Due soon"}
             </span>
           )}
-          {au.completedAt && (
-            <span>Completed {fmt(au.completedAt)}</span>
-          )}
         </div>
 
         {/* Action button */}
-        {au.status !== "Completed" && (
+        {!isCompleted && (
           <button
             className="primary"
             style={{ alignSelf: "flex-start", fontSize: 13 }}
@@ -133,7 +208,7 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
             {au.status === "Assigned" ? "Start Learning" : "Continue Learning"}
           </button>
         )}
-        {au.status === "Completed" && (
+        {isCompleted && (
           <button
             style={{ alignSelf: "flex-start", fontSize: 13 }}
             onClick={() => onOpenPlaylist(a, au)}
@@ -158,9 +233,12 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
             <p className="hint" style={{ margin: "2px 0 0" }}>Playlists assigned to you by your educators</p>
           </div>
         </div>
-        <button onClick={onBack}>← Back</button>
+        <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <ChevronLeft size={15} /> Back
+        </button>
       </div>
 
+      {/* Empty state */}
       {myAssignments.length === 0 && (
         <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
           <BookOpen size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
@@ -169,14 +247,32 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
         </div>
       )}
 
+      {/* Learning summary */}
+      {myAssignments.length > 0 && (
+        <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
+          <div className="panel" style={{ flex: "1 1 120px", padding: "12px 16px", textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)" }}>{pending.length}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Pending</div>
+          </div>
+          <div className="panel" style={{ flex: "1 1 120px", padding: "12px 16px", textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#86efac" }}>{completed.length}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Completed</div>
+          </div>
+          <div className="panel" style={{ flex: "1 1 120px", padding: "12px 16px", textAlign: "center" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: overdueCount > 0 ? "#fca5a5" : "var(--text)" }}>{overdueCount}</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Overdue</div>
+          </div>
+        </div>
+      )}
+
       {/* Pending */}
       {pending.length > 0 && (
-        <div style={{ marginBottom: 28 }}>
+        <div style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", margin: "0 0 12px" }}>
             To Do · {pending.length}
           </h2>
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
-            {pending.map(renderCard)}
+            {pending.map(a => renderCard(a))}
           </div>
         </div>
       )}
@@ -188,7 +284,7 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
             Completed · {completed.length}
           </h2>
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))" }}>
-            {completed.map(renderCard)}
+            {completed.map(a => renderCard(a))}
           </div>
         </div>
       )}
