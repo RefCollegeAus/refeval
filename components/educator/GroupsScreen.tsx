@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   Users, Plus, Search, Trash2, Pencil, ChevronLeft, ChevronRight,
-  X, Check, ArrowUpDown,
+  X, ArrowUpDown,
 } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
 import type { Group, CreateGroupInput, UpdateGroupInput } from "@/lib/types/groups";
@@ -406,11 +406,13 @@ export function GroupsScreen({
   onDeleteGroup: (id: string) => Promise<void>;
   onSetGroupMembers: (groupId: string, userIds: string[]) => Promise<void>;
 }) {
-  const [search, setSearch]           = useState("");
-  const [sort, setSort]               = useState<SortKey>("name");
-  const [sortAsc, setSortAsc]         = useState(true);
-  const [createOpen, setCreateOpen]   = useState(false);
-  const [selectedId, setSelectedId]   = useState<string | null>(null);
+  const [search, setSearch]             = useState("");
+  const [sort, setSort]                 = useState<SortKey>("name");
+  const [sortAsc, setSortAsc]           = useState(true);
+  const [createOpen, setCreateOpen]     = useState(false);
+  const [selectedId, setSelectedId]     = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId]     = useState<string | null>(null);
 
   function toggleSort(key: SortKey) {
     if (sort === key) setSortAsc(a => !a);
@@ -534,6 +536,11 @@ export function GroupsScreen({
                 <div className="groups-card-header">
                   <div className="groups-card-dot" style={{ background: g.colour }} />
                   <div className="groups-card-name">{g.name}</div>
+                  {g.members.length === 0 && (
+                    <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(245,158,11,.15)", color: "#fde68a", border: "1px solid rgba(245,158,11,.3)", fontWeight: 700, marginLeft: 4, flexShrink: 0 }}>
+                      Empty
+                    </span>
+                  )}
                 </div>
                 {g.description && (
                   <p className="groups-card-desc">{g.description}</p>
@@ -543,32 +550,48 @@ export function GroupsScreen({
                   <span>{fmtDate(g.createdAt)}</span>
                 </div>
                 <div className="groups-card-actions" onClick={e => e.stopPropagation()}>
-                  <button
-                    style={{ fontSize: 12, padding: "3px 10px" }}
-                    onClick={() => setSelectedId(prev => prev === g.id ? null : g.id)}
-                  >
-                    <ChevronRight size={12} /> View
-                  </button>
-                  {canEdit && (
-                    <button
-                      style={{ fontSize: 12, padding: "3px 10px" }}
-                      onClick={() => setSelectedId(g.id)}
-                    >
-                      <Pencil size={12} /> Edit
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button
-                      className="danger"
-                      style={{ fontSize: 12, padding: "3px 10px" }}
-                      onClick={async () => {
-                        if (!confirm(`Delete group "${g.name}"? This cannot be undone.`)) return;
-                        try { await onDeleteGroup(g.id); if (selectedId === g.id) setSelectedId(null); }
-                        catch (e: any) { alert(e?.message || "Failed to delete group."); }
-                      }}
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                  {confirmDeleteId === g.id ? (
+                    <>
+                      <span className="hint" style={{ fontSize: 11, alignSelf: "center" }}>Delete group?</span>
+                      <button
+                        className="danger"
+                        style={{ fontSize: 12, padding: "3px 10px" }}
+                        disabled={deletingId === g.id}
+                        onClick={async () => {
+                          setDeletingId(g.id);
+                          try {
+                            await onDeleteGroup(g.id);
+                            if (selectedId === g.id) setSelectedId(null);
+                          } finally {
+                            setDeletingId(null);
+                            setConfirmDeleteId(null);
+                          }
+                        }}
+                      >
+                        {deletingId === g.id ? "…" : "Yes, Delete"}
+                      </button>
+                      <button style={{ fontSize: 12, padding: "3px 10px" }} onClick={() => setConfirmDeleteId(null)}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        style={{ fontSize: 12, padding: "3px 10px" }}
+                        onClick={() => setSelectedId(prev => prev === g.id ? null : g.id)}
+                      >
+                        <ChevronRight size={12} /> View
+                      </button>
+                      {canDelete && (
+                        <button
+                          className="danger"
+                          style={{ fontSize: 12, padding: "3px 10px" }}
+                          onClick={() => setConfirmDeleteId(g.id)}
+                        >
+                          <Trash2 size={12} /> Delete
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
