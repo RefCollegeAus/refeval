@@ -54,6 +54,23 @@ export async function updateProfileName(name: string): Promise<ApiResult> {
   return adminFetch("PATCH", "/api/admin/profile", { name });
 }
 
+export async function adminUpdateUserProfile(params: {
+  userId: string;
+  organisationId: string;
+  name?: string;
+  email?: string;
+}): Promise<ApiResult> {
+  return adminFetch("PATCH", "/api/admin/user-profile", params);
+}
+
+export async function adminUpdateUserPassword(params: {
+  userId: string;
+  organisationId: string;
+  newPassword: string;
+}): Promise<ApiResult> {
+  return adminFetch("POST", "/api/admin/user-password", params);
+}
+
 // ---------- Read ----------
 
 export async function getMembersForOrganisation(organisationId: string): Promise<MemberRecord[]> {

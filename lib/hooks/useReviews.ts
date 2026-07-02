@@ -18,7 +18,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
   const [reviewRef2, setReviewRef2] = useState("");
   const [reviewRef3, setReviewRef3] = useState("");
   const [reviewVideoLink, setReviewVideoLink] = useState("");
-  const [reviewOffset, setReviewOffset] = useState(0);
+  const [reviewOffset, setReviewOffset] = useState(-10);
 
   const activeReview = reviews.find(r => r.id === activeReviewId);
 
@@ -98,7 +98,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
         educator_id: session.user.id,
         educator_name: session.profile.name,
         referee1_name: "", referee2_name: "", referee3_name: "",
-        video_link: "", timestamp_offset: 0, status: "in_review",
+        video_link: "", timestamp_offset: -10, status: "in_review",
       })
       .select()
       .single();
@@ -113,7 +113,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
       educatorName: session.profile.name,
       referee1Id: "", referee2Id: "", referee3Id: "",
       referee1Name: "", referee2Name: "", referee3Name: "",
-      videoLink: "", timestampOffset: 0,
+      videoLink: "", timestampOffset: -10,
       status: "In Review",
       createdAt: data.created_at || now,
     };

@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { UserPlus, RefreshCw, X, ChevronUp, ChevronDown, Search } from "lucide-react";
+import { UserPlus, RefreshCw, X, ChevronUp, ChevronDown, Search, Settings } from "lucide-react";
 import {
   getEnrichedMembers, inviteMember, resendInvitation,
   updateMemberRole, removeMember,
 } from "@/lib/services/memberships";
+import { ManageUserModal } from "@/components/admin/ManageUserModal";
 import type { EnrichedMember } from "@/lib/types/members";
 import type { Role, RefEvalSession } from "@/lib/types/auth";
 
 const ROLE_LABELS: Record<Role, string> = {
+  viewer: "Viewer",
   referee: "Referee",
   educator: "Educator",
   admin: "Org Admin",
@@ -31,23 +33,27 @@ function sortValue(m: EnrichedMember, f: SortField): string {
 export function MembersScreen({
   session,
   onNavigateSettings,
+  onNavigateTeam,
   onRefreshOrgMembers,
 }: {
   session: RefEvalSession;
   onNavigateSettings: () => void;
+  onNavigateTeam?: () => void;
   onRefreshOrgMembers: () => void;
 }) {
   const orgId = session.activeOrganisation?.id || "";
   const isSuperAdmin = session.activeRole === "super_admin";
   const assignableRoles: Role[] = isSuperAdmin
-    ? ["referee", "educator", "admin", "super_admin"]
-    : ["referee", "educator"];
+    ? ["viewer", "referee", "educator", "admin", "super_admin"]
+    : ["viewer", "referee", "educator"];
 
   const [members, setMembers] = useState<EnrichedMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const [managingMember, setManagingMember] = useState<EnrichedMember | null>(null);
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
@@ -167,6 +173,9 @@ export function MembersScreen({
               <RefreshCw size={14} /> Refresh
             </button>
             <button onClick={onNavigateSettings}>Organisation Settings</button>
+            {onNavigateTeam && (
+              <button onClick={onNavigateTeam}>👥 Team Permissions</button>
+            )}
           </div>
         </div>
 
@@ -336,6 +345,14 @@ export function MembersScreen({
                       </td>
                       <td>
                         <div className="export-row" style={{ gap: 6, flexWrap: "nowrap" }}>
+                          <button
+                            onClick={() => setManagingMember(member)}
+                            disabled={busy}
+                            style={{ fontSize: 12, padding: "5px 10px" }}
+                            title="Manage user profile and security"
+                          >
+                            <Settings size={12} /> Manage
+                          </button>
                           {member.invitationStatus === "pending" && (
                             <button
                               onClick={() => handleResend(member)}
@@ -367,6 +384,15 @@ export function MembersScreen({
           </div>
         )}
       </section>
+
+      {managingMember && (
+        <ManageUserModal
+          member={managingMember}
+          session={session}
+          onClose={() => setManagingMember(null)}
+          onRefresh={() => { load(); onRefreshOrgMembers(); setManagingMember(null); }}
+        />
+      )}
     </div>
   );
 }

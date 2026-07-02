@@ -27,6 +27,23 @@ export function isDirectVideoUrl(link: string): boolean {
   }
 }
 
+export function isNblOttEmbedUrl(link: string): boolean {
+  if (!link.trim()) return false;
+  try {
+    const url = new URL(link.trim());
+    return url.hostname.toLowerCase() === "ott.nbl.com.au" && url.pathname.includes("/embed/");
+  } catch { return false; }
+}
+
+export function isNbl1GameUrl(link: string): boolean {
+  if (!link.trim()) return false;
+  try {
+    const url = new URL(link.trim());
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    return host === "nbl1.com.au" && url.pathname.startsWith("/games/");
+  } catch { return false; }
+}
+
 export function embedUrl(link: string, seconds: number, autoplay = false): string {
   if (!link.trim()) return "";
   const videoId = getYouTubeId(link);

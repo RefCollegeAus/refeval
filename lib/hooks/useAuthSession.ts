@@ -50,7 +50,7 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
           activeOrganisation: { id: m.organisationId, name: m.organisationName },
           activeRole: m.role,
         });
-        setScreen(m.role === "referee" ? "referee" : "educator");
+        setScreen(m.role === "referee" ? "referee" : m.role === "viewer" ? "viewer" : "educator");
       } else {
         setPendingSession({
           user: { id: user.id, email: user.email || "" },
@@ -110,7 +110,7 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
         activeOrganisation: { id: m.organisationId, name: m.organisationName },
         activeRole: m.role,
       });
-      setScreen(m.role === "referee" ? "referee" : "educator");
+      setScreen(m.role === "referee" ? "referee" : m.role === "viewer" ? "viewer" : "educator");
     } else {
       setPendingSession({
         user: { id: authData.user.id, email: authData.user.email || "" },

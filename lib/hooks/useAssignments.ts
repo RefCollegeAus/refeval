@@ -1,0 +1,168 @@
+"use client";
+
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import type { Assignment, AssignmentUser, AssignmentStatus, CreateAssignmentInput } from "@/lib/types/assignments";
+
+function mapAssignmentUser(row: any): AssignmentUser {
+  return {
+    id: row.id,
+    assignmentId: row.assignment_id,
+    userId: row.user_id,
+    status: row.status as AssignmentStatus,
+    assignedAt: row.assigned_at,
+    startedAt: row.started_at ?? null,
+    completedAt: row.completed_at ?? null,
+  };
+}
+
+function mapAssignment(row: any): Assignment {
+  return {
+    id: row.id,
+    organisationId: row.organisation_id,
+    playlistId: row.playlist_id,
+    assignedBy: row.assigned_by ?? null,
+    title: row.title,
+    instructions: row.instructions ?? null,
+    dueDate: row.due_date ?? null,
+    required: row.required,
+    createdAt: row.created_at,
+    assignmentUsers: Array.isArray(row.learning_assignment_users)
+      ? row.learning_assignment_users.map(mapAssignmentUser)
+      : [],
+  };
+}
+
+export function useAssignments(orgId: string, currentUserId: string) {
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    if (!orgId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const { data, error: err } = await getSupabaseClient()
+        .from("learning_assignments")
+        .select("*, learning_assignment_users(*)")
+        .eq("organisation_id", orgId)
+        .order("created_at", { ascending: false });
+      if (err) throw err;
+      setAssignments((data || []).map(mapAssignment));
+    } catch (e: any) {
+      setError(e?.message || "Failed to load assignments");
+    } finally {
+      setLoading(false);
+    }
+  }, [orgId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Assignments where the current user is an assigned learner
+  const myAssignments = useMemo(
+    () => assignments.filter(a => a.assignmentUsers.some(u => u.userId === currentUserId)),
+    [assignments, currentUserId],
+  );
+
+  async function createAssignment(input: CreateAssignmentInput): Promise<string> {
+    const supabase = getSupabaseClient();
+    const { data: row, error: insErr } = await supabase
+      .from("learning_assignments")
+      .insert({
+        organisation_id: orgId,
+        playlist_id: input.playlistId,
+        assigned_by: currentUserId || null,
+        title: input.title,
+        instructions: input.instructions || null,
+        due_date: input.dueDate || null,
+        required: input.required,
+      })
+      .select("id")
+      .single();
+    if (insErr) { console.error("[useAssignments] createAssignment insert error:", insErr); throw insErr; }
+    if (!row) throw new Error("Assignment was not created — check Supabase RLS policies for learning_assignments.");
+
+    if (input.userIds.length > 0) {
+      const { error: usersErr } = await supabase
+        .from("learning_assignment_users")
+        .insert(input.userIds.map(uid => ({ assignment_id: row.id, user_id: uid })));
+      if (usersErr) { console.error("[useAssignments] addUsers error:", usersErr); throw usersErr; }
+    }
+    await load();
+    return row.id;
+  }
+
+  async function updateAssignment(
+    id: string,
+    data: { title: string; instructions: string | null; dueDate: string | null; required: boolean },
+  ): Promise<void> {
+    const { error: err } = await getSupabaseClient()
+      .from("learning_assignments")
+      .update({
+        title: data.title,
+        instructions: data.instructions || null,
+        due_date: data.dueDate || null,
+        required: data.required,
+      })
+      .eq("id", id);
+    if (err) throw err;
+    await load();
+  }
+
+  async function deleteAssignment(id: string): Promise<void> {
+    const { error: err } = await getSupabaseClient()
+      .from("learning_assignments")
+      .delete()
+      .eq("id", id);
+    if (err) throw err;
+    await load();
+  }
+
+  async function addUsersToAssignment(assignmentId: string, userIds: string[]): Promise<void> {
+    if (userIds.length === 0) return;
+    const { error: err } = await getSupabaseClient()
+      .from("learning_assignment_users")
+      .insert(userIds.map(uid => ({ assignment_id: assignmentId, user_id: uid })));
+    if (err) throw err;
+    await load();
+  }
+
+  async function removeUserFromAssignment(assignmentUserId: string): Promise<void> {
+    const { error: err } = await getSupabaseClient()
+      .from("learning_assignment_users")
+      .delete()
+      .eq("id", assignmentUserId);
+    if (err) throw err;
+    await load();
+  }
+
+  async function updateAssignmentUserStatus(
+    assignmentUserId: string,
+    status: AssignmentStatus,
+  ): Promise<void> {
+    const patch: Record<string, string> = { status };
+    if (status === "Started")   patch.started_at   = new Date().toISOString();
+    if (status === "Completed") patch.completed_at  = new Date().toISOString();
+    const { error: err } = await getSupabaseClient()
+      .from("learning_assignment_users")
+      .update(patch)
+      .eq("id", assignmentUserId);
+    if (err) throw err;
+    await load();
+  }
+
+  return {
+    assignments,
+    myAssignments,
+    loading,
+    error,
+    load,
+    createAssignment,
+    updateAssignment,
+    deleteAssignment,
+    addUsersToAssignment,
+    removeUserFromAssignment,
+    updateAssignmentUserStatus,
+  };
+}

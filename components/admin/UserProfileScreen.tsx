@@ -6,6 +6,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import type { RefEvalSession, Role } from "@/lib/types/auth";
 
 const ROLE_LABELS: Record<Role, string> = {
+  viewer: "Viewer",
   referee: "Referee",
   educator: "Educator",
   admin: "Org Admin",

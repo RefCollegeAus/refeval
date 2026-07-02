@@ -6,29 +6,40 @@ import { OrganisationSelector } from "@/components/OrganisationSelector";
 import { MembersScreen } from "@/components/admin/MembersScreen";
 import { OrgSettingsScreen } from "@/components/admin/OrgSettingsScreen";
 import { UserProfileScreen } from "@/components/admin/UserProfileScreen";
+import { ClipLibraryScreen } from "@/components/admin/ClipLibraryScreen";
+import { PlaylistsScreen } from "@/components/admin/PlaylistsScreen";
+import { PlaylistDetailScreen } from "@/components/admin/PlaylistDetailScreen";
+import { TeamManagementScreen } from "@/components/admin/TeamManagementScreen";
+import { AssignmentsScreen } from "@/components/admin/AssignmentsScreen";
+import { AssignmentDetailScreen } from "@/components/admin/AssignmentDetailScreen";
+import { MyLearningScreen } from "@/components/referee/MyLearningScreen";
+import { usePlaylists } from "@/lib/hooks/usePlaylists";
+import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAssignments } from "@/lib/hooks/useAssignments";
+import { usePlaylistLearningClips } from "@/lib/hooks/usePlaylistLearningClips";
+import type { Assignment, AssignmentUser } from "@/lib/types/assignments";
+import { PERMISSIONS } from "@/lib/types/permissions";
+import { hasPermission } from "@/lib/utils/permissions";
 import { RefereeReviewScreen } from "@/components/referee/RefereeReviewScreen";
 import { RefereeStatsHub } from "@/components/referee/RefereeStatsHub";
+import { DateRangeFilter, datePassesFilter } from "@/components/common/DateRangeFilter";
 import { ReviewComments } from "@/components/ReviewComments";
 import { CommentInbox } from "@/components/educator/CommentInbox";
+import { EducatorDashboard } from "@/components/educator/EducatorDashboard";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Pause, Play, Trash2, Plus, Eye, MessageSquare } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useAuthSession } from "@/lib/hooks/useAuthSession";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { useReviews } from "@/lib/hooks/useReviews";
+import { useViewOnlyGames } from "@/lib/hooks/useViewOnlyGames";
+import { ViewerScreen } from "@/components/viewer/ViewerScreen";
 import { formatTime, makeTimestampLink } from "@/lib/utils/time";
 import { makeAnalytics } from "@/lib/utils/analytics";
 import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
 import { useUnreadCounts } from "@/lib/hooks/useUnreadCounts";
 import type { Screen } from "@/lib/types/auth";
 import type { ReviewRecord, CodedTag, Mode, RefSlot, OfficialSummaries, OfficialSummary } from "@/lib/types/reviews";
-
-declare global {
-  interface Window {
-    YT?: any;
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
 
 const OUTCOMES = ["Correct Call", "Correct No Call", "Incorrect Call", "Incorrect No Call", "Review"];
 const CATEGORY_GROUPS = ["Foul", "Violation", "Mechanics", "Game Awareness", "Game Administration"];
@@ -96,6 +107,16 @@ export default function Home() {
   } = useOrganisations(session?.activeOrganisation?.id);
 
   const {
+    games: viewOnlyGames,
+    loading: viewOnlyGamesLoading,
+    error: viewOnlyGamesError,
+    createGame: createViewOnlyGame,
+    updateGame: updateViewOnlyGame,
+    deleteGame: deleteViewOnlyGame,
+    canManage: canManageViewOnlyGames,
+  } = useViewOnlyGames(session);
+
+  const {
     reviews, tags, setTags,
     activeReviewId, setActiveReviewId,
     activeReview,
@@ -159,6 +180,71 @@ export default function Home() {
   // --- Unread comment counts (used for badges) ---
   const { counts, refresh: refreshUnread, totalUnread } = useUnreadCounts(session);
 
+  const {
+    playlists,
+    loading: playlistsLoading,
+    error: playlistsError,
+    createPlaylist,
+    updatePlaylist,
+    deletePlaylist,
+    updateItemPositions,
+    removeItem: removePlaylistItem,
+    updateItemNote,
+  } = usePlaylists(session?.activeOrganisation?.id ?? "", session?.user.id ?? "");
+
+  // Which playlist is open in detail view
+  const [playlistDetailId, setPlaylistDetailId] = useState<string | null>(null);
+
+  const {
+    permissionMap,
+    loading: permissionsLoading,
+    saveUserPerms,
+  } = usePermissions(session?.activeOrganisation?.id ?? "");
+
+  // --- Permission helpers for the current user ---
+  const _userPerms = permissionMap.get(session?.user.id ?? "") ?? null;
+  const _activeRole = session?.activeRole ?? null;
+  const canViewClipLibrary  = hasPermission(_userPerms, _activeRole, PERMISSIONS.LEARNING_CLIP_LIBRARY);
+  const canCreatePlaylists  = hasPermission(_userPerms, _activeRole, PERMISSIONS.LEARNING_CREATE_PLAYLISTS);
+  const canEditPlaylists    = hasPermission(_userPerms, _activeRole, PERMISSIONS.LEARNING_EDIT_PLAYLISTS);
+  const canDeletePlaylists  = hasPermission(_userPerms, _activeRole, PERMISSIONS.LEARNING_DELETE_PLAYLISTS);
+  const canAccessPlaylists  = canViewClipLibrary || canCreatePlaylists || canEditPlaylists || canDeletePlaylists;
+  const canViewAssignments   = hasPermission(_userPerms, _activeRole, PERMISSIONS.ASSIGNMENTS_VIEW);
+  const canCreateAssignments = hasPermission(_userPerms, _activeRole, PERMISSIONS.ASSIGNMENTS_CREATE);
+  const canEditAssignments   = hasPermission(_userPerms, _activeRole, PERMISSIONS.ASSIGNMENTS_EDIT);
+  const canDeleteAssignments = hasPermission(_userPerms, _activeRole, PERMISSIONS.ASSIGNMENTS_DELETE);
+
+  // --- Assignments ---
+  const {
+    assignments,
+    myAssignments,
+    loading: assignmentsLoading,
+    error: assignmentsError,
+    createAssignment,
+    updateAssignment,
+    deleteAssignment,
+    addUsersToAssignment,
+    removeUserFromAssignment,
+    updateAssignmentUserStatus,
+  } = useAssignments(session?.activeOrganisation?.id ?? "", session?.user.id ?? "");
+
+  const [activeAssignmentId, setActiveAssignmentId] = useState<string | null>(null);
+  // Tracks which assignment+user record a referee is viewing in the playlist
+  const [learningAssignmentUser, setLearningAssignmentUser] = useState<{
+    assignment: Assignment;
+    assignmentUser: AssignmentUser;
+  } | null>(null);
+
+  // Fetch playlist clips via service-role API when referee is in learning mode.
+  // This bypasses review RLS so clips tagged to other referees are visible.
+  const {
+    reviews: learningReviews,
+    tags:    learningTags,
+  } = usePlaylistLearningClips(
+    learningAssignmentUser ? learningAssignmentUser.assignment.playlistId : null,
+    learningAssignmentUser ? learningAssignmentUser.assignmentUser.id     : null,
+  );
+
   // --- UI state ---
   const [mode, setMode] = useState<Mode>("video");
   const [analyticsTarget, setAnalyticsTarget] = useState<RefSlot>("All Referees");
@@ -190,14 +276,11 @@ export default function Home() {
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const [draftSummaries, setDraftSummaries] = useState<OfficialSummaries>({});
 
-  // --- Educator dashboard filters & sort ---
-  const [filterStatus, setFilterStatus] = useState<"All" | "In Review" | "Completed">("All");
-  const [filterReferee, setFilterReferee] = useState("");
-  const [filterGame, setFilterGame] = useState("");
-  const [filterDate, setFilterDate] = useState("");
-  const [filterHasVideo, setFilterHasVideo] = useState(false);
-  const [filterDateRange, setFilterDateRange] = useState<"all" | "30" | "90">("all");
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "updated" | "referee" | "game">("newest");
+  // --- Referee home date filter ---
+  const [refDateFilter, setRefDateFilter] = useState<import("@/components/common/DateRangeFilter").DateRangeValue>(
+    { preset: "all", from: "", to: "" }
+  );
+
   const [activeCommentTagId, setActiveCommentTagId] = useState<string | null>(null);
   // Setup modal — auto-opens only for brand-new reviews
   const [setupModalOpen, setSetupModalOpen] = useState(false);
@@ -239,6 +322,7 @@ export default function Home() {
   const activeVideoLink = reviewVideoLink || activeReview?.videoLink || "";
   const youtubeVideoId = getYouTubeId(activeVideoLink);
   const usingYouTubeVideo = mode === "video" && !!youtubeVideoId;
+  const isUnsupportedVideo = mode === "video" && !!activeVideoLink && !youtubeVideoId && !isDirectVideoUrl(activeVideoLink);
   const currentSeconds = mode === "video" ? (usingYouTubeVideo ? youtubeCurrent : videoCurrent) : timerSeconds;
   const maxTagSeconds = reviewTags.reduce((max, t) => Math.max(max, t.seconds), 0);
   const scaleSeconds = mode === "video" ? (usingYouTubeVideo ? youtubeDuration || Math.max(60, maxTagSeconds) : videoDuration || Math.max(60, maxTagSeconds)) : Math.max(60, timerSeconds, maxTagSeconds);
@@ -279,7 +363,7 @@ export default function Home() {
       }
       window.onYouTubeIframeAPIReady = loadPlayer;
     }
-    return () => { cancelled = true; if (youtubePlayerRef.current?.destroy) { youtubePlayerRef.current.destroy(); youtubePlayerRef.current = null; } };
+    return () => { cancelled = true; if (youtubePlayerRef.current?.destroy) { try { youtubePlayerRef.current.destroy(); } catch {} youtubePlayerRef.current = null; } };
   }, [usingYouTubeVideo, youtubeVideoId, screen]);
 
   useEffect(() => {
@@ -298,6 +382,7 @@ export default function Home() {
     const interval = setInterval(() => setTimerSeconds(s => s + 0.2), 200);
     return () => clearInterval(interval);
   }, [timerRunning, mode]);
+
 
   // --- Tag / coding helpers ---
   function resetDrafts() {
@@ -322,9 +407,14 @@ export default function Home() {
     };
   }
 
+  function getCurrentCodingSeconds(): number {
+    if (mode === "video" && usingYouTubeVideo && youtubePlayerRef.current?.getCurrentTime) return youtubePlayerRef.current.getCurrentTime() || 0;
+    if (mode === "video") return videoRef.current?.currentTime ?? videoCurrent;
+    return timerSeconds;
+  }
+
   function playbackSeconds() {
-    if (usingYouTubeVideo && youtubePlayerRef.current?.getCurrentTime) return youtubePlayerRef.current.getCurrentTime() || 0;
-    return videoCurrent;
+    return getCurrentCodingSeconds();
   }
 
   function pauseActiveVideo() {
@@ -346,8 +436,12 @@ export default function Home() {
   }
 
   function openVideoCoding() {
+    if (isUnsupportedVideo) {
+      alert("This video type cannot be tagged because RefCoach cannot read its playback time.\n\nPlease use a YouTube link or direct video file (MP4/WebM/CloudFront).");
+      return;
+    }
     saveReviewMeta();
-    const current = playbackSeconds();
+    const current = getCurrentCodingSeconds();
     const wasPlaying = pauseActiveVideo();
     setEditingTagId(null); setShouldResumeVideo(wasPlaying); setCodingSecond(Math.max(0, current)); resetDrafts(); setWizardStep(1); setCodingOpen(true);
   }
@@ -428,15 +522,57 @@ export default function Home() {
   // Guard: non-admin roles cannot visit admin-only screens.
   // Must be declared before any early return to satisfy the Rules of Hooks.
   useEffect(() => {
-    const adminScreens: Screen[] = ["database", "org-settings"];
+    const adminOnlyScreens: Screen[] = ["database", "org-settings", "team-management"];
     if (
-      adminScreens.includes(screen) &&
+      adminOnlyScreens.includes(screen) &&
       session?.activeRole !== "admin" &&
       session?.activeRole !== "super_admin"
     ) {
+      setScreen(session?.activeRole === "viewer" ? "viewer" : "educator");
+    }
+    // Clip Library + Playlists: educator, admin, super_admin only (role gate)
+    const managementRoles = ["educator", "admin", "super_admin"];
+    // clip-library and playlists list are management-only with no exceptions
+    if (
+      (screen === "clip-library" || screen === "playlists") &&
+      session?.activeRole &&
+      !managementRoles.includes(session.activeRole)
+    ) {
+      setScreen(session.activeRole === "viewer" ? "viewer" : "referee");
+    }
+    // playlist-detail: management roles always; referees only when in learning mode
+    if (
+      screen === "playlist-detail" &&
+      session?.activeRole &&
+      !managementRoles.includes(session.activeRole) &&
+      !learningAssignmentUser
+    ) {
+      setScreen(session.activeRole === "viewer" ? "viewer" : "referee");
+    }
+    // Clip Library + Playlists: permission gate (within management roles)
+    if (screen === "clip-library" && session?.activeRole && managementRoles.includes(session.activeRole) && !canViewClipLibrary) {
       setScreen("educator");
     }
-  }, [screen, session?.activeRole]);
+    if ((screen === "playlists" || screen === "playlist-detail") && session?.activeRole && managementRoles.includes(session.activeRole) && !canAccessPlaylists) {
+      setScreen("educator");
+    }
+    // Assignments: educator, admin, super_admin only; permission gate
+    if ((screen === "assignments" || screen === "assignment-detail") && session?.activeRole && !managementRoles.includes(session.activeRole)) {
+      setScreen(session.activeRole === "viewer" ? "viewer" : "referee");
+    }
+    if ((screen === "assignments" || screen === "assignment-detail") && session?.activeRole && managementRoles.includes(session.activeRole) && !canViewAssignments) {
+      setScreen("educator");
+    }
+    // My Learning: referee/educator only (viewers cannot)
+    if (screen === "my-learning" && session?.activeRole === "viewer") {
+      setScreen("viewer");
+    }
+    // Viewers cannot access educator/referee/reviewer screens
+    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail"];
+    if (session?.activeRole === "viewer" && viewerForbidden.includes(screen)) {
+      setScreen("viewer");
+    }
+  }, [screen, session?.activeRole, canViewClipLibrary, canAccessPlaylists, canViewAssignments, learningAssignmentUser]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -531,12 +667,32 @@ export default function Home() {
       </main>
     );
 
+  if (screen === "viewer" && session) {
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen("viewer")}
+          onAdmin={() => {}}
+          onProfile={() => setScreen("user-profile")}
+          onLogout={logout}
+        />
+        <ViewerScreen
+          session={session}
+          games={viewOnlyGames}
+          loading={viewOnlyGamesLoading}
+          error={viewOnlyGamesError}
+        />
+      </main>
+    );
+  }
+
   if (screen === "database") {
     return (
       <main>
         <Header
           session={session}
-          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
           onProfile={() => setScreen("user-profile")}
           onLogout={logout}
@@ -544,6 +700,11 @@ export default function Home() {
         <MembersScreen
           session={session!}
           onNavigateSettings={() => setScreen("org-settings")}
+          onNavigateTeam={
+            session?.activeRole === "admin" || session?.activeRole === "super_admin"
+              ? () => setScreen("team-management")
+              : undefined
+          }
           onRefreshOrgMembers={refreshMembers}
         />
       </main>
@@ -557,7 +718,7 @@ export default function Home() {
       <main>
         <Header
           session={session}
-          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
           onProfile={() => setScreen("user-profile")}
           onLogout={logout}
@@ -572,19 +733,244 @@ export default function Home() {
     );
   }
 
+  if (screen === "clip-library") {
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
+          onAdmin={() => setScreen("database")}
+          onProfile={() => setScreen("user-profile")}
+          onLogout={logout}
+        />
+        <ClipLibraryScreen
+          session={session!}
+          reviews={reviews}
+          tags={tags}
+          onBack={() => setScreen("educator")}
+          onOpenReview={(reviewId) => {
+            const r = reviews.find(x => x.id === reviewId);
+            if (r) openReviewForEdit(r);
+          }}
+          canCreatePlaylists={canCreatePlaylists}
+          onCreatePlaylist={createPlaylist}
+          onViewPlaylist={(id) => { setPlaylistDetailId(id); setScreen("playlist-detail"); }}
+        />
+      </main>
+    );
+  }
+
+  if (screen === "playlists") {
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
+          onAdmin={() => setScreen("database")}
+          onProfile={() => setScreen("user-profile")}
+          onLogout={logout}
+        />
+        <PlaylistsScreen
+          session={session!}
+          playlists={playlists}
+          loading={playlistsLoading}
+          error={playlistsError}
+          members={members}
+          onViewPlaylist={(id) => { setPlaylistDetailId(id); setScreen("playlist-detail"); }}
+          onDeletePlaylist={deletePlaylist}
+          canDelete={canDeletePlaylists}
+          onBack={() => setScreen("educator")}
+        />
+      </main>
+    );
+  }
+
+  if (screen === "playlist-detail") {
+    const activePlaylist = playlists.find(p => p.id === playlistDetailId);
+    if (!activePlaylist) {
+      // Playlist not found — return to appropriate list
+      setScreen(learningAssignmentUser ? "my-learning" : "playlists");
+      return null;
+    }
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
+          onAdmin={() => setScreen("database")}
+          onProfile={() => setScreen("user-profile")}
+          onLogout={logout}
+        />
+        <PlaylistDetailScreen
+          playlist={activePlaylist}
+          reviews={learningAssignmentUser ? learningReviews : reviews}
+          tags={learningAssignmentUser ? learningTags    : tags}
+          onOpenReview={(reviewId) => {
+            const r = reviews.find(x => x.id === reviewId);
+            if (r) openReviewForEdit(r);
+          }}
+          canEdit={canEditPlaylists && !learningAssignmentUser}
+          canDelete={canDeletePlaylists && !learningAssignmentUser}
+          canAssign={canCreateAssignments && !learningAssignmentUser}
+          assignments={!learningAssignmentUser ? assignments.filter(a => a.playlistId === activePlaylist.id) : undefined}
+          members={members}
+          onCreateAssignment={async (input) => { await createAssignment(input); }}
+          onUpdateItemNote={canEditPlaylists && !learningAssignmentUser ? updateItemNote : undefined}
+          onUpdateMeta={updatePlaylist}
+          onUpdatePositions={updateItemPositions}
+          onRemoveItem={removePlaylistItem}
+          onDelete={async (id) => { await deletePlaylist(id); setPlaylistDetailId(null); setScreen("playlists"); }}
+          learningContext={learningAssignmentUser ? {
+            assignmentUser: learningAssignmentUser.assignmentUser,
+            assignedByName: members.find(m => m.id === learningAssignmentUser.assignment.assignedBy)?.name ?? null,
+            instructions: learningAssignmentUser.assignment.instructions,
+            dueDate: learningAssignmentUser.assignment.dueDate,
+            onMarkComplete: async () => {
+              await updateAssignmentUserStatus(learningAssignmentUser.assignmentUser.id, "Completed");
+              setLearningAssignmentUser(null);
+              setPlaylistDetailId(null);
+              setScreen("my-learning");
+            },
+          } : undefined}
+          onBack={() => {
+            if (learningAssignmentUser) {
+              setLearningAssignmentUser(null);
+              setPlaylistDetailId(null);
+              setScreen("my-learning");
+            } else {
+              setScreen("playlists");
+            }
+          }}
+        />
+      </main>
+    );
+  }
+
+  if (screen === "assignments") {
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
+          onAdmin={() => setScreen("database")}
+          onProfile={() => setScreen("user-profile")}
+          onLogout={logout}
+        />
+        <AssignmentsScreen
+          session={session!}
+          assignments={assignments}
+          playlists={playlists}
+          members={members}
+          loading={assignmentsLoading}
+          error={assignmentsError}
+          canDelete={canDeleteAssignments}
+          onView={(id) => { setActiveAssignmentId(id); setScreen("assignment-detail"); }}
+          onDelete={deleteAssignment}
+          onBack={() => setScreen("educator")}
+        />
+      </main>
+    );
+  }
+
+  if (screen === "assignment-detail") {
+    const activeAssignment = assignments.find(a => a.id === activeAssignmentId);
+    if (!activeAssignment) { setScreen("assignments"); return null; }
+    const activeAssignmentPlaylist = playlists.find(p => p.id === activeAssignment.playlistId) ?? null;
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
+          onAdmin={() => setScreen("database")}
+          onProfile={() => setScreen("user-profile")}
+          onLogout={logout}
+        />
+        <AssignmentDetailScreen
+          assignment={activeAssignment}
+          playlist={activeAssignmentPlaylist}
+          members={members}
+          canEdit={canEditAssignments}
+          canDelete={canDeleteAssignments}
+          onBack={() => setScreen("assignments")}
+          onUpdate={updateAssignment}
+          onDelete={async (id) => { await deleteAssignment(id); setActiveAssignmentId(null); setScreen("assignments"); }}
+          onAddUsers={addUsersToAssignment}
+          onRemoveUser={removeUserFromAssignment}
+        />
+      </main>
+    );
+  }
+
+  if (screen === "my-learning") {
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
+          onAdmin={() => setScreen("database")}
+          onProfile={() => setScreen("user-profile")}
+          onLogout={logout}
+        />
+        <MyLearningScreen
+          session={session!}
+          myAssignments={myAssignments}
+          playlists={playlists}
+          members={members}
+          onOpenPlaylist={async (assignment, assignmentUser) => {
+            // If starting for the first time, update status to Started
+            if (assignmentUser.status === "Assigned") {
+              await updateAssignmentUserStatus(assignmentUser.id, "Started");
+              // Refresh the assignmentUser reference from the updated assignments list
+              const updated = assignments.find(a => a.id === assignment.id);
+              const updatedUser = updated?.assignmentUsers.find(u => u.id === assignmentUser.id) ?? assignmentUser;
+              setLearningAssignmentUser({ assignment, assignmentUser: { ...updatedUser, status: "Started" } });
+            } else {
+              setLearningAssignmentUser({ assignment, assignmentUser });
+            }
+            setPlaylistDetailId(assignment.playlistId);
+            setScreen("playlist-detail");
+          }}
+          onBack={() => setScreen("referee")}
+        />
+      </main>
+    );
+  }
+
+  if (screen === "team-management") {
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
+          onAdmin={() => setScreen("database")}
+          onProfile={() => setScreen("user-profile")}
+          onLogout={logout}
+        />
+        <TeamManagementScreen
+          session={session!}
+          members={members}
+          permissionMap={permissionMap}
+          permissionsLoading={permissionsLoading}
+          onSavePerms={saveUserPerms}
+          onBack={() => setScreen("educator")}
+        />
+      </main>
+    );
+  }
+
   if (screen === "user-profile") {
     return (
       <main>
         <Header
           session={session}
-          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
           onProfile={() => setScreen("user-profile")}
           onLogout={logout}
         />
         <UserProfileScreen
           session={session!}
-          onBack={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")}
+          onBack={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onSwitchOrg={switchOrganisation}
           onProfileNameSaved={updateSessionProfile}
         />
@@ -612,284 +998,25 @@ export default function Home() {
     );
   }
 
-  if (screen === "educator") {
-    const portalLabel = session?.activeRole === "super_admin" ? "Super Admin Portal" : session?.activeRole === "admin" ? "Organisation Admin Portal" : "Educator Portal";
-    const portalHint = session?.activeRole === "super_admin" ? "All organisation evaluations are visible." : session?.activeRole === "admin" ? "Evaluations for your organisation are visible." : "Only evaluations created by you are visible.";
-
-    const visibleReviews = session?.activeRole === "super_admin"
-      ? reviews
-      : session?.activeRole === "admin"
-        ? reviews.filter(r => r.organisationId === session.activeOrganisation?.id)
-        : reviews.filter(r => r.educatorId === session?.user.id && r.organisationId === session?.activeOrganisation?.id);
-
-    // --- Summary stats ---
-    const inProgressReviews = visibleReviews.filter(r => r.status !== "Completed");
-    const completedReviews = visibleReviews.filter(r => r.status === "Completed");
-    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const thisWeekReviews = visibleReviews.filter(r => r.createdAt >= oneWeekAgo);
-
-    // --- Action required (in-progress, most recent first) ---
-    const actionReviews = [...inProgressReviews].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 6);
-
-    // --- Recent activity feed ---
-    type ActivityItem = { label: string; detail: string; ts: string };
-    const activityItems: ActivityItem[] = [];
-    visibleReviews.forEach(r => {
-      activityItems.push({ label: "Review created", detail: r.game, ts: r.createdAt });
-      if (r.submittedAt) activityItems.push({ label: "Review completed", detail: r.game, ts: r.submittedAt });
-    });
-    activityItems.sort((a, b) => b.ts.localeCompare(a.ts));
-    const recentActivity = activityItems.slice(0, 12);
-
-    // --- Filters ---
-    const allReferees = Array.from(new Set(
-      visibleReviews.flatMap(r => [r.referee1Name, r.referee2Name, r.referee3Name].filter(Boolean))
-    )).sort();
-
-    let filteredReviews = visibleReviews.filter(r => {
-      if (filterStatus !== "All" && r.status !== filterStatus) return false;
-      if (filterReferee && ![r.referee1Name, r.referee2Name, r.referee3Name].includes(filterReferee)) return false;
-      if (filterGame && !r.game.toLowerCase().includes(filterGame.toLowerCase())) return false;
-      if (filterDate) {
-        const dateStr = r.gameDate || r.createdAt.slice(0, 10);
-        if (dateStr !== filterDate) return false;
-      }
-      if (filterHasVideo && !r.videoLink) return false;
-      if (filterDateRange !== "all") {
-        const days = filterDateRange === "30" ? 30 : 90;
-        const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-        const dateStr = r.gameDate || r.createdAt.slice(0, 10);
-        if (dateStr < cutoff) return false;
-      }
-      return true;
-    });
-
-    // --- Sort ---
-    filteredReviews = [...filteredReviews].sort((a, b) => {
-      switch (sortOrder) {
-        case "oldest": return a.createdAt.localeCompare(b.createdAt);
-        case "updated": {
-          const aTs = a.submittedAt || a.createdAt;
-          const bTs = b.submittedAt || b.createdAt;
-          return bTs.localeCompare(aTs);
-        }
-        case "referee": return (a.referee1Name || "").localeCompare(b.referee1Name || "");
-        case "game": return a.game.localeCompare(b.game);
-        default: return b.createdAt.localeCompare(a.createdAt);
-      }
-    });
-
-    const activeFilters = [filterStatus !== "All", !!filterReferee, !!filterGame, !!filterDate, filterHasVideo, filterDateRange !== "all"].filter(Boolean).length;
-
-    const clearFilters = () => {
-      setFilterStatus("All"); setFilterReferee(""); setFilterGame("");
-      setFilterDate(""); setFilterHasVideo(false); setFilterDateRange("all");
-    };
-
-    const formatRelativeTime = (ts: string) => {
-      const diff = Date.now() - new Date(ts).getTime();
-      const mins = Math.floor(diff / 60000);
-      if (mins < 1) return "just now";
-      if (mins < 60) return `${mins}m ago`;
-      const hrs = Math.floor(mins / 60);
-      if (hrs < 24) return `${hrs}h ago`;
-      const days = Math.floor(hrs / 24);
-      if (days < 7) return `${days}d ago`;
-      return new Date(ts).toLocaleDateString();
-    };
-
+  if (screen === "educator" && session) {
     return (
       <main>
-        <Header session={session} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")} onAdmin={() => setScreen("database")} onProfile={() => setScreen("user-profile")} onLogout={logout} />
-        <div className="ed-layout">
-
-          {/* ── Main column ── */}
-          <div className="ed-main">
-
-            {/* Page header */}
-            <div className="panel ed-page-header">
-              <div>
-                <p className="eyebrow">{portalLabel}</p>
-                <h1 style={{ marginBottom: 2 }}>Welcome, {session?.profile.name}</h1>
-                <p className="hint" style={{ margin: 0 }}>{portalHint}</p>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <div className="badge-wrap"><button onClick={() => setScreen("comment-inbox")}><MessageSquare size={16} /> Comment Inbox</button>{totalUnread > 0 && <span className="badge-count">{totalUnread > 99 ? "99+" : totalUnread}</span>}</div>
-                <button className="primary" onClick={startNewReview}><Plus size={16} /> New Review</button>
-              </div>
-            </div>
-
-            {/* Summary cards */}
-            <div className="ed-summary-grid">
-              <div className="ed-summary-card">
-                <div className="ed-summary-number">{visibleReviews.length}</div>
-                <div className="ed-summary-label">Total Reviews</div>
-              </div>
-              <div className="ed-summary-card ed-summary-inprogress">
-                <div className="ed-summary-number">{inProgressReviews.length}</div>
-                <div className="ed-summary-label">In Review</div>
-              </div>
-              <div className="ed-summary-card ed-summary-done">
-                <div className="ed-summary-number">{completedReviews.length}</div>
-                <div className="ed-summary-label">Completed</div>
-              </div>
-              <div className="ed-summary-card ed-summary-week">
-                <div className="ed-summary-number">{thisWeekReviews.length}</div>
-                <div className="ed-summary-label">This Week</div>
-              </div>
-            </div>
-
-            {/* Action required */}
-            {actionReviews.length > 0 && (
-              <div className="panel">
-                <h2 style={{ marginBottom: 12 }}>Action Required</h2>
-                <div className="ed-action-grid">
-                  {actionReviews.map(review => (
-                    <button key={review.id} className="ed-action-card" onClick={() => openReviewForEdit(review)}>
-                      <div className="ed-action-top">
-                        <span className="ed-action-game">{review.game || "Untitled Review"}</span>
-                        <span className={`status ${review.status === "Completed" ? "done" : "review"}`}>{review.status}</span>
-                      </div>
-                      <div className="ed-action-meta">
-                        {[review.referee1Name, review.referee2Name, review.referee3Name].filter(Boolean).join(", ") || "No referees assigned"}
-                      </div>
-                      <div className="ed-action-footer">
-                        <span className="hint">{tags.filter(t => t.reviewId === review.id).length} clips</span>
-                        <span className="hint">{formatRelativeTime(review.createdAt)}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Filters + sort */}
-            <div className="panel">
-              <div className="ed-filter-bar">
-                <div className="ed-filter-row">
-                  <input
-                    className="ed-filter-search"
-                    placeholder="Search competition / game…"
-                    value={filterGame}
-                    onChange={e => setFilterGame(e.target.value)}
-                  />
-                  <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as typeof filterStatus)}>
-                    <option value="All">All statuses</option>
-                    <option value="In Review">In Review</option>
-                    <option value="Completed">Completed</option>
-                  </select>
-                  <select value={filterReferee} onChange={e => setFilterReferee(e.target.value)}>
-                    <option value="">All referees</option>
-                    {allReferees.map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                  <label className="ed-date-filter-label">
-                    Game date
-                    <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-                  </label>
-                  <label className="ed-video-toggle">
-                    <input type="checkbox" checked={filterHasVideo} onChange={e => setFilterHasVideo(e.target.checked)} />
-                    Has video
-                  </label>
-                </div>
-                <div className="ed-filter-row">
-                  <div className="date-preset-row">
-                    <span className="hint">Period:</span>
-                    {(["all", "30", "90"] as const).map(range => (
-                      <button
-                        key={range}
-                        className={"date-preset-btn" + (filterDateRange === range ? " active" : "")}
-                        onClick={() => setFilterDateRange(range)}
-                      >
-                        {range === "all" ? "All time" : range === "30" ? "Last 30 days" : "Last 90 days"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="ed-filter-row" style={{ justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span className="hint">Sort:</span>
-                    <select value={sortOrder} onChange={e => setSortOrder(e.target.value as typeof sortOrder)}>
-                      <option value="newest">Newest first</option>
-                      <option value="oldest">Oldest first</option>
-                      <option value="updated">Last updated</option>
-                      <option value="referee">Referee name</option>
-                      <option value="game">Competition</option>
-                    </select>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span className="hint">{filteredReviews.length} of {visibleReviews.length} reviews</span>
-                    {activeFilters > 0 && <button onClick={clearFilters}>Clear filters ({activeFilters})</button>}
-                  </div>
-                </div>
-              </div>
-
-              {/* Review table */}
-              {filteredReviews.length === 0 ? (
-                <div className="empty-state" style={{ marginTop: 16 }}>No reviews match the current filters.</div>
-              ) : (
-                <div className="ref-reviews-table" style={{ marginTop: 12 }}>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Game</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                        <th>Educator</th>
-                        <th>Referees</th>
-                        <th>Clips</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredReviews.map(review => (
-                        <tr key={review.id}>
-                          <td data-label="Game">{review.game}</td>
-                          <td data-label="Date">{review.gameDate || review.createdAt.slice(0, 10)}</td>
-                          <td data-label="Status"><span className={`status ${review.status === "Completed" ? "done" : "review"}`}>{review.status}</span></td>
-                          <td data-label="Educator">{review.educatorName}</td>
-                          <td data-label="Referees">{[review.referee1Name, review.referee2Name, review.referee3Name].filter(Boolean).join(", ") || "—"}</td>
-                          <td data-label="Clips">{tags.filter(t => t.reviewId === review.id).length}</td>
-                          <td data-label="">
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              <button onClick={() => openReviewForEdit(review)}>Open</button>
-                              <button className="danger" onClick={() => deleteReview(review.id)}>Delete</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── Sidebar ── */}
-          <aside className="ed-sidebar">
-
-            {/* Recent activity */}
-            <div className="panel">
-              <h3 style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--muted)" }}>Recent Activity</h3>
-              {recentActivity.length === 0 ? (
-                <p className="hint">No activity yet.</p>
-              ) : (
-                <div className="ed-activity-list">
-                  {recentActivity.map((item, i) => (
-                    <div key={i} className="ed-activity-item">
-                      <div className="ed-activity-dot" />
-                      <div className="ed-activity-body">
-                        <p className="ed-activity-label">{item.label}</p>
-                        <p className="ed-activity-detail">{item.detail}</p>
-                        <p className="ed-activity-time">{formatRelativeTime(item.ts)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-          </aside>
-        </div>
+        <Header session={session} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onProfile={() => setScreen("user-profile")} onLogout={logout} />
+        <EducatorDashboard
+          session={session}
+          reviews={reviews}
+          tags={tags}
+          playlists={playlists}
+          assignments={assignments}
+          totalUnread={totalUnread}
+          canViewClipLibrary={canViewClipLibrary}
+          canAccessPlaylists={canAccessPlaylists}
+          canViewAssignments={canViewAssignments}
+          startNewReview={startNewReview}
+          openReviewForEdit={openReviewForEdit}
+          deleteReview={deleteReview}
+          setScreen={setScreen}
+        />
       </main>
     );
   }
@@ -897,15 +1024,21 @@ export default function Home() {
   if (screen === "referee") {
     const reviewUnread = (id: string) =>
       Object.entries(counts ?? {}).filter(([k]) => k.startsWith(id + "::")).reduce((s, [, n]) => s + n, 0);
-    const myReviews = session ? assignedReviewsForReferee(session.user.id) : [];
+    const allMyReviews = session ? assignedReviewsForReferee(session.user.id) : [];
+
+    const myReviews = allMyReviews.filter(r =>
+      datePassesFilter(r.gameDate || r.createdAt.slice(0, 10), refDateFilter)
+    );
+
     const allMyTags = myReviews.flatMap(review => {
       const slot = slotForUser(session?.user.id || "", review);
       return tags.filter(t => t.reviewId === review.id && tagAppliesToSlot(t, slot));
     });
     const myAnalytics = makeAnalytics(allMyTags);
+
     return (
       <main>
-        <Header session={session} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")} onAdmin={() => setScreen("database")} onProfile={() => setScreen("user-profile")} onLogout={logout} />
+        <Header session={session} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onProfile={() => setScreen("user-profile")} onLogout={logout} />
         <div className="layout">
           <section className="panel">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
@@ -914,10 +1047,22 @@ export default function Home() {
                 <h1 style={{ margin: "2px 0 0" }}>Welcome, {session?.profile.name}</h1>
                 <p className="hint" style={{ margin: "2px 0 0" }}>Only submitted/completed evaluations appear here.</p>
               </div>
-              <button className="primary" onClick={() => setScreen("referee-stats")} style={{ whiteSpace: "nowrap" }}>📊 My Stats Hub</button>
             </div>
+
+            {/* Compact date filter */}
+            <DateRangeFilter
+              value={refDateFilter}
+              onChange={setRefDateFilter}
+              totalCount={allMyReviews.length}
+              filteredCount={myReviews.length}
+            />
+
             {myReviews.length === 0 ? (
-              <p className="hint" style={{ marginTop: 24 }}>No completed evaluations yet.</p>
+              <p className="hint" style={{ marginTop: 16 }}>
+                {allMyReviews.length === 0
+                  ? "No completed evaluations yet."
+                  : "No evaluations found for this date range."}
+              </p>
             ) : (
               <div className="ref-reviews-table">
                 <table>
@@ -943,18 +1088,45 @@ export default function Home() {
               </div>
             )}
           </section>
+
           <aside className="panel side-panel">
-            {myReviews.length > 0 && (
+            <button className="primary" onClick={() => setScreen("referee-stats")} style={{ whiteSpace: "nowrap", width: "100%", marginBottom: 14 }}>📊 My Stats Hub</button>
+            {myAssignments.length > 0 && (
+              <div className="badge-wrap" style={{ marginBottom: 14 }}>
+                <button style={{ whiteSpace: "nowrap", width: "100%" }} onClick={() => setScreen("my-learning")}>📚 My Learning</button>
+                {myAssignments.filter(a => a.assignmentUsers.find(u => u.userId === session?.user.id)?.status !== "Completed").length > 0 && (
+                  <span className="badge-count">
+                    {myAssignments.filter(a => a.assignmentUsers.find(u => u.userId === session?.user.id)?.status !== "Completed").length}
+                  </span>
+                )}
+              </div>
+            )}
+            {allMyReviews.length > 0 && (() => {
+              // Sidebar summary always shows all-time totals
+              const sidebarTags = allMyReviews.flatMap(r => {
+                const slot = slotForUser(session?.user.id || "", r);
+                return tags.filter(t => t.reviewId === r.id && tagAppliesToSlot(t, slot));
+              });
+              const sidebarAnalytics = makeAnalytics(sidebarTags);
+              return (
               <div className="analytics-card">
                 <h3>Performance Summary</h3>
                 <div className="metric-grid">
-                  <div className="metric-tile"><div className="number">{myReviews.length}</div><div className="hint">Evaluations</div></div>
-                  <div className="metric-tile"><div className="number">{allMyTags.length}</div><div className="hint">Clips</div></div>
-                  {allMyTags.length > 0 && <div className="metric-tile"><div className="number">{myAnalytics.accuracy}</div><div className="hint">Accuracy</div></div>}
+                  <div className="metric-tile"><div className="number">{allMyReviews.length}</div><div className="hint">Evaluations</div></div>
+                  <div className="metric-tile"><div className="number">{sidebarTags.length}</div><div className="hint">Clips</div></div>
+                  {sidebarTags.length > 0 && <div className="metric-tile"><div className="number">{sidebarAnalytics.accuracy}</div><div className="hint">Accuracy</div></div>}
                 </div>
               </div>
-            )}
-            {allMyTags.length > 0 && (() => {
+              );
+            })()}
+            {allMyReviews.length > 0 && (() => {
+              // Sidebar breakdown also uses all-time tags
+              const sidebarTags = allMyReviews.flatMap(r => {
+                const slot = slotForUser(session?.user.id || "", r);
+                return tags.filter(t => t.reviewId === r.id && tagAppliesToSlot(t, slot));
+              });
+              if (sidebarTags.length === 0) return null;
+              const sidebarAnalytics = makeAnalytics(sidebarTags);
               const bars = (counts: [string, number][]) => {
                 const max = Math.max(...counts.map(([, c]) => c), 1);
                 return counts.map(([n, c]) => (
@@ -967,15 +1139,16 @@ export default function Home() {
               };
               return (
                 <>
-                  <div className="analytics-card"><h3>Outcome</h3>{bars(myAnalytics.outcomeCounts)}</div>
-                  <div className="analytics-card"><h3>Category</h3>{bars(myAnalytics.categoryCounts)}</div>
-                  <div className="analytics-card"><h3>Position</h3>{bars(myAnalytics.positionCounts)}</div>
-                  <div className="analytics-card"><h3>Coverage</h3>{bars(myAnalytics.coverageCounts)}</div>
+                  <div className="analytics-card"><h3>Outcome</h3>{bars(sidebarAnalytics.outcomeCounts)}</div>
+                  <div className="analytics-card"><h3>Category</h3>{bars(sidebarAnalytics.categoryCounts)}</div>
+                  <div className="analytics-card"><h3>Position</h3>{bars(sidebarAnalytics.positionCounts)}</div>
+                  <div className="analytics-card"><h3>Coverage</h3>{bars(sidebarAnalytics.coverageCounts)}</div>
                 </>
               );
             })()}
           </aside>
         </div>
+
       </main>
     );
   }
@@ -1024,5 +1197,5 @@ export default function Home() {
     ] as [string, string, string][]
   ).filter(([id]) => !!id);
 
-  return <main><Header session={session} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : "educator")} onAdmin={() => setScreen("database")} onProfile={() => setScreen("user-profile")} onLogout={logout} /><div className="layout"><section className="panel"><div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--border)" }}><p className="eyebrow">Evaluation</p><h2 style={{ marginBottom: 4 }}>{reviewGame || "Untitled Review"}</h2><p className="hint">Educator: {activeReview?.educatorName || session?.profile.name || "—"} · Status: {activeReview?.status || "In Review"}</p><div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}><span className="chip">Crew Chief: {slotName("Referee 1", activeReview)}</span><span className="chip">Umpire 1: {slotName("Referee 2", activeReview)}</span><span className="chip">Umpire 2: {slotName("Referee 3", activeReview)}</span></div></div><div className="review-setup-bar"><div className="review-setup-info"><span className="review-setup-name">{reviewGame && reviewGame !== "New Review" ? reviewGame : "Untitled Review"}</span>{reviewGameDate && <span className="hint">· {reviewGameDate}</span>}{reviewVideoLink ? <span className="hint">· 🎥 Video</span> : <span className="hint" style={{color:"rgba(253,230,138,.6)"}}>· No video</span>}</div><button style={{fontSize:12,padding:"4px 10px",whiteSpace:"nowrap"}} onClick={()=>setSetupModalOpen(true)}>✏️ Edit Game Details</button></div><div className="mode-switch"><button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button><button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button></div>{mode === "video" ? <><div className="toolbar"><label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={16} /> / <Pause size={16} /></button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>-5s</button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>+5s</button><button className="primary" onClick={openVideoCoding}>Tag Moment</button></div>{usingYouTubeVideo ? <><div className="video-placeholder" style={{aspectRatio:"16/9",overflow:"hidden",padding:0}}><div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /></div><p className="hint" style={{marginTop:4,fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady ? "" : " · loading..."}</p></> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink) ? activeVideoLink : undefined} onLoadedMetadata={e => setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e => setVideoCurrent(e.currentTarget.currentTime)} />}</> : <div className="timer-card"><div className="timer">{formatTime(timerSeconds)}</div><div className="toolbar"><button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button><button onClick={() => setTimerSeconds(0)}>Reset</button><button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button><button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button></div><p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p></div>}<div className="timeline"><div className="progress" style={{ width: `${progressPct}%` }} />{reviewTags.map(tag => <div key={tag.id} className="marker" title={`${tag.adjustedTime} — ${slotName(tag.refereeTarget, activeReview)} — ${tag.outcome || tag.category || "Tag"}`} style={{ left: `${Math.min(100, (tag.adjustedSeconds / scaleSeconds) * 100)}%` }} />)}</div></section><aside className="panel side-panel"><div className="export-row"><button className="warn" style={{fontSize:12,padding:"6px 12px"}} onClick={saveCompleteLater}>Save &amp; Complete Later</button><button className="good" style={{fontSize:12,padding:"6px 12px"}} onClick={submitReview}>Submit Review</button></div><div className="export-row"><button style={{fontSize:12,padding:"5px 10px"}} onClick={exportCsv}><Download size={14} /> CSV</button><button className="primary" style={{fontSize:12,padding:"5px 10px"}} onClick={exportExcel}><Download size={14} /> Excel</button></div><div className="analytics-card"><h2>Performance Analytics</h2><label>Analytics view<select value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div className="metric-grid" style={{ marginTop: 10 }}><div className="metric-tile"><div className="number">{analytics.total}</div><div className="hint">Total clips</div></div><div className="metric-tile"><div className="number">{analytics.accuracy}</div><div className="hint">Coded accuracy</div></div><div className="metric-tile"><div className="number">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="hint">Correct decisions</div></div><div className="metric-tile"><div className="number">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="hint">Incorrect decisions</div></div></div></div><div className="analytics-card"><h3>Outcome Breakdown</h3>{analytics.outcomeCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Category Breakdown</h3>{analytics.categoryCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Position Breakdown</h3>{analytics.positionCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Coverage Breakdown</h3>{analytics.coverageCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div>{mode === "video" ? <div className="analytics-card"><button className="primary big-tag" onClick={openVideoCoding}>Tag Moment</button><p className="hint">Shortcut: X opens the video coding panel.</p></div> : <div className="analytics-card"><h2>Non-video hotkeys</h2><div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div></div>}{summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&Object.values(activeReview.officialSummaries[id]).some(Boolean))&&<div className="analytics-card"><h3>Final Summaries</h3>{summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&(s.positives||s.workOns||s.nextFocus)?<div key={id} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid var(--border)"}}><p style={{margin:"0 0 6px",fontWeight:800}}>{name} <span className="hint" style={{fontWeight:400}}>· {role}</span></p>{s.positives&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Positives</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.positives}</p></>}{s.workOns&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Areas to work on</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.workOns}</p></>}{s.nextFocus&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Focus for next game</p><p style={{margin:0,fontSize:13,whiteSpace:"pre-wrap"}}>{s.nextFocus}</p></>}</div>:null})}</div>}</aside><section className="panel table-panel"><div className="table-head"><h2>Coded clips</h2><button className="danger" onClick={async () => { if (!confirm("Clear all tags?")) return; await clearReviewClips(activeReviewId); }}><Trash2 size={16} /> Clear Tags</button></div><table><thead><tr><th>Time</th><th>Referees</th><th>Mode</th><th>Outcome</th><th>Coverage</th><th>Position</th><th>Category</th><th>Comments</th><th></th></tr></thead><tbody>{reviewTags.map(tag => <tr key={tag.id}><td><button onClick={() => jump(tag.adjustedSeconds)}>{tag.adjustedTime}</button></td><td><strong>{slotName(tag.refereeTarget, activeReview)}</strong> <span className="hint">(Call)</span><br />{(tag.extraReviewOfficials || []).map(s => <span className="chip" key={s}>{slotName(s, activeReview)} Review</span>)}</td><td>{tag.mode}</td><td>{tag.outcome}</td><td>{tag.coverage}</td><td>{tag.position}</td><td>{tag.category}</td><td>{tag.notes}</td><td>{tag.mode === "video" && <button className="clip-action-btn" onClick={() => openEditTag(tag)}>Edit</button>}<button className="clip-action-btn danger" onClick={() => deleteClip(tag.id)}>Delete</button><div className="badge-wrap"><button className={"clip-action-btn" + (activeCommentTagId === tag.id ? " selected" : "")} onClick={() => setActiveCommentTagId(t => t === tag.id ? null : tag.id)}>Comments</button>{(counts?.[`${activeReviewId}::${tag.id}`] ?? 0) > 0 && <span className="badge-count">{Math.min(counts![`${activeReviewId}::${tag.id}`], 99)}</span>}</div></td></tr>)}</tbody></table>{activeCommentTagId && <ReviewComments reviewId={activeReviewId} tagId={activeCommentTagId} session={session} onRead={refreshUnread} />}</section></div>{codingOpen && <div className="modal-backdrop"><div className="modal wizard-modal"><div className="modal-title"><div><p className="eyebrow">{editingTagId?"Edit clip":"Tag Moment"} · Step {wizardStep} of 8</p><h1 style={{fontSize:20,margin:0}}>{wizardStep===1?"Outcome":wizardStep===2?"Coverage":wizardStep===3?"Position":wizardStep===4?"Category":wizardStep===5?(draftCategoryGroup||"Specific Tag"):wizardStep===6?"Officials":wizardStep===7?"Notes":"Review & Save"}</h1><p className="hint" style={{margin:"3px 0 0",fontSize:12}}>{formatTime(codingSecond)} · Adjusted: {formatTime(Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0)))}</p></div><button onClick={()=>{setCodingOpen(false);setEditingTagId(null);if(shouldResumeVideo)playActiveVideo();}}>✕</button></div><div className="wizard-dots">{[1,2,3,4,5,6,7,8].map(s=><div key={s} className={"wizard-dot"+(s===wizardStep?" wizard-dot--active":s<wizardStep?" wizard-dot--done":"")} />)}</div>{wizardStep===1&&<><p className="wizard-prompt">What was the result of this moment?</p><div className="wizard-opts">{OUTCOMES.map(item=><button key={item} className={"wizard-opt"+(draftOutcome===item?" selected":"")} onClick={()=>{setDraftOutcome(item);setCodingError("");setWizardStep(2);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===2&&<><p className="wizard-prompt">What was the referee's coverage area?</p><div className="wizard-opts">{COVERAGE.map(item=><button key={item} className={"wizard-opt"+(draftCoverage===item?" selected":"")} onClick={()=>{setDraftCoverage(item);setCodingError("");setWizardStep(3);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===3&&<><p className="wizard-prompt">Where was the referee positioned?</p><div className="wizard-opts">{POSITIONS.map(item=><button key={item} className={"wizard-opt"+(draftPosition===item?" selected":"")} onClick={()=>{setDraftPosition(item);setCodingError("");setWizardStep(4);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===4&&<><p className="wizard-prompt">What type of call is this?</p><div className="wizard-opts">{CATEGORY_GROUPS.map(item=><button key={item} className={"wizard-opt"+(draftCategoryGroup===item?" selected":"")} onClick={()=>{setDraftCategoryGroup(item);if(item!==draftCategoryGroup)setDraftSpecificTag("");setCodingError("");setWizardStep(5);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===5&&(()=>{const allTags=SPECIFIC_TAGS[draftCategoryGroup]||[];const recent=recentSpecificTags.filter(t=>allTags.includes(t));const rest=allTags.filter(t=>!recent.includes(t));return(<><p className="wizard-prompt">Select the specific {draftCategoryGroup.toLowerCase()} tag.</p>{recent.length>0&&<><p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>Recently used</p><div className="wizard-opts wizard-opts--compact" style={{marginBottom:12}}>{recent.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(6);}}>{item}</button>)}</div></>}<p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>{recent.length>0?"All tags":"Tags"}</p><div className="wizard-opts wizard-opts--compact">{rest.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(6);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>);})()}{wizardStep===6&&<><p className="wizard-prompt">Who is responsible for this call?</p><div style={{display:"flex",flexDirection:"column",gap:12}}><label style={{display:"flex",flexDirection:"column",gap:5,fontSize:13}}><span style={{fontWeight:700}}>Primary official (call responsible)</span><select value={draftRefereeTarget} onChange={e=>{setDraftRefereeTarget(e.target.value as RefSlot);setDraftExtraOfficials(items=>items.filter(s=>s!==e.target.value));}}>{REF_SLOTS.map(s=><option key={s} value={s}>{slotName(s,activeReview)}</option>)}</select></label><div><p style={{fontSize:13,fontWeight:700,margin:"0 0 6px"}}>Review-only officials <span className="hint" style={{fontWeight:400}}>(optional)</span></p><div className="toolbar">{REF_SLOTS.filter(s=>s!=="All Referees"&&s!==draftRefereeTarget).map(s=><button type="button" key={s} className={draftExtraOfficials.includes(s)?"selected":""} onClick={()=>toggleExtra(s)}>{slotName(s,activeReview)}</button>)}</div><p className="hint" style={{fontSize:11,marginTop:5}}>Review-only officials are not counted as responsible for the call.</p></div></div></>}{wizardStep===7&&<><p className="wizard-prompt">Any additional notes? <span className="hint">(optional)</span></p><textarea value={draftNotes} onChange={e=>setDraftNotes(e.target.value)} placeholder="Optional educator notes for this clip…" style={{width:"100%",minHeight:90,resize:"vertical",boxSizing:"border-box"}} /></>}{wizardStep===8&&<><p className="wizard-prompt">Confirm all details before saving.</p><div style={{display:"flex",flexDirection:"column",gap:6}}>{([["Outcome",draftOutcome,1,!draftOutcome],["Coverage",draftCoverage,2,!draftCoverage],["Position",draftPosition,3,!draftPosition],["Category",draftCategoryGroup,4,!draftCategoryGroup],["Specific Tag",draftSpecificTag,5,!draftSpecificTag],["Officials",slotName(draftRefereeTarget,activeReview),6,false],["Notes",draftNotes||"(none)",7,false]] as [string,string,number,boolean][]).map(([label,value,step,isError])=><div key={label} className={"wizard-review-row"+(isError?" wizard-review-row--error":"")}><div style={{flex:1,minWidth:0}}><span className="hint" style={{display:"block",fontSize:11,marginBottom:1}}>{label}</span><span style={{fontWeight:isError?900:700,color:isError?"#fecaca":"var(--text)"}}>{value||"⚠ Required"}</span></div><button style={{fontSize:11,padding:"2px 8px",flexShrink:0}} onClick={()=>setWizardStep(step)}>Edit</button></div>)}{codingError&&<p className="danger-text" style={{margin:"4px 0 0"}}>{codingError}</p>}</div></>}<div className="wizard-nav"><div>{wizardStep>1&&<button onClick={()=>setWizardStep(s=>s-1)}>← Back</button>}</div><div style={{display:"flex",gap:8,alignItems:"center"}}>{wizardStep<8&&draftOutcome&&draftCoverage&&draftPosition&&draftCategoryGroup&&draftSpecificTag&&wizardStep!==1&&<button style={{fontSize:12}} onClick={()=>setWizardStep(8)}>Skip to Review →</button>}{wizardStep===6&&<button className="primary" onClick={()=>setWizardStep(7)}>Next →</button>}{wizardStep===7&&<><button onClick={()=>setWizardStep(8)}>Skip</button><button className="primary" onClick={()=>setWizardStep(8)}>Next →</button></>}{wizardStep===8&&<button className="primary" onClick={saveVideoCode}>{editingTagId?"Save Changes":"Save & Resume"}</button>}</div></div></div></div>}{setupModalOpen&&<div className="modal-backdrop" onClick={e=>{if(e.target===e.currentTarget&&reviewGame&&reviewGame!=="New Review")setSetupModalOpen(false);}}><div className="modal" style={{maxWidth:660}}><div className="modal-title"><div><p className="eyebrow">{reviewGame&&reviewGame!=="New Review"?"Edit Game Details":"New Review Setup"}</p><h1 style={{fontSize:22,margin:0}}>{reviewGame&&reviewGame!=="New Review"?reviewGame:"Set up your review"}</h1></div>{reviewGame&&reviewGame!=="New Review"&&<button onClick={()=>setSetupModalOpen(false)}>✕</button>}</div><div style={{display:"flex",flexDirection:"column",gap:12,marginTop:12}}><div className="setup-grid"><label>Game / Competition name<input value={reviewGame==="New Review"?"":reviewGame} onChange={e=>setReviewGame(e.target.value)} placeholder="e.g. NBL Round 5 — Wildcats vs Kings" autoFocus /></label><label>Game Date<input type="date" value={reviewGameDate} onChange={e=>setReviewGameDate(e.target.value)} /></label></div><div className="setup-grid"><label>Crew Chief<select value={reviewRef1} onChange={e=>setReviewRef1(e.target.value)}><option value="">Select Crew Chief...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label>Umpire 1<select value={reviewRef2} onChange={e=>setReviewRef2(e.target.value)}><option value="">Select Umpire 1...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label>Umpire 2<select value={reviewRef3} onChange={e=>setReviewRef3(e.target.value)}><option value="">Select Umpire 2...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label></div><div className="grid-2"><label>Video link<input value={reviewVideoLink} onChange={e=>setReviewVideoLink(e.target.value)} placeholder="YouTube, direct MP4/WebM, Hudl, GloryLeague..." /></label><label>Timestamp offset (seconds)<input type="number" step="1" max="0" value={reviewOffset} onChange={e=>setReviewOffset(-Math.abs(Math.trunc(Number(e.target.value)||0)))} /></label></div></div><div className="action-row" style={{marginTop:18}}>{reviewGame&&reviewGame!=="New Review"?<button onClick={()=>setSetupModalOpen(false)}>Cancel</button>:<span style={{fontSize:12,color:"var(--muted)",cursor:"pointer",padding:"6px 4px",userSelect:"none"}} onClick={()=>setSetupModalOpen(false)}>Skip for now</span>}<button className="primary" onClick={()=>{saveReviewMeta();setSetupModalOpen(false);}}>{ !reviewGame||reviewGame==="New Review"?"Save & Start Review":"Save Changes"}</button></div></div></div>}{summaryModalOpen&&<div className="modal-backdrop"><div className="modal"><div className="modal-title"><div><p className="eyebrow">Complete Review</p><h1>Final Summaries</h1><p className="hint">Add optional notes for each official before completing the review.</p></div><button onClick={()=>setSummaryModalOpen(false)}>Cancel</button></div><div style={{display:"flex",flexDirection:"column",gap:24}}>{summarySlots.length===0&&<p className="hint">No officials assigned to this review.</p>}{summarySlots.map(([id,name,role])=><div key={id} style={{borderTop:"1px solid var(--border)",paddingTop:18}}><h2 style={{margin:"0 0 14px"}}>{name} <span className="hint" style={{fontWeight:400,fontSize:14}}>· {role}</span></h2><div className="modal-grid"><label>Positives<textarea rows={3} value={draftSummaries[id]?.positives||""} onChange={e=>updateSummaryField(id,"positives",e.target.value)} placeholder="What did they do well?" /></label><label>Areas to work on<textarea rows={3} value={draftSummaries[id]?.workOns||""} onChange={e=>updateSummaryField(id,"workOns",e.target.value)} placeholder="Key areas for improvement" /></label><label style={{gridColumn:"1/-1"}}>Focus for next game<textarea rows={2} value={draftSummaries[id]?.nextFocus||""} onChange={e=>updateSummaryField(id,"nextFocus",e.target.value)} placeholder="Priority focus area for the next match" /></label></div></div>)}</div><div className="action-row" style={{marginTop:24}}><button onClick={()=>setSummaryModalOpen(false)}>Cancel</button><button className="good" onClick={confirmSubmit}>✓ Confirm &amp; Complete Review</button></div></div></div>}</main>;
+  return <main><Header session={session} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onProfile={() => setScreen("user-profile")} onLogout={logout} /><div className="layout"><section className="panel"><div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--border)" }}><p className="eyebrow">Evaluation</p><h2 style={{ marginBottom: 4 }}>{reviewGame || "Untitled Review"}</h2><p className="hint">Educator: {activeReview?.educatorName || session?.profile.name || "—"} · Status: {activeReview?.status || "In Review"}</p><div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}><span className="chip">Crew Chief: {slotName("Referee 1", activeReview)}</span><span className="chip">Umpire 1: {slotName("Referee 2", activeReview)}</span><span className="chip">Umpire 2: {slotName("Referee 3", activeReview)}</span></div></div><div className="review-setup-bar"><div className="review-setup-info"><span className="review-setup-name">{reviewGame && reviewGame !== "New Review" ? reviewGame : "Untitled Review"}</span>{reviewGameDate && <span className="hint">· {reviewGameDate}</span>}{reviewVideoLink ? <span className="hint">· 🎥 Video</span> : <span className="hint" style={{color:"rgba(253,230,138,.6)"}}>· No video</span>}</div><button style={{fontSize:12,padding:"4px 10px",whiteSpace:"nowrap"}} onClick={()=>setSetupModalOpen(true)}>✏️ Edit Game Details</button></div><div className="mode-switch"><button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button><button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button></div>{mode === "video" ? <><div className="toolbar"><label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={16} /> / <Pause size={16} /></button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>-5s</button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>+5s</button><button className="primary" onClick={openVideoCoding}>Tag Moment</button></div>{usingYouTubeVideo ? <><div className="video-placeholder" style={{aspectRatio:"16/9",overflow:"hidden",padding:0}}><div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /></div><p className="hint" style={{marginTop:4,fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady ? "" : " · loading..."}</p></> : isUnsupportedVideo ? <div className="video-placeholder" style={{aspectRatio:"16/9",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink) ? activeVideoLink : undefined} onLoadedMetadata={e => setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e => setVideoCurrent(e.currentTarget.currentTime)} />}</> : <div className="timer-card"><div className="timer">{formatTime(timerSeconds)}</div><div className="toolbar"><button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button><button onClick={() => setTimerSeconds(0)}>Reset</button><button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button><button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button></div><p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p></div>}<div className="timeline"><div className="progress" style={{ width: `${progressPct}%` }} />{reviewTags.map(tag => <div key={tag.id} className="marker" title={`${tag.adjustedTime} — ${slotName(tag.refereeTarget, activeReview)} — ${tag.outcome || tag.category || "Tag"}`} style={{ left: `${Math.min(100, (tag.adjustedSeconds / scaleSeconds) * 100)}%` }} />)}</div></section><aside className="panel side-panel"><div className="export-row"><button className="warn" style={{fontSize:12,padding:"6px 12px"}} onClick={saveCompleteLater}>Save &amp; Complete Later</button><button className="good" style={{fontSize:12,padding:"6px 12px"}} onClick={submitReview}>Submit Review</button></div><div className="export-row"><button style={{fontSize:12,padding:"5px 10px"}} onClick={exportCsv}><Download size={14} /> CSV</button><button className="primary" style={{fontSize:12,padding:"5px 10px"}} onClick={exportExcel}><Download size={14} /> Excel</button></div><div className="review-side-block"><div className="analytics-card"><h2>Performance Analytics</h2><label>Analytics view<select value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div className="metric-grid" style={{ marginTop: 10 }}><div className="metric-tile"><div className="number">{analytics.total}</div><div className="hint">Total clips</div></div><div className="metric-tile"><div className="number">{analytics.accuracy}</div><div className="hint">Coded accuracy</div></div><div className="metric-tile"><div className="number">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="hint">Correct decisions</div></div><div className="metric-tile"><div className="number">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="hint">Incorrect decisions</div></div></div></div></div><div className="review-side-breakdowns-wrap"><div className="review-side-breakdowns"><div className="review-side-breakdowns-header"><span className="review-side-breakdowns-title">Breakdowns</span><span className="review-side-breakdowns-hint">Scroll ↓</span></div><div className="analytics-card"><h3>Outcome Breakdown</h3>{analytics.outcomeCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Category Breakdown</h3>{analytics.categoryCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Position Breakdown</h3>{analytics.positionCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Coverage Breakdown</h3>{analytics.coverageCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div></div></div><div className="review-side-actions">{mode === "video" ? <div className="analytics-card"><button className="primary big-tag" onClick={openVideoCoding}>Tag Moment</button><p className="hint">Shortcut: X opens the video coding panel.</p></div> : <div className="analytics-card"><h2>Non-video hotkeys</h2><div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div></div>}{summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&Object.values(activeReview.officialSummaries[id]).some(Boolean))&&<div className="analytics-card"><h3>Final Summaries</h3>{summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&(s.positives||s.workOns||s.nextFocus)?<div key={id} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid var(--border)"}}><p style={{margin:"0 0 6px",fontWeight:800}}>{name} <span className="hint" style={{fontWeight:400}}>· {role}</span></p>{s.positives&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Positives</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.positives}</p></>}{s.workOns&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Areas to work on</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.workOns}</p></>}{s.nextFocus&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Focus for next game</p><p style={{margin:0,fontSize:13,whiteSpace:"pre-wrap"}}>{s.nextFocus}</p></>}</div>:null})}</div>}</div></aside><section className="panel table-panel"><div className="table-head"><h2>Coded clips</h2><button className="danger" onClick={async () => { if (!confirm("Clear all tags?")) return; await clearReviewClips(activeReviewId); }}><Trash2 size={16} /> Clear Tags</button></div><table><thead><tr><th>Time</th><th>Referees</th><th>Mode</th><th>Outcome</th><th>Coverage</th><th>Position</th><th>Category</th><th>Comments</th><th></th></tr></thead><tbody>{reviewTags.map(tag => <tr key={tag.id}><td><button onClick={() => jump(tag.adjustedSeconds)}>{tag.adjustedTime}</button></td><td><strong>{slotName(tag.refereeTarget, activeReview)}</strong> <span className="hint">(Call)</span><br />{(tag.extraReviewOfficials || []).map(s => <span className="chip" key={s}>{slotName(s, activeReview)} Review</span>)}</td><td>{tag.mode}</td><td>{tag.outcome}</td><td>{tag.coverage}</td><td>{tag.position}</td><td>{tag.category}</td><td>{tag.notes}</td><td>{tag.mode === "video" && <button className="clip-action-btn" onClick={() => openEditTag(tag)}>Edit</button>}<button className="clip-action-btn danger" onClick={() => deleteClip(tag.id)}>Delete</button><div className="badge-wrap"><button className={"clip-action-btn" + (activeCommentTagId === tag.id ? " selected" : "")} onClick={() => setActiveCommentTagId(t => t === tag.id ? null : tag.id)}>Comments</button>{(counts?.[`${activeReviewId}::${tag.id}`] ?? 0) > 0 && <span className="badge-count">{Math.min(counts![`${activeReviewId}::${tag.id}`], 99)}</span>}</div></td></tr>)}</tbody></table>{activeCommentTagId && <ReviewComments reviewId={activeReviewId} tagId={activeCommentTagId} session={session} onRead={refreshUnread} />}</section></div>{codingOpen && <div className="modal-backdrop"><div className="modal wizard-modal"><div className="modal-title"><div><p className="eyebrow">{editingTagId?"Edit clip":"Tag Moment"} · Step {wizardStep} of 8</p><h1 style={{fontSize:20,margin:0}}>{wizardStep===1?"Outcome":wizardStep===2?"Coverage":wizardStep===3?"Position":wizardStep===4?"Category":wizardStep===5?(draftCategoryGroup||"Specific Tag"):wizardStep===6?"Responsible Official":wizardStep===7?"Notes & Reference":"Review & Save"}</h1><p className="hint" style={{margin:"3px 0 0",fontSize:12}}>{formatTime(codingSecond)} · Adjusted: {formatTime(Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0)))}</p></div><button onClick={()=>{setCodingOpen(false);setEditingTagId(null);if(shouldResumeVideo)playActiveVideo();}}>✕</button></div><div className="wizard-dots">{[1,2,3,4,5,6,7,8].map(s=><div key={s} className={"wizard-dot"+(s===wizardStep?" wizard-dot--active":s<wizardStep?" wizard-dot--done":"")} />)}</div>{wizardStep===1&&<><p className="wizard-prompt">What was the result of this moment?</p><div className="wizard-opts">{OUTCOMES.map(item=><button key={item} className={"wizard-opt"+(draftOutcome===item?" selected":"")} onClick={()=>{setDraftOutcome(item);setCodingError("");setWizardStep(2);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===2&&<><p className="wizard-prompt">What was the referee's coverage area?</p><div className="wizard-opts">{COVERAGE.map(item=><button key={item} className={"wizard-opt"+(draftCoverage===item?" selected":"")} onClick={()=>{setDraftCoverage(item);setCodingError("");setWizardStep(3);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===3&&<><p className="wizard-prompt">Where was the referee positioned?</p><div className="wizard-opts">{POSITIONS.map(item=><button key={item} className={"wizard-opt"+(draftPosition===item?" selected":"")} onClick={()=>{setDraftPosition(item);setCodingError("");setWizardStep(4);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===4&&<><p className="wizard-prompt">What type of call is this?</p><div className="wizard-opts">{CATEGORY_GROUPS.map(item=><button key={item} className={"wizard-opt"+(draftCategoryGroup===item?" selected":"")} onClick={()=>{setDraftCategoryGroup(item);if(item!==draftCategoryGroup)setDraftSpecificTag("");setCodingError("");setWizardStep(5);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===5&&(()=>{const allTags=SPECIFIC_TAGS[draftCategoryGroup]||[];const recent=recentSpecificTags.filter(t=>allTags.includes(t));const rest=allTags.filter(t=>!recent.includes(t));return(<><p className="wizard-prompt">Select the specific {draftCategoryGroup.toLowerCase()} tag.</p>{recent.length>0&&<><p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>Recently used</p><div className="wizard-opts wizard-opts--compact" style={{marginBottom:12}}>{recent.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(6);}}>{item}</button>)}</div></>}<p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>{recent.length>0?"All tags":"Tags"}</p><div className="wizard-opts wizard-opts--compact">{rest.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(6);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>);})()}{wizardStep===6&&<><p className="wizard-prompt">Who was responsible for this moment?</p><div className="wizard-opts">{REF_SLOTS.map(s=><button key={s} className={"wizard-opt"+(draftRefereeTarget===s?" selected":"")} onClick={()=>{setDraftRefereeTarget(s as RefSlot);setDraftExtraOfficials(items=>items.filter(x=>x!==s));setCodingError("");setWizardStep(7);}}>{slotName(s,activeReview)}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===7&&<><p className="wizard-prompt">Add notes and reference officials. <span className="hint">(optional)</span></p><textarea value={draftNotes} onChange={e=>setDraftNotes(e.target.value)} placeholder="Notes for this clip…" style={{width:"100%",minHeight:80,resize:"vertical",boxSizing:"border-box",marginBottom:14}} /><div><p style={{fontSize:13,fontWeight:700,margin:"0 0 4px"}}>Also show this clip to <span className="hint" style={{fontWeight:400}}>(optional)</span></p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{REF_SLOTS.filter(s=>s!=="All Referees"&&s!==draftRefereeTarget).map(s=><button type="button" key={s} className={"wizard-opt wizard-opt--sm"+(draftExtraOfficials.includes(s)?" selected":"")} onClick={()=>toggleExtra(s)}>{slotName(s,activeReview)}</button>)}</div><p className="hint" style={{fontSize:11,marginTop:5}}>Reference officials can view this clip but are not counted as responsible for the decision.</p></div></>}{wizardStep===8&&<><p className="wizard-prompt">Confirm all details before saving.</p><div style={{display:"flex",flexDirection:"column",gap:6}}>{([["Outcome",draftOutcome,1,!draftOutcome],["Coverage",draftCoverage,2,!draftCoverage],["Position",draftPosition,3,!draftPosition],["Category",draftCategoryGroup,4,!draftCategoryGroup],["Specific Tag",draftSpecificTag,5,!draftSpecificTag],["Responsible Official",slotName(draftRefereeTarget,activeReview),6,false],["Reference Officials",draftExtraOfficials.length>0?draftExtraOfficials.map(s=>slotName(s,activeReview)).join(", "):"(none)",7,false],["Notes",draftNotes||"(none)",7,false]] as [string,string,number,boolean][]).map(([label,value,step,isError])=><div key={label} className={"wizard-review-row"+(isError?" wizard-review-row--error":"")}><div style={{flex:1,minWidth:0}}><span className="hint" style={{display:"block",fontSize:11,marginBottom:1}}>{label}</span><span style={{fontWeight:isError?900:700,color:isError?"#fecaca":"var(--text)"}}>{value||"⚠ Required"}</span></div><button style={{fontSize:11,padding:"2px 8px",flexShrink:0}} onClick={()=>setWizardStep(step)}>Edit</button></div>)}{codingError&&<p className="danger-text" style={{margin:"4px 0 0"}}>{codingError}</p>}</div></>}<div className="wizard-nav"><div>{wizardStep>1&&<button onClick={()=>setWizardStep(s=>s-1)}>← Back</button>}</div><div style={{display:"flex",gap:8,alignItems:"center"}}>{wizardStep<8&&draftOutcome&&draftCoverage&&draftPosition&&draftCategoryGroup&&draftSpecificTag&&wizardStep!==1&&<button style={{fontSize:12}} onClick={()=>setWizardStep(8)}>Skip to Review →</button>}{wizardStep===6&&<button className="primary" onClick={()=>setWizardStep(7)}>Next →</button>}{wizardStep===7&&<><button onClick={()=>setWizardStep(8)}>Skip</button><button className="primary" onClick={()=>setWizardStep(8)}>Next →</button></>}{wizardStep===8&&<button className="primary" onClick={saveVideoCode}>{editingTagId?"Save Changes":"Save & Resume"}</button>}</div></div></div></div>}{setupModalOpen&&<div className="modal-backdrop" onClick={e=>{if(e.target===e.currentTarget&&reviewGame&&reviewGame!=="New Review")setSetupModalOpen(false);}}><div className="modal" style={{maxWidth:660}}><div className="modal-title"><div><p className="eyebrow">{reviewGame&&reviewGame!=="New Review"?"Edit Game Details":"New Review Setup"}</p><h1 style={{fontSize:22,margin:0}}>{reviewGame&&reviewGame!=="New Review"?reviewGame:"Set up your review"}</h1></div>{reviewGame&&reviewGame!=="New Review"&&<button onClick={()=>setSetupModalOpen(false)}>✕</button>}</div><div style={{display:"flex",flexDirection:"column",gap:12,marginTop:12}}><div className="setup-grid"><label>Game / Competition name<input value={reviewGame==="New Review"?"":reviewGame} onChange={e=>setReviewGame(e.target.value)} placeholder="e.g. NBL Round 5 — Wildcats vs Kings" autoFocus /></label><label>Game Date<input type="date" value={reviewGameDate} onChange={e=>setReviewGameDate(e.target.value)} /></label></div><div className="setup-grid"><label>Crew Chief<select value={reviewRef1} onChange={e=>setReviewRef1(e.target.value)}><option value="">Select Crew Chief...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label>Umpire 1<select value={reviewRef2} onChange={e=>setReviewRef2(e.target.value)}><option value="">Select Umpire 1...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label>Umpire 2<select value={reviewRef3} onChange={e=>setReviewRef3(e.target.value)}><option value="">Select Umpire 2...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label></div><div className="grid-2"><label>Video link<input value={reviewVideoLink} onChange={e=>setReviewVideoLink(e.target.value)} placeholder="YouTube, direct MP4/WebM, Hudl, GloryLeague..." /></label><label>Timestamp offset (seconds)<input type="number" step="1" max="0" value={reviewOffset} onChange={e=>setReviewOffset(-Math.abs(Math.trunc(Number(e.target.value)||0)))} /></label></div></div><div className="action-row" style={{marginTop:18}}>{reviewGame&&reviewGame!=="New Review"?<button onClick={()=>setSetupModalOpen(false)}>Cancel</button>:<span style={{fontSize:12,color:"var(--muted)",cursor:"pointer",padding:"6px 4px",userSelect:"none"}} onClick={()=>setSetupModalOpen(false)}>Skip for now</span>}<button className="primary" onClick={()=>{saveReviewMeta();setSetupModalOpen(false);}}>{ !reviewGame||reviewGame==="New Review"?"Save & Start Review":"Save Changes"}</button></div></div></div>}{summaryModalOpen&&<div className="modal-backdrop"><div className="modal"><div className="modal-title"><div><p className="eyebrow">Complete Review</p><h1>Final Summaries</h1><p className="hint">Add optional notes for each official before completing the review.</p></div><button onClick={()=>setSummaryModalOpen(false)}>Cancel</button></div><div style={{display:"flex",flexDirection:"column",gap:24}}>{summarySlots.length===0&&<p className="hint">No officials assigned to this review.</p>}{summarySlots.map(([id,name,role])=><div key={id} style={{borderTop:"1px solid var(--border)",paddingTop:18}}><h2 style={{margin:"0 0 14px"}}>{name} <span className="hint" style={{fontWeight:400,fontSize:14}}>· {role}</span></h2><div className="modal-grid"><label>Positives<textarea rows={3} value={draftSummaries[id]?.positives||""} onChange={e=>updateSummaryField(id,"positives",e.target.value)} placeholder="What did they do well?" /></label><label>Areas to work on<textarea rows={3} value={draftSummaries[id]?.workOns||""} onChange={e=>updateSummaryField(id,"workOns",e.target.value)} placeholder="Key areas for improvement" /></label><label style={{gridColumn:"1/-1"}}>Focus for next game<textarea rows={2} value={draftSummaries[id]?.nextFocus||""} onChange={e=>updateSummaryField(id,"nextFocus",e.target.value)} placeholder="Priority focus area for the next match" /></label></div></div>)}</div><div className="action-row" style={{marginTop:24}}><button onClick={()=>setSummaryModalOpen(false)}>Cancel</button><button className="good" onClick={confirmSubmit}>✓ Confirm &amp; Complete Review</button></div></div></div>}</main>;
 }

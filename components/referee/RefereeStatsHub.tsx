@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { makeAnalytics, percent } from "@/lib/utils/analytics";
 import { embedUrl, isDirectVideoUrl } from "@/lib/utils/video";
+import { normaliseClipTaxonomy } from "@/lib/utils/taxonomyCompatibility";
+import { DateRangeFilter, datePassesFilter, DATE_RANGE_DEFAULT } from "@/components/common/DateRangeFilter";
+import type { DateRangeValue } from "@/components/common/DateRangeFilter";
 import type { ReviewRecord, CodedTag, RefSlot } from "@/lib/types/reviews";
 import type { RefEvalSession } from "@/lib/types/auth";
 
@@ -25,6 +28,7 @@ type StatsTag = CodedTag & {
 };
 
 type AnalyticsFilter = { field: string; value: string; label: string };
+/** @deprecated use DateRangeValue */
 type DateRange = "all" | "30" | "90";
 
 function slotForUser(userId: string, review?: ReviewRecord): RefSlot {
@@ -151,13 +155,42 @@ function AccuracyTrend({
 
 // ── Main component ───────────────────────────────────────────────────────────
 export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onProfile, onLogout }: Props) {
-  const [dateRange, setDateRange] = useState<DateRange>("all");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateRangeValue>(DATE_RANGE_DEFAULT);
   const [analyticsFilter, setAnalyticsFilter] = useState<AnalyticsFilter | null>(null);
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const [seekSeconds, setSeekSeconds] = useState(0);
   const [videoError, setVideoError] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(false);
+
+  // Draggable split: percentage of total width given to the filter/clip column
+  const SPLIT_LS_KEY = "sh-split-pct";
+  const [splitPct, setSplitPct] = useState<number>(() => {
+    if (typeof window === "undefined") return 40;
+    const saved = Number(localStorage.getItem(SPLIT_LS_KEY));
+    return saved >= 20 && saved <= 75 ? saved : 40;
+  });
+  const isDragging = useRef(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  const startDrag = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    const onMove = (ev: MouseEvent) => {
+      if (!isDragging.current || !bodyRef.current) return;
+      const rect = bodyRef.current.getBoundingClientRect();
+      const raw = ((ev.clientX - rect.left) / rect.width) * 100;
+      const clamped = Math.min(Math.max(raw, 20), 75);
+      setSplitPct(Math.round(clamped));
+    };
+    const onUp = () => {
+      isDragging.current = false;
+      setSplitPct(prev => { localStorage.setItem(SPLIT_LS_KEY, String(prev)); return prev; });
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, []);
 
   const userId = session?.user.id || "";
 
@@ -166,28 +199,22 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
     [reviews, userId]
   );
 
-  const dateCutoff = useMemo((): string | null => {
-    if (dateRange === "30") return new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
-    if (dateRange === "90") return new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
-    return null;
-  }, [dateRange]);
-
-  const dateFilteredReviews = useMemo(() => {
-    if (!dateCutoff && !customFrom) return myReviews;
-    return myReviews.filter(r => {
-      const d = r.gameDate || r.createdAt.slice(0, 10);
-      if (customFrom && d < customFrom) return false;
-      if (customTo && d > customTo) return false;
-      if (dateCutoff && d < dateCutoff) return false;
-      return true;
-    });
-  }, [myReviews, dateCutoff, customFrom, customTo]);
+  const dateFilteredReviews = useMemo(() =>
+    myReviews.filter(r => datePassesFilter(r.gameDate || r.createdAt.slice(0, 10), dateFilter)),
+    [myReviews, dateFilter]
+  );
 
   const allMyTags = useMemo((): StatsTag[] =>
     dateFilteredReviews.flatMap(review => {
       const slot = slotForUser(userId, review);
       return tags.filter(t => t.reviewId === review.id && tagAppliesToSlot(t, slot))
-        .map(t => ({ ...t, reviewGame: review.game, reviewGameDate: review.gameDate || "", reviewVideoLink: review.videoLink, reviewEducatorName: review.educatorName }));
+        .map(t => normaliseClipTaxonomy({
+          ...t,
+          reviewGame: review.game,
+          reviewGameDate: review.gameDate || "",
+          reviewVideoLink: review.videoLink,
+          reviewEducatorName: review.educatorName,
+        }));
     }),
     [dateFilteredReviews, tags, userId]
   );
@@ -206,9 +233,8 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
   const groupedCategoryCounts = useMemo((): [string, number][] => {
     const counts: Record<string, number> = {};
     for (const t of allMyTags) {
-      const cat = t.category || "";
-      const sep = cat.indexOf(" — ");
-      const group = sep !== -1 ? cat.slice(0, sep) : (cat || "Uncoded");
+      // Use display category from compatibility layer; fall back to "Uncoded"
+      const group = (t as any)._displayCategory || "Uncoded";
       counts[group] = (counts[group] || 0) + 1;
     }
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
@@ -222,10 +248,10 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
     if (!activeGroupForSub) return [];
     const counts: Record<string, number> = {};
     for (const t of allMyTags) {
-      const cat = t.category || "";
-      if (cat.startsWith(activeGroupForSub + " — ")) {
-        const s = cat.slice(activeGroupForSub.length + 3);
-        if (s) counts[s] = (counts[s] || 0) + 1;
+      const cat = (t as any)._displayCategory as string | null;
+      const spec = (t as any)._displaySpecificTag as string | null;
+      if (cat === activeGroupForSub && spec) {
+        counts[spec] = (counts[spec] || 0) + 1;
       }
     }
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([s, c]) => [s, `${activeGroupForSub} — ${s}`, c]);
@@ -237,8 +263,12 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
     return allMyTags.filter(t => {
       if (field === "outcome-group") return (t.outcome || "").startsWith(value);
       if (field === "outcome") return t.outcome === value;
-      if (field === "category-group") return (t.category || "").startsWith(value + " — ");
-      if (field === "category-specific") return t.category === value;
+      // Category filters use display values from compatibility layer
+      if (field === "category-group") return (t as any)._displayCategory === value;
+      if (field === "category-specific") {
+        const [grp, spec] = value.split(" — ");
+        return (t as any)._displayCategory === grp && (t as any)._displaySpecificTag === spec;
+      }
       if (field === "position") return t.position === value;
       if (field === "coverage") return t.coverage === value;
       return true;
@@ -247,7 +277,7 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
 
   const selectedClip = filteredTags.find(t => t.id === selectedClipId) ?? allMyTags.find(t => t.id === selectedClipId) ?? null;
 
-  function selectClip(tag: StatsTag) { setSelectedClipId(tag.id); setSeekSeconds(tag.adjustedSeconds); setVideoError(false); }
+  function selectClip(tag: StatsTag) { setSelectedClipId(tag.id); setSeekSeconds(tag.adjustedSeconds); setVideoError(false); setVideoLoading(true); }
   function toggleFilter(field: string, value: string, label: string) {
     setAnalyticsFilter(f => f?.field === field && f.value === value ? null : { field, value, label });
     setSelectedClipId(null);
@@ -295,173 +325,245 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
   function goNext() { if (hasNext) selectClip(filteredTags[selectedIdx + 1]); }
 
   return (
-    <main style={{ overflow: "hidden" }}>
+    <main>
       <Header session={session} onHome={onBack} onAdmin={onAdmin} onProfile={onProfile} onLogout={onLogout} />
 
-      {/* ── Top bar: title + date filters + compact summary ── */}
-      <div className="sh-topbar panel">
-        <div>
-          <p className="eyebrow">Referee Portal</p>
-          <h1 style={{ margin: "2px 0 0", fontSize: 20 }}>My Stats Hub</h1>
-        </div>
-        <div className="sh-datefilter">
-          <button onClick={onBack} style={{ fontSize: 12, padding: "5px 12px" }}>← Back</button>
-          {(["all", "30", "90"] as DateRange[]).map(r => (
-            <button key={r} className={"date-preset-btn" + (dateRange === r && !customFrom ? " active" : "")}
-              onClick={() => { setDateRange(r); setCustomFrom(""); setCustomTo(""); setAnalyticsFilter(null); }}>
-              {r === "all" ? "All time" : `Last ${r}d`}
-            </button>
-          ))}
-          <input type="date" value={customFrom} onChange={e => { setCustomFrom(e.target.value); setDateRange("all"); }}
-            style={{ fontSize: 12, padding: "4px 6px" }} title="From date" />
-          <span className="hint" style={{ fontSize: 12 }}>–</span>
-          <input type="date" value={customTo} onChange={e => { setCustomTo(e.target.value); setDateRange("all"); }}
-            style={{ fontSize: 12, padding: "4px 6px" }} title="To date" />
+      {/* ── Slim toolbar: title + back ── */}
+      <div className="sh-toolbar">
+        <div className="sh-toolbar__title">
+          <button onClick={onBack} className="sh-toolbar__back">← Back</button>
+          <span className="sh-toolbar__heading">My Stats Hub</span>
         </div>
       </div>
 
-      {/* ── Compact stats + filter strip ── */}
-      {allMyTags.length > 0 && (
-        <div className="sh-stats-strip">
-          {/* Summary tiles */}
-          <div className="sh-stat-tile">
-            <span className="sh-stat-num">{dateFilteredReviews.length}</span>
-            <span className="sh-stat-lbl">Reviews</span>
-          </div>
-          <div className="sh-stat-tile">
-            <span className="sh-stat-num">{allMyTags.length}</span>
-            <span className="sh-stat-lbl">Clips</span>
-          </div>
-          {accuracyPct !== null && (
-            <div className="sh-stat-tile">
-              <span className="sh-stat-num">{accuracyPct}%</span>
-              <span className="sh-stat-lbl">Accuracy</span>
-            </div>
-          )}
-          <div className="sh-stats-divider" />
-          {/* Outcome filter chips */}
-          {outcomeSlices.filter(s => s.count > 0).map(s => {
-            const isActive = analyticsFilter?.field === s.field && analyticsFilter.value === s.value;
-            return (
-              <button key={s.label} className={"sh-filter-chip" + (isActive ? " sh-filter-chip--active" : "")}
-                style={{ "--chip-color": s.color } as React.CSSProperties}
-                onClick={() => toggleFilter(s.field, s.value, s.label)}>
-                <span className="sh-chip-dot" style={{ background: s.color }} />
-                {s.label} <strong>{s.count}</strong>
-              </button>
-            );
-          })}
-          <div className="sh-stats-divider" />
-          {/* Category filter chips */}
-          {groupedCategoryCounts.map(([group, count]) => {
-            const isActive =
-              (analyticsFilter?.field === "category-group" && analyticsFilter.value === group) ||
-              (analyticsFilter?.field === "category-specific" && analyticsFilter.value.startsWith(group + " — "));
-            return (
-              <button key={group} className={"sh-filter-chip" + (isActive ? " sh-filter-chip--active" : "")}
-                onClick={() => toggleFilter("category-group", group, `${group} clips`)}>
-                {group} <strong>{count}</strong>
-              </button>
-            );
-          })}
-          {/* Coverage chips */}
-          {analytics.coverageCounts.map(([name, count]) => {
-            const isActive = analyticsFilter?.field === "coverage" && analyticsFilter.value === name;
-            return (
-              <button key={name} className={"sh-filter-chip" + (isActive ? " sh-filter-chip--active" : "")}
-                onClick={() => toggleFilter("coverage", name, name)}>
-                {name} <strong>{count}</strong>
-              </button>
-            );
-          })}
-          {analyticsFilter && (
-            <button className="sh-filter-chip sh-filter-chip--clear" onClick={() => setAnalyticsFilter(null)}>
-              ✕ Clear
-            </button>
-          )}
-        </div>
-      )}
+      {/* ── Date filter (shared component, matches referee home style) ── */}
+      <div style={{ padding: "0 16px" }}>
+        <DateRangeFilter
+          value={dateFilter}
+          onChange={v => { setDateFilter(v); setAnalyticsFilter(null); }}
+          totalCount={myReviews.length}
+          filteredCount={dateFilteredReviews.length}
+        />
+      </div>
 
-      {/* ── Specific-tag drill-down row (only when a category group is active and has sub-tags) ── */}
-      {categorySubCounts.length > 0 && (
-        <div className="sh-subtag-row">
-          <span className="sh-subtag-label">Specific tags</span>
-          {categorySubCounts.map(([specific, fullVal, count]) => {
-            const isActive = analyticsFilter?.field === "category-specific" && analyticsFilter.value === fullVal;
-            return (
-              <button key={fullVal}
-                className={"sh-filter-chip sh-filter-chip--sub" + (isActive ? " sh-filter-chip--active" : "")}
-                onClick={() => toggleFilter("category-specific", fullVal, `${activeGroupForSub} → ${specific}`)}>
-                {specific} <strong>{count}</strong>
-              </button>
-            );
-          })}
+      {/* ── Performance Snapshot ── */}
+      <div className="sh-snapshot">
+        <div className="sh-snap-card sh-snap-card--accent">
+          <div className="sh-snap-num">{accuracyPct !== null ? `${accuracyPct}%` : "—"}</div>
+          <div className="sh-snap-lbl">Accuracy</div>
         </div>
-      )}
-
-      {/* ── Active filter banner ── */}
-      {analyticsFilter && (
-        <div className="analytics-filter-banner" style={{ margin: "0 16px 8px" }}>
-          <span>Showing: <strong>{analyticsFilter.label}</strong> · {filteredTags.length} of {allMyTags.length} clips</span>
-          <button style={{ marginLeft: "auto", fontSize: 12, padding: "2px 8px" }} onClick={() => setAnalyticsFilter(null)}>Clear ×</button>
+        <div className="sh-snap-card">
+          <div className="sh-snap-num">{dateFilteredReviews.length}</div>
+          <div className="sh-snap-lbl">Reviews</div>
         </div>
-      )}
+        <div className="sh-snap-card">
+          <div className="sh-snap-num">{allMyTags.length}</div>
+          <div className="sh-snap-lbl">Clips</div>
+        </div>
+        <div className="sh-snap-card sh-snap-card--good">
+          <div className="sh-snap-num">{analytics.correctCalls + analytics.correctNoCalls}</div>
+          <div className="sh-snap-lbl">Correct</div>
+        </div>
+        <div className="sh-snap-card sh-snap-card--bad">
+          <div className="sh-snap-num">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div>
+          <div className="sh-snap-lbl">Incorrect</div>
+        </div>
+      </div>
 
       {allMyTags.length === 0 ? (
         <div className="empty-state" style={{ margin: "24px 16px" }}>No clips found for this time period.</div>
       ) : (
-        <div className="sh-body">
+        <div
+          className="sh-body"
+          ref={bodyRef}
+          style={{ gridTemplateColumns: `${splitPct}fr 6px ${100 - splitPct}fr` }}
+        >
 
-          {/* ── Left: scrollable clip list ── */}
-          <div className="sh-list-col">
-            <p className="rv-sidebar-heading" style={{ margin: "0 0 8px" }}>
-              Clips ({filteredTags.length}{analyticsFilter ? ` of ${allMyTags.length}` : ""})
-            </p>
-            {filteredTags.length === 0 ? (
-              <div className="empty-state" style={{ margin: 0, padding: "20px 0" }}>No clips match this filter.</div>
+          {/* ── Left: filter panel + clip list ── */}
+          <div className="sh-filter-col">
+
+            {/* Active filter */}
+            {analyticsFilter ? (
+              <div className="sh-active-filters">
+                <p className="sh-filter-group-hdr" style={{ margin: 0 }}>Active Filters</p>
+                <div className="sh-active-chip">
+                  <span>✓ {analyticsFilter.label}</span>
+                  <button className="sh-active-chip-remove"
+                    onClick={() => { setAnalyticsFilter(null); setSelectedClipId(null); }}>×</button>
+                </div>
+                <button className="sh-clear-all"
+                  onClick={() => { setAnalyticsFilter(null); setSelectedClipId(null); }}>Clear All</button>
+              </div>
             ) : (
-              <div className="sh-clip-list">
-                {filteredTags.map((tag, i) => {
-                  const sel = tag.id === selectedClipId;
+              <p className="hint" style={{ fontSize: 11, margin: "0 0 4px" }}>Click any bar below to filter clips.</p>
+            )}
+
+            {/* Outcome bars */}
+            <div className="sh-filter-group">
+              <p className="sh-filter-group-hdr">Outcome</p>
+              {(() => {
+                const maxVal = Math.max(...outcomeSlices.map(s => s.count), 1);
+                return outcomeSlices.filter(s => s.count > 0).map(s => {
+                  const isActive = analyticsFilter?.field === s.field && analyticsFilter.value === s.value;
                   return (
-                    <div key={tag.id} className={"sh-clip-row" + (sel ? " sh-clip-row--selected" : "")}
-                      onClick={() => selectClip(tag)}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                        <span style={{ fontWeight: 900, fontSize: 13 }}>{tag.adjustedTime}</span>
-                        {tag.outcome && (
-                          <span className={`status ${outcomeClass(tag.outcome)}`} style={{ fontSize: 10, padding: "1px 6px" }}>{tag.outcome}</span>
-                        )}
-                        <span className="hint" style={{ fontSize: 10, marginLeft: "auto" }}>#{i + 1}</span>
+                    <div key={s.label} className={"sh-bar-row" + (isActive ? " sh-bar-row--active" : "")}
+                      role="button" tabIndex={0}
+                      onClick={() => toggleFilter(s.field, s.value, s.label)}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter(s.field, s.value, s.label); } }}>
+                      <div className="sh-bar-header">
+                        <span className="sh-bar-label">
+                          <span className="sh-bar-dot" style={{ background: s.color }} />{s.label}
+                        </span>
+                        <span className="sh-bar-count">{s.count}</span>
                       </div>
-                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {tag.reviewGame}
-                      </p>
-                      <p className="hint" style={{ margin: "1px 0 0", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {[tag.reviewGameDate, tag.category].filter(Boolean).join(" · ")}
-                      </p>
-                      {tag.notes && (
-                        <p className="hint" style={{ margin: "1px 0 0", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {tag.notes}
-                        </p>
-                      )}
+                      <div className="sh-bar-track">
+                        <div className="sh-bar-fill" style={{ width: `${Math.round((s.count / maxVal) * 100)}%`, background: s.color }} />
+                      </div>
                     </div>
                   );
-                })}
+                });
+              })()}
+            </div>
+
+            {/* Category bars */}
+            {groupedCategoryCounts.length > 0 && (
+              <div className="sh-filter-group">
+                <p className="sh-filter-group-hdr">Category</p>
+                {(() => {
+                  const maxVal = Math.max(...groupedCategoryCounts.map(([, c]) => c), 1);
+                  return groupedCategoryCounts.map(([group, count]) => {
+                    const isGroupActive =
+                      (analyticsFilter?.field === "category-group" && analyticsFilter.value === group) ||
+                      (analyticsFilter?.field === "category-specific" && analyticsFilter.value.startsWith(group + " — "));
+                    return (
+                      <div key={group} className={"sh-bar-row" + (isGroupActive ? " sh-bar-row--active" : "")}
+                        role="button" tabIndex={0}
+                        onClick={() => toggleFilter("category-group", group, `${group} clips`)}
+                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("category-group", group, `${group} clips`); } }}>
+                        <div className="sh-bar-header">
+                          <span className="sh-bar-label">{group}</span>
+                          <span className="sh-bar-count">{count}</span>
+                        </div>
+                        <div className="sh-bar-track">
+                          <div className="sh-bar-fill" style={{ width: `${Math.round((count / maxVal) * 100)}%` }} />
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             )}
+
+            {/* Specific tags (after category click) */}
+            {categorySubCounts.length > 0 && (
+              <div className="sh-filter-group sh-filter-group--sub">
+                <p className="sh-filter-group-hdr">
+                  Specific Tags&nbsp;<span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— {activeGroupForSub}</span>
+                </p>
+                <div className="sh-subtag-chips">
+                  {categorySubCounts.map(([specific, fullVal, count]) => {
+                    const isActive = analyticsFilter?.field === "category-specific" && analyticsFilter.value === fullVal;
+                    return (
+                      <button key={fullVal}
+                        className={"sh-filter-chip sh-filter-chip--sub" + (isActive ? " sh-filter-chip--active" : "")}
+                        onClick={() => toggleFilter("category-specific", fullVal, `${activeGroupForSub} → ${specific}`)}>
+                        {specific} <strong>{count}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Coverage bars */}
+            {analytics.coverageCounts.length > 0 && (
+              <div className="sh-filter-group">
+                <p className="sh-filter-group-hdr">Coverage</p>
+                {(() => {
+                  const maxVal = Math.max(...analytics.coverageCounts.map(([, c]) => c), 1);
+                  return analytics.coverageCounts.map(([name, count]) => {
+                    const isActive = analyticsFilter?.field === "coverage" && analyticsFilter.value === name;
+                    return (
+                      <div key={name} className={"sh-bar-row" + (isActive ? " sh-bar-row--active" : "")}
+                        role="button" tabIndex={0}
+                        onClick={() => toggleFilter("coverage", name, name)}
+                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("coverage", name, name); } }}>
+                        <div className="sh-bar-header">
+                          <span className="sh-bar-label">{name}</span>
+                          <span className="sh-bar-count">{count}</span>
+                        </div>
+                        <div className="sh-bar-track">
+                          <div className="sh-bar-fill" style={{ width: `${Math.round((count / maxVal) * 100)}%` }} />
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            )}
+
+            {/* Clip list */}
+            <div style={{ flex: 1 }}>
+              <p className="rv-sidebar-heading" style={{ margin: "8px 0 6px" }}>
+                Clips ({filteredTags.length}{analyticsFilter ? ` of ${allMyTags.length}` : ""})
+              </p>
+              {filteredTags.length === 0 ? (
+                <div className="empty-state" style={{ margin: 0, padding: "16px 0" }}>No clips match this filter.</div>
+              ) : (
+                <div className="sh-clip-list">
+                  {filteredTags.map((tag, i) => {
+                    const sel = tag.id === selectedClipId;
+                    const displayCat = (tag as any)._displayCategoryFull as string | null;
+                    return (
+                      <div key={tag.id} className={"sh-clip-row" + (sel ? " sh-clip-row--selected" : "")}
+                        onClick={() => selectClip(tag)}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                          <span style={{ fontWeight: 900, fontSize: 13 }}>{tag.adjustedTime}</span>
+                          {tag.outcome && (
+                            <span className={`status ${outcomeClass(tag.outcome)}`} style={{ fontSize: 10, padding: "1px 6px" }}>{tag.outcome}</span>
+                          )}
+                          <span className="hint" style={{ fontSize: 10, marginLeft: "auto" }}>#{i + 1}</span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {tag.reviewGame}
+                        </p>
+                        <p className="hint" style={{ margin: "1px 0 0", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {[tag.reviewGameDate, displayCat].filter(Boolean).join(" · ")}
+                        </p>
+                        {tag.notes && (
+                          <p className="hint" style={{ margin: "1px 0 0", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {tag.notes}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* ── Draggable divider ── */}
+          <div className="sh-divider" onMouseDown={startDrag} title="Drag to resize" />
 
           {/* ── Right: video + clip detail ── */}
           <div className="sh-video-col">
 
-            {/* Video */}
-            <div className="sh-video-frame">
+            <div className="sh-video-frame" style={{ position: "relative" }}>
+              {/* Loading overlay */}
+              {videoLoading && selectedClip && !videoError && (
+                <div className="sh-video-loading">
+                  <span className="sh-video-spinner" />
+                  <span>Loading clip…</span>
+                </div>
+              )}
               {selectedClip && currentEmbed ? (
                 isIframe ? (
                   <iframe key={`${selectedClip.id}-${seekSeconds}`}
                     src={currentEmbed}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+                    onLoad={() => setVideoLoading(false)}
                   />
                 ) : isDirectVideo ? (
                   videoError ? (
@@ -473,7 +575,8 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
                     <video key={`${selectedClip.id}-${seekSeconds}`} controls autoPlay
                       src={selectedClip.reviewVideoLink + `#t=${Math.floor(seekSeconds)}`}
                       style={{ width: "100%", height: "100%", display: "block", background: "#000" }}
-                      onError={() => setVideoError(true)}
+                      onCanPlay={() => setVideoLoading(false)}
+                      onError={() => { setVideoError(true); setVideoLoading(false); }}
                     />
                   )
                 ) : (
@@ -481,21 +584,19 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
                 )
               ) : (
                 <div className="sh-empty-video">
-                  {selectedClip ? "No video attached." : "Select a clip to watch."}
+                  {selectedClip ? "No video attached." : "Select a clip from the list to watch."}
                 </div>
               )}
             </div>
 
-            {/* Prev / Next */}
             <div className="sh-nav-row">
-              <button onClick={goPrev} disabled={!hasPrev} style={{ fontSize: 13 }}>← Prev</button>
+              <button onClick={goPrev} disabled={!hasPrev}>← Prev</button>
               <span className="hint" style={{ fontSize: 12 }}>
                 {selectedIdx >= 0 ? `${selectedIdx + 1} / ${filteredTags.length}` : `${filteredTags.length} clips`}
               </span>
-              <button onClick={goNext} disabled={!hasNext} style={{ fontSize: 13 }}>Next →</button>
+              <button onClick={goNext} disabled={!hasNext}>Next →</button>
             </div>
 
-            {/* Selected clip detail */}
             {selectedClip && (
               <div className="sh-clip-detail">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
@@ -509,7 +610,11 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
                   {selectedClip.coverage && <span className="chip">{selectedClip.coverage}</span>}
                   {selectedClip.position && <span className="chip">{selectedClip.position}</span>}
-                  {selectedClip.category && <span className="chip" style={{ maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis" }}>{selectedClip.category}</span>}
+                  {(selectedClip as any)._displayCategoryFull && (
+                    <span className="chip" style={{ maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {(selectedClip as any)._displayCategoryFull}
+                    </span>
+                  )}
                 </div>
                 {selectedClip.notes && <div className="rv-clip-notes" style={{ marginTop: 8 }}>{selectedClip.notes}</div>}
               </div>

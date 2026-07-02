@@ -1,4 +1,4 @@
-export type Role = "super_admin" | "admin" | "educator" | "referee";
+export type Role = "super_admin" | "admin" | "educator" | "referee" | "viewer";
 
 export type Screen =
   | "login"
@@ -11,7 +11,15 @@ export type Screen =
   | "org-settings"
   | "user-profile"
   | "comment-inbox"
-  | "referee-stats";
+  | "referee-stats"
+  | "viewer"
+  | "clip-library"
+  | "playlists"
+  | "playlist-detail"
+  | "team-management"
+  | "assignments"
+  | "assignment-detail"
+  | "my-learning";
 
 export type RefEvalSession = {
   user: {
