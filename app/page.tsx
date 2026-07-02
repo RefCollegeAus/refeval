@@ -589,8 +589,13 @@ export default function Home() {
     if ((screen === "learning-hub" || screen === "learning-progress") && session?.activeRole && !managementRoles.includes(session.activeRole)) {
       setScreen(session.activeRole === "viewer" ? "viewer" : "referee");
     }
-    if ((screen === "learning-hub" || screen === "learning-progress") && session?.activeRole && managementRoles.includes(session.activeRole) && !canViewAssignments) {
+    // Learning Hub: any learning permission is sufficient; redirect only if none
+    if (screen === "learning-hub" && session?.activeRole && managementRoles.includes(session.activeRole) && !canViewClipLibrary && !canAccessPlaylists && !canViewAssignments && !canViewGroups) {
       setScreen("educator");
+    }
+    // Learning Progress: specifically requires assignment visibility
+    if (screen === "learning-progress" && session?.activeRole && managementRoles.includes(session.activeRole) && !canViewAssignments) {
+      setScreen("learning-hub");
     }
     // Groups: educator/admin/super_admin only; permission gate
     if (screen === "groups" && session?.activeRole && !managementRoles.includes(session.activeRole)) {
@@ -726,6 +731,7 @@ export default function Home() {
           session={session}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
+          onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onLogout={logout}
         />
@@ -752,6 +758,7 @@ export default function Home() {
           session={session}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
+          onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onLogout={logout}
         />
@@ -953,6 +960,7 @@ export default function Home() {
           session={session}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
+          onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onLogout={logout}
         />
@@ -988,6 +996,7 @@ export default function Home() {
           session={session}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
+          onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onLogout={logout}
         />
@@ -1010,6 +1019,7 @@ export default function Home() {
           session={session}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
+          onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onLogout={logout}
         />

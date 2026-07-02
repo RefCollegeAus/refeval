@@ -434,41 +434,6 @@ export function EducatorDashboard({
           )}
         </div>
 
-        {/* Learning quick-links */}
-        {(canAccessPlaylists || canViewAssignments) && (
-          <div className="panel">
-            <h3 className="ed-section-title" style={{ marginBottom: 10 }}>Learning</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {canAccessPlaylists && (
-                <button
-                  style={{ display: "flex", alignItems: "center", gap: 8, textAlign: "left", justifyContent: "space-between" }}
-                  onClick={() => setScreen("playlists")}
-                >
-                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <ListChecks size={14} />
-                    Playlists
-                    {playlists.length > 0 && <span className="ed-sidebar-badge">{playlists.length}</span>}
-                  </span>
-                  <ChevronRight size={14} />
-                </button>
-              )}
-              {canViewAssignments && (
-                <button
-                  style={{ display: "flex", alignItems: "center", gap: 8, textAlign: "left", justifyContent: "space-between" }}
-                  onClick={() => setScreen("assignments")}
-                >
-                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <BookOpen size={14} />
-                    Assignments
-                    {pendingAssignments > 0 && <span className="ed-sidebar-badge">{pendingAssignments}</span>}
-                  </span>
-                  <ChevronRight size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
       </aside>
     </div>
   );

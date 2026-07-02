@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, CheckCircle2 } from "lucide-react";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 import type { Assignment, AssignmentStatus } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
@@ -223,9 +224,9 @@ export function AssignmentDetailScreen({
 }: Props) {
   const [editOpen, setEditOpen]             = useState(false);
   const [removing, setRemoving]             = useState<string | null>(null);
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [deleting, setDeleting]             = useState(false);
-  const [delConfirm, setDelConfirm]         = useState(false);
+  const [confirmDelete, setConfirmDelete]   = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus]   = useState<{
     auId: string;
@@ -243,13 +244,13 @@ export function AssignmentDetailScreen({
   }
 
   async function handleRemove(assignmentUserId: string) {
-    setConfirmRemoveId(null);
+    setPendingRemoveId(null);
     setRemoving(assignmentUserId);
     try { await onRemoveUser(assignmentUserId); } finally { setRemoving(null); }
   }
 
   async function handleDelete() {
-    setDelConfirm(false);
+    setConfirmDelete(false);
     setDeleting(true);
     try { await onDelete(assignment.id); } finally { setDeleting(false); }
   }
@@ -284,31 +285,19 @@ export function AssignmentDetailScreen({
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {canEdit && !delConfirm && (
+            {canEdit && (
               <button style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} onClick={() => setEditOpen(true)}>
                 <Edit2 size={13} /> Edit
               </button>
             )}
             {canDelete && (
-              delConfirm ? (
-                <>
-                  <span className="hint" style={{ fontSize: 12, whiteSpace: "nowrap" }}>Delete assignment?</span>
-                  <button className="danger" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} onClick={handleDelete} disabled={deleting}>
-                    {deleting ? "Deleting…" : "Yes, Delete"}
-                  </button>
-                  <button style={{ fontSize: 13 }} onClick={() => setDelConfirm(false)}>Cancel</button>
-                </>
-              ) : (
-                <button className="danger" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} onClick={() => setDelConfirm(true)} disabled={deleting}>
-                  <Trash2 size={13} /> Delete
-                </button>
-              )
-            )}
-            {!delConfirm && (
-              <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <ChevronLeft size={15} /> Back
+              <button className="danger" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} onClick={() => setConfirmDelete(true)} disabled={deleting}>
+                <Trash2 size={13} /> Delete
               </button>
             )}
+            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <ChevronLeft size={15} /> Back
+            </button>
           </div>
         </div>
 
@@ -445,34 +434,14 @@ export function AssignmentDetailScreen({
                       </td>
                       {canEdit && (
                         <td style={{ padding: "10px 10px", textAlign: "right", whiteSpace: "nowrap" }}>
-                          {confirmRemoveId === au.id ? (
-                            <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
-                              <span className="hint" style={{ fontSize: 11 }}>Remove?</span>
-                              <button
-                                className="danger"
-                                style={{ fontSize: 11, padding: "3px 8px" }}
-                                onClick={() => handleRemove(au.id)}
-                                disabled={isRemoving}
-                              >
-                                {isRemoving ? "…" : "Yes"}
-                              </button>
-                              <button
-                                style={{ fontSize: 11, padding: "3px 8px" }}
-                                onClick={() => setConfirmRemoveId(null)}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setConfirmRemoveId(au.id)}
-                              disabled={isRemoving}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", display: "flex", alignItems: "center" }}
-                              title="Remove from assignment"
-                            >
-                              <X size={14} />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setPendingRemoveId(au.id)}
+                            disabled={isRemoving}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", display: "flex", alignItems: "center" }}
+                            title="Remove from assignment"
+                          >
+                            <X size={14} />
+                          </button>
                         </td>
                       )}
                     </tr>
@@ -526,6 +495,32 @@ export function AssignmentDetailScreen({
           onClose={() => setEditOpen(false)}
         />
       )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete Assignment"
+          message="This will permanently delete the assignment and remove all member progress. This cannot be undone."
+          confirmLabel="Yes, Delete"
+          busy={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+
+      {pendingRemoveId && (() => {
+        const m = memberOf(assignment.assignmentUsers.find(au => au.id === pendingRemoveId)?.userId ?? "");
+        return (
+          <ConfirmModal
+            title="Remove Member"
+            message={`Remove ${m?.name || "this member"} from the assignment? Their progress will be lost.`}
+            confirmLabel="Yes, Remove"
+            busyLabel="Removing…"
+            busy={removing === pendingRemoveId}
+            onConfirm={() => handleRemove(pendingRemoveId)}
+            onCancel={() => setPendingRemoveId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

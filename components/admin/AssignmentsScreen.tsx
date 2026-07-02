@@ -7,6 +7,7 @@ import type { Assignment } from "@/lib/types/assignments";
 import { REQUIRED_BADGE_STYLE, learningPctColor } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface Props {
   session: RefEvalSession;
@@ -52,7 +53,7 @@ export function AssignmentsScreen({
   canDelete, onView, onDelete, onBack,
 }: Props) {
   const [deleting, setDeleting]       = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [query, setQuery]             = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sort, setSort]               = useState<SortKey>("created");
@@ -62,7 +63,7 @@ export function AssignmentsScreen({
 
   async function handleDelete(id: string) {
     setDeleting(id);
-    setConfirmDeleteId(null);
+    setPendingDeleteId(null);
     try { await onDelete(id); } finally { setDeleting(null); }
   }
 
@@ -287,43 +288,21 @@ export function AssignmentsScreen({
                       </td>
                       <td style={{ padding: "10px 10px", whiteSpace: "nowrap" }}>
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
-                          {confirmDeleteId !== a.id && (
-                            <button
-                              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
-                              onClick={() => onView(a.id)}
-                            >
-                              <Eye size={12} /> View
-                            </button>
-                          )}
+                          <button
+                            style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
+                            onClick={() => onView(a.id)}
+                          >
+                            <Eye size={12} /> View
+                          </button>
                           {canDelete && (
-                            confirmDeleteId === a.id ? (
-                              <>
-                                <span className="hint" style={{ fontSize: 11, whiteSpace: "nowrap" }}>Delete assignment?</span>
-                                <button
-                                  className="danger"
-                                  style={{ fontSize: 12, padding: "4px 10px", whiteSpace: "nowrap" }}
-                                  onClick={() => handleDelete(a.id)}
-                                  disabled={deleting === a.id}
-                                >
-                                  {deleting === a.id ? "…" : "Yes, Delete"}
-                                </button>
-                                <button
-                                  style={{ fontSize: 12, padding: "4px 10px" }}
-                                  onClick={() => setConfirmDeleteId(null)}
-                                >
-                                  Cancel
-                                </button>
-                              </>
-                            ) : (
-                              <button
-                                className="danger"
-                                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
-                                onClick={() => setConfirmDeleteId(a.id)}
-                                disabled={deleting === a.id}
-                              >
-                                <Trash2 size={12} /> Delete
-                              </button>
-                            )
+                            <button
+                              className="danger"
+                              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
+                              onClick={() => setPendingDeleteId(a.id)}
+                              disabled={deleting === a.id}
+                            >
+                              <Trash2 size={12} /> Delete
+                            </button>
                           )}
                         </div>
                       </td>
@@ -335,6 +314,17 @@ export function AssignmentsScreen({
           </div>
         )}
       </div>
+
+      {pendingDeleteId && (
+        <ConfirmModal
+          title="Delete Assignment"
+          message="This will permanently delete the assignment and remove all member progress. This cannot be undone."
+          confirmLabel="Yes, Delete"
+          busy={deleting === pendingDeleteId}
+          onConfirm={() => handleDelete(pendingDeleteId)}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </div>
   );
 }

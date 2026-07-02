@@ -105,11 +105,6 @@ export function LearningProgress({ session, assignments, members, groups, setScr
     return out;
   }, [stats, search, groupFilter, groups, showOverdue, sort, sortAsc]);
 
-  function toggleSort(key: SortKey) {
-    if (sort === key) setSortAsc(a => !a);
-    else { setSort(key); setSortAsc(false); } // default desc for numeric cols feels natural
-  }
-
   // Name defaults to asc; others default to desc
   function handleSortTh(key: SortKey) {
     if (sort === key) { setSortAsc(a => !a); return; }

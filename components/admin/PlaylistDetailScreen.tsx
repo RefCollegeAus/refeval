@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ListVideo, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Trash2, Edit2, Users, Search, AlertCircle, BookOpen, MessageSquare, AlertTriangle, X } from "lucide-react";
+import { ListVideo, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Trash2, Edit2, Users, Search, AlertCircle, BookOpen, MessageSquare, AlertTriangle } from "lucide-react";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { Playlist, PlaylistItem } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
@@ -677,8 +678,8 @@ export function PlaylistDetailScreen({
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [confirmComplete, setConfirmComplete] = useState(false);
-  const [delConfirm, setDelConfirm] = useState(false);
-  const [confirmRemoveItemId, setConfirmRemoveItemId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingRemoveItem, setPendingRemoveItem] = useState<{ itemId: string; idx: number } | null>(null);
   const [noteText, setNoteText] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
 
@@ -746,7 +747,7 @@ export function PlaylistDetailScreen({
   // ── Remove ────────────────────────────────────────────────────────────────────
 
   async function handleRemove(itemId: string, idx: number) {
-    setConfirmRemoveItemId(null);
+    setPendingRemoveItem(null);
     setSaving(true);
     // Optimistic removal
     const next = localItems.filter(it => it.id !== itemId);
@@ -758,7 +759,7 @@ export function PlaylistDetailScreen({
   // ── Delete playlist ───────────────────────────────────────────────────────────
 
   async function handleDelete() {
-    setDelConfirm(false);
+    setConfirmDelete(false);
     setSaving(true);
     try { await onDelete(playlist.id); } finally { setSaving(false); }
   }
@@ -781,8 +782,8 @@ export function PlaylistDetailScreen({
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {saving && !delConfirm && <span className="hint" style={{ fontSize: 12 }}>Saving…</span>}
-            {!delConfirm && !learningContext && assignments.length > 0 && (
+            {saving && <span className="hint" style={{ fontSize: 12 }}>Saving…</span>}
+            {!learningContext && assignments.length > 0 && (
               <button
                 style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
                 onClick={() => setAssignedUsersOpen(true)}
@@ -791,7 +792,7 @@ export function PlaylistDetailScreen({
                 Assignments ({assignments.length})
               </button>
             )}
-            {!delConfirm && canAssign && members && onCreateAssignment && onAddToAssignment && (
+            {canAssign && members && onCreateAssignment && onAddToAssignment && (
               <button
                 style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
                 onClick={() => setAssignModalOpen(true)}
@@ -799,7 +800,7 @@ export function PlaylistDetailScreen({
                 <Users size={13} /> Assign Playlist
               </button>
             )}
-            {canEdit && !delConfirm && (
+            {canEdit && (
               <button
                 style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
                 onClick={() => setEditModalOpen(true)}
@@ -808,33 +809,16 @@ export function PlaylistDetailScreen({
               </button>
             )}
             {canDelete && (
-              delConfirm ? (
-                <>
-                  <span className="hint" style={{ fontSize: 12, whiteSpace: "nowrap" }}>Delete playlist?</span>
-                  <button
-                    className="danger"
-                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
-                    onClick={handleDelete}
-                    disabled={saving}
-                  >
-                    {saving ? "Deleting…" : "Yes, Delete"}
-                  </button>
-                  <button style={{ fontSize: 13 }} onClick={() => setDelConfirm(false)}>Cancel</button>
-                </>
-              ) : (
-                <button
-                  className="danger"
-                  style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
-                  onClick={() => setDelConfirm(true)}
-                  disabled={saving}
-                >
-                  <Trash2 size={13} /> Delete
-                </button>
-              )
+              <button
+                className="danger"
+                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
+                onClick={() => setConfirmDelete(true)}
+                disabled={saving}
+              >
+                <Trash2 size={13} /> Delete
+              </button>
             )}
-            {!delConfirm && (
-              <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}><ChevronLeft size={15} /> Back</button>
-            )}
+            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}><ChevronLeft size={15} /> Back</button>
           </div>
         </div>
       </div>
@@ -1019,37 +1003,14 @@ export function PlaylistDetailScreen({
 
                   {/* Remove */}
                   {canEdit && (
-                    confirmRemoveItemId === row.itemId ? (
-                      <div
-                        style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={e => { e.stopPropagation(); handleRemove(row.itemId, i); }}
-                          disabled={saving}
-                          style={{ padding: "1px 4px", fontSize: 10, color: "#ef4444" }}
-                          title="Confirm remove"
-                        >
-                          <CheckCircle2 size={13} style={{ color: "#22c55e" }} />
-                        </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); setConfirmRemoveItemId(null); }}
-                          style={{ padding: "1px 4px" }}
-                          title="Cancel"
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={e => { e.stopPropagation(); setConfirmRemoveItemId(row.itemId); }}
-                        disabled={saving}
-                        style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", alignSelf: "center" }}
-                        title="Remove from playlist"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )
+                    <button
+                      onClick={e => { e.stopPropagation(); setPendingRemoveItem({ itemId: row.itemId, idx: i }); }}
+                      disabled={saving}
+                      style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", alignSelf: "center" }}
+                      title="Remove from playlist"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   )}
                 </div>
               );
@@ -1147,6 +1108,29 @@ export function PlaylistDetailScreen({
           assignments={assignments}
           onViewAssignment={onViewAssignment}
           onClose={() => setAssignedUsersOpen(false)}
+        />
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete Playlist"
+          message="This will permanently delete the playlist and all its clips. Existing assignments referencing this playlist will lose their content. This cannot be undone."
+          confirmLabel="Yes, Delete"
+          busy={saving}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+
+      {pendingRemoveItem && (
+        <ConfirmModal
+          title="Remove Clip"
+          message="Remove this clip from the playlist? The original clip in the review library will not be affected."
+          confirmLabel="Yes, Remove"
+          busyLabel="Removing…"
+          busy={saving}
+          onConfirm={() => handleRemove(pendingRemoveItem.itemId, pendingRemoveItem.idx)}
+          onCancel={() => setPendingRemoveItem(null)}
         />
       )}
     </div>
