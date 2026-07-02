@@ -132,6 +132,15 @@ label{display:grid;gap:7px;font-size:13px;font-weight:800;color:var(--muted)} a{
 .ed-date-filter-label input[type="date"]{width:auto;font-size:13px}
 .ed-video-toggle{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap}
 .ed-video-toggle input[type="checkbox"]{width:auto;cursor:pointer}
+/* Clip Library filter bar */
+.cl-filter-bar{display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:var(--panel2);border-radius:8px;border:1px solid var(--border)}
+.cl-filter-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cl-filter-row select{flex:0 0 auto;width:auto;font-size:12px;padding:6px 10px;border-radius:8px}
+.cl-filter-row input[type="date"]{flex:0 0 auto;width:auto;font-size:12px;padding:6px 8px;border-radius:8px}
+.cl-filter-search{flex:1 1 180px;min-width:140px}
+.cl-filter-search input{font-size:13px;padding:7px 11px 7px 28px;border-radius:8px;width:100%;box-sizing:border-box}
+.cl-filter-group-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:0 2px;white-space:nowrap;align-self:center}
+.cl-date-label{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap}
 /* Recent activity */
 .ed-activity-list{display:flex;flex-direction:column;gap:0}
 .ed-activity-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
