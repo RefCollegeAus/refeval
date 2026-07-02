@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ListVideo, ChevronLeft, ChevronUp, ChevronDown, Trash2, Edit2, Users, Search, AlertCircle, BookOpen, MessageSquare, AlertTriangle } from "lucide-react";
+import { ListVideo, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Trash2, Edit2, Users, Search, AlertCircle, BookOpen, MessageSquare, AlertTriangle } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { Playlist, PlaylistItem } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
@@ -873,7 +873,7 @@ export function PlaylistDetailScreen({
               {/* Mark Complete / Completed state */}
               {isCompleted ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-                  <span style={{ fontSize: 15, color: STATUS_COLORS.Completed, fontWeight: 700 }}>✓ Completed</span>
+                  <span style={{ fontSize: 15, color: STATUS_COLORS.Completed, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}><CheckCircle2 size={15} /> Completed</span>
                   {learningContext.assignmentUser.completedAt && (
                     <span style={{ fontSize: 11, color: "var(--muted)" }}>
                       {new Date(learningContext.assignmentUser.completedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
@@ -904,7 +904,7 @@ export function PlaylistDetailScreen({
                   style={{ fontSize: 14, padding: "9px 20px", whiteSpace: "nowrap", flexShrink: 0 }}
                   onClick={() => setConfirmComplete(true)}
                 >
-                  ✓ Mark as Complete
+                  <CheckCircle2 size={14} style={{ flexShrink: 0 }} /> Mark as Complete
                 </button>
               )}
             </div>
@@ -914,8 +914,8 @@ export function PlaylistDetailScreen({
 
       {/* Assignment success banner */}
       {assignSuccess && (
-        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 8, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.3)", color: STATUS_COLORS.Completed, fontSize: 13, fontWeight: 600 }}>
-          ✓ Assignment created successfully. Assigned referees will see it in My Learning.
+        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 8, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.3)", color: STATUS_COLORS.Completed, fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <CheckCircle2 size={14} style={{ flexShrink: 0 }} /> Assignment created successfully. Assigned referees will see it in My Learning.
         </div>
       )}
 
