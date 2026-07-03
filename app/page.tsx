@@ -1172,6 +1172,12 @@ export default function Home() {
           canViewAssignments={canViewAssignments}
           canViewGroups={canViewGroups}
           setScreen={navigateFromHub}
+          refereeMembers={refereeMembers}
+          allRefereeGoalViews={allRefereeGoalViews}
+          onNavigateDevelopment={refereeId => {
+            setDevGoalRefereeId(refereeId);
+            setScreen("referee-development");
+          }}
         />
       </main>
     );

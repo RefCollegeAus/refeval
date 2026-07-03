@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   Plus, MessageSquare, Film, ListChecks, BookOpen, Trash2,
-  ChevronRight, Target, Users, ChevronDown, ChevronUp,
+  ChevronRight, ChevronDown, ChevronUp, Users,
 } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { RefEvalSession } from "@/lib/types/auth";
@@ -49,7 +49,6 @@ export function EducatorDashboard({
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "updated" | "referee" | "game">("newest");
   const [kpiFilter, setKpiFilter] = useState<KpiFilter>("all");
   const [showAllReviews, setShowAllReviews] = useState(false);
-  const [showAllReferees, setShowAllReferees] = useState(false);
 
   const portalLabel =
     session.activeRole === "super_admin" ? "Super Admin Portal" :
@@ -203,21 +202,6 @@ export function EducatorDashboard({
   const dotColor = (type: ActivityItem["type"]) =>
     type === "completed" ? "#22c55e" : "#3b82f6";
 
-  // Referee cards for My Referees section
-  const refereeCards = useMemo(() =>
-    refereeMembers.map(m => {
-      const mGoals = allRefereeGoalViews.filter(v => v.refereeId === m.id);
-      const active = mGoals.filter(v => v.status === "Active").length;
-      const highPri = mGoals.filter(v => v.status === "Active" && v.priority === "High").length;
-      const completed = visibleReviews.filter(r =>
-        r.status === "Completed" && [r.referee1Id, r.referee2Id, r.referee3Id].includes(m.id)
-      ).length;
-      return { member: m, active, highPri, completed };
-    }),
-    [refereeMembers, allRefereeGoalViews, visibleReviews]
-  );
-  const visibleRefereeCards = showAllReferees ? refereeCards : refereeCards.slice(0, 4);
-
   // Quick actions for sidebar
   const quickActions = [
     { icon: <Plus size={16} />, label: "New Review", onClick: startNewReview, primary: true,
@@ -308,64 +292,6 @@ export function EducatorDashboard({
                 </button>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* My Referees */}
-        {refereeCards.length > 0 && (
-          <div className="panel">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <h2 className="ed-section-title" style={{ marginBottom: 0 }}>My Referees</h2>
-              <span className="hint" style={{ fontSize: 12 }}>{refereeCards.length} referee{refereeCards.length !== 1 ? "s" : ""}</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-              {visibleRefereeCards.map(({ member: m, active, highPri, completed }) => (
-                <button
-                  key={m.id}
-                  onClick={() => onNavigateDevelopment(m.id)}
-                  style={{
-                    display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6,
-                    background: "var(--panel2)", border: "1px solid var(--border)",
-                    borderRadius: 10, padding: "12px 14px", textAlign: "left", cursor: "pointer",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
-                    <div style={{
-                      width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                      background: active > 0 ? "#0a84ff" : "var(--border)",
-                    }} />
-                    <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {m.name}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 10px", paddingLeft: 16 }}>
-                    {active > 0 && (
-                      <span style={{ fontSize: 11, color: "#0a84ff" }}>
-                        <Target size={10} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
-                        {active} goal{active !== 1 ? "s" : ""}
-                        {highPri > 0 && <span style={{ color: "#f59e0b" }}> · {highPri} high</span>}
-                      </span>
-                    )}
-                    {active === 0 && (
-                      <span style={{ fontSize: 11, color: "var(--muted)" }}>No active goals</span>
-                    )}
-                    {completed > 0 && (
-                      <span style={{ fontSize: 11, color: "var(--muted)" }}>{completed} review{completed !== 1 ? "s" : ""}</span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-            {refereeCards.length > 4 && (
-              <button
-                onClick={() => setShowAllReferees(p => !p)}
-                style={{ marginTop: 10, fontSize: 12, color: "var(--muted)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
-              >
-                {showAllReferees
-                  ? <><ChevronUp size={13} /> Show fewer</>
-                  : <><ChevronDown size={13} /> Show all {refereeCards.length} referees</>}
-              </button>
-            )}
           </div>
         )}
 

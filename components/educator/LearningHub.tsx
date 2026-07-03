@@ -3,13 +3,14 @@
 import { useMemo } from "react";
 import {
   Film, ListChecks, BookOpen, BarChart2, GraduationCap,
-  ChevronRight, CheckCircle2, AlertCircle, Users, TrendingUp,
+  ChevronRight, CheckCircle2, AlertCircle, Users, Target,
 } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
 import type { CodedTag } from "@/lib/types/reviews";
 import type { Playlist } from "@/lib/types/playlists";
 import type { Assignment } from "@/lib/types/assignments";
 import type { MemberRecord } from "@/lib/types/members";
+import type { RefereeGoalView } from "@/lib/types/developmentGoals";
 import { fmtRel } from "@/lib/utils/time";
 
 interface Props {
@@ -24,12 +25,15 @@ interface Props {
   canViewAssignments: boolean;
   canViewGroups: boolean;
   setScreen: (screen: Screen) => void;
+  refereeMembers?: MemberRecord[];
+  allRefereeGoalViews?: RefereeGoalView[];
+  onNavigateDevelopment?: (refereeId: string) => void;
 }
 
 export function LearningHub({
   session, tags, playlists, assignments, members, groupCount,
   canViewClipLibrary, canAccessPlaylists, canViewAssignments, canViewGroups,
-  setScreen,
+  setScreen, refereeMembers = [], allRefereeGoalViews = [], onNavigateDevelopment,
 }: Props) {
 
   // ── Derived stats (all memoised) ────────────────────────────────────────────
@@ -270,6 +274,44 @@ export function LearningHub({
             <p className="hint" style={{ fontSize: 13 }}>
               Contact your administrator to enable Clip Library, Playlists or Assignments.
             </p>
+          </div>
+        )}
+
+        {/* Referee Development */}
+        {refereeMembers.length > 0 && onNavigateDevelopment && (
+          <div>
+            <h2 className="lh-section-title">Referee Development</h2>
+            <div className="lh-nav-grid">
+              {refereeMembers.map(m => {
+                const mGoals = allRefereeGoalViews.filter(v => v.refereeId === m.id);
+                const active  = mGoals.filter(v => v.status === "Active").length;
+                const highPri = mGoals.filter(v => v.status === "Active" && v.priority === "High").length;
+                return (
+                  <button
+                    key={m.id}
+                    className="lh-nav-card"
+                    onClick={() => onNavigateDevelopment(m.id)}
+                  >
+                    <div className="lh-nav-card-icon">
+                      <Users size={22} />
+                    </div>
+                    <div className="lh-nav-card-body">
+                      <div className="lh-nav-card-label">{m.name}</div>
+                      <div className="lh-nav-card-hint">
+                        {active > 0
+                          ? <>
+                              <Target size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
+                              {active} active goal{active !== 1 ? "s" : ""}
+                              {highPri > 0 && <span style={{ color: "#f59e0b" }}> · {highPri} high priority</span>}
+                            </>
+                          : "No active goals"}
+                      </div>
+                    </div>
+                    <ChevronRight size={16} className="lh-nav-chevron" />
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
