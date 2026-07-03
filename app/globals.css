@@ -255,7 +255,7 @@ label{display:grid;gap:7px;font-size:13px;font-weight:800;color:var(--muted)} a{
 .ed-hero-card--primary:hover{border-color:var(--accent);background:linear-gradient(135deg,rgba(165,106,27,.28),rgba(191,124,33,.18))}
 .ed-hero-icon{color:var(--accent);flex-shrink:0;opacity:.9}
 .ed-hero-text{flex:1;min-width:0}
-.ed-hero-label{font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ed-hero-label{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ed-hero-hint{font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ed-hero-badge{background:#e53e3e;color:#fff;font-size:10px;font-weight:800;padding:1px 5px;border-radius:999px;line-height:1.4;flex-shrink:0}
 .ed-hero-chevron{color:var(--muted);flex-shrink:0;opacity:.6}

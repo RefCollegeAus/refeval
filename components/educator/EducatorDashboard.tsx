@@ -205,8 +205,10 @@ export function EducatorDashboard({
             >
               <div className="ed-hero-icon">{action.icon}</div>
               <div className="ed-hero-text">
-                <div className="ed-hero-label">
-                  {action.label}
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span className="ed-hero-label" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {action.label}
+                  </span>
                   {action.badge && (
                     <span style={{
                       background: "#ff453a", color: "#fff",
