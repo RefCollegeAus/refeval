@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   Plus, MessageSquare, Film, ListChecks, BookOpen, Trash2,
-  ChevronRight,
+  ChevronRight, Target, Users, ChevronDown, ChevronUp,
 } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { RefEvalSession } from "@/lib/types/auth";
@@ -35,13 +35,11 @@ interface Props {
 
 type KpiFilter = "all" | "in-review" | "completed" | "this-week";
 
-
 export function EducatorDashboard({
   session, reviews, tags, playlists, assignments, refereeMembers, allRefereeGoalViews, totalUnread,
   canViewClipLibrary, canAccessPlaylists, canViewAssignments,
   startNewReview, openReviewForEdit, deleteReview, setScreen, onNavigateDevelopment,
 }: Props) {
-  // --- Filter state (local to dashboard) ---
   const [filterStatus, setFilterStatus] = useState<"All" | "In Review" | "Completed">("All");
   const [filterReferee, setFilterReferee] = useState("");
   const [filterGame, setFilterGame] = useState("");
@@ -50,39 +48,35 @@ export function EducatorDashboard({
   const [filterDateRange, setFilterDateRange] = useState<"all" | "30" | "90">("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "updated" | "referee" | "game">("newest");
   const [kpiFilter, setKpiFilter] = useState<KpiFilter>("all");
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [showAllReferees, setShowAllReferees] = useState(false);
 
   const portalLabel =
     session.activeRole === "super_admin" ? "Super Admin Portal" :
     session.activeRole === "admin" ? "Organisation Admin Portal" : "Educator Portal";
 
-  // --- Scope reviews by role ---
   const visibleReviews = useMemo(() => {
     if (session.activeRole === "super_admin") return reviews;
     if (session.activeRole === "admin") return reviews.filter(r => r.organisationId === session.activeOrganisation?.id);
     return reviews.filter(r => r.educatorId === session.user.id && r.organisationId === session.activeOrganisation?.id);
   }, [reviews, session]);
 
-  // --- KPI counts ---
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const inProgressCount = visibleReviews.filter(r => r.status !== "Completed").length;
   const completedCount  = visibleReviews.filter(r => r.status === "Completed").length;
   const thisWeekCount   = visibleReviews.filter(r => r.createdAt >= oneWeekAgo).length;
 
-  // --- All referees for dropdown ---
   const allReferees = useMemo(() =>
     Array.from(new Set(
       visibleReviews.flatMap(r => [r.referee1Name, r.referee2Name, r.referee3Name].filter(Boolean))
     )).sort(), [visibleReviews]
   );
 
-  // --- Filtering ---
   const filteredReviews = useMemo(() => {
     let out = visibleReviews.filter(r => {
-      // KPI filter overrides status filter
       if (kpiFilter === "in-review" && r.status === "Completed") return false;
       if (kpiFilter === "completed" && r.status !== "Completed") return false;
       if (kpiFilter === "this-week" && r.createdAt < oneWeekAgo) return false;
-      // Normal filters (only apply when KPI is "all")
       if (kpiFilter === "all") {
         if (filterStatus !== "All" && r.status !== filterStatus) return false;
         if (filterDateRange !== "all") {
@@ -124,11 +118,78 @@ export function EducatorDashboard({
     setFilterDate(""); setFilterHasVideo(false); setFilterDateRange("all");
   }
 
-  // --- My Tasks ---
-  const pendingReviews = visibleReviews.filter(r => r.status !== "Completed").length;
-  const pendingAssignments = assignments.length;
+  function toggleKpi(f: KpiFilter) {
+    setKpiFilter(prev => prev === f ? "all" : f);
+  }
 
-  // --- Recent activity (colored by type) ---
+  // Continue Where You Left Off — most recent in-progress reviews
+  const inProgressReviews = useMemo(() =>
+    visibleReviews
+      .filter(r => r.status !== "Completed")
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 3),
+    [visibleReviews]
+  );
+
+  // Coaching Queue items
+  type QueueItem = { id: string; priority: number; label: string; detail: string; action: () => void; color: string };
+  const coachingQueue = useMemo<QueueItem[]>(() => {
+    const items: QueueItem[] = [];
+    if (totalUnread > 0) {
+      items.push({
+        id: "comments",
+        priority: 0,
+        label: `${totalUnread} comment${totalUnread !== 1 ? "s" : ""} awaiting reply`,
+        detail: "Referee feedback needs your response",
+        action: () => setScreen("comment-inbox"),
+        color: "#8b5cf6",
+      });
+    }
+    inProgressReviews.forEach(r => {
+      items.push({
+        id: r.id,
+        priority: 1,
+        label: `Continue: ${r.game || "Untitled"}`,
+        detail: `${tags.filter(t => t.reviewId === r.id).length} clips tagged · started ${fmtRel(r.createdAt)}`,
+        action: () => openReviewForEdit(r),
+        color: "#f59e0b",
+      });
+    });
+    const highPriGoals = allRefereeGoalViews
+      .filter(v => v.status === "Active" && v.priority === "High")
+      .slice(0, 3);
+    highPriGoals.forEach(g => {
+      const ref = refereeMembers.find(m => m.id === g.refereeId);
+      if (ref) {
+        items.push({
+          id: `goal-${g.id ?? g.refereeId}`,
+          priority: 2,
+          label: `${ref.name}: ${g.title || g.category || "Development goal"}`,
+          detail: "High priority development goal",
+          action: () => onNavigateDevelopment(g.refereeId),
+          color: "#0a84ff",
+        });
+      }
+    });
+    const nowIso = new Date().toISOString().slice(0, 10);
+    const soonCutoff = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    assignments
+      .filter(a => a.dueDate && a.dueDate >= nowIso && a.dueDate <= soonCutoff)
+      .slice(0, 2)
+      .forEach(a => {
+        items.push({
+          id: `assign-${a.id}`,
+          priority: 3,
+          label: `Assignment due ${a.dueDate}`,
+          detail: a.title ?? "Learning assignment",
+          action: () => setScreen("assignments"),
+          color: "#22c55e",
+        });
+      });
+    return items.sort((a, b) => a.priority - b.priority).slice(0, 8);
+  }, [totalUnread, inProgressReviews, allRefereeGoalViews, refereeMembers, assignments, tags, setScreen, openReviewForEdit, onNavigateDevelopment]);
+
+  // Recent activity
   type ActivityItem = { label: string; detail: string; ts: string; type: "created" | "completed" };
   const recentActivity = useMemo<ActivityItem[]>(() => {
     const items: ActivityItem[] = [];
@@ -136,44 +197,41 @@ export function EducatorDashboard({
       items.push({ label: "Review created", detail: r.game, ts: r.createdAt, type: "created" });
       if (r.submittedAt) items.push({ label: "Review completed", detail: r.game, ts: r.submittedAt, type: "completed" });
     });
-    return items.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 14);
+    return items.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 10);
   }, [visibleReviews]);
 
-  const dotColor = (type: ActivityItem["type"]) => {
-    switch (type) {
-      case "completed": return "#22c55e";
-      case "created": return "#3b82f6";
-    }
-  };
+  const dotColor = (type: ActivityItem["type"]) =>
+    type === "completed" ? "#22c55e" : "#3b82f6";
 
-  // --- KPI toggle ---
-  function toggleKpi(f: KpiFilter) {
-    setKpiFilter(prev => prev === f ? "all" : f);
-  }
+  // Referee cards for My Referees section
+  const refereeCards = useMemo(() =>
+    refereeMembers.map(m => {
+      const mGoals = allRefereeGoalViews.filter(v => v.refereeId === m.id);
+      const active = mGoals.filter(v => v.status === "Active").length;
+      const highPri = mGoals.filter(v => v.status === "Active" && v.priority === "High").length;
+      const completed = visibleReviews.filter(r =>
+        r.status === "Completed" && [r.referee1Id, r.referee2Id, r.referee3Id].includes(m.id)
+      ).length;
+      return { member: m, active, highPri, completed };
+    }),
+    [refereeMembers, allRefereeGoalViews, visibleReviews]
+  );
+  const visibleRefereeCards = showAllReferees ? refereeCards : refereeCards.slice(0, 4);
 
-  // --- Hero actions ---
-  const heroActions = [
-    {
-      icon: <Plus size={28} />, label: "New Review", hint: "Start evaluation",
-      onClick: startNewReview, primary: true,
-    },
-    {
-      icon: <MessageSquare size={28} />, label: "Comment Inbox", hint: totalUnread > 0 ? `${totalUnread} unread` : "All caught up",
-      badge: totalUnread > 0 ? (totalUnread > 99 ? "99+" : String(totalUnread)) : undefined,
-      onClick: () => setScreen("comment-inbox"),
-    },
-    ...(canViewClipLibrary ? [{
-      icon: <Film size={28} />, label: "Clip Library", hint: "Browse tagged clips",
-      onClick: () => setScreen("clip-library"),
-    }] : []),
-    ...(canAccessPlaylists ? [{
-      icon: <ListChecks size={28} />, label: "Playlists", hint: playlists.length > 0 ? `${playlists.length} playlists` : "Manage playlists",
-      onClick: () => setScreen("playlists"),
-    }] : []),
-    ...(canViewAssignments ? [{
-      icon: <BookOpen size={28} />, label: "Assignments", hint: pendingAssignments > 0 ? `${pendingAssignments} active` : "Learning assignments",
-      onClick: () => setScreen("assignments"),
-    }] : []),
+  // Quick actions for sidebar
+  const quickActions = [
+    { icon: <Plus size={16} />, label: "New Review", onClick: startNewReview, primary: true,
+      badge: undefined as string | undefined },
+    { icon: <MessageSquare size={16} />, label: "Comment Inbox", onClick: () => setScreen("comment-inbox"),
+      badge: totalUnread > 0 ? (totalUnread > 99 ? "99+" : String(totalUnread)) : undefined },
+    ...(canViewClipLibrary ? [{ icon: <Film size={16} />, label: "Clip Library",
+      onClick: () => setScreen("clip-library"), badge: undefined as string | undefined }] : []),
+    ...(canAccessPlaylists ? [{ icon: <ListChecks size={16} />, label: "Playlists",
+      onClick: () => setScreen("playlists"), badge: undefined as string | undefined }] : []),
+    ...(canViewAssignments ? [{ icon: <BookOpen size={16} />, label: "Assignments",
+      onClick: () => setScreen("assignments"), badge: undefined as string | undefined }] : []),
+    ...(refereeMembers.length > 0 ? [{ icon: <Users size={16} />, label: "Development Hub",
+      onClick: () => onNavigateDevelopment(refereeMembers[0].id), badge: undefined as string | undefined }] : []),
   ];
 
   return (
@@ -195,188 +253,304 @@ export function EducatorDashboard({
           </div>
         </div>
 
-        {/* Hero action cards */}
-        <div className="ed-hero-grid">
-          {heroActions.map((action, i) => (
-            <button
-              key={i}
-              className={"ed-hero-card" + (action.primary ? " ed-hero-card--primary" : "")}
-              onClick={action.onClick}
-              style={{ position: "relative" }}
-            >
-              {action.badge && (
-                <span style={{
-                  position: "absolute", top: -6, right: -6,
-                  background: "#ff453a", color: "#fff",
-                  fontSize: 10, fontWeight: 800,
-                  minWidth: 18, height: 18, borderRadius: 999,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  padding: "0 4px", lineHeight: 1, pointerEvents: "none",
-                  boxShadow: "0 0 0 2px var(--bg)",
-                }}>
-                  {action.badge}
-                </span>
-              )}
-              <div className="ed-hero-icon">{action.icon}</div>
-              <div className="ed-hero-text">
-                <span className="ed-hero-label">{action.label}</span>
-                <div className="ed-hero-hint">{action.hint}</div>
-              </div>
-              <ChevronRight size={16} className="ed-hero-chevron" />
-            </button>
-          ))}
-        </div>
-
-        {/* My Tasks */}
-        {(pendingReviews > 0 || totalUnread > 0) && (
-          <div className="panel ed-tasks-panel">
-            <h2 className="ed-section-title">My Tasks</h2>
-            <div className="ed-tasks-list">
-              {pendingReviews > 0 && (
-                <button className="ed-task-item" onClick={() => toggleKpi("in-review")}>
-                  <span className="ed-task-dot" style={{ background: "#f59e0b" }} />
-                  <span className="ed-task-label">{pendingReviews} review{pendingReviews !== 1 ? "s" : ""} in progress</span>
-                  <span className="ed-task-action">Filter list <ChevronRight size={13} /></span>
-                </button>
-              )}
-              {totalUnread > 0 && (
-                <button className="ed-task-item" onClick={() => setScreen("comment-inbox")}>
-                  <span className="ed-task-dot" style={{ background: "#8b5cf6" }} />
-                  <span className="ed-task-label">{totalUnread} comment{totalUnread !== 1 ? "s" : ""} awaiting reply</span>
-                  <span className="ed-task-action">Open inbox <ChevronRight size={13} /></span>
-                </button>
-              )}
-              {/* Learning assignments are managed via Assignments hub, not as personal tasks */}
+        {/* Continue Where You Left Off */}
+        {inProgressReviews.length > 0 && (
+          <div className="panel">
+            <h2 className="ed-section-title" style={{ marginBottom: 12 }}>Continue Where You Left Off</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {inProgressReviews.map(r => {
+                const clipCount = tags.filter(t => t.reviewId === r.id).length;
+                const refs = [r.referee1Name, r.referee2Name, r.referee3Name].filter(Boolean);
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => openReviewForEdit(r)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      background: "var(--panel2)", border: "1px solid var(--border)",
+                      borderRadius: 10, padding: "10px 14px", textAlign: "left", cursor: "pointer",
+                      width: "100%",
+                    }}
+                  >
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", flexShrink: 0,
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {r.game || "Untitled"}
+                      </p>
+                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted)" }}>
+                        {refs.join(", ") || "No referees"} · {clipCount} clip{clipCount !== 1 ? "s" : ""} · {fmtRel(r.createdAt)}
+                      </p>
+                    </div>
+                    <span className="status review" style={{ flexShrink: 0, fontSize: 11 }}>In Review</span>
+                    <ChevronRight size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Search + Filters */}
-        <div className="panel">
-          {/* Prominent search bar */}
-          <div className="ed-search-row">
-            <input
-              className="ed-search-input"
-              placeholder="Search by game or competition…"
-              value={filterGame}
-              onChange={e => { setFilterGame(e.target.value); setKpiFilter("all"); }}
-            />
-            {activeFilters > 0 && (
-              <button onClick={clearFilters} style={{ whiteSpace: "nowrap" }}>
-                Clear ({activeFilters})
+        {/* Coaching Queue */}
+        {coachingQueue.length > 0 && (
+          <div className="panel ed-tasks-panel">
+            <h2 className="ed-section-title">Coaching Queue</h2>
+            <div className="ed-tasks-list">
+              {coachingQueue.map(item => (
+                <button key={item.id} className="ed-task-item" onClick={item.action}>
+                  <span className="ed-task-dot" style={{ background: item.color }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span className="ed-task-label">{item.label}</span>
+                    <p style={{ margin: "1px 0 0", fontSize: 11, color: "var(--muted)" }}>{item.detail}</p>
+                  </div>
+                  <span className="ed-task-action"><ChevronRight size={13} /></span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* My Referees */}
+        {refereeCards.length > 0 && (
+          <div className="panel">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <h2 className="ed-section-title" style={{ marginBottom: 0 }}>My Referees</h2>
+              <span className="hint" style={{ fontSize: 12 }}>{refereeCards.length} referee{refereeCards.length !== 1 ? "s" : ""}</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
+              {visibleRefereeCards.map(({ member: m, active, highPri, completed }) => (
+                <button
+                  key={m.id}
+                  onClick={() => onNavigateDevelopment(m.id)}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6,
+                    background: "var(--panel2)", border: "1px solid var(--border)",
+                    borderRadius: 10, padding: "12px 14px", textAlign: "left", cursor: "pointer",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                      background: active > 0 ? "#0a84ff" : "var(--border)",
+                    }} />
+                    <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {m.name}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 10px", paddingLeft: 16 }}>
+                    {active > 0 && (
+                      <span style={{ fontSize: 11, color: "#0a84ff" }}>
+                        <Target size={10} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
+                        {active} goal{active !== 1 ? "s" : ""}
+                        {highPri > 0 && <span style={{ color: "#f59e0b" }}> · {highPri} high</span>}
+                      </span>
+                    )}
+                    {active === 0 && (
+                      <span style={{ fontSize: 11, color: "var(--muted)" }}>No active goals</span>
+                    )}
+                    {completed > 0 && (
+                      <span style={{ fontSize: 11, color: "var(--muted)" }}>{completed} review{completed !== 1 ? "s" : ""}</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+            {refereeCards.length > 4 && (
+              <button
+                onClick={() => setShowAllReferees(p => !p)}
+                style={{ marginTop: 10, fontSize: 12, color: "var(--muted)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+              >
+                {showAllReferees
+                  ? <><ChevronUp size={13} /> Show fewer</>
+                  : <><ChevronDown size={13} /> Show all {refereeCards.length} referees</>}
               </button>
             )}
           </div>
+        )}
 
-          {/* Filter row */}
-          <div className="ed-filter-bar" style={{ marginTop: 10 }}>
-            <div className="ed-filter-row">
-              <select
-                value={kpiFilter !== "all" ? "" : filterStatus}
-                disabled={kpiFilter !== "all"}
-                onChange={e => setFilterStatus(e.target.value as typeof filterStatus)}
-              >
-                <option value="All">All statuses</option>
-                <option value="In Review">In Review</option>
-                <option value="Completed">Completed</option>
-              </select>
-              <select value={filterReferee} onChange={e => setFilterReferee(e.target.value)}>
-                <option value="">All referees</option>
-                {allReferees.map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-              <label className="ed-date-filter-label">
-                Game date
-                <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-              </label>
-              <label className="ed-video-toggle">
-                <input type="checkbox" checked={filterHasVideo} onChange={e => setFilterHasVideo(e.target.checked)} />
-                Has video
-              </label>
-              <div className="date-preset-row">
-                {(["all", "30", "90"] as const).map(range => (
-                  <button
-                    key={range}
-                    className={"date-preset-btn" + (kpiFilter === "all" && filterDateRange === range ? " active" : "")}
-                    disabled={kpiFilter !== "all"}
-                    onClick={() => setFilterDateRange(range)}
-                  >
-                    {range === "all" ? "All time" : range === "30" ? "30 days" : "90 days"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="ed-filter-row" style={{ justifyContent: "space-between" }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span className="hint" style={{ fontSize: 12 }}>Sort:</span>
-                <select value={sortOrder} onChange={e => setSortOrder(e.target.value as typeof sortOrder)}>
-                  <option value="newest">Newest first</option>
-                  <option value="oldest">Oldest first</option>
-                  <option value="updated">Last updated</option>
-                  <option value="referee">Referee name</option>
-                  <option value="game">Competition</option>
-                </select>
-              </div>
-              <span className="hint" style={{ fontSize: 12 }}>
-                {filteredReviews.length} of {visibleReviews.length} reviews
-              </span>
-            </div>
+        {/* All Reviews (collapsible) */}
+        <div className="panel">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showAllReviews ? 14 : 0 }}>
+            <button
+              onClick={() => setShowAllReviews(p => !p)}
+              style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              <h2 className="ed-section-title" style={{ marginBottom: 0 }}>All Reviews</h2>
+              {showAllReviews ? <ChevronUp size={16} style={{ color: "var(--muted)" }} /> : <ChevronDown size={16} style={{ color: "var(--muted)" }} />}
+            </button>
+            <span className="hint" style={{ fontSize: 12 }}>{visibleReviews.length} total</span>
           </div>
 
-          {/* Review table */}
-          {filteredReviews.length === 0 ? (
-            <div className="empty-state" style={{ marginTop: 16 }}>No reviews match the current filters.</div>
-          ) : (
-            <div className="ref-reviews-table" style={{ marginTop: 12 }}>
-              <table className="ed-reviews-table">
-                <thead>
-                  <tr>
-                    <th>Game</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Educator</th>
-                    <th>Referees</th>
-                    <th>Clips</th>
-                    <th style={{ width: 44 }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredReviews.map(review => (
-                    <tr
-                      key={review.id}
-                      className="ed-review-row"
-                      onClick={() => openReviewForEdit(review)}
-                    >
-                      <td data-label="Game" className="ed-review-game">{review.game || "Untitled"}</td>
-                      <td data-label="Date" className="ed-tbl-date">{review.gameDate || review.createdAt.slice(0, 10)}</td>
-                      <td data-label="Status">
-                        <span className={`status ${review.status === "Completed" ? "done" : "review"}`}>
-                          {review.status}
-                        </span>
-                      </td>
-                      <td data-label="Educator">{review.educatorName}</td>
-                      <td data-label="Referees">
-                        <div className="ed-ref-stack">
-                          {review.referee1Name && <span>Crew Chief: {review.referee1Name}</span>}
-                          {review.referee2Name && <span>Referee 1: {review.referee2Name}</span>}
-                          {review.referee3Name && <span>Referee 2: {review.referee3Name}</span>}
-                          {!review.referee1Name && !review.referee2Name && !review.referee3Name && "—"}
-                        </div>
-                      </td>
-                      <td data-label="Clips">{tags.filter(t => t.reviewId === review.id).length}</td>
-                      <td data-label="" onClick={e => e.stopPropagation()}>
-                        <button
-                          className="ed-icon-btn danger"
-                          title="Delete review"
-                          onClick={() => deleteReview(review.id)}
+          {showAllReviews && (
+            <>
+              {/* Search bar */}
+              <div className="ed-search-row">
+                <input
+                  className="ed-search-input"
+                  placeholder="Search by game or competition…"
+                  value={filterGame}
+                  onChange={e => { setFilterGame(e.target.value); setKpiFilter("all"); }}
+                />
+                {activeFilters > 0 && (
+                  <button onClick={clearFilters} style={{ whiteSpace: "nowrap" }}>
+                    Clear ({activeFilters})
+                  </button>
+                )}
+              </div>
+
+              {/* Filter row */}
+              <div className="ed-filter-bar" style={{ marginTop: 10 }}>
+                <div className="ed-filter-row">
+                  <select
+                    value={kpiFilter !== "all" ? "" : filterStatus}
+                    disabled={kpiFilter !== "all"}
+                    onChange={e => setFilterStatus(e.target.value as typeof filterStatus)}
+                  >
+                    <option value="All">All statuses</option>
+                    <option value="In Review">In Review</option>
+                    <option value="Completed">Completed</option>
+                  </select>
+                  <select value={filterReferee} onChange={e => setFilterReferee(e.target.value)}>
+                    <option value="">All referees</option>
+                    {allReferees.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                  <label className="ed-date-filter-label">
+                    Game date
+                    <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+                  </label>
+                  <label className="ed-video-toggle">
+                    <input type="checkbox" checked={filterHasVideo} onChange={e => setFilterHasVideo(e.target.checked)} />
+                    Has video
+                  </label>
+                  <div className="date-preset-row">
+                    {(["all", "30", "90"] as const).map(range => (
+                      <button
+                        key={range}
+                        className={"date-preset-btn" + (kpiFilter === "all" && filterDateRange === range ? " active" : "")}
+                        disabled={kpiFilter !== "all"}
+                        onClick={() => setFilterDateRange(range)}
+                      >
+                        {range === "all" ? "All time" : range === "30" ? "30 days" : "90 days"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="ed-filter-row" style={{ justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span className="hint" style={{ fontSize: 12 }}>Sort:</span>
+                    <select value={sortOrder} onChange={e => setSortOrder(e.target.value as typeof sortOrder)}>
+                      <option value="newest">Newest first</option>
+                      <option value="oldest">Oldest first</option>
+                      <option value="updated">Last updated</option>
+                      <option value="referee">Referee name</option>
+                      <option value="game">Competition</option>
+                    </select>
+                  </div>
+                  <span className="hint" style={{ fontSize: 12 }}>
+                    {filteredReviews.length} of {visibleReviews.length} reviews
+                  </span>
+                </div>
+              </div>
+
+              {/* KPI quick-filter strip */}
+              <div className="ed-kpi-grid" style={{ marginTop: 10 }}>
+                <button
+                  className={"ed-kpi-card" + (kpiFilter === "all" && filterStatus === "All" && filterDateRange === "all" ? " ed-kpi-card--active" : "")}
+                  onClick={clearFilters}
+                >
+                  <div className="ed-kpi-number">{visibleReviews.length}</div>
+                  <div className="ed-kpi-label">Total</div>
+                </button>
+                <button
+                  className={"ed-kpi-card ed-kpi-card--warn" + (kpiFilter === "in-review" ? " ed-kpi-card--active" : "")}
+                  onClick={() => toggleKpi("in-review")}
+                >
+                  <div className="ed-kpi-number">{inProgressCount}</div>
+                  <div className="ed-kpi-label">In Review</div>
+                </button>
+                <button
+                  className={"ed-kpi-card ed-kpi-card--good" + (kpiFilter === "completed" ? " ed-kpi-card--active" : "")}
+                  onClick={() => toggleKpi("completed")}
+                >
+                  <div className="ed-kpi-number">{completedCount}</div>
+                  <div className="ed-kpi-label">Completed</div>
+                </button>
+                <button
+                  className={"ed-kpi-card ed-kpi-card--accent" + (kpiFilter === "this-week" ? " ed-kpi-card--active" : "")}
+                  onClick={() => toggleKpi("this-week")}
+                >
+                  <div className="ed-kpi-number">{thisWeekCount}</div>
+                  <div className="ed-kpi-label">This Week</div>
+                </button>
+              </div>
+
+              {/* Review table */}
+              {filteredReviews.length === 0 ? (
+                <div className="empty-state" style={{ marginTop: 16 }}>No reviews match the current filters.</div>
+              ) : (
+                <div className="ref-reviews-table" style={{ marginTop: 12 }}>
+                  <table className="ed-reviews-table">
+                    <thead>
+                      <tr>
+                        <th>Game</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Educator</th>
+                        <th>Referees</th>
+                        <th>Clips</th>
+                        <th style={{ width: 44 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredReviews.map(review => (
+                        <tr
+                          key={review.id}
+                          className="ed-review-row"
+                          onClick={() => openReviewForEdit(review)}
                         >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          <td data-label="Game" className="ed-review-game">{review.game || "Untitled"}</td>
+                          <td data-label="Date" className="ed-tbl-date">{review.gameDate || review.createdAt.slice(0, 10)}</td>
+                          <td data-label="Status">
+                            <span className={`status ${review.status === "Completed" ? "done" : "review"}`}>
+                              {review.status}
+                            </span>
+                          </td>
+                          <td data-label="Educator">{review.educatorName}</td>
+                          <td data-label="Referees">
+                            <div className="ed-ref-stack">
+                              {review.referee1Name && <span>Crew Chief: {review.referee1Name}</span>}
+                              {review.referee2Name && <span>Referee 1: {review.referee2Name}</span>}
+                              {review.referee3Name && <span>Referee 2: {review.referee3Name}</span>}
+                              {!review.referee1Name && !review.referee2Name && !review.referee3Name && "—"}
+                            </div>
+                          </td>
+                          <td data-label="Clips">{tags.filter(t => t.reviewId === review.id).length}</td>
+                          <td data-label="" onClick={e => e.stopPropagation()}>
+                            <button
+                              className="ed-icon-btn danger"
+                              title="Delete review"
+                              onClick={() => deleteReview(review.id)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+
+          {!showAllReviews && (
+            <button
+              onClick={() => setShowAllReviews(true)}
+              style={{ marginTop: 2, fontSize: 12, color: "var(--muted)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+            >
+              <ChevronDown size={13} /> Browse {visibleReviews.length} review{visibleReviews.length !== 1 ? "s" : ""}
+            </button>
           )}
         </div>
       </div>
@@ -384,46 +558,42 @@ export function EducatorDashboard({
       {/* ── Sidebar ── */}
       <aside className="ed-sidebar">
 
-        {/* KPI cards */}
+        {/* Quick Actions */}
         <div className="panel" style={{ padding: "14px 16px" }}>
-          <h3 className="ed-section-title" style={{ marginBottom: 12 }}>Overview</h3>
-          <div className="ed-kpi-grid">
-            <button
-              className={"ed-kpi-card" + (kpiFilter === "all" && filterStatus === "All" && filterDateRange === "all" ? " ed-kpi-card--active" : "")}
-              onClick={clearFilters}
-              title="Show all reviews"
-            >
-              <div className="ed-kpi-number">{visibleReviews.length}</div>
-              <div className="ed-kpi-label">Total</div>
-            </button>
-            <button
-              className={"ed-kpi-card ed-kpi-card--warn" + (kpiFilter === "in-review" ? " ed-kpi-card--active" : "")}
-              onClick={() => toggleKpi("in-review")}
-              title="Filter to in-progress reviews"
-            >
-              <div className="ed-kpi-number">{inProgressCount}</div>
-              <div className="ed-kpi-label">In Review</div>
-            </button>
-            <button
-              className={"ed-kpi-card ed-kpi-card--good" + (kpiFilter === "completed" ? " ed-kpi-card--active" : "")}
-              onClick={() => toggleKpi("completed")}
-              title="Filter to completed reviews"
-            >
-              <div className="ed-kpi-number">{completedCount}</div>
-              <div className="ed-kpi-label">Completed</div>
-            </button>
-            <button
-              className={"ed-kpi-card ed-kpi-card--accent" + (kpiFilter === "this-week" ? " ed-kpi-card--active" : "")}
-              onClick={() => toggleKpi("this-week")}
-              title="Filter to this week's reviews"
-            >
-              <div className="ed-kpi-number">{thisWeekCount}</div>
-              <div className="ed-kpi-label">This Week</div>
-            </button>
+          <h3 className="ed-section-title" style={{ marginBottom: 10 }}>Quick Actions</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {quickActions.map((action, i) => (
+              <button
+                key={i}
+                onClick={action.onClick}
+                style={{
+                  position: "relative",
+                  display: "flex", alignItems: "center", gap: 10,
+                  background: action.primary ? "var(--accent)" : "var(--panel2)",
+                  border: `1px solid ${action.primary ? "var(--accent)" : "var(--border)"}`,
+                  borderRadius: 8, padding: "8px 12px", cursor: "pointer", textAlign: "left",
+                  color: "var(--text)", fontSize: 13, fontWeight: action.primary ? 700 : 500,
+                }}
+              >
+                {action.badge && (
+                  <span style={{
+                    position: "absolute", top: -5, right: -5,
+                    background: "#ff453a", color: "#fff",
+                    fontSize: 9, fontWeight: 800,
+                    minWidth: 16, height: 16, borderRadius: 999,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    padding: "0 3px", lineHeight: 1, pointerEvents: "none",
+                    boxShadow: "0 0 0 2px var(--bg)",
+                  }}>{action.badge}</span>
+                )}
+                <span style={{ color: action.primary ? "var(--bg)" : "var(--muted)", flexShrink: 0 }}>{action.icon}</span>
+                <span style={{ color: action.primary ? "var(--bg)" : "var(--text)" }}>{action.label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Recent activity */}
+        {/* Recent Activity */}
         <div className="panel">
           <h3 className="ed-section-title" style={{ marginBottom: 10 }}>Recent Activity</h3>
           {recentActivity.length === 0 ? (
@@ -443,37 +613,6 @@ export function EducatorDashboard({
             </div>
           )}
         </div>
-
-        {/* Referee Development */}
-        {refereeMembers.length > 0 && (
-          <div className="panel">
-            <h3 className="ed-section-title" style={{ marginBottom: 10 }}>Referee Development</h3>
-            <div className="ed-activity-list">
-              {refereeMembers.slice(0, 8).map(m => {
-                const mGoals = allRefereeGoalViews.filter(v => v.refereeId === m.id);
-                const active    = mGoals.filter(v => v.status === "Active").length;
-                const highPri   = mGoals.filter(v => v.status === "Active" && v.priority === "High").length;
-                return (
-                  <button
-                    key={m.id}
-                    className="ed-task-item"
-                    onClick={() => onNavigateDevelopment(m.id)}
-                    style={{ textAlign: "left" }}
-                  >
-                    <span className="ed-activity-dot" style={{ background: active > 0 ? "#0a84ff" : "var(--border)", marginTop: 2 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p className="ed-activity-label" style={{ margin: 0 }}>{m.name}</p>
-                      <p className="ed-activity-detail" style={{ margin: "1px 0 0" }}>
-                        {active > 0 ? `${active} active goal${active !== 1 ? "s" : ""}${highPri > 0 ? ` · ${highPri} high priority` : ""}` : "No active goals"}
-                      </p>
-                    </div>
-                    <ChevronRight size={13} style={{ flexShrink: 0, color: "var(--muted)" }} />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
       </aside>
     </div>
