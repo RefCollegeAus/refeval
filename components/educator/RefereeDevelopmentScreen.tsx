@@ -4,12 +4,13 @@ import { useState, useCallback, useMemo } from "react";
 import {
   Plus, CheckCircle, Archive, RotateCcw, Pencil, Trash2,
   ChevronLeft, Users, User, UserCheck, FileText, Lock, Eye,
+  Clock, BarChart2, Zap,
 } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { MemberRecord } from "@/lib/types/members";
 import type {
   DevGoalDef, RefereeGoal, RefereeGoalView,
-  GoalStatus, AssignGoalInput,  GoalAssignmentType,
+  GoalStatus, AssignGoalInput, GoalAssignmentType,
 } from "@/lib/types/developmentGoals";
 import { GOAL_CATEGORIES, GOAL_PRIORITIES } from "@/lib/types/developmentGoals";
 import type { DevelopmentNote, CreateNoteInput, NoteType, NoteVisibility } from "@/lib/types/developmentNotes";
@@ -45,6 +46,8 @@ const STATUS_BG: Record<GoalStatus, string> = {
   Completed: "rgba(48,209,88,.1)",
   Archived:  "rgba(99,99,102,.12)",
 };
+
+const PRIORITY_RANK: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
 
 // ── Shared display helpers ────────────────────────────────────────────────────
 
@@ -92,8 +95,7 @@ function NoteTypeBadge({ type }: { type: NoteType }) {
   return (
     <span style={{
       fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 5,
-      background: "rgba(99,99,102,.12)",
-      color: "var(--muted)",
+      background: "rgba(99,99,102,.12)", color: "var(--muted)",
       border: "1px solid rgba(99,99,102,.2)",
       textTransform: "uppercase", letterSpacing: "0.05em",
     }}>
@@ -125,7 +127,7 @@ function fmtDate(iso: string) {
 
 // ── Page-level tab switcher ───────────────────────────────────────────────────
 
-type DevPage = "goals" | "notes" | "timeline";
+type DevPage = "overview" | "goals" | "notes" | "timeline";
 
 function PageTabs({
   active,
@@ -141,9 +143,10 @@ function PageTabs({
   onChange: (p: DevPage) => void;
 }) {
   const tabs: { key: DevPage; label: string }[] = [
-    { key: "goals",    label: `Goals${goalCount > 0 ? ` (${goalCount})` : ""}` },
-    { key: "notes",    label: `Notes${noteCount > 0 ? ` (${noteCount})` : ""}` },
-    { key: "timeline", label: `Timeline${timelineCount > 0 ? ` (${timelineCount})` : ""}` },
+    { key: "overview",  label: "Overview" },
+    { key: "goals",     label: `Goals${goalCount > 0 ? ` (${goalCount})` : ""}` },
+    { key: "notes",     label: `Notes${noteCount > 0 ? ` (${noteCount})` : ""}` },
+    { key: "timeline",  label: `Timeline${timelineCount > 0 ? ` (${timelineCount})` : ""}` },
   ];
   return (
     <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)", marginBottom: 20 }}>
@@ -192,7 +195,6 @@ const KIND_ICON: Record<TimelineEventKind, string> = {
 function TimelineEventCard({ event }: { event: TimelineEvent }) {
   return (
     <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-      {/* Spine dot */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, paddingTop: 3 }}>
         <div style={{
           width: 28, height: 28, borderRadius: "50%", background: "var(--panel2)",
@@ -202,7 +204,6 @@ function TimelineEventCard({ event }: { event: TimelineEvent }) {
           {KIND_ICON[event.kind]}
         </div>
       </div>
-      {/* Card */}
       <div className="panel" style={{ flex: 1, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -221,10 +222,7 @@ function TimelineEventCard({ event }: { event: TimelineEvent }) {
           )}
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{
-            fontSize: 10, fontWeight: 700, color: "var(--muted)",
-            textTransform: "uppercase", letterSpacing: "0.05em",
-          }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
             {KIND_LABEL[event.kind]}
           </span>
           <span className="hint" style={{ fontSize: 12 }}>·</span>
@@ -247,19 +245,12 @@ const TIMELINE_FILTERS: { key: TimelineFilter; label: string }[] = [
   { key: "reviews", label: "Reviews" },
 ];
 
-function TimelineTab({
-  events,
-  hasReviews,
-}: {
-  events: TimelineEvent[];
-  hasReviews: boolean;
-}) {
+function TimelineTab({ events, hasReviews }: { events: TimelineEvent[]; hasReviews: boolean }) {
   const [filter, setFilter] = useState<TimelineFilter>("all");
   const visible = filterTimeline(events, filter);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Filter bar */}
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {TIMELINE_FILTERS.map(f => {
@@ -284,15 +275,13 @@ function TimelineTab({
         <span className="hint" style={{ fontSize: 12 }}>{visible.length} event{visible.length !== 1 ? "s" : ""}</span>
       </div>
 
-      {/* Review warning when no reviews */}
       {filter === "reviews" && !hasReviews && (
-        <div className="panel" style={{ padding: "20px", background: "rgba(99,99,102,.07)", borderRadius: 10, textAlign: "center" }}>
+        <div className="panel" style={{ padding: "20px", textAlign: "center" }}>
           <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14 }}>No completed reviews</p>
           <p className="hint" style={{ margin: 0, fontSize: 13 }}>Completed video reviews featuring this referee will appear here automatically.</p>
         </div>
       )}
 
-      {/* Empty state */}
       {events.length === 0 && (
         <div className="panel" style={{ padding: "36px 24px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: 40 }}>📋</span>
@@ -304,7 +293,6 @@ function TimelineTab({
         </div>
       )}
 
-      {/* Filtered empty state (has events but none match filter) */}
       {events.length > 0 && visible.length === 0 && (
         <div className="panel" style={{ padding: "28px 24px", textAlign: "center" }}>
           <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14 }}>No {filter} events</p>
@@ -312,10 +300,8 @@ function TimelineTab({
         </div>
       )}
 
-      {/* Event list with vertical spine */}
       {visible.length > 0 && (
         <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Vertical connector line */}
           <div style={{
             position: "absolute", left: 13, top: 28, bottom: 14,
             width: 2, background: "var(--border)", borderRadius: 1,
@@ -323,6 +309,276 @@ function TimelineTab({
           {visible.map(ev => <TimelineEventCard key={ev.id} event={ev} />)}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Overview tab ──────────────────────────────────────────────────────────────
+
+function OverviewSectionHeader({
+  title,
+  action,
+}: {
+  title: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 10 }}>
+      <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, letterSpacing: "-0.01em" }}>{title}</h2>
+      {action && (
+        <button
+          onClick={action.onClick}
+          style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600, flexShrink: 0 }}
+        >
+          {action.label} →
+        </button>
+      )}
+    </div>
+  );
+}
+
+function OverviewTab({
+  goalViews,
+  notes,
+  timelineEvents,
+  completedReviews,
+  canEdit,
+  onAssignGoal,
+  onAddNote,
+  onViewGoals,
+  onViewNotes,
+  onViewTimeline,
+}: {
+  goalViews: RefereeGoalView[];
+  notes: DevelopmentNote[];
+  timelineEvents: TimelineEvent[];
+  completedReviews: ReviewRecord[];
+  canEdit: boolean;
+  onAssignGoal: () => void;
+  onAddNote: () => void;
+  onViewGoals: () => void;
+  onViewNotes: () => void;
+  onViewTimeline: () => void;
+}) {
+  // Current Focus: active goals sorted High → Medium → Low, then newest first
+  const focusGoals = useMemo(
+    () =>
+      goalViews
+        .filter(v => v.status === "Active")
+        .sort((a, b) => {
+          const pr = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+          return pr !== 0 ? pr : b.createdAt.localeCompare(a.createdAt);
+        })
+        .slice(0, 3),
+    [goalViews],
+  );
+
+  const activeCount    = goalViews.filter(v => v.status === "Active").length;
+  const completedCount = goalViews.filter(v => v.status === "Completed").length;
+  const recentEvents   = timelineEvents.slice(0, 5);
+
+  const latestReview = completedReviews.length > 0
+    ? completedReviews.reduce((best, r) => {
+        const d = r.submittedAt ?? r.createdAt;
+        return d > (best.submittedAt ?? best.createdAt) ? r : best;
+      })
+    : null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+
+      {/* ── Current Focus ─────────────────────────────────────── */}
+      <section>
+        <OverviewSectionHeader
+          title="Current Focus"
+          action={activeCount > 3 ? { label: `View all ${activeCount} goals`, onClick: onViewGoals } : undefined}
+        />
+        {focusGoals.length === 0 ? (
+          <div className="panel" style={{ padding: "28px 24px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 34 }}>🎯</span>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No active development goals</p>
+            <p className="hint" style={{ margin: 0, maxWidth: 380, fontSize: 13 }}>
+              {canEdit
+                ? "Assign a goal to give this referee a clear focus area for their next games."
+                : "No active goals have been set for this referee yet."}
+            </p>
+            {canEdit && (
+              <button className="primary" style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, fontSize: 13 }} onClick={onAssignGoal}>
+                <Plus size={13} /> Assign Goal
+              </button>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {focusGoals.map((v, i) => (
+              <div
+                key={v.id}
+                className="panel"
+                style={{
+                  padding: "14px 18px",
+                  display: "flex", gap: 14, alignItems: "flex-start",
+                  borderLeft: `3px solid ${PRIORITY_COLOR[v.priority] ?? "var(--border)"}`,
+                }}
+              >
+                <div style={{
+                  width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                  background: `${PRIORITY_COLOR[v.priority] ?? "#636366"}18`,
+                  color: PRIORITY_COLOR[v.priority] ?? "var(--muted)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, fontWeight: 800, marginTop: 1,
+                }}>
+                  {i + 1}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 14, lineHeight: 1.3 }}>{v.title}</p>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    <CategoryChip category={v.category} />
+                    <PriorityBadge priority={v.priority} />
+                    {v.targetReviewDate && (
+                      <span className="hint" style={{ fontSize: 11 }}>Target {fmtDate(v.targetReviewDate)}</span>
+                    )}
+                  </div>
+                  {v.description && (
+                    <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>
+                      {v.description.length > 140 ? v.description.slice(0, 137) + "…" : v.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── Recent Activity ────────────────────────────────────── */}
+      <section>
+        <OverviewSectionHeader
+          title="Recent Activity"
+          action={timelineEvents.length > 5 ? { label: "View full timeline", onClick: onViewTimeline } : undefined}
+        />
+        {recentEvents.length === 0 ? (
+          <div className="panel" style={{ padding: "28px 24px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 34 }}>📋</span>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No activity yet</p>
+            <p className="hint" style={{ margin: 0, maxWidth: 380, fontSize: 13 }}>
+              Goals assigned, notes added and completed reviews will build up a history here.
+            </p>
+          </div>
+        ) : (
+          <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{
+              position: "absolute", left: 13, top: 28, bottom: 14,
+              width: 2, background: "var(--border)", borderRadius: 1,
+            }} />
+            {recentEvents.map(ev => <TimelineEventCard key={ev.id} event={ev} />)}
+            {timelineEvents.length > 5 && (
+              <button
+                onClick={onViewTimeline}
+                style={{ fontSize: 13, color: "var(--accent)", fontWeight: 600, background: "none", border: "none", cursor: "pointer", padding: "4px 0", textAlign: "left", marginLeft: 42 }}
+              >
+                View all {timelineEvents.length} events →
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ── Development Summary ────────────────────────────────── */}
+      <section>
+        <OverviewSectionHeader title="Development Summary" />
+        <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" }}>
+            {[
+              { label: "Active Goals",      value: activeCount,               colour: STATUS_COLOR.Active,    onClick: onViewGoals },
+              { label: "Completed Goals",   value: completedCount,            colour: STATUS_COLOR.Completed, onClick: onViewGoals },
+              { label: "Coaching Notes",    value: notes.length,              colour: "#bf5af2",              onClick: onViewNotes },
+              { label: "Reviews Completed", value: completedReviews.length,   colour: "#30d158",              onClick: onViewTimeline },
+            ].map(({ label, value, colour, onClick }, idx) => (
+              <button
+                key={label}
+                onClick={onClick}
+                style={{
+                  padding: "16px 18px", textAlign: "left", background: "none",
+                  borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)",
+                  cursor: "pointer",
+                }}
+              >
+                <p style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 800, color: colour, lineHeight: 1 }}>{value}</p>
+                <p className="hint" style={{ margin: 0, fontSize: 12 }}>{label}</p>
+              </button>
+            ))}
+          </div>
+          {latestReview && (
+            <div style={{ padding: "10px 18px", borderTop: "1px solid var(--border)" }}>
+              <span className="hint" style={{ fontSize: 12 }}>
+                Latest review: <strong style={{ color: "var(--text)", fontWeight: 600 }}>{latestReview.game || "Untitled"}</strong>
+                {" · "}{fmtDate(latestReview.submittedAt ?? latestReview.createdAt)}
+              </span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── Quick Actions ──────────────────────────────────────── */}
+      {canEdit && (
+        <section>
+          <OverviewSectionHeader title="Quick Actions" />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              className="primary"
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}
+              onClick={onAssignGoal}
+            >
+              <Plus size={13} /> Assign Development Goal
+            </button>
+            <button
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}
+              onClick={onAddNote}
+            >
+              <FileText size={13} /> Add Coaching Note
+            </button>
+            <button
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}
+              onClick={onViewTimeline}
+            >
+              <Clock size={13} /> View Full Timeline
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* ── Coming Soon ────────────────────────────────────────── */}
+      <section>
+        <OverviewSectionHeader title="Coming Soon" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+          {[
+            { icon: "🏅", label: "Competencies",        hint: "Track assessed competency areas over time." },
+            { icon: "📚", label: "Learning Progress",    hint: "Link completed learning modules to development goals." },
+            { icon: "⬆️",  label: "Promotion Readiness", hint: "Summarise readiness for the next referee grade." },
+          ].map(({ icon, label, hint }) => (
+            <div
+              key={label}
+              className="panel"
+              style={{ padding: "16px 18px", opacity: 0.5, display: "flex", flexDirection: "column", gap: 8 }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 20 }}>{icon}</span>
+                <span style={{
+                  fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 4,
+                  background: "rgba(99,99,102,.15)", color: "var(--muted)",
+                  border: "1px solid rgba(99,99,102,.2)",
+                  textTransform: "uppercase", letterSpacing: "0.06em",
+                }}>
+                  Coming Soon
+                </span>
+              </div>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>{label}</p>
+              <p className="hint" style={{ margin: 0, fontSize: 12, lineHeight: 1.5 }}>{hint}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
     </div>
   );
 }
@@ -464,9 +720,9 @@ function NoteCard({
       </div>
 
       {linkedGoalTitle && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--accent)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
           <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>Linked goal</span>
-          <span style={{ fontWeight: 600 }}>{linkedGoalTitle}</span>
+          <span style={{ fontWeight: 600, color: "var(--accent)" }}>{linkedGoalTitle}</span>
         </div>
       )}
 
@@ -502,15 +758,10 @@ function NoteCard({
 
 function GoalEmptyState({ status, canEdit, onCreateGoal }: { status: GoalStatus; canEdit: boolean; onCreateGoal?: () => void }) {
   const messages: Record<GoalStatus, { icon: string; heading: string; body: string }> = {
-    Active: {
-      icon: "🎯",
-      heading: "No active development goals",
-      body: canEdit
-        ? "Create this referee's first development goal to start building their long-term coaching record."
-        : "No active development goals have been set yet.",
-    },
-    Completed: { icon: "✅", heading: "No completed goals yet", body: "Completed goals will appear here once a referee achieves them." },
-    Archived:  { icon: "📦", heading: "No archived goals",      body: "Goals that are no longer active but not yet completed are archived here." },
+    Active:    { icon: "🎯", heading: "No active development goals",
+      body: canEdit ? "Create this referee's first development goal to start building their long-term coaching record." : "No active development goals have been set yet." },
+    Completed: { icon: "✅", heading: "No completed goals yet",  body: "Completed goals will appear here once a referee achieves them." },
+    Archived:  { icon: "📦", heading: "No archived goals",       body: "Goals that are no longer active but not yet completed are archived here." },
   };
   const m = messages[status];
   return (
@@ -548,19 +799,10 @@ function NoteEmptyState({ canEdit, onCreateNote }: { canEdit: boolean; onCreateN
 
 // ── Goal filter tabs ──────────────────────────────────────────────────────────
 
-function GoalFilterTabs({
-  active,
-  counts,
-  onChange,
-}: {
-  active: GoalStatus;
-  counts: Record<GoalStatus, number>;
-  onChange: (s: GoalStatus) => void;
-}) {
-  const tabs: GoalStatus[] = ["Active", "Completed", "Archived"];
+function GoalFilterTabs({ active, counts, onChange }: { active: GoalStatus; counts: Record<GoalStatus, number>; onChange: (s: GoalStatus) => void }) {
   return (
     <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-      {tabs.map(s => (
+      {(["Active", "Completed", "Archived"] as GoalStatus[]).map(s => (
         <button
           key={s}
           onClick={() => onChange(s)}
@@ -585,10 +827,10 @@ type GoalFormMode =
   | { type: "create"; defaultRefereeId: string }
   | { type: "edit"; view: RefereeGoalView };
 
-const ASSIGN_TYPE_OPTIONS: { value: GoalAssignmentType; label: string; hint: string; icon: React.ReactNode }[] = [
-  { value: "Individual",       label: "Individual",        hint: "One referee",          icon: <User size={14} /> },
-  { value: "SelectedReferees", label: "Selected Referees", hint: "Choose from the list", icon: <UserCheck size={14} /> },
-  { value: "Everyone",         label: "Everyone",          hint: "All referees",         icon: <Users size={14} /> },
+const ASSIGN_TYPE_OPTIONS: { value: GoalAssignmentType; label: string; icon: React.ReactNode }[] = [
+  { value: "Individual",       label: "Individual",        icon: <User size={14} /> },
+  { value: "SelectedReferees", label: "Selected Referees", icon: <UserCheck size={14} /> },
+  { value: "Everyone",         label: "Everyone",          icon: <Users size={14} /> },
 ];
 
 function GoalFormModal({
@@ -621,7 +863,6 @@ function GoalFormModal({
     mode.type === "create" ? new Set([mode.defaultRefereeId]) : new Set(),
   );
   const [error, setError] = useState("");
-
   const isCreate = mode.type === "create";
 
   function toggleMany(id: string) {
@@ -693,7 +934,7 @@ function GoalFormModal({
               )}
               {assignType === "Everyone" && (
                 <p className="hint" style={{ fontSize: 13, margin: 0 }}>
-                  This goal will be assigned to all {totalRefereeCount} referee{totalRefereeCount !== 1 ? "s" : ""} in your organisation. Each will track their own progress independently.
+                  This goal will be assigned to all {totalRefereeCount} referee{totalRefereeCount !== 1 ? "s" : ""} in your organisation.
                 </p>
               )}
             </div>
@@ -759,32 +1000,16 @@ function NoteFormModal({
 
   const isCreate = mode.type === "create";
   const refereeId = isCreate ? mode.refereeId : existing!.refereeId;
-
-  // Only show Active goals in the link dropdown
   const linkableGoals = refereeGoalViews.filter(v => v.refereeId === refereeId && v.status === "Active");
 
   function submit() {
     if (!title.trim()) { setError("Title is required."); return; }
     if (!body.trim())  { setError("Body is required.");  return; }
     setError("");
-
     if (isCreate) {
-      onSave({
-        refereeId,
-        title: title.trim(),
-        body: body.trim(),
-        noteType,
-        visibility,
-        linkedGoalId: linkedGoalId || null,
-      } satisfies CreateNoteInput);
+      onSave({ refereeId, title: title.trim(), body: body.trim(), noteType, visibility, linkedGoalId: linkedGoalId || null } satisfies CreateNoteInput);
     } else {
-      onSave({
-        title: title.trim(),
-        body: body.trim(),
-        noteType,
-        visibility,
-        linkedGoalId: linkedGoalId || null,
-      }, existing!.id);
+      onSave({ title: title.trim(), body: body.trim(), noteType, visibility, linkedGoalId: linkedGoalId || null }, existing!.id);
     }
   }
 
@@ -798,44 +1023,19 @@ function NoteFormModal({
           </div>
           <button onClick={onClose}>✕</button>
         </div>
-
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
           <label>
             Title <span style={{ color: "#ff453a" }}>*</span>
-            <input
-              value={title}
-              onChange={e => { setTitle(e.target.value); setError(""); }}
-              placeholder="e.g. Post-game debrief — Round 7"
-              autoFocus
-            />
+            <input value={title} onChange={e => { setTitle(e.target.value); setError(""); }} placeholder="e.g. Post-game debrief — Round 7" autoFocus />
           </label>
-
           <label>
             Note <span style={{ color: "#ff453a" }}>*</span>
-            <textarea
-              value={body}
-              onChange={e => { setBody(e.target.value); setError(""); }}
-              rows={5}
-              placeholder="Record observations, coaching points, or conversation highlights…"
-              style={{ resize: "vertical", minHeight: 110 }}
-            />
+            <textarea value={body} onChange={e => { setBody(e.target.value); setError(""); }} rows={5} placeholder="Record observations, coaching points, or conversation highlights…" style={{ resize: "vertical", minHeight: 110 }} />
           </label>
-
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label>
-              Note type
-              <select value={noteType} onChange={e => setNoteType(e.target.value as NoteType)}>
-                {NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </label>
-            <label>
-              Visibility
-              <select value={visibility} onChange={e => setVisibility(e.target.value as NoteVisibility)}>
-                {NOTE_VISIBILITIES.map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
-            </label>
+            <label>Note type<select value={noteType} onChange={e => setNoteType(e.target.value as NoteType)}>{NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></label>
+            <label>Visibility<select value={visibility} onChange={e => setVisibility(e.target.value as NoteVisibility)}>{NOTE_VISIBILITIES.map(v => <option key={v} value={v}>{v}</option>)}</select></label>
           </div>
-
           <label>
             Linked goal <span className="hint" style={{ fontSize: 12 }}>(optional)</span>
             <select value={linkedGoalId} onChange={e => setLinkedGoalId(e.target.value)}>
@@ -843,10 +1043,8 @@ function NoteFormModal({
               {linkableGoals.map(v => <option key={v.goalId} value={v.goalId}>{v.title}</option>)}
             </select>
           </label>
-
           {error && <p style={{ margin: 0, color: "#ff453a", fontSize: 13 }}>{error}</p>}
         </div>
-
         <div className="action-row" style={{ marginTop: 20 }}>
           <button onClick={onClose}>Cancel</button>
           <button className="primary" onClick={submit}>{isCreate ? "Add Note" : "Save Changes"}</button>
@@ -885,7 +1083,7 @@ export function RefereeDevelopmentScreen({
   onCreateNote, onUpdateNote, onDeleteNote,
   onBack,
 }: RefereeDevelopmentScreenProps) {
-  const [devPage, setDevPage]           = useState<DevPage>("goals");
+  const [devPage, setDevPage]           = useState<DevPage>("overview");
   const [goalFilter, setGoalFilter]     = useState<GoalStatus>("Active");
   const [goalFormMode, setGoalFormMode] = useState<GoalFormMode | null>(null);
   const [noteFormMode, setNoteFormMode] = useState<NoteFormMode | null>(null);
@@ -895,7 +1093,7 @@ export function RefereeDevelopmentScreen({
     session.activeRole === "admin" ||
     session.activeRole === "super_admin";
 
-  // ── Goal counts ──────────────────────────────────────────────────────────
+  // ── Derived data ──────────────────────────────────────────────────────────
   const goalCounts: Record<GoalStatus, number> = useMemo(() => ({
     Active:    goalViews.filter(v => v.status === "Active").length,
     Completed: goalViews.filter(v => v.status === "Completed").length,
@@ -907,15 +1105,17 @@ export function RefereeDevelopmentScreen({
     [goalViews, goalFilter],
   );
 
-  const highPriCount = goalViews.filter(v => v.status === "Active" && v.priority === "High").length;
-
-  // ── Timeline ─────────────────────────────────────────────────────────────
   const timelineEvents = useMemo(
     () => buildTimeline(goalViews, notes, completedReviews),
     [goalViews, notes, completedReviews],
   );
 
-  // ── Goal form save handler ───────────────────────────────────────────────
+  const goalTitleById = useMemo(
+    () => new Map(goalViews.map(v => [v.goalId, v.title])),
+    [goalViews],
+  );
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleGoalSave = useCallback(
     (
       defPatch: Pick<DevGoalDef, "title" | "description" | "category" | "priority">,
@@ -933,7 +1133,6 @@ export function RefereeDevelopmentScreen({
     [goalFormMode, onAssignGoal, onUpdateGoalDef, onUpdateRefereeGoal],
   );
 
-  // ── Note form save handler ───────────────────────────────────────────────
   const handleNoteSave = useCallback(
     (data: CreateNoteInput | Partial<DevelopmentNote>, id?: string) => {
       if (id) {
@@ -946,13 +1145,15 @@ export function RefereeDevelopmentScreen({
     [onCreateNote, onUpdateNote],
   );
 
-  // ── Goal linked title lookup ─────────────────────────────────────────────
-  const goalTitleById = useMemo(
-    () => new Map(goalViews.map(v => [v.goalId, v.title])),
-    [goalViews],
-  );
+  // Shortcuts used by OverviewTab callbacks
+  const openGoalForm  = useCallback(() => setGoalFormMode({ type: "create", defaultRefereeId: referee.id }), [referee.id]);
+  const openNoteForm  = useCallback(() => setNoteFormMode({ type: "create", refereeId: referee.id }), [referee.id]);
+  const navGoals      = useCallback(() => setDevPage("goals"), []);
+  const navNotes      = useCallback(() => setDevPage("notes"), []);
+  const navTimeline   = useCallback(() => setDevPage("timeline"), []);
 
   const initials = referee.name.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
+  const totalGoalCount = goalCounts.Active + goalCounts.Completed + goalCounts.Archived;
 
   return (
     <div className="layout" style={{ maxWidth: 860, margin: "0 auto", padding: "28px 24px" }}>
@@ -980,34 +1181,26 @@ export function RefereeDevelopmentScreen({
           <h1 style={{ margin: "2px 0 0", fontSize: 24 }}>{referee.name}</h1>
           <p className="hint" style={{ margin: "2px 0 0", fontSize: 13 }}>{referee.email}</p>
         </div>
-        {canEdit && devPage === "goals" && (
-          <button
-            className="primary"
-            style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
-            onClick={() => setGoalFormMode({ type: "create", defaultRefereeId: referee.id })}
-          >
+        {canEdit && (devPage === "overview" || devPage === "goals") && (
+          <button className="primary" style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }} onClick={openGoalForm}>
             <Plus size={14} /> Assign Goal
           </button>
         )}
         {canEdit && devPage === "notes" && (
-          <button
-            className="primary"
-            style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
-            onClick={() => setNoteFormMode({ type: "create", refereeId: referee.id })}
-          >
+          <button className="primary" style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }} onClick={openNoteForm}>
             <FileText size={14} /> Add Note
           </button>
         )}
       </div>
 
-      {/* Summary stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10, marginBottom: 24 }}>
+      {/* Persistent stats strip */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 10, marginBottom: 24 }}>
         {[
-          { label: "Active Goals",       value: goalCounts.Active,    colour: STATUS_COLOR.Active,    onClick: () => { setDevPage("goals"); setGoalFilter("Active"); } },
-          { label: "Completed Goals",    value: goalCounts.Completed, colour: STATUS_COLOR.Completed, onClick: () => { setDevPage("goals"); setGoalFilter("Completed"); } },
-          { label: "High Priority",      value: highPriCount,         colour: PRIORITY_COLOR.High,    onClick: () => { setDevPage("goals"); setGoalFilter("Active"); } },
-          { label: "Development Notes",  value: notes.length,              colour: "#bf5af2", onClick: () => setDevPage("notes") },
-          { label: "Timeline Events",    value: timelineEvents.length,     colour: "var(--accent)", onClick: () => setDevPage("timeline") },
+          { label: "Active Goals",      value: goalCounts.Active,        colour: STATUS_COLOR.Active,    onClick: () => { navGoals(); setGoalFilter("Active"); } },
+          { label: "Completed Goals",   value: goalCounts.Completed,     colour: STATUS_COLOR.Completed, onClick: () => { navGoals(); setGoalFilter("Completed"); } },
+          { label: "Coaching Notes",    value: notes.length,             colour: "#bf5af2",              onClick: navNotes },
+          { label: "Reviews",           value: completedReviews.length,  colour: "#30d158",              onClick: navTimeline },
+          { label: "Timeline Events",   value: timelineEvents.length,    colour: "var(--accent)",        onClick: navTimeline },
         ].map(({ label, value, colour, onClick }) => (
           <button
             key={label}
@@ -1021,14 +1214,30 @@ export function RefereeDevelopmentScreen({
         ))}
       </div>
 
-      {/* Page tabs */}
+      {/* Tab bar */}
       <PageTabs
         active={devPage}
-        goalCount={goalCounts.Active + goalCounts.Completed + goalCounts.Archived}
+        goalCount={totalGoalCount}
         noteCount={notes.length}
         timelineCount={timelineEvents.length}
         onChange={setDevPage}
       />
+
+      {/* ── Overview tab ── */}
+      {devPage === "overview" && (
+        <OverviewTab
+          goalViews={goalViews}
+          notes={notes}
+          timelineEvents={timelineEvents}
+          completedReviews={completedReviews}
+          canEdit={canEdit}
+          onAssignGoal={openGoalForm}
+          onAddNote={openNoteForm}
+          onViewGoals={navGoals}
+          onViewNotes={navNotes}
+          onViewTimeline={navTimeline}
+        />
+      )}
 
       {/* ── Goals tab ── */}
       {devPage === "goals" && (
@@ -1038,11 +1247,7 @@ export function RefereeDevelopmentScreen({
             <span className="hint" style={{ fontSize: 12 }}>{visibleGoals.length} goal{visibleGoals.length !== 1 ? "s" : ""}</span>
           </div>
           {visibleGoals.length === 0 ? (
-            <GoalEmptyState
-              status={goalFilter}
-              canEdit={canEdit}
-              onCreateGoal={() => setGoalFormMode({ type: "create", defaultRefereeId: referee.id })}
-            />
+            <GoalEmptyState status={goalFilter} canEdit={canEdit} onCreateGoal={openGoalForm} />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {visibleGoals.map(view => (
@@ -1066,10 +1271,7 @@ export function RefereeDevelopmentScreen({
       {devPage === "notes" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {notes.length === 0 ? (
-            <NoteEmptyState
-              canEdit={canEdit}
-              onCreateNote={() => setNoteFormMode({ type: "create", refereeId: referee.id })}
-            />
+            <NoteEmptyState canEdit={canEdit} onCreateNote={openNoteForm} />
           ) : (
             <>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -1092,10 +1294,7 @@ export function RefereeDevelopmentScreen({
 
       {/* ── Timeline tab ── */}
       {devPage === "timeline" && (
-        <TimelineTab
-          events={timelineEvents}
-          hasReviews={completedReviews.length > 0}
-        />
+        <TimelineTab events={timelineEvents} hasReviews={completedReviews.length > 0} />
       )}
 
       {/* Modals */}
