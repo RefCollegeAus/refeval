@@ -2,6 +2,8 @@ export type OrgSport = "Basketball";
 
 export type OrgDateFormat = "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD";
 
+export type OrgTimeFormat = "12h" | "24h";
+
 export type OrgReviewVisibility = "educators-only" | "assigned-referees";
 
 export type ResourceLink = {
@@ -17,19 +19,22 @@ export type OrganisationSettings = {
     name: string;
     shortName: string;
     sport: OrgSport;
-    website: string;
     contactEmail: string;
-    timezone: string;
-    locale: string;
-    country: string;
+    phone: string;
+    website: string;
+    address: string;
   };
   branding: {
     primaryColour: string;
     logoUrl: string | null;
   };
   preferences: {
+    timezone: string;
+    locale: string;
     dateFormat: OrgDateFormat;
+    timeFormat: OrgTimeFormat;
     weekStartsOn: 0 | 1;
+    country: string;
     defaultReviewVisibility: OrgReviewVisibility;
   };
   reviewDefaults: {
@@ -68,19 +73,22 @@ export const DEFAULT_ORG_SETTINGS: Omit<OrganisationSettings, "profile"> & {
   profile: {
     shortName: "",
     sport: "Basketball",
-    website: "",
     contactEmail: "",
-    timezone: "Australia/Sydney",
-    locale: "en-AU",
-    country: "Australia",
+    phone: "",
+    website: "",
+    address: "",
   },
   branding: {
     primaryColour: "#a56a1b",
     logoUrl: null,
   },
   preferences: {
+    timezone: "Australia/Sydney",
+    locale: "en-AU",
     dateFormat: "DD/MM/YYYY",
+    timeFormat: "12h",
     weekStartsOn: 1,
+    country: "Australia",
     defaultReviewVisibility: "assigned-referees",
   },
   reviewDefaults: {

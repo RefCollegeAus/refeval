@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { ReactNode } from "react";
 import {
   Building2, User, Palette, SlidersHorizontal, Film, BookOpen,
   Bell, Shield, Users, FolderOpen, ChevronRight, Globe, Clock,
+  CheckCircle, AlertCircle,
 } from "lucide-react";
 import type { OrganisationSettings } from "@/lib/types/organisationSettings";
 import type { OrganisationRecord } from "@/lib/types/organisations";
@@ -35,13 +36,23 @@ const NAV_ITEMS: { page: OrgPage; label: string; icon: ReactNode }[] = [
   { page: "profile",       label: "Profile",        icon: <User size={15} /> },
   { page: "branding",      label: "Branding",       icon: <Palette size={15} /> },
   { page: "preferences",   label: "Preferences",    icon: <SlidersHorizontal size={15} /> },
-  { page: "reviews",       label: "Reviews",        icon: <Film size={15} /> },
+  { page: "reviews",       label: "Review Defaults", icon: <Film size={15} /> },
   { page: "learning",      label: "Learning",       icon: <BookOpen size={15} /> },
   { page: "notifications", label: "Notifications",  icon: <Bell size={15} /> },
   { page: "security",      label: "Security",       icon: <Shield size={15} /> },
   { page: "members",       label: "Members",        icon: <Users size={15} /> },
   { page: "resources",     label: "Resources",      icon: <FolderOpen size={15} /> },
 ];
+
+// ── Validation helpers ────────────────────────────────────────────────────────
+
+function isValidEmail(v: string): boolean {
+  return !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
+function isValidUrl(v: string): boolean {
+  return !v || /^https?:\/\/.+/.test(v);
+}
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -52,6 +63,7 @@ interface Props {
   reviews: ReviewRecord[];
   assignments: Assignment[];
   settings: OrganisationSettings;
+  onUpdateSettings: (patch: Partial<OrganisationSettings>) => void;
   onBack: () => void;
   onNavigateMembers: () => void;
 }
@@ -60,7 +72,7 @@ interface Props {
 
 export function OrganisationScreen({
   session, org, members, reviews, assignments,
-  settings, onBack, onNavigateMembers,
+  settings, onUpdateSettings, onBack, onNavigateMembers,
 }: Props) {
   const [currentPage, setCurrentPage] = useState<OrgPage>("dashboard");
 
@@ -142,7 +154,7 @@ export function OrganisationScreen({
       <div style={{ flex: 1, padding: "24px 28px", overflowY: "auto" }}>
         {renderPage(currentPage, {
           session, org, members, reviews, assignments,
-          settings, setCurrentPage, onNavigateMembers,
+          settings, onUpdateSettings, setCurrentPage, onNavigateMembers,
         })}
       </div>
     </div>
@@ -158,6 +170,7 @@ interface PageCtx {
   reviews: ReviewRecord[];
   assignments: Assignment[];
   settings: OrganisationSettings;
+  onUpdateSettings: (patch: Partial<OrganisationSettings>) => void;
   setCurrentPage: (page: OrgPage) => void;
   onNavigateMembers: () => void;
 }
@@ -165,9 +178,9 @@ interface PageCtx {
 function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
   switch (page) {
     case "dashboard":     return <DashboardPage {...ctx} />;
-    case "profile":       return <ProfilePage />;
+    case "profile":       return <ProfilePage {...ctx} />;
     case "branding":      return <BrandingPage />;
-    case "preferences":   return <PreferencesPage />;
+    case "preferences":   return <PreferencesPage {...ctx} />;
     case "reviews":       return <ReviewsPage />;
     case "learning":      return <LearningPage />;
     case "notifications": return <NotificationsPage />;
@@ -226,11 +239,11 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
             </span>
             <span className="hint" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
               <Clock size={11} />
-              {settings.profile.timezone}
+              {settings.preferences.timezone}
             </span>
             <span className="hint" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
               <Globe size={11} />
-              {settings.profile.locale} · {settings.profile.country}
+              {settings.preferences.locale} · {settings.preferences.country}
             </span>
           </div>
         </div>
@@ -278,27 +291,391 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
   );
 }
 
-// ── Placeholder pages ─────────────────────────────────────────────────────────
+// ── Shared form feedback banner ───────────────────────────────────────────────
 
-function ProfilePage() {
+function FeedbackBanner({ type, message }: { type: "success" | "error"; message: string }) {
   return (
-    <SettingsPage eyebrow="Organisation" title="Profile" description="Basic identity information for your organisation.">
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "10px 16px",
+        borderRadius: 10,
+        background: type === "success" ? "rgba(52,199,89,.12)" : "rgba(255,69,58,.12)",
+        border: `1px solid ${type === "success" ? "rgba(52,199,89,.3)" : "rgba(255,69,58,.3)"}`,
+        color: type === "success" ? "#34c759" : "#ff453a",
+        fontSize: 13,
+        fontWeight: 600,
+      }}
+    >
+      {type === "success" ? <CheckCircle size={15} /> : <AlertCircle size={15} />}
+      {message}
+    </div>
+  );
+}
+
+// ── Profile page ──────────────────────────────────────────────────────────────
+
+function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
+  const [draft, setDraft] = useState(() => ({ ...settings.profile }));
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const saved = settings.profile;
+  const dirty =
+    draft.name !== saved.name ||
+    draft.shortName !== saved.shortName ||
+    draft.contactEmail !== saved.contactEmail ||
+    draft.phone !== saved.phone ||
+    draft.website !== saved.website ||
+    draft.address !== saved.address;
+
+  const patch = useCallback(<K extends keyof typeof draft>(key: K, value: typeof draft[K]) => {
+    setDraft(prev => ({ ...prev, [key]: value }));
+    setFeedback(null);
+  }, []);
+
+  const save = useCallback(() => {
+    if (!draft.name.trim()) {
+      setFeedback({ type: "error", message: "Organisation name is required." });
+      return;
+    }
+    if (!isValidEmail(draft.contactEmail)) {
+      setFeedback({ type: "error", message: "Contact email is not a valid email address." });
+      return;
+    }
+    if (!isValidUrl(draft.website)) {
+      setFeedback({ type: "error", message: "Website must start with http:// or https://." });
+      return;
+    }
+    onUpdateSettings({ profile: { ...draft } });
+    setFeedback({ type: "success", message: "Profile saved." });
+  }, [draft, onUpdateSettings]);
+
+  const discard = useCallback(() => {
+    setDraft({ ...saved });
+    setFeedback(null);
+  }, [saved]);
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    boxSizing: "border-box",
+  };
+
+  const disabledInputStyle: React.CSSProperties = {
+    ...inputStyle,
+    opacity: 0.5,
+    cursor: "not-allowed",
+  };
+
+  return (
+    <SettingsPage
+      eyebrow="Organisation"
+      title="Profile"
+      description="Basic identity information for your organisation."
+      actions={
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {dirty && (
+            <button onClick={discard} style={{ fontSize: 13 }}>
+              Discard
+            </button>
+          )}
+          <button
+            className="primary"
+            onClick={save}
+            disabled={!dirty}
+            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
+          >
+            Save changes
+          </button>
+        </div>
+      }
+    >
+      {feedback && <FeedbackBanner {...feedback} />}
+
       <SettingsSection title="Organisation identity">
-        <SettingsPlaceholder
-          title="Profile settings"
-          description="Configure your organisation's identity, including name, short name, sport, website, contact email, timezone, locale, and country."
-          items={[
-            "Organisation name and short name",
-            "Sport: Basketball",
-            "Website and contact email",
-            "Timezone and locale",
-            "Country / region",
-          ]}
-        />
+        <SettingsCard>
+          <div className="form-stack">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
+                  Organisation name <span style={{ color: "#ff453a" }}>*</span>
+                </span>
+                <input
+                  style={inputStyle}
+                  value={draft.name}
+                  onChange={e => patch("name", e.target.value)}
+                  placeholder="e.g. Basketball Australia"
+                />
+              </label>
+              <label>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
+                  Short name
+                </span>
+                <input
+                  style={inputStyle}
+                  value={draft.shortName}
+                  onChange={e => patch("shortName", e.target.value)}
+                  placeholder="e.g. BA"
+                />
+              </label>
+            </div>
+
+            <label>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
+                Sport
+              </span>
+              <input style={disabledInputStyle} value="Basketball" disabled />
+            </label>
+          </div>
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Contact details">
+        <SettingsCard>
+          <div className="form-stack">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
+                  Contact email
+                </span>
+                <input
+                  style={inputStyle}
+                  type="email"
+                  value={draft.contactEmail}
+                  onChange={e => patch("contactEmail", e.target.value)}
+                  placeholder="admin@example.com"
+                />
+              </label>
+              <label>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
+                  Phone
+                </span>
+                <input
+                  style={inputStyle}
+                  type="tel"
+                  value={draft.phone}
+                  onChange={e => patch("phone", e.target.value)}
+                  placeholder="+61 2 0000 0000"
+                />
+              </label>
+            </div>
+
+            <label>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
+                Website
+              </span>
+              <input
+                style={inputStyle}
+                type="url"
+                value={draft.website}
+                onChange={e => patch("website", e.target.value)}
+                placeholder="https://example.com"
+              />
+            </label>
+
+            <label>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
+                Address
+              </span>
+              <textarea
+                style={{ ...inputStyle, resize: "vertical", minHeight: 72 }}
+                value={draft.address}
+                onChange={e => patch("address", e.target.value)}
+                rows={2}
+                placeholder="123 Main Street, Sydney NSW 2000"
+              />
+            </label>
+          </div>
+        </SettingsCard>
       </SettingsSection>
     </SettingsPage>
   );
 }
+
+// ── Preferences page ──────────────────────────────────────────────────────────
+
+const TIMEZONES = [
+  "Australia/Sydney",
+  "Australia/Melbourne",
+  "Australia/Brisbane",
+  "Australia/Adelaide",
+  "Australia/Perth",
+  "Australia/Hobart",
+  "Australia/Darwin",
+  "Pacific/Auckland",
+  "Asia/Singapore",
+  "UTC",
+];
+
+const LOCALES: { value: string; label: string }[] = [
+  { value: "en-AU", label: "English (Australia)" },
+  { value: "en-NZ", label: "English (New Zealand)" },
+  { value: "en-US", label: "English (United States)" },
+  { value: "en-GB", label: "English (United Kingdom)" },
+];
+
+const COUNTRIES = [
+  "Australia",
+  "New Zealand",
+  "United States",
+  "United Kingdom",
+  "Canada",
+];
+
+function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
+  const [draft, setDraft] = useState(() => ({ ...settings.preferences }));
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const saved = settings.preferences;
+  const dirty =
+    draft.timezone !== saved.timezone ||
+    draft.locale !== saved.locale ||
+    draft.dateFormat !== saved.dateFormat ||
+    draft.timeFormat !== saved.timeFormat ||
+    draft.weekStartsOn !== saved.weekStartsOn ||
+    draft.country !== saved.country ||
+    draft.defaultReviewVisibility !== saved.defaultReviewVisibility;
+
+  const patch = useCallback(<K extends keyof typeof draft>(key: K, value: typeof draft[K]) => {
+    setDraft(prev => ({ ...prev, [key]: value }));
+    setFeedback(null);
+  }, []);
+
+  const save = useCallback(() => {
+    onUpdateSettings({ preferences: { ...draft } });
+    setFeedback({ type: "success", message: "Preferences saved." });
+  }, [draft, onUpdateSettings]);
+
+  const discard = useCallback(() => {
+    setDraft({ ...saved });
+    setFeedback(null);
+  }, [saved]);
+
+  const selectStyle: React.CSSProperties = {
+    width: "100%",
+    boxSizing: "border-box",
+  };
+
+  return (
+    <SettingsPage
+      eyebrow="Organisation"
+      title="Preferences"
+      description="Default platform behaviour for all members of your organisation."
+      actions={
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {dirty && (
+            <button onClick={discard} style={{ fontSize: 13 }}>
+              Discard
+            </button>
+          )}
+          <button
+            className="primary"
+            onClick={save}
+            disabled={!dirty}
+            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
+          >
+            Save changes
+          </button>
+        </div>
+      }
+    >
+      {feedback && <FeedbackBanner {...feedback} />}
+
+      <SettingsSection title="Regional settings">
+        <SettingsCard>
+          <div className="form-stack">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Timezone</span>
+                <select style={selectStyle} value={draft.timezone} onChange={e => patch("timezone", e.target.value)}>
+                  {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                </select>
+              </label>
+              <label>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Language / locale</span>
+                <select style={selectStyle} value={draft.locale} onChange={e => patch("locale", e.target.value)}>
+                  {LOCALES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <label>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Country / region</span>
+              <select style={selectStyle} value={draft.country} onChange={e => patch("country", e.target.value)}>
+                {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+          </div>
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Date &amp; time format">
+        <SettingsCard>
+          <div className="form-stack">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Date format</span>
+                <select
+                  style={selectStyle}
+                  value={draft.dateFormat}
+                  onChange={e => patch("dateFormat", e.target.value as typeof draft.dateFormat)}
+                >
+                  <option value="DD/MM/YYYY">DD/MM/YYYY (3 Jul 2026)</option>
+                  <option value="MM/DD/YYYY">MM/DD/YYYY (Jul 3 2026)</option>
+                  <option value="YYYY-MM-DD">YYYY-MM-DD (2026-07-03)</option>
+                </select>
+              </label>
+              <label>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Time format</span>
+                <select
+                  style={selectStyle}
+                  value={draft.timeFormat}
+                  onChange={e => patch("timeFormat", e.target.value as typeof draft.timeFormat)}
+                >
+                  <option value="12h">12-hour (2:30 PM)</option>
+                  <option value="24h">24-hour (14:30)</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Week starts on</span>
+              <select
+                style={selectStyle}
+                value={draft.weekStartsOn}
+                onChange={e => patch("weekStartsOn", Number(e.target.value) as 0 | 1)}
+              >
+                <option value={1}>Monday</option>
+                <option value={0}>Sunday</option>
+              </select>
+            </label>
+          </div>
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Review defaults">
+        <SettingsCard>
+          <div className="form-stack">
+            <label>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Default review visibility</span>
+              <select
+                style={selectStyle}
+                value={draft.defaultReviewVisibility}
+                onChange={e => patch("defaultReviewVisibility", e.target.value as typeof draft.defaultReviewVisibility)}
+              >
+                <option value="assigned-referees">Assigned referees can view their own review</option>
+                <option value="educators-only">Educators only (referees cannot view)</option>
+              </select>
+            </label>
+          </div>
+        </SettingsCard>
+      </SettingsSection>
+    </SettingsPage>
+  );
+}
+
+// ── Placeholder pages ─────────────────────────────────────────────────────────
 
 function BrandingPage() {
   return (
@@ -311,24 +688,6 @@ function BrandingPage() {
             "Primary brand colour",
             "Organisation logo (used in the app header and reports)",
             "Email template branding (future)",
-          ]}
-        />
-      </SettingsSection>
-    </SettingsPage>
-  );
-}
-
-function PreferencesPage() {
-  return (
-    <SettingsPage eyebrow="Organisation" title="Preferences" description="Default platform behaviour for all members of your organisation.">
-      <SettingsSection title="Platform defaults">
-        <SettingsPlaceholder
-          title="Preferences settings"
-          description="Control date formatting, week start day, and default review visibility for your organisation."
-          items={[
-            "Date format (DD/MM/YYYY, MM/DD/YYYY, or YYYY-MM-DD)",
-            "Week starts on (Monday or Sunday)",
-            "Default review visibility (educators only, or assigned referees)",
           ]}
         />
       </SettingsSection>

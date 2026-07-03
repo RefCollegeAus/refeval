@@ -802,6 +802,7 @@ export default function Home() {
           reviews={reviews}
           assignments={assignments}
           settings={orgSettings.settings}
+          onUpdateSettings={orgSettings.updateSettings}
           onBack={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onNavigateMembers={() => setScreen("database")}
         />
