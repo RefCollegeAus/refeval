@@ -24,7 +24,8 @@ export type Screen =
   | "learning-progress"
   | "groups"
   | "organisation"
-  | "referee-development";
+  | "referee-development"
+  | "referee-comments";
 
 export type RefEvalSession = {
   user: {

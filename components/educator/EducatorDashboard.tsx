@@ -217,7 +217,7 @@ export function EducatorDashboard({
         </div>
 
         {/* My Tasks */}
-        {(pendingReviews > 0 || totalUnread > 0 || pendingAssignments > 0) && (
+        {(pendingReviews > 0 || totalUnread > 0) && (
           <div className="panel ed-tasks-panel">
             <h2 className="ed-section-title">My Tasks</h2>
             <div className="ed-tasks-list">
@@ -235,13 +235,7 @@ export function EducatorDashboard({
                   <span className="ed-task-action">Open inbox <ChevronRight size={13} /></span>
                 </button>
               )}
-              {pendingAssignments > 0 && canViewAssignments && (
-                <button className="ed-task-item" onClick={() => setScreen("assignments")}>
-                  <span className="ed-task-dot" style={{ background: "#3b82f6" }} />
-                  <span className="ed-task-label">{pendingAssignments} active learning assignment{pendingAssignments !== 1 ? "s" : ""}</span>
-                  <span className="ed-task-action">View assignments <ChevronRight size={13} /></span>
-                </button>
-              )}
+              {/* Learning assignments are managed via Assignments hub, not as personal tasks */}
             </div>
           </div>
         )}

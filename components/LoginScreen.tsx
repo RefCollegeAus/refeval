@@ -146,7 +146,7 @@ export function LoginScreen({
           </button>
 
           <p className="hint">
-            Sign in using your RefEval email and password.
+            Sign in using your RefCoach email and password.
           </p>
         </div>
       </section>
