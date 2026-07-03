@@ -229,10 +229,12 @@ export function EducatorDashboard({
                 </button>
               )}
               {totalUnread > 0 && (
-                <button className="ed-task-item" onClick={() => setScreen("comment-inbox")}>
-                  <span className="ed-task-dot" style={{ background: "#8b5cf6" }} />
-                  <span className="ed-task-label">{totalUnread} comment{totalUnread !== 1 ? "s" : ""} awaiting reply</span>
-                  <span className="ed-task-action">Open inbox <ChevronRight size={13} /></span>
+                <button className="ed-task-item" onClick={() => setScreen("comment-inbox")} style={{ borderLeft: "3px solid #ff453a" }}>
+                  <span className="ed-task-dot" style={{ background: "#ff453a" }} />
+                  <span className="ed-task-label" style={{ fontWeight: 700, color: "var(--text)" }}>
+                    {totalUnread} comment{totalUnread !== 1 ? "s" : ""} awaiting reply
+                  </span>
+                  <span className="ed-task-action" style={{ color: "#ff453a" }}>Open inbox <ChevronRight size={13} /></span>
                 </button>
               )}
               {/* Learning assignments are managed via Assignments hub, not as personal tasks */}

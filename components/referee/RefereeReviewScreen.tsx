@@ -19,6 +19,7 @@ type Props = {
   unreadCounts?: UnreadCounts;
   onRead?: () => void;
   officialSummary?: OfficialSummary | null;
+  initialTagId?: string | null;
   onHome: () => void;
   onAdmin: () => void;
   onProfile: () => void;
@@ -55,14 +56,23 @@ export function RefereeReviewScreen({
   unreadCounts,
   onRead,
   officialSummary,
+  initialTagId,
   onHome,
   onAdmin,
   onProfile,
   onLogout,
 }: Props) {
-  const [selectedIdx, setSelectedIdx] = useState(0);
-  const [seekSeconds, setSeekSeconds] = useState(0);
-  const [seekAutoplay, setSeekAutoplay] = useState(false);
+  const [selectedIdx, setSelectedIdx] = useState(() => {
+    if (!initialTagId) return 0;
+    const idx = visibleTags.findIndex(t => t.id === initialTagId);
+    return idx >= 0 ? idx : 0;
+  });
+  const [seekSeconds, setSeekSeconds] = useState(() => {
+    if (!initialTagId) return 0;
+    const tag = visibleTags.find(t => t.id === initialTagId);
+    return tag?.adjustedSeconds ?? 0;
+  });
+  const [seekAutoplay, setSeekAutoplay] = useState(!!initialTagId);
   const [showComments, setShowComments] = useState(false);
 
   // Analytics filter: clicking a breakdown row filters the visible clip list

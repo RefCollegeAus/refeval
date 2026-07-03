@@ -677,6 +677,26 @@ export function PlaylistDetailScreen({
   const [assignSuccess, setAssignSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState(false);
+
+  // Watched-clip tracking (learning mode only)
+  const watchedKey = learningContext ? `refcoach_watched_clips_${learningContext.assignmentUser.id}` : null;
+  const [watchedItemIds, setWatchedItemIds] = useState<Set<string>>(() => {
+    if (!learningContext) return new Set();
+    try {
+      const raw = localStorage.getItem(`refcoach_watched_clips_${learningContext.assignmentUser.id}`);
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    } catch { return new Set(); }
+  });
+
+  function toggleWatched(itemId: string) {
+    if (!watchedKey) return;
+    setWatchedItemIds(prev => {
+      const next = new Set(prev);
+      next.has(itemId) ? next.delete(itemId) : next.add(itemId);
+      try { localStorage.setItem(watchedKey, JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  }
   const [confirmComplete, setConfirmComplete] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pendingRemoveItem, setPendingRemoveItem] = useState<{ itemId: string; idx: number } | null>(null);
@@ -833,8 +853,12 @@ export function PlaylistDetailScreen({
 
       {/* Learning context banner (referee view) */}
       {learningContext && (() => {
-        const isCompleted = learningContext.assignmentUser.status === "Completed";
-        const overdueLC   = !!learningContext.dueDate && learningContext.assignmentUser.status !== "Completed" && new Date(learningContext.dueDate).getTime() < Date.now();
+        const isCompleted  = learningContext.assignmentUser.status === "Completed";
+        const overdueLC    = !!learningContext.dueDate && !isCompleted && new Date(learningContext.dueDate).getTime() < Date.now();
+        const totalClips   = clipRows.length;
+        const watchedCount = isCompleted ? totalClips : watchedItemIds.size;
+        const allWatched   = totalClips === 0 || watchedCount >= totalClips;
+        const progressPct  = totalClips > 0 ? Math.round((watchedCount / totalClips) * 100) : 100;
         return (
           <div
             className="panel"
@@ -871,6 +895,24 @@ export function PlaylistDetailScreen({
                     {learningContext.assignmentUser.status}
                   </span>
                 </div>
+
+                {/* Progress bar */}
+                {!isCompleted && totalClips > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>
+                      <span>{watchedCount} of {totalClips} clips watched</span>
+                      <span style={{ fontWeight: 700, color: allWatched ? "#30d158" : "var(--accent)" }}>{progressPct}%</span>
+                    </div>
+                    <div style={{ height: 6, background: "var(--panel3)", borderRadius: 999, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${progressPct}%`, background: allWatched ? "#30d158" : "var(--accent)", borderRadius: 999, transition: "width .3s" }} />
+                    </div>
+                    {!allWatched && (
+                      <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>
+                        Watch all {totalClips} clips to unlock the Complete button.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Mark Complete / Completed state */}
@@ -902,13 +944,22 @@ export function PlaylistDetailScreen({
                   </div>
                 </div>
               ) : (
-                <button
-                  className="primary"
-                  style={{ fontSize: 14, padding: "9px 20px", whiteSpace: "nowrap", flexShrink: 0 }}
-                  onClick={() => setConfirmComplete(true)}
-                >
-                  <CheckCircle2 size={14} style={{ flexShrink: 0 }} /> Mark as Complete
-                </button>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                  <button
+                    className="primary"
+                    style={{ fontSize: 14, padding: "9px 20px", whiteSpace: "nowrap", opacity: allWatched ? 1 : 0.45, cursor: allWatched ? "pointer" : "not-allowed" }}
+                    disabled={!allWatched}
+                    onClick={() => allWatched && setConfirmComplete(true)}
+                    title={!allWatched ? `Watch all ${totalClips} clips first` : "Mark assignment as complete"}
+                  >
+                    <CheckCircle2 size={14} style={{ flexShrink: 0 }} /> Complete Assignment
+                  </button>
+                  {!allWatched && (
+                    <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                      {totalClips - watchedCount} clip{totalClips - watchedCount !== 1 ? "s" : ""} remaining
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -945,6 +996,7 @@ export function PlaylistDetailScreen({
 
             {clipRows.map((row, i) => {
               const isPreviewing = i === safePreviewIndex;
+              const isWatched    = learningContext ? watchedItemIds.has(row.itemId) : false;
               return (
                 <div
                   key={row.itemId}
@@ -954,7 +1006,7 @@ export function PlaylistDetailScreen({
                   aria-label={`Clip ${i + 1}: ${row.categoryGroup}${row.subtype ? ` – ${row.subtype}` : ""}`}
                   onClick={() => setPreviewIndex(i)}
                   onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPreviewIndex(i); } }}
-                  style={{ display: "flex", gap: 8, padding: "10px 8px 10px 10px", borderBottom: "1px solid var(--border)", cursor: "pointer", background: isPreviewing ? "var(--panel2)" : undefined, borderLeft: isPreviewing ? "3px solid var(--accent)" : "3px solid transparent" }}
+                  style={{ display: "flex", gap: 8, padding: "10px 8px 10px 10px", borderBottom: "1px solid var(--border)", cursor: "pointer", background: isPreviewing ? "var(--panel2)" : isWatched ? "rgba(48,209,88,.04)" : undefined, borderLeft: isPreviewing ? "3px solid var(--accent)" : isWatched ? "3px solid rgba(48,209,88,.4)" : "3px solid transparent" }}
                 >
                   {/* Reorder controls */}
                   {canEdit && (
@@ -1000,6 +1052,17 @@ export function PlaylistDetailScreen({
                       </div>
                     )}
                   </div>
+
+                  {/* Watched tick (learning mode) */}
+                  {learningContext && !learningContext.assignmentUser.completedAt && (
+                    <button
+                      onClick={e => { e.stopPropagation(); toggleWatched(row.itemId); }}
+                      style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", padding: "2px 4px", alignSelf: "center", color: isWatched ? "#30d158" : "var(--muted)" }}
+                      title={isWatched ? "Mark as unwatched" : "Mark as watched"}
+                    >
+                      <CheckCircle2 size={16} fill={isWatched ? "currentColor" : "none"} />
+                    </button>
+                  )}
 
                   {/* Remove */}
                   {canEdit && (
