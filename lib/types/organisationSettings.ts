@@ -10,6 +10,8 @@ export type OrgReminderFrequency = "daily" | "weekly" | "fortnightly" | "monthly
 
 export type OrgDeliveryMethod = "email" | "in-app";
 
+export type OrgResourceVisibility = "all-members" | "educators-only" | "assigned-only";
+
 export type ResourceLink = {
   id: string;
   title: string;
@@ -95,6 +97,12 @@ export type OrganisationSettings = {
   };
   resources: {
     learningDocuments: ResourceLink[];
+    enableLearningResources: boolean;
+    allowExternalResourceLinks: boolean;
+    allowDocumentResources: boolean;
+    defaultResourceVisibility: OrgResourceVisibility;
+    showResourcesToReferees: boolean;
+    resourceReviewRequired: boolean;
   };
 };
 
@@ -176,6 +184,12 @@ export const DEFAULT_ORG_SETTINGS: Omit<OrganisationSettings, "profile"> & {
   },
   resources: {
     learningDocuments: [],
+    enableLearningResources: true,
+    allowExternalResourceLinks: true,
+    allowDocumentResources: false,
+    defaultResourceVisibility: "all-members",
+    showResourcesToReferees: true,
+    resourceReviewRequired: false,
   },
 };
 
