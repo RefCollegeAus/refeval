@@ -32,6 +32,7 @@ import { GroupsScreen } from "@/components/educator/GroupsScreen";
 import { RefereeDevelopmentScreen } from "@/components/educator/RefereeDevelopmentScreen";
 import { useGroups } from "@/lib/hooks/useGroups";
 import { useDevelopmentGoals } from "@/lib/hooks/useDevelopmentGoals";
+import { useDevelopmentNotes } from "@/lib/hooks/useDevelopmentNotes";
 import { OrganisationScreen } from "@/components/organisation/OrganisationScreen";
 import { useOrganisationSettings } from "@/lib/hooks/useOrganisationSettings";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -266,6 +267,13 @@ export default function Home() {
     deleteRefereeGoal,
     refereeGoalViewsForReferee,
   } = useDevelopmentGoals(session?.activeOrganisation?.id, session?.user.id);
+
+  const {
+    notesForReferee,
+    createNote,
+    updateNote,
+    deleteNote,
+  } = useDevelopmentNotes(session?.activeOrganisation?.id, session?.user.id);
 
   const [devGoalRefereeId, setDevGoalRefereeId] = useState<string | null>(null);
 
@@ -1374,6 +1382,7 @@ export default function Home() {
     if (!referee) { setScreen("educator"); return null; }
     const allRefereeIds = refereeMembers.map(m => m.id);
     const goalViews = refereeGoalViewsForReferee(referee.id);
+    const refereeNotes = notesForReferee(referee.id);
     return (
       <main>
         <Header
@@ -1390,6 +1399,7 @@ export default function Home() {
           referee={referee}
           refereeMembers={refereeMembers}
           goalViews={goalViews}
+          notes={refereeNotes}
           onAssignGoal={input => assignGoal(input, allRefereeIds)}
           onUpdateGoalDef={updateGoalDef}
           onUpdateRefereeGoal={updateRefereeGoal}
@@ -1397,6 +1407,9 @@ export default function Home() {
           onArchiveGoal={archiveRefereeGoal}
           onReopenGoal={reopenRefereeGoal}
           onDeleteGoal={deleteRefereeGoal}
+          onCreateNote={createNote}
+          onUpdateNote={updateNote}
+          onDeleteNote={deleteNote}
           onBack={() => setScreen("educator")}
         />
       </main>
