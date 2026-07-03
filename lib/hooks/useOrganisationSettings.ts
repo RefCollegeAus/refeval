@@ -11,7 +11,22 @@ function storageKey(orgId: string) {
 function loadFromStorage(orgId: string, orgName: string): OrganisationSettings {
   try {
     const raw = localStorage.getItem(storageKey(orgId));
-    if (raw) return JSON.parse(raw) as OrganisationSettings;
+    if (raw) {
+      const stored = JSON.parse(raw) as Partial<OrganisationSettings>;
+      const def = makeDefaultSettings(orgName);
+      // Section-level merge: any field added after Phase 8.1 falls back to its default
+      // if missing from an older stored object.
+      return {
+        profile:          { ...def.profile,          ...(stored.profile ?? {}) },
+        branding:         { ...def.branding,         ...(stored.branding ?? {}) },
+        preferences:      { ...def.preferences,      ...(stored.preferences ?? {}) },
+        reviewDefaults:   { ...def.reviewDefaults,   ...(stored.reviewDefaults ?? {}) },
+        learningDefaults: { ...def.learningDefaults, ...(stored.learningDefaults ?? {}) },
+        notifications:    { ...def.notifications,    ...(stored.notifications ?? {}) },
+        security:         { ...def.security,         ...(stored.security ?? {}) },
+        resources:        { ...def.resources,        ...(stored.resources ?? {}) },
+      };
+    }
   } catch {}
   return makeDefaultSettings(orgName);
 }

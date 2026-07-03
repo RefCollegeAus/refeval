@@ -14,7 +14,7 @@ import type { ReviewRecord } from "@/lib/types/reviews";
 import type { Assignment } from "@/lib/types/assignments";
 import type { RefEvalSession } from "@/lib/types/auth";
 import {
-  SettingsPage, SettingsSection, SettingsCard, SettingsRow, SettingsPlaceholder,
+  SettingsPage, SettingsSection, SettingsCard, SettingsRow,
 } from "./SettingsLayout";
 
 // ── Sub-page routing ──────────────────────────────────────────────────────────
@@ -44,7 +44,14 @@ const NAV_ITEMS: { page: OrgPage; label: string; icon: ReactNode }[] = [
   { page: "resources",     label: "Resources",      icon: <FolderOpen size={15} /> },
 ];
 
-// ── Validation helpers ────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatMinutes(m: number): string {
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem > 0 ? `${h}h ${rem}m` : `${h}h`;
+}
 
 function isValidEmail(v: string): boolean {
   return !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
@@ -77,22 +84,11 @@ export function OrganisationScreen({
   const [currentPage, setCurrentPage] = useState<OrgPage>("dashboard");
 
   return (
-    <div style={{ display: "flex", minHeight: "calc(100vh - 73px)" }}>
+    <div className="org-layout">
 
       {/* ── Sidebar nav ── */}
-      <nav
-        style={{
-          width: 220,
-          flexShrink: 0,
-          borderRight: "1px solid var(--border)",
-          padding: "20px 12px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 2,
-          background: "var(--panel)",
-        }}
-      >
-        <div style={{ marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
+      <nav className="org-sidebar">
+        <div className="org-sidebar-header" style={{ marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
           <p className="eyebrow" style={{ margin: 0 }}>Organisation</p>
           <p style={{ margin: "3px 0 0", fontWeight: 800, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {org?.name ?? "Settings"}
@@ -130,7 +126,7 @@ export function OrganisationScreen({
           );
         })}
 
-        <div style={{ marginTop: "auto", paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+        <div className="org-sidebar-footer" style={{ marginTop: "auto", paddingTop: 16, borderTop: "1px solid var(--border)" }}>
           <button
             onClick={onBack}
             style={{
@@ -151,7 +147,7 @@ export function OrganisationScreen({
       </nav>
 
       {/* ── Page content ── */}
-      <div style={{ flex: 1, padding: "24px 28px", overflowY: "auto" }}>
+      <div className="org-content">
         {renderPage(currentPage, {
           session, org, members, reviews, assignments,
           settings, onUpdateSettings, setCurrentPage, onNavigateMembers,
@@ -374,7 +370,7 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
       <SettingsSection title="Security configuration">
         <div className="panel" style={{ padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: "8px 24px", alignItems: "center" }}>
           {[
-            { label: "Session timeout", value: `${settings.security.sessionTimeoutMinutes >= 60 ? `${settings.security.sessionTimeoutMinutes / 60}h` : `${settings.security.sessionTimeoutMinutes}m`}` },
+            { label: "Session timeout", value: formatMinutes(settings.security.sessionTimeoutMinutes) },
             { label: "Strong passwords", value: settings.security.requireStrongPasswords ? "Required" : "Off" },
             { label: "MFA", value: settings.security.requireTwoFactorAuthentication ? "Required" : "Not required" },
             { label: "Audit logging", value: settings.security.auditLoggingEnabled ? "On" : "Off" },
@@ -394,7 +390,7 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
       </SettingsSection>
 
       {/* Quick links */}
-      <SettingsSection title="Settings" description="Jump to a settings area to configure your organisation.">
+      <SettingsSection title="Quick links" description="Jump to a settings area to configure your organisation.">
         <div className="ed-hero-grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))" }}>
           {quickLinks.map(({ page, label, hint, icon }) => (
             <button key={page} className="ed-hero-card" onClick={() => setCurrentPage(page)}>
@@ -518,7 +514,7 @@ function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
       <SettingsSection title="Organisation identity">
         <SettingsCard>
           <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
               <label>
                 <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
                   Organisation name <span style={{ color: "#ff453a" }}>*</span>
@@ -556,7 +552,7 @@ function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
       <SettingsSection title="Contact details">
         <SettingsCard>
           <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
               <label>
                 <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
                   Contact email
@@ -707,7 +703,7 @@ function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
       <SettingsSection title="Regional settings">
         <SettingsCard>
           <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
               <label>
                 <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Timezone</span>
                 <select style={selectStyle} value={draft.timezone} onChange={e => patch("timezone", e.target.value)}>
@@ -735,7 +731,7 @@ function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
       <SettingsSection title="Date &amp; time format">
         <SettingsCard>
           <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
               <label>
                 <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Date format</span>
                 <select
