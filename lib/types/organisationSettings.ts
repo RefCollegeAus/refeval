@@ -47,6 +47,14 @@ export type OrganisationSettings = {
     requirePosition: boolean;
     requireCategory: boolean;
     requireSpecificTag: boolean;
+    defaultCrewSize: 1 | 2 | 3;
+    defaultClipLengthSeconds: number;
+    requireCompletionNotes: boolean;
+    requireEducatorSignature: boolean;
+    autoPublishCompletedReviews: boolean;
+    notifyRefereeOnCompletion: boolean;
+    allowDraftReviews: boolean;
+    defaultVisibility: OrgReviewVisibility;
   };
   learningDefaults: {
     assignmentDueDays: number;
@@ -104,6 +112,14 @@ export const DEFAULT_ORG_SETTINGS: Omit<OrganisationSettings, "profile"> & {
     requirePosition: true,
     requireCategory: true,
     requireSpecificTag: true,
+    defaultCrewSize: 1,
+    defaultClipLengthSeconds: 60,
+    requireCompletionNotes: false,
+    requireEducatorSignature: false,
+    autoPublishCompletedReviews: false,
+    notifyRefereeOnCompletion: true,
+    allowDraftReviews: true,
+    defaultVisibility: "assigned-referees",
   },
   learningDefaults: {
     assignmentDueDays: 14,

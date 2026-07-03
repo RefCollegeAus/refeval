@@ -14,7 +14,7 @@ import type { ReviewRecord } from "@/lib/types/reviews";
 import type { Assignment } from "@/lib/types/assignments";
 import type { RefEvalSession } from "@/lib/types/auth";
 import {
-  SettingsPage, SettingsSection, SettingsCard, SettingsPlaceholder,
+  SettingsPage, SettingsSection, SettingsCard, SettingsRow, SettingsPlaceholder,
 } from "./SettingsLayout";
 
 // ── Sub-page routing ──────────────────────────────────────────────────────────
@@ -181,7 +181,7 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
     case "profile":       return <ProfilePage {...ctx} />;
     case "branding":      return <BrandingPage {...ctx} />;
     case "preferences":   return <PreferencesPage {...ctx} />;
-    case "reviews":       return <ReviewsPage />;
+    case "reviews":       return <ReviewsPage {...ctx} />;
     case "learning":      return <LearningPage />;
     case "notifications": return <NotificationsPage />;
     case "security":      return <SecurityPage />;
@@ -271,6 +271,30 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
               <p className="hint" style={{ margin: "4px 0 0", fontSize: 11 }}>{hint}</p>
             </div>
           ))}
+        </div>
+      </SettingsSection>
+
+      {/* Review defaults summary */}
+      <SettingsSection title="Review configuration">
+        <div className="panel" style={{ padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: "8px 24px", alignItems: "center" }}>
+          {[
+            { label: "Crew size", value: `${settings.reviewDefaults.defaultCrewSize} referee${settings.reviewDefaults.defaultCrewSize > 1 ? "s" : ""}` },
+            { label: "Clip length", value: `${settings.reviewDefaults.defaultClipLengthSeconds}s default` },
+            { label: "Visibility", value: settings.reviewDefaults.defaultVisibility === "assigned-referees" ? "Referee can view" : "Educators only" },
+            { label: "Auto-publish", value: settings.reviewDefaults.autoPublishCompletedReviews ? "On" : "Off" },
+            { label: "Notify referee", value: settings.reviewDefaults.notifyRefereeOnCompletion ? "On" : "Off" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span className="hint" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{value}</span>
+            </div>
+          ))}
+          <button
+            style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
+            onClick={() => setCurrentPage("reviews")}
+          >
+            Edit
+          </button>
         </div>
       </SettingsSection>
 
@@ -985,18 +1009,233 @@ function BrandingPage({ settings, onUpdateSettings }: PageCtx) {
 
 // ── Placeholder pages ─────────────────────────────────────────────────────────
 
-function ReviewsPage() {
+// ── Toggle component (shared across review and future pages) ─────────────────
+
+function OrgToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <SettingsPage eyebrow="Organisation" title="Review Defaults" description="Default behaviour applied to all new evaluations in your organisation.">
-      <SettingsSection title="Tagging defaults">
-        <SettingsPlaceholder
-          title="Review default settings"
-          description="Set the default timestamp offset and control which coding fields are required when tagging a moment."
-          items={[
-            "Default timestamp offset (seconds)",
-            "Require outcome, coverage, position, category, and specific tag",
-          ]}
-        />
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      style={{
+        position: "relative",
+        width: 44, height: 26,
+        borderRadius: 13,
+        border: "none",
+        background: checked ? "var(--accent)" : "var(--panel3)",
+        cursor: "pointer",
+        flexShrink: 0,
+        boxShadow: "none",
+        padding: 0,
+        transition: "background 0.15s",
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: 3,
+          left: checked ? 21 : 3,
+          width: 20, height: 20,
+          borderRadius: "50%",
+          background: "#fff",
+          transition: "left 0.15s",
+          boxShadow: "0 1px 3px rgba(0,0,0,.4)",
+        }}
+      />
+    </button>
+  );
+}
+
+function ToggleRow({
+  label, description, checked, onChange, last,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  last?: boolean;
+}) {
+  return (
+    <SettingsRow label={label} description={description} last={last}>
+      <OrgToggle checked={checked} onChange={onChange} />
+    </SettingsRow>
+  );
+}
+
+// ── Reviews defaults page ─────────────────────────────────────────────────────
+
+function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
+  const [draft, setDraft] = useState(() => ({ ...settings.reviewDefaults }));
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const saved = settings.reviewDefaults;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+
+  const patch = useCallback(<K extends keyof typeof draft>(key: K, value: typeof draft[K]) => {
+    setDraft(prev => ({ ...prev, [key]: value }));
+    setFeedback(null);
+  }, []);
+
+  const save = useCallback(() => {
+    if (draft.defaultClipLengthSeconds <= 0 || draft.defaultClipLengthSeconds > 600) {
+      setFeedback({ type: "error", message: "Default clip length must be between 1 and 600 seconds." });
+      return;
+    }
+    if (![1, 2, 3].includes(draft.defaultCrewSize)) {
+      setFeedback({ type: "error", message: "Crew size must be 1, 2, or 3." });
+      return;
+    }
+    onUpdateSettings({ reviewDefaults: { ...draft } });
+    setFeedback({ type: "success", message: "Review defaults saved." });
+  }, [draft, onUpdateSettings]);
+
+  const discard = useCallback(() => {
+    setDraft({ ...saved });
+    setFeedback(null);
+  }, [saved]);
+
+  const selectStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
+  const numStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
+
+  return (
+    <SettingsPage
+      eyebrow="Organisation"
+      title="Review Defaults"
+      description="Default behaviour applied to all new evaluations in your organisation."
+      actions={
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
+          <button
+            className="primary"
+            onClick={save}
+            disabled={!dirty}
+            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
+          >
+            Save changes
+          </button>
+        </div>
+      }
+    >
+      {feedback && <FeedbackBanner {...feedback} />}
+
+      <SettingsSection title="Review creation defaults">
+        <SettingsCard>
+          <SettingsRow
+            label="Default crew size"
+            description="How many referees are assigned to a review by default."
+          >
+            <select
+              style={{ ...selectStyle, width: 120 }}
+              value={draft.defaultCrewSize}
+              onChange={e => patch("defaultCrewSize", Number(e.target.value) as 1 | 2 | 3)}
+            >
+              <option value={1}>1 referee</option>
+              <option value={2}>2 referees</option>
+              <option value={3}>3 referees</option>
+            </select>
+          </SettingsRow>
+          <SettingsRow
+            label="Default visibility"
+            description="Who can see a completed review by default."
+          >
+            <select
+              style={{ ...selectStyle, width: 220 }}
+              value={draft.defaultVisibility}
+              onChange={e => patch("defaultVisibility", e.target.value as typeof draft.defaultVisibility)}
+            >
+              <option value="assigned-referees">Assigned referees can view</option>
+              <option value="educators-only">Educators only</option>
+            </select>
+          </SettingsRow>
+          <ToggleRow
+            label="Allow draft reviews"
+            description="Educators can save reviews as drafts before submitting."
+            checked={draft.allowDraftReviews}
+            onChange={v => patch("allowDraftReviews", v)}
+            last
+          />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Clip and video defaults">
+        <SettingsCard>
+          <SettingsRow
+            label="Timestamp offset (seconds)"
+            description="Applied to all clip timestamps. Negative values rewind before the moment."
+          >
+            <input
+              type="number"
+              style={{ ...numStyle, width: 100 }}
+              value={draft.timestampOffsetSeconds}
+              onChange={e => patch("timestampOffsetSeconds", Number(e.target.value))}
+              step={1}
+              min={-300}
+              max={300}
+            />
+          </SettingsRow>
+          <SettingsRow
+            label="Default clip length (seconds)"
+            description="How many seconds of footage to capture around a tagged moment."
+            last
+          >
+            <input
+              type="number"
+              style={{ ...numStyle, width: 100 }}
+              value={draft.defaultClipLengthSeconds}
+              onChange={e => patch("defaultClipLengthSeconds", Number(e.target.value))}
+              step={5}
+              min={5}
+              max={600}
+            />
+          </SettingsRow>
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Required tagging fields" description="These fields must be filled in before an educator can save a coded moment.">
+        <SettingsCard>
+          <ToggleRow label="Require outcome" description="Call outcome must be selected (e.g. Correct, Incorrect)." checked={draft.requireOutcome} onChange={v => patch("requireOutcome", v)} />
+          <ToggleRow label="Require coverage" description="Coverage position must be selected." checked={draft.requireCoverage} onChange={v => patch("requireCoverage", v)} />
+          <ToggleRow label="Require position" description="Referee position must be selected." checked={draft.requirePosition} onChange={v => patch("requirePosition", v)} />
+          <ToggleRow label="Require category" description="A top-level category must be selected." checked={draft.requireCategory} onChange={v => patch("requireCategory", v)} />
+          <ToggleRow label="Require specific tag" description="A specific tag within the category must be selected." checked={draft.requireSpecificTag} onChange={v => patch("requireSpecificTag", v)} last />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Completion rules">
+        <SettingsCard>
+          <ToggleRow
+            label="Require completion notes"
+            description="Educator must add summary notes before marking a review complete."
+            checked={draft.requireCompletionNotes}
+            onChange={v => patch("requireCompletionNotes", v)}
+          />
+          <ToggleRow
+            label="Require educator signature"
+            description="Educator must confirm their sign-off when completing a review."
+            checked={draft.requireEducatorSignature}
+            onChange={v => patch("requireEducatorSignature", v)}
+            last
+          />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Publishing and notifications">
+        <SettingsCard>
+          <ToggleRow
+            label="Auto-publish completed reviews"
+            description="Completed reviews are automatically made visible to the assigned referee without manual publishing."
+            checked={draft.autoPublishCompletedReviews}
+            onChange={v => patch("autoPublishCompletedReviews", v)}
+          />
+          <ToggleRow
+            label="Notify referee on completion"
+            description="Send the assigned referee a notification when their review is completed."
+            checked={draft.notifyRefereeOnCompletion}
+            onChange={v => patch("notifyRefereeOnCompletion", v)}
+            last
+          />
+        </SettingsCard>
       </SettingsSection>
     </SettingsPage>
   );
