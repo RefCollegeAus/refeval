@@ -202,23 +202,23 @@ export function EducatorDashboard({
               key={i}
               className={"ed-hero-card" + (action.primary ? " ed-hero-card--primary" : "")}
               onClick={action.onClick}
-              style={{ position: "relative" }}
             >
-              {action.badge && (
-                <span style={{
-                  position: "absolute", top: 7, right: 8,
-                  background: "#ff453a", color: "#fff",
-                  fontSize: 10, fontWeight: 800,
-                  minWidth: 18, height: 18, borderRadius: 999,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  padding: "0 4px", lineHeight: 1, pointerEvents: "none",
-                }}>
-                  {action.badge}
-                </span>
-              )}
               <div className="ed-hero-icon">{action.icon}</div>
               <div className="ed-hero-text">
-                <div className="ed-hero-label">{action.label}</div>
+                <div className="ed-hero-label">
+                  {action.label}
+                  {action.badge && (
+                    <span style={{
+                      background: "#ff453a", color: "#fff",
+                      fontSize: 10, fontWeight: 800,
+                      minWidth: 17, height: 17, borderRadius: 999,
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      padding: "0 4px", lineHeight: 1, flexShrink: 0,
+                    }}>
+                      {action.badge}
+                    </span>
+                  )}
+                </div>
                 <div className="ed-hero-hint">{action.hint}</div>
               </div>
               <ChevronRight size={16} className="ed-hero-chevron" />
