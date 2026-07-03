@@ -172,7 +172,7 @@ export function ClipPreview({ clip, index, total, onPrev, onNext, onOpenReview, 
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
       {/* Video */}
-      <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "#000", borderRadius: 8, overflow: "hidden" }}>
+      <div className="clip-video-frame" style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "#000", borderRadius: 10, overflow: "hidden", border: "2px solid var(--accent)", boxSizing: "border-box" }}>
         {videoId ? (
           <div ref={ytContainerRef} style={{ width: "100%", height: "100%" }} />
         ) : isDirect ? (
