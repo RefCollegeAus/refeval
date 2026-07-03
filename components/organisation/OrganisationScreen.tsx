@@ -179,7 +179,7 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
   switch (page) {
     case "dashboard":     return <DashboardPage {...ctx} />;
     case "profile":       return <ProfilePage {...ctx} />;
-    case "branding":      return <BrandingPage />;
+    case "branding":      return <BrandingPage {...ctx} />;
     case "preferences":   return <PreferencesPage {...ctx} />;
     case "reviews":       return <ReviewsPage />;
     case "learning":      return <LearningPage />;
@@ -218,20 +218,23 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
 
       {/* Org identity strip */}
       <div className="panel" style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-        <div
-          style={{
-            width: 56, height: 56, borderRadius: 14, flexShrink: 0,
-            background: "linear-gradient(135deg,rgba(165,106,27,.25),rgba(165,106,27,.1))",
-            border: "1px solid rgba(165,106,27,.35)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--accent)",
-          }}
-        >
-          <Building2 size={24} />
-        </div>
+        <OrgLogoMark
+          name={org?.name ?? ""}
+          branding={settings.branding}
+          size={56}
+          fontSize={20}
+          borderRadius={14}
+        />
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 20 }}>{org?.name ?? "—"}</h2>
+          <h2 style={{ margin: 0, fontSize: 20 }}>
+            {org?.name ?? "—"}
+            {settings.profile.shortName && (
+              <span className="hint" style={{ fontSize: 13, fontWeight: 600, marginLeft: 10 }}>
+                {settings.profile.shortName}
+              </span>
+            )}
+          </h2>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 5 }}>
             <span className="hint" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
               <span style={{ color: "var(--accent)", fontSize: 9 }}>●</span>
@@ -675,25 +678,312 @@ function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
   );
 }
 
-// ── Placeholder pages ─────────────────────────────────────────────────────────
+// ── Shared logo mark ──────────────────────────────────────────────────────────
 
-function BrandingPage() {
+function isValidHttpUrl(v: string): boolean {
+  try { const u = new URL(v); return u.protocol === "http:" || u.protocol === "https:"; } catch { return false; }
+}
+
+function orgInitials(name: string, logoText: string): string {
+  if (logoText.trim()) return logoText.trim().slice(0, 2).toUpperCase();
+  return (name || "??").split(/\s+/).map(w => w[0] ?? "").join("").slice(0, 2).toUpperCase() || "??";
+}
+
+function OrgLogoMark({
+  name, branding, size, fontSize, borderRadius,
+}: {
+  name: string;
+  branding: OrganisationSettings["branding"];
+  size: number;
+  fontSize: number;
+  borderRadius: number;
+}) {
+  const showImg = !!branding.logoUrl && isValidHttpUrl(branding.logoUrl);
+  const pc = branding.primaryColour;
   return (
-    <SettingsPage eyebrow="Organisation" title="Branding" description="Visual identity used across the RefCoach platform for your organisation.">
-      <SettingsSection title="Visual identity">
-        <SettingsPlaceholder
-          title="Branding settings"
-          description="Customise the visual identity of your organisation within RefCoach, including primary colour and logo."
-          items={[
-            "Primary brand colour",
-            "Organisation logo (used in the app header and reports)",
-            "Email template branding (future)",
-          ]}
+    <div
+      style={{
+        width: size, height: size, borderRadius, flexShrink: 0,
+        background: showImg ? "transparent" : `${pc}22`,
+        border: `1.5px solid ${pc}44`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        overflow: "hidden",
+      }}
+    >
+      {showImg ? (
+        <img src={branding.logoUrl!} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <span style={{ fontWeight: 900, fontSize, color: pc, lineHeight: 1 }}>
+          {orgInitials(name, branding.logoText)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Branding page ─────────────────────────────────────────────────────────────
+
+function isValidHex(v: string): boolean {
+  return /^#[0-9a-fA-F]{6}$/.test(v);
+}
+
+function ColorField({
+  label, description, value, onChange,
+}: {
+  label: string;
+  description?: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const valid = isValidHex(value);
+  return (
+    <div>
+      <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>{label}</span>
+      {description && <span className="hint" style={{ display: "block", marginBottom: 6, fontSize: 12 }}>{description}</span>}
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input
+          type="color"
+          value={valid ? value : "#000000"}
+          onChange={e => onChange(e.target.value)}
+          style={{
+            width: 40, height: 36, padding: 3, flexShrink: 0,
+            border: "1px solid var(--border)", borderRadius: 8,
+            cursor: "pointer", background: "var(--panel2)",
+          }}
+        />
+        <input
+          type="text"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="#000000"
+          style={{
+            flex: 1, fontFamily: "monospace", fontSize: 13,
+            borderColor: !value || valid ? undefined : "rgba(255,69,58,.6)",
+          }}
+        />
+        {value && !valid && (
+          <span style={{ fontSize: 11, color: "#ff453a", flexShrink: 0 }}>Invalid hex</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BrandingPreview({
+  orgName, shortName, branding,
+}: {
+  orgName: string;
+  shortName: string;
+  branding: OrganisationSettings["branding"];
+}) {
+  const pc = isValidHex(branding.primaryColour) ? branding.primaryColour : "#a56a1b";
+  const sc = isValidHex(branding.secondaryColour) ? branding.secondaryColour : "#2c2c2e";
+  const ac = isValidHex(branding.accentColour) ? branding.accentColour : "#636366";
+
+  return (
+    <div
+      style={{
+        background: "var(--panel2)",
+        border: "1px solid var(--border)",
+        borderRadius: 14,
+        padding: "20px 22px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+      }}
+    >
+      <p className="eyebrow" style={{ margin: 0 }}>Live preview</p>
+
+      {/* Identity row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <OrgLogoMark name={orgName} branding={{ ...branding, primaryColour: pc }} size={52} fontSize={18} borderRadius={12} />
+        <div>
+          <p style={{ margin: 0, fontWeight: 800, fontSize: 15 }}>{orgName || "Organisation name"}</p>
+          {shortName && <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>{shortName}</p>}
+          <span
+            style={{
+              display: "inline-block", marginTop: 5,
+              background: `${pc}22`, border: `1px solid ${pc}44`,
+              borderRadius: 6, padding: "1px 8px",
+              fontSize: 11, fontWeight: 800, color: pc,
+              textTransform: "uppercase", letterSpacing: "0.05em",
+            }}
+          >
+            Basketball
+          </span>
+        </div>
+      </div>
+
+      {/* Sample buttons */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        <button
+          style={{
+            background: pc, color: "#fff",
+            border: "none", padding: "7px 16px",
+            borderRadius: 10, fontWeight: 700, fontSize: 12,
+            cursor: "default", boxShadow: "none",
+          }}
+        >
+          Primary action
+        </button>
+        <button
+          style={{
+            background: `${sc}33`, color: sc,
+            border: `1px solid ${sc}55`, padding: "7px 16px",
+            borderRadius: 10, fontWeight: 700, fontSize: 12,
+            cursor: "default", boxShadow: "none",
+          }}
+        >
+          Secondary
+        </button>
+        <span
+          style={{
+            background: `${ac}22`, color: ac,
+            border: `1px solid ${ac}44`,
+            borderRadius: 6, padding: "3px 10px",
+            fontSize: 11, fontWeight: 700,
+          }}
+        >
+          Accent badge
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function BrandingPage({ settings, onUpdateSettings }: PageCtx) {
+  const [draft, setDraft] = useState(() => ({ ...settings.branding }));
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const saved = settings.branding;
+  const dirty =
+    draft.primaryColour !== saved.primaryColour ||
+    draft.secondaryColour !== saved.secondaryColour ||
+    draft.accentColour !== saved.accentColour ||
+    draft.logoUrl !== saved.logoUrl ||
+    draft.logoText !== saved.logoText;
+
+  const patch = useCallback(<K extends keyof typeof draft>(key: K, value: typeof draft[K]) => {
+    setDraft(prev => ({ ...prev, [key]: value }));
+    setFeedback(null);
+  }, []);
+
+  const save = useCallback(() => {
+    if (draft.logoUrl && !isValidHttpUrl(draft.logoUrl)) {
+      setFeedback({ type: "error", message: "Logo URL must start with http:// or https://." });
+      return;
+    }
+    if (draft.primaryColour && !isValidHex(draft.primaryColour)) {
+      setFeedback({ type: "error", message: "Primary colour must be a valid 6-digit hex value (e.g. #a56a1b)." });
+      return;
+    }
+    if (draft.secondaryColour && !isValidHex(draft.secondaryColour)) {
+      setFeedback({ type: "error", message: "Secondary colour must be a valid 6-digit hex value." });
+      return;
+    }
+    if (draft.accentColour && !isValidHex(draft.accentColour)) {
+      setFeedback({ type: "error", message: "Accent colour must be a valid 6-digit hex value." });
+      return;
+    }
+    onUpdateSettings({ branding: { ...draft } });
+    setFeedback({ type: "success", message: "Branding saved." });
+  }, [draft, onUpdateSettings]);
+
+  const discard = useCallback(() => {
+    setDraft({ ...saved });
+    setFeedback(null);
+  }, [saved]);
+
+  const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
+
+  return (
+    <SettingsPage
+      eyebrow="Organisation"
+      title="Branding"
+      description="Visual identity used across the RefCoach platform for your organisation."
+      actions={
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
+          <button
+            className="primary"
+            onClick={save}
+            disabled={!dirty}
+            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
+          >
+            Save changes
+          </button>
+        </div>
+      }
+    >
+      {feedback && <FeedbackBanner {...feedback} />}
+
+      <SettingsSection title="Logo">
+        <SettingsCard description="Provide a logo URL for use in the app and reports. If left empty, your organisation's initials will be shown instead.">
+          <div className="form-stack" style={{ paddingTop: 4 }}>
+            <label>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Logo URL</span>
+              <input
+                style={inputStyle}
+                type="url"
+                value={draft.logoUrl ?? ""}
+                onChange={e => patch("logoUrl", e.target.value || null)}
+                placeholder="https://example.com/logo.png"
+              />
+            </label>
+            <label>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Logo placeholder text</span>
+              <span className="hint" style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
+                Shown when no logo URL is set. Defaults to your organisation's initials.
+              </span>
+              <input
+                style={inputStyle}
+                value={draft.logoText}
+                onChange={e => patch("logoText", e.target.value)}
+                placeholder="e.g. RCA"
+                maxLength={3}
+              />
+            </label>
+          </div>
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Colours">
+        <SettingsCard>
+          <div className="form-stack" style={{ paddingTop: 4 }}>
+            <ColorField
+              label="Primary colour"
+              description="Used for primary buttons, logo background, and key accent elements."
+              value={draft.primaryColour}
+              onChange={v => patch("primaryColour", v)}
+            />
+            <ColorField
+              label="Secondary colour"
+              description="Used for secondary buttons and supporting surface treatments."
+              value={draft.secondaryColour}
+              onChange={v => patch("secondaryColour", v)}
+            />
+            <ColorField
+              label="Accent colour"
+              description="Used for badges, labels, and tertiary accent elements."
+              value={draft.accentColour}
+              onChange={v => patch("accentColour", v)}
+            />
+          </div>
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Preview" description="Updates live as you make changes. Reflects saved data after you save.">
+        <BrandingPreview
+          orgName={settings.profile.name}
+          shortName={settings.profile.shortName}
+          branding={draft}
         />
       </SettingsSection>
     </SettingsPage>
   );
 }
+
+// ── Placeholder pages ─────────────────────────────────────────────────────────
 
 function ReviewsPage() {
   return (

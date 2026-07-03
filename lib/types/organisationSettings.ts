@@ -26,7 +26,10 @@ export type OrganisationSettings = {
   };
   branding: {
     primaryColour: string;
+    secondaryColour: string;
+    accentColour: string;
     logoUrl: string | null;
+    logoText: string;
   };
   preferences: {
     timezone: string;
@@ -80,7 +83,10 @@ export const DEFAULT_ORG_SETTINGS: Omit<OrganisationSettings, "profile"> & {
   },
   branding: {
     primaryColour: "#a56a1b",
+    secondaryColour: "#2c2c2e",
+    accentColour: "#636366",
     logoUrl: null,
+    logoText: "",
   },
   preferences: {
     timezone: "Australia/Sydney",
