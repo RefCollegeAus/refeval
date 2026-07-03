@@ -212,6 +212,10 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
   return (
     <SettingsPage eyebrow="Organisation" title={org?.name ?? "Organisation"}>
 
+      <InfoNote>
+        Some settings take effect immediately (tagging fields, branding, preferences). Others are <strong>saved defaults</strong> that pre-fill new reviews or assignments but can be overridden. Notification delivery, security enforcement, and certificate generation are <strong>future features</strong> — your preferences are saved and will activate when each feature launches.
+      </InfoNote>
+
       {/* Org identity strip */}
       <div className="panel" style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
         <OrgLogoMark
@@ -406,6 +410,49 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
       </SettingsSection>
 
     </SettingsPage>
+  );
+}
+
+// ── Shared status badge ───────────────────────────────────────────────────────
+
+type SettingStatus = "active" | "saved-default" | "not-enforced" | "coming-soon";
+
+function StatusBadge({ status }: { status: SettingStatus }) {
+  const styles: Record<SettingStatus, { label: string; bg: string; border: string; color: string }> = {
+    "active":        { label: "Active",           bg: "rgba(52,199,89,.1)",   border: "rgba(52,199,89,.28)",   color: "#34c759" },
+    "saved-default": { label: "Saved default",    bg: "rgba(10,132,255,.1)",  border: "rgba(10,132,255,.28)",  color: "#0a84ff" },
+    "not-enforced":  { label: "Not enforced yet", bg: "rgba(255,159,10,.1)",  border: "rgba(255,159,10,.28)",  color: "#ff9f0a" },
+    "coming-soon":   { label: "Coming soon",      bg: "rgba(165,106,27,.12)", border: "rgba(165,106,27,.28)",  color: "var(--accent)" },
+  };
+  const s = styles[status];
+  return (
+    <span style={{
+      display: "inline-block",
+      fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 5,
+      background: s.bg, border: `1px solid ${s.border}`, color: s.color,
+      textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0,
+      whiteSpace: "nowrap",
+    }}>
+      {s.label}
+    </span>
+  );
+}
+
+// ── Shared info note ──────────────────────────────────────────────────────────
+
+function InfoNote({ children }: { children: ReactNode }) {
+  return (
+    <div style={{
+      background: "rgba(10,132,255,.06)",
+      border: "1px solid rgba(10,132,255,.2)",
+      borderRadius: 10,
+      padding: "10px 16px",
+      fontSize: 13,
+      color: "var(--muted)",
+      lineHeight: 1.55,
+    }}>
+      {children}
+    </div>
   );
 }
 
@@ -1139,17 +1186,21 @@ function OrgToggle({ checked, onChange }: { checked: boolean; onChange: (v: bool
 }
 
 function ToggleRow({
-  label, description, checked, onChange, last,
+  label, description, checked, onChange, last, badge,
 }: {
   label: string;
   description?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
   last?: boolean;
+  badge?: ReactNode;
 }) {
   return (
     <SettingsRow label={label} description={description} last={last}>
-      <OrgToggle checked={checked} onChange={onChange} />
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <OrgToggle checked={checked} onChange={onChange} />
+        {badge}
+      </div>
     </SettingsRow>
   );
 }
@@ -1210,6 +1261,10 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
+      <InfoNote>
+        These are <strong>saved defaults</strong> — they pre-fill settings when a new review is created, but can be overridden per review. Tagging field requirements are active in the review coding tool. Auto-publish and notification toggles are saved preferences; delivery is not yet wired to a notification service.
+      </InfoNote>
+
       <SettingsSection title="Review creation defaults">
         <SettingsCard>
           <SettingsRow
@@ -1267,7 +1322,7 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
           </SettingsRow>
           <SettingsRow
             label="Default clip length (seconds)"
-            description="How many seconds of footage to capture around a tagged moment."
+            description="Suggested clip duration for tagged moments. Does not control external video playback length."
             last
           >
             <input
@@ -1318,6 +1373,7 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
             description="Completed reviews are automatically made visible to the assigned referee without manual publishing."
             checked={draft.autoPublishCompletedReviews}
             onChange={v => patch("autoPublishCompletedReviews", v)}
+            badge={<StatusBadge status="not-enforced" />}
           />
           <ToggleRow
             label="Notify referee on completion"
@@ -1325,6 +1381,7 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
             checked={draft.notifyRefereeOnCompletion}
             onChange={v => patch("notifyRefereeOnCompletion", v)}
             last
+            badge={<StatusBadge status="not-enforced" />}
           />
         </SettingsCard>
       </SettingsSection>
@@ -1392,6 +1449,10 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
       }
     >
       {feedback && <FeedbackBanner {...feedback} />}
+
+      <InfoNote>
+        These are <strong>saved defaults</strong> — they pre-fill settings when learning is assigned, but can be overridden per assignment. Certificate generation is not yet available; enabling it records your preference for when the feature launches.
+      </InfoNote>
 
       <SettingsSection title="Assignment defaults">
         <SettingsCard>
@@ -1472,6 +1533,7 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
             checked={draft.enableCertificates}
             onChange={v => patch("enableCertificates", v)}
             last
+            badge={<StatusBadge status="coming-soon" />}
           />
         </SettingsCard>
       </SettingsSection>
@@ -1579,6 +1641,10 @@ function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
       }
     >
       {feedback && <FeedbackBanner {...feedback} />}
+
+      <InfoNote>
+        <strong>These settings are not yet active.</strong> Notification preferences are saved and will take effect when the notification delivery service is connected. No emails or in-app alerts are currently sent based on these settings.
+      </InfoNote>
 
       <SettingsSection title="Review notifications" description="Sent to referees and educators when review events occur.">
         <SettingsCard>
@@ -1777,6 +1843,10 @@ function SecurityPage({ settings, onUpdateSettings }: PageCtx) {
       }
     >
       {feedback && <FeedbackBanner {...feedback} />}
+
+      <InfoNote>
+        <strong>None of these settings are currently enforced.</strong> Your preferences are saved and will take effect as platform-level security features are enabled. MFA, SSO, and audit logging are future features; email domain restriction and session timeout are recorded but not yet applied.
+      </InfoNote>
 
       <SettingsSection title="Session controls">
         <SettingsCard>
@@ -2135,6 +2205,10 @@ function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
+      <InfoNote>
+        External video and article links are <strong>available now</strong>. Document upload (PDF, DOCX, PPTX, XLSX) is a future feature — enabling it here records your preference and will take effect when document hosting is available.
+      </InfoNote>
+
       <SettingsSection title="Resource availability">
         <SettingsCard>
           <ToggleRow
@@ -2164,6 +2238,7 @@ function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
             checked={draft.allowDocumentResources}
             onChange={v => patch("allowDocumentResources", v)}
             last
+            badge={<StatusBadge status="coming-soon" />}
           />
         </SettingsCard>
       </SettingsSection>
