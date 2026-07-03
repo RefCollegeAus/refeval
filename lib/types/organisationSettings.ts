@@ -94,6 +94,13 @@ export type OrganisationSettings = {
   security: {
     requireEmailVerification: boolean;
     sessionTimeoutMinutes: number;
+    requireStrongPasswords: boolean;
+    allowRememberMe: boolean;
+    requireTwoFactorAuthentication: boolean;
+    allowSingleSignOn: boolean;
+    restrictByOrganisationEmailDomain: boolean;
+    allowedEmailDomains: string;
+    auditLoggingEnabled: boolean;
   };
   resources: {
     learningDocuments: ResourceLink[];
@@ -181,6 +188,13 @@ export const DEFAULT_ORG_SETTINGS: Omit<OrganisationSettings, "profile"> & {
   security: {
     requireEmailVerification: false,
     sessionTimeoutMinutes: 480,
+    requireStrongPasswords: true,
+    allowRememberMe: true,
+    requireTwoFactorAuthentication: false,
+    allowSingleSignOn: false,
+    restrictByOrganisationEmailDomain: false,
+    allowedEmailDomains: "",
+    auditLoggingEnabled: false,
   },
   resources: {
     learningDocuments: [],

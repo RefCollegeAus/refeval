@@ -184,7 +184,7 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
     case "reviews":       return <ReviewsPage {...ctx} />;
     case "learning":      return <LearningPage {...ctx} />;
     case "notifications": return <NotificationsPage {...ctx} />;
-    case "security":      return <SecurityPage />;
+    case "security":      return <SecurityPage {...ctx} />;
     case "members":       return <MembersPage {...ctx} />;
     case "resources":     return <ResourcesPage {...ctx} />;
   }
@@ -364,6 +364,29 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
           <button
             style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
             onClick={() => setCurrentPage("resources")}
+          >
+            Edit
+          </button>
+        </div>
+      </SettingsSection>
+
+      {/* Security summary */}
+      <SettingsSection title="Security configuration">
+        <div className="panel" style={{ padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: "8px 24px", alignItems: "center" }}>
+          {[
+            { label: "Session timeout", value: `${settings.security.sessionTimeoutMinutes >= 60 ? `${settings.security.sessionTimeoutMinutes / 60}h` : `${settings.security.sessionTimeoutMinutes}m`}` },
+            { label: "Strong passwords", value: settings.security.requireStrongPasswords ? "Required" : "Off" },
+            { label: "MFA", value: settings.security.requireTwoFactorAuthentication ? "Required" : "Not required" },
+            { label: "Audit logging", value: settings.security.auditLoggingEnabled ? "On" : "Off" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span className="hint" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{value}</span>
+            </div>
+          ))}
+          <button
+            style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
+            onClick={() => setCurrentPage("security")}
           >
             Edit
           </button>
@@ -1692,18 +1715,194 @@ function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
   );
 }
 
-function SecurityPage() {
+function SecurityPage({ settings, onUpdateSettings }: PageCtx) {
+  const [draft, setDraft] = useState(() => ({ ...settings.security }));
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const saved = settings.security;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+
+  const patch = useCallback(<K extends keyof typeof draft>(key: K, value: typeof draft[K]) => {
+    setDraft(prev => ({ ...prev, [key]: value }));
+    setFeedback(null);
+  }, []);
+
+  const save = useCallback(() => {
+    if (draft.sessionTimeoutMinutes < 5 || draft.sessionTimeoutMinutes > 10080) {
+      setFeedback({ type: "error", message: "Session timeout must be between 5 minutes and 10,080 minutes (7 days)." });
+      return;
+    }
+    if (draft.restrictByOrganisationEmailDomain && draft.allowedEmailDomains.trim()) {
+      const domains = draft.allowedEmailDomains.split(",").map(d => d.trim()).filter(Boolean);
+      const invalid = domains.filter(d => !/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(d));
+      if (invalid.length > 0) {
+        setFeedback({ type: "error", message: `Invalid domain${invalid.length > 1 ? "s" : ""}: ${invalid.join(", ")}. Enter plain domain names separated by commas (e.g. example.com, basketball.org.au).` });
+        return;
+      }
+    }
+    onUpdateSettings({ security: { ...draft } });
+    setFeedback({ type: "success", message: "Security settings saved." });
+  }, [draft, onUpdateSettings]);
+
+  const discard = useCallback(() => {
+    setDraft({ ...saved });
+    setFeedback(null);
+  }, [saved]);
+
+  const numStyle: React.CSSProperties = { width: 120, boxSizing: "border-box" };
+
+  const FutureBadge = () => (
+    <span style={{
+      fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 5,
+      background: "rgba(165,106,27,.15)", border: "1px solid rgba(165,106,27,.3)",
+      color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em",
+    }}>
+      Coming soon
+    </span>
+  );
+
   return (
-    <SettingsPage eyebrow="Organisation" title="Security" description="Authentication and session security settings for your organisation.">
-      <SettingsSection title="Access control">
-        <SettingsPlaceholder
-          title="Security settings"
-          description="Configure authentication requirements and session management for your organisation members."
-          items={[
-            "Require email verification before access",
-            "Session timeout duration",
-          ]}
-        />
+    <SettingsPage
+      eyebrow="Organisation"
+      title="Security"
+      description="Authentication and session security settings for your organisation."
+      actions={
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
+          <button
+            className="primary"
+            onClick={save}
+            disabled={!dirty}
+            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
+          >
+            Save changes
+          </button>
+        </div>
+      }
+    >
+      {feedback && <FeedbackBanner {...feedback} />}
+
+      <SettingsSection title="Session controls">
+        <SettingsCard>
+          <SettingsRow
+            label="Session timeout"
+            description="How long a member's session stays active without interaction. Between 5 and 10,080 minutes (7 days)."
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="number"
+                style={numStyle}
+                value={draft.sessionTimeoutMinutes}
+                onChange={e => patch("sessionTimeoutMinutes", Number(e.target.value))}
+                min={5}
+                max={10080}
+                step={30}
+              />
+              <span className="hint" style={{ fontSize: 13 }}>min</span>
+            </div>
+          </SettingsRow>
+          <ToggleRow
+            label="Allow remember me"
+            description="Members can choose to stay signed in across browser sessions."
+            checked={draft.allowRememberMe}
+            onChange={v => patch("allowRememberMe", v)}
+          />
+          <ToggleRow
+            label="Require email verification"
+            description="New accounts must verify their email address before accessing the platform."
+            checked={draft.requireEmailVerification}
+            onChange={v => patch("requireEmailVerification", v)}
+            last
+          />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Password policy">
+        <SettingsCard>
+          <ToggleRow
+            label="Require strong passwords"
+            description="Members must use passwords with minimum length, mixed case, numbers, and symbols."
+            checked={draft.requireStrongPasswords}
+            onChange={v => patch("requireStrongPasswords", v)}
+            last
+          />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Email domain restriction" description="Limit who can join this organisation based on their email domain.">
+        <SettingsCard>
+          <ToggleRow
+            label="Restrict by email domain"
+            description="Only allow users with approved email domains to join this organisation."
+            checked={draft.restrictByOrganisationEmailDomain}
+            onChange={v => patch("restrictByOrganisationEmailDomain", v)}
+          />
+          <SettingsRow
+            label="Allowed email domains"
+            description="Comma-separated list of permitted domains (e.g. basketball.org.au, example.com). Leave empty to allow any domain."
+            last
+          >
+            <input
+              type="text"
+              style={{ width: 260, boxSizing: "border-box" }}
+              value={draft.allowedEmailDomains}
+              onChange={e => patch("allowedEmailDomains", e.target.value)}
+              placeholder="example.com, basketball.org.au"
+              disabled={!draft.restrictByOrganisationEmailDomain}
+            />
+          </SettingsRow>
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Advanced authentication" description="These settings are recorded as organisation preferences and will be enforced when the platform-level feature is available.">
+        <SettingsCard>
+          <SettingsRow
+            label="Multi-factor authentication (MFA)"
+            description="Require all organisation members to use a second authentication factor when signing in."
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <OrgToggle
+                checked={draft.requireTwoFactorAuthentication}
+                onChange={v => patch("requireTwoFactorAuthentication", v)}
+              />
+              <FutureBadge />
+            </div>
+          </SettingsRow>
+          <SettingsRow
+            label="Single sign-on (SSO)"
+            description="Allow members to sign in using your organisation's identity provider (e.g. Azure AD, Google Workspace, Okta)."
+            last
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <OrgToggle
+                checked={draft.allowSingleSignOn}
+                onChange={v => patch("allowSingleSignOn", v)}
+              />
+              <FutureBadge />
+            </div>
+          </SettingsRow>
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Audit logging" description="Audit logs capture sign-in events, role changes, and data access for compliance and review.">
+        <SettingsCard>
+          <SettingsRow
+            label="Enable audit logging"
+            description="Record security-relevant events for this organisation. Logs will be viewable by super admins when the feature launches."
+            last
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <OrgToggle
+                checked={draft.auditLoggingEnabled}
+                onChange={v => patch("auditLoggingEnabled", v)}
+              />
+              <FutureBadge />
+            </div>
+          </SettingsRow>
+        </SettingsCard>
+        <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
+          Audit log storage and viewing will be available in a future release. Your preference is saved and will take effect when the feature launches.
+        </p>
       </SettingsSection>
     </SettingsPage>
   );
