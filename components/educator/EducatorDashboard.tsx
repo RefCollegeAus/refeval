@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   Plus, MessageSquare, Film, ListChecks, BookOpen, Trash2,
-  ChevronRight, ChevronDown, ChevronUp, Users,
+  ChevronDown, ChevronUp, Users,
 } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { RefEvalSession } from "@/lib/types/auth";
@@ -35,8 +35,66 @@ interface Props {
 
 type KpiFilter = "all" | "in-review" | "completed" | "this-week";
 
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+function SectionEmptyState({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      padding: "22px 0", gap: 6, textAlign: "center",
+    }}>
+      <div style={{ fontSize: 22, lineHeight: 1, color: "var(--muted)" }}>✓</div>
+      <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "var(--text)" }}>{title}</p>
+      <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>{subtitle}</p>
+    </div>
+  );
+}
+
+function Badge({
+  label, color, bg, border, uppercase,
+}: {
+  label: string;
+  color: string;
+  bg: string;
+  border?: string;
+  uppercase?: boolean;
+}) {
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700,
+      padding: "2px 7px", borderRadius: 999,
+      background: bg, color,
+      border: border ? `1px solid ${border}` : undefined,
+      whiteSpace: "nowrap",
+      textTransform: uppercase ? "uppercase" : undefined,
+      letterSpacing: uppercase ? ".04em" : undefined,
+    }}>
+      {label}
+    </span>
+  );
+}
+
+function ActionButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flexShrink: 0, alignSelf: "center",
+        fontSize: 12, fontWeight: 600,
+        padding: "6px 14px", borderRadius: 7,
+        background: "var(--panel3)", border: "1px solid var(--border)",
+        color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export function EducatorDashboard({
-  session, reviews, tags, playlists, assignments, refereeMembers, allRefereeGoalViews, totalUnread,
+  session, reviews, tags, playlists: _playlists, assignments, refereeMembers, allRefereeGoalViews, totalUnread,
   canViewClipLibrary, canAccessPlaylists, canViewAssignments,
   startNewReview, openReviewForEdit, deleteReview, setScreen, onNavigateDevelopment,
 }: Props) {
@@ -123,7 +181,7 @@ export function EducatorDashboard({
 
   // ── Coaching Queue ────────────────────────────────────────────────────────────
 
-  type QueueKind = "comments" | "in_progress" | "assignment_due" | "stale_draft";
+  type QueueKind = "comments" | "in_progress" | "stale_draft" | "assignment_due";
 
   type QueueItem = {
     id: string;
@@ -136,7 +194,7 @@ export function EducatorDashboard({
     badgeLabel: string;
     badgeColor: string;
     badgeBg: string;
-    dotColor: string;
+    accentColor: string;
     action: () => void;
     actionLabel: string;
   };
@@ -147,7 +205,7 @@ export function EducatorDashboard({
     const soonCutoff = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const staleDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
 
-    // 1 — Unread comments (highest urgency)
+    // 1 — Unread comments
     if (totalUnread > 0) {
       items.push({
         id: "queue::comments",
@@ -160,40 +218,39 @@ export function EducatorDashboard({
         badgeLabel: "Needs reply",
         badgeColor: "#d8b4fe",
         badgeBg: "rgba(139,92,246,.15)",
-        dotColor: "#8b5cf6",
+        accentColor: "#8b5cf6",
         action: () => setScreen("comment-inbox"),
         actionLabel: "Open Inbox",
       });
     }
 
-    // 2 — In-progress reviews (resume drafts) — most recently updated first
-    const inProgress = visibleReviews
+    // 2 — In-progress reviews
+    visibleReviews
       .filter(r => r.status !== "Completed")
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, 5);
-
-    inProgress.forEach(r => {
-      const clipCount = tags.filter(t => t.reviewId === r.id).length;
-      const refs = [r.referee1Name, r.referee2Name, r.referee3Name].filter(Boolean);
-      const isStale = r.createdAt < staleDate;
-      items.push({
-        id: `queue::review::${r.id}`,
-        kind: isStale ? "stale_draft" : "in_progress",
-        sortOrder: isStale ? 2 : 1,
-        title: r.game || "Untitled Review",
-        referees: refs.join(", "),
-        detail: `${clipCount} clip${clipCount !== 1 ? "s" : ""} tagged`,
-        dateLabel: `Started ${fmtRel(r.createdAt)}`,
-        badgeLabel: isStale ? "Stale draft" : "In progress",
-        badgeColor: isStale ? "#fca5a5" : "#fde68a",
-        badgeBg: isStale ? "rgba(239,68,68,.13)" : "rgba(245,158,11,.13)",
-        dotColor: isStale ? "#ef4444" : "#f59e0b",
-        action: () => openReviewForEdit(r),
-        actionLabel: "Continue",
+      .slice(0, 5)
+      .forEach(r => {
+        const clipCount = tags.filter(t => t.reviewId === r.id).length;
+        const refs = [r.referee1Name, r.referee2Name, r.referee3Name].filter(Boolean);
+        const isStale = r.createdAt < staleDate;
+        items.push({
+          id: `queue::review::${r.id}`,
+          kind: isStale ? "stale_draft" : "in_progress",
+          sortOrder: isStale ? 2 : 1,
+          title: r.game || "Untitled Review",
+          referees: refs.join(", "),
+          detail: `${clipCount} clip${clipCount !== 1 ? "s" : ""} tagged`,
+          dateLabel: `Started ${fmtRel(r.createdAt)}`,
+          badgeLabel: isStale ? "Stale draft" : "In progress",
+          badgeColor: isStale ? "#fca5a5" : "#fde68a",
+          badgeBg: isStale ? "rgba(239,68,68,.13)" : "rgba(245,158,11,.13)",
+          accentColor: isStale ? "#ef4444" : "#f59e0b",
+          action: () => openReviewForEdit(r),
+          actionLabel: "Continue",
+        });
       });
-    });
 
-    // 3 — Assignments due within 7 days (educator oversight)
+    // 3 — Assignments due within 7 days
     assignments
       .filter(a => a.dueDate && a.dueDate >= nowIso && a.dueDate <= soonCutoff)
       .slice(0, 3)
@@ -210,9 +267,9 @@ export function EducatorDashboard({
           badgeLabel: "Due soon",
           badgeColor: "#bbf7d0",
           badgeBg: "rgba(34,197,94,.12)",
-          dotColor: "#22c55e",
+          accentColor: "#22c55e",
           action: () => setScreen("assignments"),
-          actionLabel: "View Assignment",
+          actionLabel: "View",
         });
       });
 
@@ -267,8 +324,7 @@ export function EducatorDashboard({
       if (overdueGoal) {
         results.push({
           id: `${m.id}::overdue_target`,
-          refereeId: m.id,
-          refereeName: m.name,
+          refereeId: m.id, refereeName: m.name,
           kind: "overdue_target_review_date",
           title: "Target review date has passed",
           explanation: `"${overdueGoal.title}" was due for review by ${overdueGoal.targetReviewDate}.`,
@@ -278,13 +334,12 @@ export function EducatorDashboard({
         });
       }
 
-      // Rule 2 — High: active high-priority goal with no completed review at all
+      // Rule 2 — High: active high-priority goal, no completed review ever
       if (highPriActive.length > 0 && completedReviews.length === 0) {
         const goal = highPriActive[0];
         results.push({
           id: `${m.id}::highpri_no_review`,
-          refereeId: m.id,
-          refereeName: m.name,
+          refereeId: m.id, refereeName: m.name,
           kind: "high_priority_goal_active",
           title: "High-priority goal — never reviewed",
           explanation: `"${goal.title}" is High priority but ${m.name} has no completed review on record.`,
@@ -294,20 +349,17 @@ export function EducatorDashboard({
         });
       }
 
-      // Rule 3 — High: active goal but no completed review since it was assigned
+      // Rule 3 — High: active goal, no completed review since goal was assigned
       if (activeGoals.length > 0) {
-        const oldestGoalDate = activeGoals
-          .map(g => g.createdAt)
-          .sort()[0];
+        const oldestGoalDate = activeGoals.map(g => g.createdAt).sort()[0];
         const reviewedSinceGoal = latestCompletedReview &&
           (latestCompletedReview.submittedAt ?? latestCompletedReview.createdAt) >= oldestGoalDate;
         if (!reviewedSinceGoal) {
           results.push({
             id: `${m.id}::no_review_since_goal`,
-            refereeId: m.id,
-            refereeName: m.name,
+            refereeId: m.id, refereeName: m.name,
             kind: "no_review_since_goal_assigned",
-            title: "No review completed since goal was assigned",
+            title: "No review since goal was assigned",
             explanation: `${m.name} has ${activeGoals.length} active goal${activeGoals.length !== 1 ? "s" : ""} but no completed review since the goal was assigned.`,
             priority: "High",
             action: () => onNavigateDevelopment(m.id),
@@ -316,12 +368,11 @@ export function EducatorDashboard({
         }
       }
 
-      // Rule 4 — Medium: completed a learning assignment but no completed review
+      // Rule 4 — Medium: completed learning, no review yet
       if (completedAssignment && completedReviews.length === 0) {
         results.push({
           id: `${m.id}::learning_no_review`,
-          refereeId: m.id,
-          refereeName: m.name,
+          refereeId: m.id, refereeName: m.name,
           kind: "completed_learning_no_review",
           title: "Completed learning — not yet reviewed",
           explanation: `${m.name} has completed a learning assignment but has not been reviewed yet.`,
@@ -331,12 +382,11 @@ export function EducatorDashboard({
         });
       }
 
-      // Rule 5 — Low: multiple completed reviews but no active development goals
+      // Rule 5 — Low: multiple reviews, no active goals
       if (completedReviews.length >= 2 && activeGoals.length === 0) {
         results.push({
           id: `${m.id}::no_goals`,
-          refereeId: m.id,
-          refereeName: m.name,
+          refereeId: m.id, refereeName: m.name,
           kind: "multiple_reviews_no_goals",
           title: "No active development goals",
           explanation: `${m.name} has ${completedReviews.length} completed reviews but no active development goals set.`,
@@ -347,7 +397,7 @@ export function EducatorDashboard({
       }
     });
 
-    // One reminder per referee — keep highest priority
+    // One reminder per referee — highest priority wins
     const seen = new Map<string, FollowUp>();
     for (const f of results) {
       const existing = seen.get(f.refereeId);
@@ -361,8 +411,10 @@ export function EducatorDashboard({
       .slice(0, 12);
   }, [refereeMembers, allRefereeGoalViews, visibleReviews, assignments, onNavigateDevelopment, startNewReview]);
 
-  // Recent activity
+  // ── Recent activity ───────────────────────────────────────────────────────────
+
   type ActivityItem = { label: string; detail: string; ts: string; type: "created" | "completed" };
+
   const recentActivity = useMemo<ActivityItem[]>(() => {
     const items: ActivityItem[] = [];
     visibleReviews.forEach(r => {
@@ -372,10 +424,11 @@ export function EducatorDashboard({
     return items.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 10);
   }, [visibleReviews]);
 
-  const dotColor = (type: ActivityItem["type"]) =>
+  const activityDotColor = (type: ActivityItem["type"]) =>
     type === "completed" ? "#22c55e" : "#3b82f6";
 
-  // Quick actions for sidebar
+  // ── Quick Actions ─────────────────────────────────────────────────────────────
+
   const quickActions = [
     { icon: <Plus size={16} />, label: "New Review", onClick: startNewReview, primary: true,
       badge: undefined as string | undefined },
@@ -391,13 +444,29 @@ export function EducatorDashboard({
       onClick: () => onNavigateDevelopment(refereeMembers[0].id), badge: undefined as string | undefined }] : []),
   ];
 
+  // ── Priority badge helpers ────────────────────────────────────────────────────
+
+  function followUpBadgeProps(priority: FollowUpPriority) {
+    if (priority === "High")   return { color: "#fca5a5", bg: "rgba(239,68,68,.14)",   border: "rgba(239,68,68,.3)" };
+    if (priority === "Medium") return { color: "#fde68a", bg: "rgba(245,158,11,.14)", border: "rgba(245,158,11,.3)" };
+    return                            { color: "var(--muted)", bg: "rgba(142,142,147,.1)", border: "rgba(142,142,147,.2)" };
+  }
+
+  function followUpBorderColor(priority: FollowUpPriority) {
+    if (priority === "High")   return "rgba(239,68,68,.3)";
+    if (priority === "Medium") return "rgba(245,158,11,.25)";
+    return "var(--border)";
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+
   return (
     <div className="ed-layout">
 
       {/* ── Main column ── */}
       <div className="ed-main">
 
-        {/* Page header */}
+        {/* Header */}
         <div className="ed-dash-header panel">
           <div>
             <p className="eyebrow">{portalLabel}</p>
@@ -410,15 +479,14 @@ export function EducatorDashboard({
           </div>
         </div>
 
-        {/* Coaching Queue */}
+        {/* ── Coaching Queue ── */}
         <div className="panel">
-          <h2 className="ed-section-title" style={{ marginBottom: 12 }}>Coaching Queue</h2>
+          <h2 className="ed-section-title" style={{ marginBottom: 14 }}>Coaching Queue</h2>
           {coachingQueue.length === 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "18px 0", gap: 6 }}>
-              <div style={{ fontSize: 26 }}>✓</div>
-              <p style={{ margin: 0, fontWeight: 700, color: "var(--text)" }}>Your coaching queue is clear.</p>
-              <p className="hint" style={{ margin: 0, fontSize: 13 }}>No immediate actions needed. Keep up the great work.</p>
-            </div>
+            <SectionEmptyState
+              title="Your coaching queue is clear."
+              subtitle="No immediate actions needed. Keep up the great work."
+            />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {coachingQueue.map(item => (
@@ -426,100 +494,88 @@ export function EducatorDashboard({
                   key={item.id}
                   style={{
                     display: "flex", alignItems: "center", gap: 12,
-                    background: "var(--panel2)", border: "1px solid var(--border)",
-                    borderRadius: 10, padding: "10px 14px",
+                    background: "var(--panel2)",
+                    border: "1px solid var(--border)",
+                    borderLeft: `3px solid ${item.accentColor}`,
+                    borderRadius: 10,
+                    padding: "11px 14px 11px 12px",
                   }}
                 >
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.dotColor, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
+                      <span style={{
+                        fontWeight: 700, fontSize: 14, color: "var(--text)",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
                         {item.title}
                       </span>
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 999,
-                        background: item.badgeBg, color: item.badgeColor,
-                        whiteSpace: "nowrap",
-                      }}>
-                        {item.badgeLabel}
-                      </span>
+                      <Badge label={item.badgeLabel} color={item.badgeColor} bg={item.badgeBg} />
                     </div>
                     {item.referees && (
-                      <p style={{ margin: 0, fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <p style={{
+                        margin: "0 0 1px", fontSize: 12, color: "var(--text)",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        fontWeight: 500,
+                      }}>
                         {item.referees}
                       </p>
                     )}
-                    <p style={{ margin: "1px 0 0", fontSize: 11, color: "var(--muted)" }}>
+                    <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
                       {item.detail}{item.dateLabel ? ` · ${item.dateLabel}` : ""}
                     </p>
                   </div>
-                  <button
-                    onClick={item.action}
-                    style={{
-                      flexShrink: 0, fontSize: 12, padding: "5px 12px",
-                      borderRadius: 7, background: "var(--panel3)",
-                      border: "1px solid var(--border)", color: "var(--text)",
-                      cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap",
-                    }}
-                  >
-                    {item.actionLabel}
-                  </button>
+                  <ActionButton label={item.actionLabel} onClick={item.action} />
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Smart Follow-ups */}
+        {/* ── Smart Follow-ups ── */}
         <div className="panel">
-          <h2 className="ed-section-title" style={{ marginBottom: 12 }}>Smart Follow-ups</h2>
+          <h2 className="ed-section-title" style={{ marginBottom: 14 }}>Smart Follow-ups</h2>
           {smartFollowUps.length === 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 0", gap: 8 }}>
-              <div style={{ fontSize: 28 }}>✓</div>
-              <p style={{ margin: 0, fontWeight: 700, color: "var(--text)" }}>Everything looks up to date.</p>
-              <p className="hint" style={{ margin: 0, fontSize: 13 }}>No coaching follow-ups needed right now.</p>
-            </div>
+            <SectionEmptyState
+              title="Everything looks up to date."
+              subtitle="No referee development reminders right now."
+            />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {smartFollowUps.map(f => {
-                const badgeBg = f.priority === "High" ? "rgba(239,68,68,.15)" : f.priority === "Medium" ? "rgba(245,158,11,.15)" : "rgba(142,142,147,.12)";
-                const badgeColor = f.priority === "High" ? "#fca5a5" : f.priority === "Medium" ? "#fde68a" : "var(--muted)";
-                const borderAccent = f.priority === "High" ? "rgba(239,68,68,.25)" : f.priority === "Medium" ? "rgba(245,158,11,.2)" : "var(--border)";
+                const bp = followUpBadgeProps(f.priority);
+                const borderColor = followUpBorderColor(f.priority);
                 return (
                   <div
                     key={f.id}
                     style={{
-                      display: "flex", alignItems: "flex-start", gap: 12,
-                      background: "var(--panel2)", border: `1px solid ${borderAccent}`,
-                      borderRadius: 10, padding: "12px 14px",
+                      display: "flex", alignItems: "center", gap: 12,
+                      background: "var(--panel2)",
+                      border: `1px solid ${borderColor}`,
+                      borderRadius: 10,
+                      padding: "11px 14px",
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                        <span style={{ fontWeight: 800, fontSize: 13, color: "var(--text)" }}>{f.refereeName}</span>
-                        <span style={{
-                          fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 999,
-                          background: badgeBg, color: badgeColor,
-                          border: `1px solid ${badgeColor}33`,
-                          textTransform: "uppercase", letterSpacing: ".04em",
-                        }}>
-                          {f.priority}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text)" }}>
+                          {f.refereeName}
                         </span>
+                        <Badge
+                          label={f.priority}
+                          color={bp.color}
+                          bg={bp.bg}
+                          border={bp.border}
+                          uppercase
+                        />
                       </div>
-                      <p style={{ margin: "0 0 3px", fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{f.title}</p>
-                      <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>{f.explanation}</p>
+                      <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+                        {f.title}
+                      </p>
+                      <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
+                        {f.explanation}
+                      </p>
                     </div>
-                    <button
-                      onClick={f.action}
-                      style={{
-                        flexShrink: 0, fontSize: 12, padding: "5px 12px",
-                        borderRadius: 7, background: "var(--panel3)",
-                        border: "1px solid var(--border)", color: "var(--text)",
-                        cursor: "pointer", whiteSpace: "nowrap", fontWeight: 600,
-                      }}
-                    >
-                      {f.actionLabel}
-                    </button>
+                    <ActionButton label={f.actionLabel} onClick={f.action} />
                   </div>
                 );
               })}
@@ -527,22 +583,35 @@ export function EducatorDashboard({
           )}
         </div>
 
-        {/* All Reviews (collapsible) */}
+        {/* ── All Reviews (collapsible) ── */}
         <div className="panel">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showAllReviews ? 14 : 0 }}>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            marginBottom: showAllReviews ? 14 : 4,
+          }}>
             <button
               onClick={() => setShowAllReviews(p => !p)}
-              style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+              style={{
+                display: "flex", alignItems: "center", gap: 8,
+                background: "none", border: "none", cursor: "pointer", padding: 0,
+              }}
             >
               <h2 className="ed-section-title" style={{ marginBottom: 0 }}>All Reviews</h2>
-              {showAllReviews ? <ChevronUp size={16} style={{ color: "var(--muted)" }} /> : <ChevronDown size={16} style={{ color: "var(--muted)" }} />}
+              {showAllReviews
+                ? <ChevronUp size={15} style={{ color: "var(--muted)" }} />
+                : <ChevronDown size={15} style={{ color: "var(--muted)" }} />}
             </button>
             <span className="hint" style={{ fontSize: 12 }}>{visibleReviews.length} total</span>
           </div>
 
+          {!showAllReviews && (
+            <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
+              Search and filter your complete review history.
+            </p>
+          )}
+
           {showAllReviews && (
             <>
-              {/* Search bar */}
               <div className="ed-search-row">
                 <input
                   className="ed-search-input"
@@ -557,7 +626,6 @@ export function EducatorDashboard({
                 )}
               </div>
 
-              {/* Filter row */}
               <div className="ed-filter-bar" style={{ marginTop: 10 }}>
                 <div className="ed-filter-row">
                   <select
@@ -611,7 +679,6 @@ export function EducatorDashboard({
                 </div>
               </div>
 
-              {/* KPI quick-filter strip */}
               <div className="ed-kpi-grid" style={{ marginTop: 10 }}>
                 <button
                   className={"ed-kpi-card" + (kpiFilter === "all" && filterStatus === "All" && filterDateRange === "all" ? " ed-kpi-card--active" : "")}
@@ -643,7 +710,6 @@ export function EducatorDashboard({
                 </button>
               </div>
 
-              {/* Review table */}
               {filteredReviews.length === 0 ? (
                 <div className="empty-state" style={{ marginTop: 16 }}>No reviews match the current filters.</div>
               ) : (
@@ -701,15 +767,6 @@ export function EducatorDashboard({
               )}
             </>
           )}
-
-          {!showAllReviews && (
-            <button
-              onClick={() => setShowAllReviews(true)}
-              style={{ marginTop: 2, fontSize: 12, color: "var(--muted)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
-            >
-              <ChevronDown size={13} /> Browse {visibleReviews.length} review{visibleReviews.length !== 1 ? "s" : ""}
-            </button>
-          )}
         </div>
       </div>
 
@@ -729,7 +786,8 @@ export function EducatorDashboard({
                   display: "flex", alignItems: "center", gap: 10,
                   background: action.primary ? "var(--accent)" : "var(--panel2)",
                   border: `1px solid ${action.primary ? "var(--accent)" : "var(--border)"}`,
-                  borderRadius: 8, padding: "8px 12px", cursor: "pointer", textAlign: "left",
+                  borderRadius: 8, padding: "8px 12px",
+                  cursor: "pointer", textAlign: "left",
                   color: "var(--text)", fontSize: 13, fontWeight: action.primary ? 700 : 500,
                 }}
               >
@@ -742,10 +800,16 @@ export function EducatorDashboard({
                     display: "flex", alignItems: "center", justifyContent: "center",
                     padding: "0 3px", lineHeight: 1, pointerEvents: "none",
                     boxShadow: "0 0 0 2px var(--bg)",
-                  }}>{action.badge}</span>
+                  }}>
+                    {action.badge}
+                  </span>
                 )}
-                <span style={{ color: action.primary ? "var(--bg)" : "var(--muted)", flexShrink: 0 }}>{action.icon}</span>
-                <span style={{ color: action.primary ? "var(--bg)" : "var(--text)" }}>{action.label}</span>
+                <span style={{ color: action.primary ? "var(--bg)" : "var(--muted)", flexShrink: 0 }}>
+                  {action.icon}
+                </span>
+                <span style={{ color: action.primary ? "var(--bg)" : "var(--text)" }}>
+                  {action.label}
+                </span>
               </button>
             ))}
           </div>
@@ -755,12 +819,15 @@ export function EducatorDashboard({
         <div className="panel">
           <h3 className="ed-section-title" style={{ marginBottom: 10 }}>Recent Activity</h3>
           {recentActivity.length === 0 ? (
-            <p className="hint">No activity yet.</p>
+            <SectionEmptyState
+              title="No activity yet."
+              subtitle="Completed reviews and updates will appear here."
+            />
           ) : (
             <div className="ed-activity-list">
               {recentActivity.map((item, i) => (
                 <div key={i} className="ed-activity-item">
-                  <div className="ed-activity-dot" style={{ background: dotColor(item.type) }} />
+                  <div className="ed-activity-dot" style={{ background: activityDotColor(item.type) }} />
                   <div className="ed-activity-body">
                     <p className="ed-activity-label">{item.label}</p>
                     <p className="ed-activity-detail">{item.detail}</p>
