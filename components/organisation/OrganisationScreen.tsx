@@ -182,7 +182,7 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
     case "branding":      return <BrandingPage {...ctx} />;
     case "preferences":   return <PreferencesPage {...ctx} />;
     case "reviews":       return <ReviewsPage {...ctx} />;
-    case "learning":      return <LearningPage />;
+    case "learning":      return <LearningPage {...ctx} />;
     case "notifications": return <NotificationsPage />;
     case "security":      return <SecurityPage />;
     case "members":       return <MembersPage onNavigateMembers={ctx.onNavigateMembers} />;
@@ -292,6 +292,30 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
           <button
             style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
             onClick={() => setCurrentPage("reviews")}
+          >
+            Edit
+          </button>
+        </div>
+      </SettingsSection>
+
+      {/* Learning defaults summary */}
+      <SettingsSection title="Learning configuration">
+        <div className="panel" style={{ padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: "8px 24px", alignItems: "center" }}>
+          {[
+            { label: "Due days", value: `${settings.learningDefaults.assignmentDueDays} days` },
+            { label: "Completion", value: `${settings.learningDefaults.requiredCompletionPercent}% required` },
+            { label: "Passing", value: `${settings.learningDefaults.passingPercent}% to pass` },
+            { label: "Reminders", value: settings.learningDefaults.sendDueReminders ? `On (${settings.learningDefaults.reminderDaysBefore}d before)` : "Off" },
+            { label: "Reflection", value: settings.learningDefaults.requireReflection ? "Required" : "Optional" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span className="hint" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{value}</span>
+            </div>
+          ))}
+          <button
+            style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
+            onClick={() => setCurrentPage("learning")}
           >
             Edit
           </button>
@@ -1241,20 +1265,204 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
   );
 }
 
-function LearningPage() {
+function LearningPage({ settings, onUpdateSettings }: PageCtx) {
+  const [draft, setDraft] = useState(() => ({ ...settings.learningDefaults }));
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const saved = settings.learningDefaults;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+
+  const patch = useCallback(<K extends keyof typeof draft>(key: K, value: typeof draft[K]) => {
+    setDraft(prev => ({ ...prev, [key]: value }));
+    setFeedback(null);
+  }, []);
+
+  const save = useCallback(() => {
+    if (!Number.isInteger(draft.assignmentDueDays) || draft.assignmentDueDays < 1) {
+      setFeedback({ type: "error", message: "Default due days must be a positive whole number." });
+      return;
+    }
+    if (draft.requiredCompletionPercent < 1 || draft.requiredCompletionPercent > 100) {
+      setFeedback({ type: "error", message: "Required completion % must be between 1 and 100." });
+      return;
+    }
+    if (draft.passingPercent < 1 || draft.passingPercent > 100) {
+      setFeedback({ type: "error", message: "Passing % must be between 1 and 100." });
+      return;
+    }
+    if (draft.reminderDaysBefore < 0) {
+      setFeedback({ type: "error", message: "Reminder days before due must be zero or greater." });
+      return;
+    }
+    onUpdateSettings({ learningDefaults: { ...draft } });
+    setFeedback({ type: "success", message: "Learning defaults saved." });
+  }, [draft, onUpdateSettings]);
+
+  const discard = useCallback(() => {
+    setDraft({ ...saved });
+    setFeedback(null);
+  }, [saved]);
+
+  const numStyle: React.CSSProperties = { width: 100, boxSizing: "border-box" };
+
   return (
-    <SettingsPage eyebrow="Organisation" title="Learning Defaults" description="Default settings for learning assignments and referee engagement.">
+    <SettingsPage
+      eyebrow="Organisation"
+      title="Learning Defaults"
+      description="Default settings for learning assignments and referee engagement."
+      actions={
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
+          <button
+            className="primary"
+            onClick={save}
+            disabled={!dirty}
+            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
+          >
+            Save changes
+          </button>
+        </div>
+      }
+    >
+      {feedback && <FeedbackBanner {...feedback} />}
+
       <SettingsSection title="Assignment defaults">
-        <SettingsPlaceholder
-          title="Learning default settings"
-          description="Configure default assignment rules and reminder behaviour for your organisation."
-          items={[
-            "Default assignment due period (days)",
-            "Send due-date reminder emails",
-            "Reminder lead time (days before due)",
-            "Allow referee comments on clips",
-          ]}
-        />
+        <SettingsCard>
+          <SettingsRow
+            label="Default due days"
+            description="How many days after assignment a referee has to complete the learning."
+          >
+            <input
+              type="number"
+              style={numStyle}
+              value={draft.assignmentDueDays}
+              onChange={e => patch("assignmentDueDays", Number(e.target.value))}
+              min={1}
+              step={1}
+            />
+          </SettingsRow>
+          <ToggleRow
+            label="Allow late completion"
+            description="Referees can still complete assignments after the due date has passed."
+            checked={draft.allowLateCompletion}
+            onChange={v => patch("allowLateCompletion", v)}
+          />
+          <ToggleRow
+            label="Allow referee comments"
+            description="Referees can leave comments on clips within their assigned learning."
+            checked={draft.allowRefereeComments}
+            onChange={v => patch("allowRefereeComments", v)}
+            last
+          />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Completion rules">
+        <SettingsCard>
+          <SettingsRow
+            label="Required completion %"
+            description="How much of the assignment content must be viewed before it counts as complete."
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="number"
+                style={numStyle}
+                value={draft.requiredCompletionPercent}
+                onChange={e => patch("requiredCompletionPercent", Number(e.target.value))}
+                min={1}
+                max={100}
+                step={5}
+              />
+              <span className="hint" style={{ fontSize: 13 }}>%</span>
+            </div>
+          </SettingsRow>
+          <SettingsRow
+            label="Passing %"
+            description="Minimum score required to pass an assessed assignment."
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                type="number"
+                style={numStyle}
+                value={draft.passingPercent}
+                onChange={e => patch("passingPercent", Number(e.target.value))}
+                min={1}
+                max={100}
+                step={5}
+              />
+              <span className="hint" style={{ fontSize: 13 }}>%</span>
+            </div>
+          </SettingsRow>
+          <ToggleRow
+            label="Require reflection"
+            description="Referees must submit a written reflection before the assignment is marked complete."
+            checked={draft.requireReflection}
+            onChange={v => patch("requireReflection", v)}
+          />
+          <ToggleRow
+            label="Enable certificates"
+            description="Issue a completion certificate when a referee finishes an assignment."
+            checked={draft.enableCertificates}
+            onChange={v => patch("enableCertificates", v)}
+            last
+          />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Reminders and notifications">
+        <SettingsCard>
+          <ToggleRow
+            label="Auto-notify assigned referees"
+            description="Send referees a notification immediately when they are assigned new learning."
+            checked={draft.autoNotifyAssignedReferees}
+            onChange={v => patch("autoNotifyAssignedReferees", v)}
+          />
+          <ToggleRow
+            label="Send due-date reminders"
+            description="Send referees a reminder email before their assignment due date."
+            checked={draft.sendDueReminders}
+            onChange={v => patch("sendDueReminders", v)}
+          />
+          <SettingsRow
+            label="Reminder days before due"
+            description="How many days before the due date to send the reminder. Requires reminders enabled."
+            last
+          >
+            <input
+              type="number"
+              style={numStyle}
+              value={draft.reminderDaysBefore}
+              onChange={e => patch("reminderDaysBefore", Number(e.target.value))}
+              min={0}
+              step={1}
+              disabled={!draft.sendDueReminders}
+            />
+          </SettingsRow>
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Referee visibility">
+        <SettingsCard>
+          <ToggleRow
+            label="Show progress to referees"
+            description="Referees can see their own completion progress and status within an assignment."
+            checked={draft.showProgressToReferees}
+            onChange={v => patch("showProgressToReferees", v)}
+            last
+          />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Default assignment message" description="Pre-filled message included when an educator assigns learning to a referee. Can be overridden per assignment.">
+        <SettingsCard>
+          <textarea
+            value={draft.defaultAssignmentMessage}
+            onChange={e => patch("defaultAssignmentMessage", e.target.value)}
+            rows={4}
+            placeholder="e.g. Please review the clips in this assignment and focus on your positioning. Reach out if you have any questions."
+            style={{ width: "100%", boxSizing: "border-box", resize: "vertical", minHeight: 96 }}
+          />
+        </SettingsCard>
       </SettingsSection>
     </SettingsPage>
   );

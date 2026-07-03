@@ -61,6 +61,14 @@ export type OrganisationSettings = {
     sendDueReminders: boolean;
     reminderDaysBefore: number;
     allowRefereeComments: boolean;
+    requiredCompletionPercent: number;
+    passingPercent: number;
+    requireReflection: boolean;
+    enableCertificates: boolean;
+    autoNotifyAssignedReferees: boolean;
+    allowLateCompletion: boolean;
+    showProgressToReferees: boolean;
+    defaultAssignmentMessage: string;
   };
   notifications: {
     newReviewAssigned: boolean;
@@ -126,6 +134,14 @@ export const DEFAULT_ORG_SETTINGS: Omit<OrganisationSettings, "profile"> & {
     sendDueReminders: true,
     reminderDaysBefore: 3,
     allowRefereeComments: true,
+    requiredCompletionPercent: 100,
+    passingPercent: 80,
+    requireReflection: false,
+    enableCertificates: false,
+    autoNotifyAssignedReferees: true,
+    allowLateCompletion: true,
+    showProgressToReferees: true,
+    defaultAssignmentMessage: "",
   },
   notifications: {
     newReviewAssigned: true,
