@@ -23,7 +23,8 @@ export type Screen =
   | "learning-hub"
   | "learning-progress"
   | "groups"
-  | "organisation";
+  | "organisation"
+  | "referee-development";
 
 export type RefEvalSession = {
   user: {

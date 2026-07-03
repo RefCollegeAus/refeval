@@ -10,6 +10,8 @@ import type { RefEvalSession } from "@/lib/types/auth";
 import type { Screen } from "@/lib/types/auth";
 import type { Playlist } from "@/lib/types/playlists";
 import type { Assignment } from "@/lib/types/assignments";
+import type { MemberRecord } from "@/lib/types/members";
+import type { DevelopmentGoal } from "@/lib/types/developmentGoals";
 import { fmtRel } from "@/lib/utils/time";
 
 interface Props {
@@ -18,6 +20,8 @@ interface Props {
   tags: CodedTag[];
   playlists: Playlist[];
   assignments: Assignment[];
+  refereeMembers: MemberRecord[];
+  devGoals: DevelopmentGoal[];
   totalUnread: number;
   canViewClipLibrary: boolean;
   canAccessPlaylists: boolean;
@@ -26,15 +30,16 @@ interface Props {
   openReviewForEdit: (review: ReviewRecord) => void;
   deleteReview: (id: string) => void;
   setScreen: (screen: Screen) => void;
+  onNavigateDevelopment: (refereeId: string) => void;
 }
 
 type KpiFilter = "all" | "in-review" | "completed" | "this-week";
 
 
 export function EducatorDashboard({
-  session, reviews, tags, playlists, assignments, totalUnread,
+  session, reviews, tags, playlists, assignments, refereeMembers, devGoals, totalUnread,
   canViewClipLibrary, canAccessPlaylists, canViewAssignments,
-  startNewReview, openReviewForEdit, deleteReview, setScreen,
+  startNewReview, openReviewForEdit, deleteReview, setScreen, onNavigateDevelopment,
 }: Props) {
   // --- Filter state (local to dashboard) ---
   const [filterStatus, setFilterStatus] = useState<"All" | "In Review" | "Completed">("All");
@@ -433,6 +438,37 @@ export function EducatorDashboard({
             </div>
           )}
         </div>
+
+        {/* Referee Development */}
+        {refereeMembers.length > 0 && (
+          <div className="panel">
+            <h3 className="ed-section-title" style={{ marginBottom: 10 }}>Referee Development</h3>
+            <div className="ed-activity-list">
+              {refereeMembers.slice(0, 8).map(m => {
+                const mGoals = devGoals.filter(g => g.refereeId === m.id);
+                const active    = mGoals.filter(g => g.status === "Active").length;
+                const highPri   = mGoals.filter(g => g.status === "Active" && g.priority === "High").length;
+                return (
+                  <button
+                    key={m.id}
+                    className="ed-task-item"
+                    onClick={() => onNavigateDevelopment(m.id)}
+                    style={{ textAlign: "left" }}
+                  >
+                    <span className="ed-activity-dot" style={{ background: active > 0 ? "#0a84ff" : "var(--border)", marginTop: 2 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p className="ed-activity-label" style={{ margin: 0 }}>{m.name}</p>
+                      <p className="ed-activity-detail" style={{ margin: "1px 0 0" }}>
+                        {active > 0 ? `${active} active goal${active !== 1 ? "s" : ""}${highPri > 0 ? ` · ${highPri} high priority` : ""}` : "No active goals"}
+                      </p>
+                    </div>
+                    <ChevronRight size={13} style={{ flexShrink: 0, color: "var(--muted)" }} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
       </aside>
     </div>

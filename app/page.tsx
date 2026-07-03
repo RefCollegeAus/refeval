@@ -29,7 +29,9 @@ import { EducatorDashboard } from "@/components/educator/EducatorDashboard";
 import { LearningHub } from "@/components/educator/LearningHub";
 import { LearningProgress } from "@/components/educator/LearningProgress";
 import { GroupsScreen } from "@/components/educator/GroupsScreen";
+import { RefereeDevelopmentScreen } from "@/components/educator/RefereeDevelopmentScreen";
 import { useGroups } from "@/lib/hooks/useGroups";
+import { useDevelopmentGoals } from "@/lib/hooks/useDevelopmentGoals";
 import { OrganisationScreen } from "@/components/organisation/OrganisationScreen";
 import { useOrganisationSettings } from "@/lib/hooks/useOrganisationSettings";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -252,6 +254,19 @@ export default function Home() {
     session?.activeOrganisation?.id,
     session?.activeOrganisation?.name ?? activeOrg?.name ?? "",
   );
+
+  const {
+    goals: devGoals,
+    createGoal,
+    updateGoal,
+    completeGoal,
+    archiveGoal,
+    reopenGoal,
+    deleteGoal,
+    goalsForReferee,
+  } = useDevelopmentGoals(session?.activeOrganisation?.id, session?.user.id);
+
+  const [devGoalRefereeId, setDevGoalRefereeId] = useState<string | null>(null);
 
   const [activeAssignmentId, setActiveAssignmentId] = useState<string | null>(null);
   // Tracks which assignment+user record a referee is viewing in the playlist
@@ -1181,6 +1196,8 @@ export default function Home() {
           tags={tags}
           playlists={playlists}
           assignments={assignments}
+          refereeMembers={refereeMembers}
+          devGoals={devGoals}
           totalUnread={totalUnread}
           canViewClipLibrary={canViewClipLibrary}
           canAccessPlaylists={canAccessPlaylists}
@@ -1189,6 +1206,10 @@ export default function Home() {
           openReviewForEdit={openReviewForEdit}
           deleteReview={deleteReview}
           setScreen={navigateFromDashboard}
+          onNavigateDevelopment={refereeId => {
+            setDevGoalRefereeId(refereeId);
+            setScreen("referee-development");
+          }}
         />
       </main>
     );
@@ -1344,6 +1365,37 @@ export default function Home() {
         onProfile={() => setScreen("user-profile")}
         onLogout={logout}
       />
+    );
+  }
+
+  if (screen === "referee-development" && session) {
+    const referee = members.find(m => m.id === devGoalRefereeId) ?? null;
+    if (!referee) { setScreen("educator"); return null; }
+    const refGoals = goalsForReferee(referee.id);
+    return (
+      <main>
+        <Header
+          session={session}
+          onHome={() => setScreen(session.activeRole === "referee" ? "referee" : "educator")}
+          onAdmin={() => setScreen("database")}
+          onOrganisation={() => setScreen("organisation")}
+          onLearning={() => setScreen("learning-hub")}
+          onProfile={() => setScreen("user-profile")}
+          onLogout={logout}
+        />
+        <RefereeDevelopmentScreen
+          session={session}
+          referee={referee}
+          goals={refGoals}
+          onCreateGoal={createGoal}
+          onUpdateGoal={updateGoal}
+          onCompleteGoal={completeGoal}
+          onArchiveGoal={archiveGoal}
+          onReopenGoal={reopenGoal}
+          onDeleteGoal={deleteGoal}
+          onBack={() => setScreen("educator")}
+        />
+      </main>
     );
   }
 
