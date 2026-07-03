@@ -22,7 +22,8 @@ export type Screen =
   | "my-learning"
   | "learning-hub"
   | "learning-progress"
-  | "groups";
+  | "groups"
+  | "organisation";
 
 export type RefEvalSession = {
   user: {

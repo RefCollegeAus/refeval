@@ -1,4 +1,4 @@
-import { LogOut, Settings, User, GraduationCap } from "lucide-react";
+import { LogOut, Settings, User, GraduationCap, Building2 } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 
 export function Header({
@@ -6,6 +6,7 @@ export function Header({
   onHome,
   onAdmin,
   onLearning,
+  onOrganisation,
   onProfile,
   onLogout,
 }: {
@@ -13,10 +14,12 @@ export function Header({
   onHome: () => void;
   onAdmin: () => void;
   onLearning?: () => void;
+  onOrganisation?: () => void;
   onProfile: () => void;
   onLogout: () => void;
 }) {
   const isManagement = session?.activeRole === "educator" || session?.activeRole === "admin" || session?.activeRole === "super_admin";
+  const isAdmin = session?.activeRole === "admin" || session?.activeRole === "super_admin";
 
   return (
     <header className="header">
@@ -38,7 +41,13 @@ export function Header({
             </button>
           )}
 
-          {(session.activeRole === "admin" || session.activeRole === "super_admin") && (
+          {isAdmin && onOrganisation && (
+            <button onClick={onOrganisation}>
+              <Building2 size={16} /> Organisation
+            </button>
+          )}
+
+          {isAdmin && (
             <button onClick={onAdmin}>
               <Settings size={16} /> Admin Dashboard
             </button>
