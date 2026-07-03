@@ -185,7 +185,7 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
     case "learning":      return <LearningPage {...ctx} />;
     case "notifications": return <NotificationsPage {...ctx} />;
     case "security":      return <SecurityPage />;
-    case "members":       return <MembersPage onNavigateMembers={ctx.onNavigateMembers} />;
+    case "members":       return <MembersPage {...ctx} />;
     case "resources":     return <ResourcesPage />;
   }
 }
@@ -1685,18 +1685,170 @@ function SecurityPage() {
   );
 }
 
-function MembersPage({ onNavigateMembers }: { onNavigateMembers: () => void }) {
+function MembersPage({ members, org, onNavigateMembers }: PageCtx) {
+  const refereeCount   = members.filter(m => m.role === "referee").length;
+  const educatorCount  = members.filter(m => m.role === "educator").length;
+  const adminCount     = members.filter(m => m.role === "admin").length;
+  const superAdminCount = members.filter(m => m.role === "super_admin").length;
+
+  const roleCounts: { label: string; count: number; hint: string; colour: string }[] = [
+    { label: "Total members", count: members.length,    hint: "All users in this organisation", colour: "var(--accent)" },
+    { label: "Referees",      count: refereeCount,       hint: "Active referees",                colour: "#30d158" },
+    { label: "Educators",     count: educatorCount,      hint: "Review educators",               colour: "#0a84ff" },
+    { label: "Admins",        count: adminCount,         hint: "Organisation admins",             colour: "#ff9f0a" },
+    { label: "Super admins",  count: superAdminCount,    hint: "Platform super admins",           colour: "#bf5af2" },
+  ];
+
   return (
-    <SettingsPage eyebrow="Organisation" title="Members" description="Manage who has access to your organisation and what roles they hold.">
-      <SettingsSection title="Member management">
-        <SettingsCard description="Full member management — invite users, assign roles, and manage access — is available in the Admin Dashboard.">
-          <div style={{ paddingTop: 8 }}>
-            <button className="primary" onClick={onNavigateMembers}>
-              <Users size={15} /> Go to Member Management
-            </button>
-          </div>
-        </SettingsCard>
+    <SettingsPage
+      eyebrow="Organisation"
+      title="Members"
+      description="Overview of users in your organisation. Full member management is available in the Admin Dashboard."
+      actions={
+        <button className="primary" onClick={onNavigateMembers} style={{ fontSize: 13 }}>
+          <Users size={14} /> Member Management
+        </button>
+      }
+    >
+
+      {/* Role breakdown */}
+      <SettingsSection title="Role breakdown">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10 }}>
+          {roleCounts.map(({ label, count, hint, colour }) => (
+            <div key={label} className="ed-summary-card">
+              <div className="ed-summary-number" style={{ color: colour }}>{count}</div>
+              <div className="ed-summary-label">{label}</div>
+              <p className="hint" style={{ margin: "4px 0 0", fontSize: 11 }}>{hint}</p>
+            </div>
+          ))}
+        </div>
       </SettingsSection>
+
+      {/* Member list */}
+      <SettingsSection title="Members" description={`${members.length} user${members.length !== 1 ? "s" : ""} in ${org?.name ?? "this organisation"}.`}>
+        {members.length === 0 ? (
+          <SettingsCard description="No members found. Go to Admin Dashboard to invite users to your organisation.">{null}</SettingsCard>
+        ) : (
+          <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+            {members.map((m, i) => {
+              const isLast = i === members.length - 1;
+              const roleColour: Record<string, string> = {
+                referee: "#30d158",
+                educator: "#0a84ff",
+                admin: "#ff9f0a",
+                super_admin: "#bf5af2",
+                viewer: "var(--muted)",
+              };
+              const roleLabel: Record<string, string> = {
+                referee: "Referee",
+                educator: "Educator",
+                admin: "Admin",
+                super_admin: "Super Admin",
+                viewer: "Viewer",
+              };
+              return (
+                <div
+                  key={m.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    padding: "12px 18px",
+                    borderBottom: isLast ? "none" : "1px solid var(--border)",
+                  }}
+                >
+                  {/* Avatar initials */}
+                  <div
+                    style={{
+                      width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+                      background: `${roleColour[m.role] ?? "var(--muted)"}22`,
+                      border: `1.5px solid ${roleColour[m.role] ?? "var(--muted)"}44`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 13, fontWeight: 800,
+                      color: roleColour[m.role] ?? "var(--muted)",
+                    }}
+                  >
+                    {(m.name || m.email).slice(0, 1).toUpperCase()}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {m.name || "—"}
+                    </p>
+                    <p className="hint" style={{ margin: "2px 0 0", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {m.email}
+                    </p>
+                  </div>
+
+                  <span
+                    style={{
+                      flexShrink: 0,
+                      fontSize: 11, fontWeight: 800,
+                      padding: "2px 9px", borderRadius: 6,
+                      background: `${roleColour[m.role] ?? "var(--muted)"}1a`,
+                      border: `1px solid ${roleColour[m.role] ?? "var(--muted)"}33`,
+                      color: roleColour[m.role] ?? "var(--muted)",
+                      textTransform: "uppercase", letterSpacing: "0.05em",
+                    }}
+                  >
+                    {roleLabel[m.role] ?? m.role}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </SettingsSection>
+
+      {/* Activity status note */}
+      <SettingsSection title="Activity status">
+        <SettingsCard description="Active / inactive status is not tracked in the current data model. This information will become available in a future update.">{null}</SettingsCard>
+      </SettingsSection>
+
+      {/* Quick links */}
+      <SettingsSection title="Actions">
+        <div className="ed-hero-grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))" }}>
+          <button className="ed-hero-card" onClick={onNavigateMembers}>
+            <span className="ed-hero-icon"><Users size={18} /></span>
+            <span className="ed-hero-text">
+              <span className="ed-hero-label">Member Management</span>
+              <span className="ed-hero-hint">Invite users, assign roles, manage access</span>
+            </span>
+            <ChevronRight size={14} className="ed-hero-chevron" />
+          </button>
+
+          <div className="ed-hero-card" style={{ opacity: 0.55, cursor: "default" }}>
+            <span className="ed-hero-icon"><Users size={18} /></span>
+            <span className="ed-hero-text">
+              <span className="ed-hero-label">Invite Members</span>
+              <span className="ed-hero-hint">Send email invitations to new users</span>
+            </span>
+            <span style={{
+              fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 5,
+              background: "rgba(165,106,27,.15)", border: "1px solid rgba(165,106,27,.3)",
+              color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0,
+            }}>
+              Soon
+            </span>
+          </div>
+
+          <div className="ed-hero-card" style={{ opacity: 0.55, cursor: "default" }}>
+            <span className="ed-hero-icon"><Shield size={18} /></span>
+            <span className="ed-hero-text">
+              <span className="ed-hero-label">Permission Groups</span>
+              <span className="ed-hero-hint">Fine-grained access control beyond roles</span>
+            </span>
+            <span style={{
+              fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 5,
+              background: "rgba(165,106,27,.15)", border: "1px solid rgba(165,106,27,.3)",
+              color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0,
+            }}>
+              Soon
+            </span>
+          </div>
+        </div>
+      </SettingsSection>
+
     </SettingsPage>
   );
 }
