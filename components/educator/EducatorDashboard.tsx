@@ -202,13 +202,23 @@ export function EducatorDashboard({
               key={i}
               className={"ed-hero-card" + (action.primary ? " ed-hero-card--primary" : "")}
               onClick={action.onClick}
+              style={{ position: "relative" }}
             >
+              {action.badge && (
+                <span style={{
+                  position: "absolute", top: 7, right: 8,
+                  background: "#ff453a", color: "#fff",
+                  fontSize: 10, fontWeight: 800,
+                  minWidth: 18, height: 18, borderRadius: 999,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 4px", lineHeight: 1, pointerEvents: "none",
+                }}>
+                  {action.badge}
+                </span>
+              )}
               <div className="ed-hero-icon">{action.icon}</div>
               <div className="ed-hero-text">
-                <div className="ed-hero-label">
-                  {action.label}
-                  {action.badge && <span className="ed-hero-badge">{action.badge}</span>}
-                </div>
+                <div className="ed-hero-label">{action.label}</div>
                 <div className="ed-hero-hint">{action.hint}</div>
               </div>
               <ChevronRight size={16} className="ed-hero-chevron" />
@@ -229,12 +239,10 @@ export function EducatorDashboard({
                 </button>
               )}
               {totalUnread > 0 && (
-                <button className="ed-task-item" onClick={() => setScreen("comment-inbox")} style={{ borderLeft: "3px solid #ff453a" }}>
-                  <span className="ed-task-dot" style={{ background: "#ff453a" }} />
-                  <span className="ed-task-label" style={{ fontWeight: 700, color: "var(--text)" }}>
-                    {totalUnread} comment{totalUnread !== 1 ? "s" : ""} awaiting reply
-                  </span>
-                  <span className="ed-task-action" style={{ color: "#ff453a" }}>Open inbox <ChevronRight size={13} /></span>
+                <button className="ed-task-item" onClick={() => setScreen("comment-inbox")}>
+                  <span className="ed-task-dot" style={{ background: "#8b5cf6" }} />
+                  <span className="ed-task-label">{totalUnread} comment{totalUnread !== 1 ? "s" : ""} awaiting reply</span>
+                  <span className="ed-task-action">Open inbox <ChevronRight size={13} /></span>
                 </button>
               )}
               {/* Learning assignments are managed via Assignments hub, not as personal tasks */}
