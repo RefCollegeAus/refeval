@@ -14,6 +14,11 @@ import type {
 import { GOAL_CATEGORIES, GOAL_PRIORITIES } from "@/lib/types/developmentGoals";
 import type { DevelopmentNote, CreateNoteInput, NoteType, NoteVisibility } from "@/lib/types/developmentNotes";
 import { NOTE_TYPES, NOTE_VISIBILITIES } from "@/lib/types/developmentNotes";
+import type { ReviewRecord } from "@/lib/types/reviews";
+import {
+  buildTimeline, filterTimeline,
+  type TimelineFilter, type TimelineEvent, type TimelineEventKind,
+} from "@/lib/utils/developmentTimeline";
 
 // ── Colour tokens ─────────────────────────────────────────────────────────────
 
@@ -120,28 +125,34 @@ function fmtDate(iso: string) {
 
 // ── Page-level tab switcher ───────────────────────────────────────────────────
 
-type DevPage = "goals" | "notes";
+type DevPage = "goals" | "notes" | "timeline";
 
 function PageTabs({
   active,
   goalCount,
   noteCount,
+  timelineCount,
   onChange,
 }: {
   active: DevPage;
   goalCount: number;
   noteCount: number;
+  timelineCount: number;
   onChange: (p: DevPage) => void;
 }) {
+  const tabs: { key: DevPage; label: string }[] = [
+    { key: "goals",    label: `Goals${goalCount > 0 ? ` (${goalCount})` : ""}` },
+    { key: "notes",    label: `Notes${noteCount > 0 ? ` (${noteCount})` : ""}` },
+    { key: "timeline", label: `Timeline${timelineCount > 0 ? ` (${timelineCount})` : ""}` },
+  ];
   return (
     <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)", marginBottom: 20 }}>
-      {(["goals", "notes"] as DevPage[]).map(page => {
-        const label = page === "goals" ? `Goals${goalCount > 0 ? ` (${goalCount})` : ""}` : `Notes${noteCount > 0 ? ` (${noteCount})` : ""}`;
-        const isActive = active === page;
+      {tabs.map(({ key, label }) => {
+        const isActive = active === key;
         return (
           <button
-            key={page}
-            onClick={() => onChange(page)}
+            key={key}
+            onClick={() => onChange(key)}
             style={{
               fontSize: 14, fontWeight: isActive ? 700 : 400,
               padding: "10px 20px", borderRadius: 0, background: "transparent",
@@ -154,6 +165,164 @@ function PageTabs({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// ── Timeline components ───────────────────────────────────────────────────────
+
+const KIND_LABEL: Record<TimelineEventKind, string> = {
+  goal_assigned:    "Goal Assigned",
+  goal_completed:   "Goal Completed",
+  goal_archived:    "Goal Archived",
+  goal_reopened:    "Goal Reopened",
+  note_added:       "Note Added",
+  review_completed: "Review Completed",
+};
+
+const KIND_ICON: Record<TimelineEventKind, string> = {
+  goal_assigned:    "🎯",
+  goal_completed:   "✅",
+  goal_archived:    "📦",
+  goal_reopened:    "🔄",
+  note_added:       "📝",
+  review_completed: "🎬",
+};
+
+function TimelineEventCard({ event }: { event: TimelineEvent }) {
+  return (
+    <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+      {/* Spine dot */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, paddingTop: 3 }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: "50%", background: "var(--panel2)",
+          border: "2px solid var(--border)", display: "flex", alignItems: "center",
+          justifyContent: "center", fontSize: 13,
+        }}>
+          {KIND_ICON[event.kind]}
+        </div>
+      </div>
+      {/* Card */}
+      <div className="panel" style={{ flex: 1, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 14, lineHeight: 1.3 }}>{event.title}</p>
+          </div>
+          {event.badge && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 5,
+              background: `${event.badgeColor ?? "#636366"}18`,
+              color: event.badgeColor ?? "#636366",
+              border: `1px solid ${event.badgeColor ?? "#636366"}44`,
+              textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0,
+            }}>
+              {event.badge}
+            </span>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{
+            fontSize: 10, fontWeight: 700, color: "var(--muted)",
+            textTransform: "uppercase", letterSpacing: "0.05em",
+          }}>
+            {KIND_LABEL[event.kind]}
+          </span>
+          <span className="hint" style={{ fontSize: 12 }}>·</span>
+          <span className="hint" style={{ fontSize: 12 }}>{fmtDate(event.date)}</span>
+        </div>
+        {event.description && (
+          <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
+            {event.description}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const TIMELINE_FILTERS: { key: TimelineFilter; label: string }[] = [
+  { key: "all",     label: "All" },
+  { key: "goals",   label: "Goals" },
+  { key: "notes",   label: "Notes" },
+  { key: "reviews", label: "Reviews" },
+];
+
+function TimelineTab({
+  events,
+  hasReviews,
+}: {
+  events: TimelineEvent[];
+  hasReviews: boolean;
+}) {
+  const [filter, setFilter] = useState<TimelineFilter>("all");
+  const visible = filterTimeline(events, filter);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Filter bar */}
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {TIMELINE_FILTERS.map(f => {
+            const isActive = filter === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                style={{
+                  fontSize: 13, padding: "5px 14px", borderRadius: 8,
+                  background: isActive ? "rgba(165,106,27,.1)" : "transparent",
+                  color: isActive ? "var(--accent)" : "var(--muted)",
+                  border: `1px solid ${isActive ? "rgba(165,106,27,.35)" : "var(--border)"}`,
+                  fontWeight: isActive ? 700 : 400,
+                }}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+        <span className="hint" style={{ fontSize: 12 }}>{visible.length} event{visible.length !== 1 ? "s" : ""}</span>
+      </div>
+
+      {/* Review warning when no reviews */}
+      {filter === "reviews" && !hasReviews && (
+        <div className="panel" style={{ padding: "20px", background: "rgba(99,99,102,.07)", borderRadius: 10, textAlign: "center" }}>
+          <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14 }}>No completed reviews</p>
+          <p className="hint" style={{ margin: 0, fontSize: 13 }}>Completed video reviews featuring this referee will appear here automatically.</p>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {events.length === 0 && (
+        <div className="panel" style={{ padding: "36px 24px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 40 }}>📋</span>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>No activity yet</p>
+          <p className="hint" style={{ margin: 0, maxWidth: 440, fontSize: 13, lineHeight: 1.6 }}>
+            As you assign goals, add coaching notes, and complete video reviews for this referee,
+            their full development history will appear here in one chronological view.
+          </p>
+        </div>
+      )}
+
+      {/* Filtered empty state (has events but none match filter) */}
+      {events.length > 0 && visible.length === 0 && (
+        <div className="panel" style={{ padding: "28px 24px", textAlign: "center" }}>
+          <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14 }}>No {filter} events</p>
+          <p className="hint" style={{ margin: 0, fontSize: 13 }}>Switch to "All" to see everything.</p>
+        </div>
+      )}
+
+      {/* Event list with vertical spine */}
+      {visible.length > 0 && (
+        <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Vertical connector line */}
+          <div style={{
+            position: "absolute", left: 13, top: 28, bottom: 14,
+            width: 2, background: "var(--border)", borderRadius: 1,
+          }} />
+          {visible.map(ev => <TimelineEventCard key={ev.id} event={ev} />)}
+        </div>
+      )}
     </div>
   );
 }
@@ -695,6 +864,7 @@ export interface RefereeDevelopmentScreenProps {
   refereeMembers: MemberRecord[];
   goalViews: RefereeGoalView[];
   notes: DevelopmentNote[];
+  completedReviews: ReviewRecord[];
   onAssignGoal: (input: AssignGoalInput) => void;
   onUpdateGoalDef: (goalId: string, patch: Partial<Pick<DevGoalDef, "title" | "description" | "category" | "priority">>) => void;
   onUpdateRefereeGoal: (id: string, patch: Partial<Pick<RefereeGoal, "targetReviewDate" | "notes">>) => void;
@@ -709,7 +879,7 @@ export interface RefereeDevelopmentScreenProps {
 }
 
 export function RefereeDevelopmentScreen({
-  session, referee, refereeMembers, goalViews, notes,
+  session, referee, refereeMembers, goalViews, notes, completedReviews,
   onAssignGoal, onUpdateGoalDef, onUpdateRefereeGoal,
   onCompleteGoal, onArchiveGoal, onReopenGoal, onDeleteGoal,
   onCreateNote, onUpdateNote, onDeleteNote,
@@ -738,6 +908,12 @@ export function RefereeDevelopmentScreen({
   );
 
   const highPriCount = goalViews.filter(v => v.status === "Active" && v.priority === "High").length;
+
+  // ── Timeline ─────────────────────────────────────────────────────────────
+  const timelineEvents = useMemo(
+    () => buildTimeline(goalViews, notes, completedReviews),
+    [goalViews, notes, completedReviews],
+  );
 
   // ── Goal form save handler ───────────────────────────────────────────────
   const handleGoalSave = useCallback(
@@ -830,7 +1006,8 @@ export function RefereeDevelopmentScreen({
           { label: "Active Goals",       value: goalCounts.Active,    colour: STATUS_COLOR.Active,    onClick: () => { setDevPage("goals"); setGoalFilter("Active"); } },
           { label: "Completed Goals",    value: goalCounts.Completed, colour: STATUS_COLOR.Completed, onClick: () => { setDevPage("goals"); setGoalFilter("Completed"); } },
           { label: "High Priority",      value: highPriCount,         colour: PRIORITY_COLOR.High,    onClick: () => { setDevPage("goals"); setGoalFilter("Active"); } },
-          { label: "Development Notes",  value: notes.length,         colour: "#bf5af2",              onClick: () => setDevPage("notes") },
+          { label: "Development Notes",  value: notes.length,              colour: "#bf5af2", onClick: () => setDevPage("notes") },
+          { label: "Timeline Events",    value: timelineEvents.length,     colour: "var(--accent)", onClick: () => setDevPage("timeline") },
         ].map(({ label, value, colour, onClick }) => (
           <button
             key={label}
@@ -849,6 +1026,7 @@ export function RefereeDevelopmentScreen({
         active={devPage}
         goalCount={goalCounts.Active + goalCounts.Completed + goalCounts.Archived}
         noteCount={notes.length}
+        timelineCount={timelineEvents.length}
         onChange={setDevPage}
       />
 
@@ -910,6 +1088,14 @@ export function RefereeDevelopmentScreen({
             </>
           )}
         </div>
+      )}
+
+      {/* ── Timeline tab ── */}
+      {devPage === "timeline" && (
+        <TimelineTab
+          events={timelineEvents}
+          hasReviews={completedReviews.length > 0}
+        />
       )}
 
       {/* Modals */}

@@ -1383,6 +1383,7 @@ export default function Home() {
     const allRefereeIds = refereeMembers.map(m => m.id);
     const goalViews = refereeGoalViewsForReferee(referee.id);
     const refereeNotes = notesForReferee(referee.id);
+    const refereeCompletedReviews = assignedReviewsForReferee(referee.id);
     return (
       <main>
         <Header
@@ -1400,6 +1401,7 @@ export default function Home() {
           refereeMembers={refereeMembers}
           goalViews={goalViews}
           notes={refereeNotes}
+          completedReviews={refereeCompletedReviews}
           onAssignGoal={input => assignGoal(input, allRefereeIds)}
           onUpdateGoalDef={updateGoalDef}
           onUpdateRefereeGoal={updateRefereeGoal}
