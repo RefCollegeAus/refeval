@@ -188,6 +188,148 @@ export function EducatorDashboard({
     return items.sort((a, b) => a.priority - b.priority).slice(0, 8);
   }, [totalUnread, inProgressReviews, allRefereeGoalViews, refereeMembers, assignments, tags, setScreen, openReviewForEdit, onNavigateDevelopment]);
 
+  // ── Smart Follow-ups ──────────────────────────────────────────────────────────
+
+  type FollowUpPriority = "High" | "Medium" | "Low";
+  type FollowUpKind =
+    | "high_priority_goal_active"
+    | "no_review_since_goal_assigned"
+    | "overdue_target_review_date"
+    | "completed_learning_no_review"
+    | "multiple_reviews_no_goals";
+
+  type FollowUp = {
+    id: string;
+    refereeId: string;
+    refereeName: string;
+    kind: FollowUpKind;
+    title: string;
+    explanation: string;
+    priority: FollowUpPriority;
+    action: () => void;
+    actionLabel: string;
+  };
+
+  const FOLLOWUP_PRIORITY_ORDER: Record<FollowUpPriority, number> = { High: 0, Medium: 1, Low: 2 };
+
+  const smartFollowUps = useMemo<FollowUp[]>(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const results: FollowUp[] = [];
+
+    refereeMembers.forEach(m => {
+      const mGoals = allRefereeGoalViews.filter(v => v.refereeId === m.id);
+      const activeGoals = mGoals.filter(g => g.status === "Active");
+      const highPriActive = activeGoals.filter(g => g.priority === "High");
+
+      const completedReviews = visibleReviews.filter(
+        r => r.status === "Completed" && [r.referee1Id, r.referee2Id, r.referee3Id].includes(m.id)
+      );
+      const latestCompletedReview = completedReviews
+        .sort((a, b) => (b.submittedAt ?? b.createdAt).localeCompare(a.submittedAt ?? a.createdAt))[0] ?? null;
+
+      const completedAssignment = assignments.some(a =>
+        a.assignmentUsers.some(u => u.userId === m.id && u.status === "Completed")
+      );
+
+      // Rule 1 — High: active goal with targetReviewDate in the past
+      const overdueGoal = activeGoals.find(g => g.targetReviewDate && g.targetReviewDate < today);
+      if (overdueGoal) {
+        results.push({
+          id: `${m.id}::overdue_target`,
+          refereeId: m.id,
+          refereeName: m.name,
+          kind: "overdue_target_review_date",
+          title: "Target review date has passed",
+          explanation: `"${overdueGoal.title}" was due for review by ${overdueGoal.targetReviewDate}.`,
+          priority: "High",
+          action: () => onNavigateDevelopment(m.id),
+          actionLabel: "Open Development",
+        });
+      }
+
+      // Rule 2 — High: active high-priority goal with no completed review at all
+      if (highPriActive.length > 0 && completedReviews.length === 0) {
+        const goal = highPriActive[0];
+        results.push({
+          id: `${m.id}::highpri_no_review`,
+          refereeId: m.id,
+          refereeName: m.name,
+          kind: "high_priority_goal_active",
+          title: "High-priority goal — never reviewed",
+          explanation: `"${goal.title}" is High priority but ${m.name} has no completed review on record.`,
+          priority: "High",
+          action: () => onNavigateDevelopment(m.id),
+          actionLabel: "Open Development",
+        });
+      }
+
+      // Rule 3 — High: active goal but no completed review since it was assigned
+      if (activeGoals.length > 0) {
+        const oldestGoalDate = activeGoals
+          .map(g => g.createdAt)
+          .sort()[0];
+        const reviewedSinceGoal = latestCompletedReview &&
+          (latestCompletedReview.submittedAt ?? latestCompletedReview.createdAt) >= oldestGoalDate;
+        if (!reviewedSinceGoal) {
+          results.push({
+            id: `${m.id}::no_review_since_goal`,
+            refereeId: m.id,
+            refereeName: m.name,
+            kind: "no_review_since_goal_assigned",
+            title: "No review completed since goal was assigned",
+            explanation: `${m.name} has ${activeGoals.length} active goal${activeGoals.length !== 1 ? "s" : ""} but no completed review since the goal was assigned.`,
+            priority: "High",
+            action: () => onNavigateDevelopment(m.id),
+            actionLabel: "Open Development",
+          });
+        }
+      }
+
+      // Rule 4 — Medium: completed a learning assignment but no completed review
+      if (completedAssignment && completedReviews.length === 0) {
+        results.push({
+          id: `${m.id}::learning_no_review`,
+          refereeId: m.id,
+          refereeName: m.name,
+          kind: "completed_learning_no_review",
+          title: "Completed learning — not yet reviewed",
+          explanation: `${m.name} has completed a learning assignment but has not been reviewed yet.`,
+          priority: "Medium",
+          action: startNewReview,
+          actionLabel: "Start Review",
+        });
+      }
+
+      // Rule 5 — Low: multiple completed reviews but no active development goals
+      if (completedReviews.length >= 2 && activeGoals.length === 0) {
+        results.push({
+          id: `${m.id}::no_goals`,
+          refereeId: m.id,
+          refereeName: m.name,
+          kind: "multiple_reviews_no_goals",
+          title: "No active development goals",
+          explanation: `${m.name} has ${completedReviews.length} completed reviews but no active development goals set.`,
+          priority: "Low",
+          action: () => onNavigateDevelopment(m.id),
+          actionLabel: "Open Development",
+        });
+      }
+    });
+
+    // One reminder per referee — keep highest priority
+    const seen = new Map<string, FollowUp>();
+    for (const f of results) {
+      const existing = seen.get(f.refereeId);
+      if (!existing || FOLLOWUP_PRIORITY_ORDER[f.priority] < FOLLOWUP_PRIORITY_ORDER[existing.priority]) {
+        seen.set(f.refereeId, f);
+      }
+    }
+
+    return Array.from(seen.values())
+      .sort((a, b) => FOLLOWUP_PRIORITY_ORDER[a.priority] - FOLLOWUP_PRIORITY_ORDER[b.priority])
+      .slice(0, 12);
+  }, [refereeMembers, allRefereeGoalViews, visibleReviews, assignments, onNavigateDevelopment, startNewReview]);
+
   // Recent activity
   type ActivityItem = { label: string; detail: string; ts: string; type: "created" | "completed" };
   const recentActivity = useMemo<ActivityItem[]>(() => {
@@ -294,6 +436,63 @@ export function EducatorDashboard({
             </div>
           </div>
         )}
+
+        {/* Smart Follow-ups */}
+        <div className="panel">
+          <h2 className="ed-section-title" style={{ marginBottom: 12 }}>Smart Follow-ups</h2>
+          {smartFollowUps.length === 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 0", gap: 8 }}>
+              <div style={{ fontSize: 28 }}>✓</div>
+              <p style={{ margin: 0, fontWeight: 700, color: "var(--text)" }}>Everything looks up to date.</p>
+              <p className="hint" style={{ margin: 0, fontSize: 13 }}>No coaching follow-ups needed right now.</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {smartFollowUps.map(f => {
+                const badgeBg = f.priority === "High" ? "rgba(239,68,68,.15)" : f.priority === "Medium" ? "rgba(245,158,11,.15)" : "rgba(142,142,147,.12)";
+                const badgeColor = f.priority === "High" ? "#fca5a5" : f.priority === "Medium" ? "#fde68a" : "var(--muted)";
+                const borderAccent = f.priority === "High" ? "rgba(239,68,68,.25)" : f.priority === "Medium" ? "rgba(245,158,11,.2)" : "var(--border)";
+                return (
+                  <div
+                    key={f.id}
+                    style={{
+                      display: "flex", alignItems: "flex-start", gap: 12,
+                      background: "var(--panel2)", border: `1px solid ${borderAccent}`,
+                      borderRadius: 10, padding: "12px 14px",
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                        <span style={{ fontWeight: 800, fontSize: 13, color: "var(--text)" }}>{f.refereeName}</span>
+                        <span style={{
+                          fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 999,
+                          background: badgeBg, color: badgeColor,
+                          border: `1px solid ${badgeColor}33`,
+                          textTransform: "uppercase", letterSpacing: ".04em",
+                        }}>
+                          {f.priority}
+                        </span>
+                      </div>
+                      <p style={{ margin: "0 0 3px", fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{f.title}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>{f.explanation}</p>
+                    </div>
+                    <button
+                      onClick={f.action}
+                      style={{
+                        flexShrink: 0, fontSize: 12, padding: "5px 12px",
+                        borderRadius: 7, background: "var(--panel3)",
+                        border: "1px solid var(--border)", color: "var(--text)",
+                        cursor: "pointer", whiteSpace: "nowrap", fontWeight: 600,
+                      }}
+                    >
+                      {f.actionLabel}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* All Reviews (collapsible) */}
         <div className="panel">
