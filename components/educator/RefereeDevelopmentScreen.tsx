@@ -1191,7 +1191,7 @@ export function RefereeDevelopmentScreen({
   const totalGoalCount = goalCounts.Active + goalCounts.Completed + goalCounts.Archived;
 
   return (
-    <div className="layout" style={{ maxWidth: 860, margin: "0 auto", padding: "28px 24px" }}>
+    <div className="layout one-col" style={{ maxWidth: 900, margin: "0 auto", padding: "28px 24px" }}>
 
       {/* Back nav */}
       <button

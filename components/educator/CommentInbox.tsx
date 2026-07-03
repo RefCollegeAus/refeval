@@ -268,7 +268,7 @@ export function CommentInbox({
   const displayGroups = unreadCounts === undefined ? groups : actionableGroups;
 
   return (
-    <div className="inbox-root">
+    <div className="inbox-root" style={{ padding: "24px", maxWidth: 900, margin: "0 auto" }}>
       <div className="inbox-page-header panel">
         <div>
           <p className="eyebrow">Educator</p>
