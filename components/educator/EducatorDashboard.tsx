@@ -121,72 +121,103 @@ export function EducatorDashboard({
     setKpiFilter(prev => prev === f ? "all" : f);
   }
 
-  // Continue Where You Left Off — most recent in-progress reviews
-  const inProgressReviews = useMemo(() =>
-    visibleReviews
-      .filter(r => r.status !== "Completed")
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, 3),
-    [visibleReviews]
-  );
+  // ── Coaching Queue ────────────────────────────────────────────────────────────
 
-  // Coaching Queue items
-  type QueueItem = { id: string; priority: number; label: string; detail: string; action: () => void; color: string };
+  type QueueKind = "comments" | "in_progress" | "assignment_due" | "stale_draft";
+
+  type QueueItem = {
+    id: string;
+    kind: QueueKind;
+    sortOrder: number;
+    title: string;
+    referees: string;
+    detail: string;
+    dateLabel: string;
+    badgeLabel: string;
+    badgeColor: string;
+    badgeBg: string;
+    dotColor: string;
+    action: () => void;
+    actionLabel: string;
+  };
+
   const coachingQueue = useMemo<QueueItem[]>(() => {
     const items: QueueItem[] = [];
-    if (totalUnread > 0) {
-      items.push({
-        id: "comments",
-        priority: 0,
-        label: `${totalUnread} comment${totalUnread !== 1 ? "s" : ""} awaiting reply`,
-        detail: "Referee feedback needs your response",
-        action: () => setScreen("comment-inbox"),
-        color: "#8b5cf6",
-      });
-    }
-    inProgressReviews.forEach(r => {
-      items.push({
-        id: r.id,
-        priority: 1,
-        label: `Continue: ${r.game || "Untitled"}`,
-        detail: `${tags.filter(t => t.reviewId === r.id).length} clips tagged · started ${fmtRel(r.createdAt)}`,
-        action: () => openReviewForEdit(r),
-        color: "#f59e0b",
-      });
-    });
-    const highPriGoals = allRefereeGoalViews
-      .filter(v => v.status === "Active" && v.priority === "High")
-      .slice(0, 3);
-    highPriGoals.forEach(g => {
-      const ref = refereeMembers.find(m => m.id === g.refereeId);
-      if (ref) {
-        items.push({
-          id: `goal-${g.id ?? g.refereeId}`,
-          priority: 2,
-          label: `${ref.name}: ${g.title || g.category || "Development goal"}`,
-          detail: "High priority development goal",
-          action: () => onNavigateDevelopment(g.refereeId),
-          color: "#0a84ff",
-        });
-      }
-    });
     const nowIso = new Date().toISOString().slice(0, 10);
     const soonCutoff = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const staleDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+    // 1 — Unread comments (highest urgency)
+    if (totalUnread > 0) {
+      items.push({
+        id: "queue::comments",
+        kind: "comments",
+        sortOrder: 0,
+        title: `${totalUnread} unread comment${totalUnread !== 1 ? "s" : ""}`,
+        referees: "",
+        detail: "Referee feedback is waiting for your reply",
+        dateLabel: "",
+        badgeLabel: "Needs reply",
+        badgeColor: "#d8b4fe",
+        badgeBg: "rgba(139,92,246,.15)",
+        dotColor: "#8b5cf6",
+        action: () => setScreen("comment-inbox"),
+        actionLabel: "Open Inbox",
+      });
+    }
+
+    // 2 — In-progress reviews (resume drafts) — most recently updated first
+    const inProgress = visibleReviews
+      .filter(r => r.status !== "Completed")
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 5);
+
+    inProgress.forEach(r => {
+      const clipCount = tags.filter(t => t.reviewId === r.id).length;
+      const refs = [r.referee1Name, r.referee2Name, r.referee3Name].filter(Boolean);
+      const isStale = r.createdAt < staleDate;
+      items.push({
+        id: `queue::review::${r.id}`,
+        kind: isStale ? "stale_draft" : "in_progress",
+        sortOrder: isStale ? 2 : 1,
+        title: r.game || "Untitled Review",
+        referees: refs.join(", "),
+        detail: `${clipCount} clip${clipCount !== 1 ? "s" : ""} tagged`,
+        dateLabel: `Started ${fmtRel(r.createdAt)}`,
+        badgeLabel: isStale ? "Stale draft" : "In progress",
+        badgeColor: isStale ? "#fca5a5" : "#fde68a",
+        badgeBg: isStale ? "rgba(239,68,68,.13)" : "rgba(245,158,11,.13)",
+        dotColor: isStale ? "#ef4444" : "#f59e0b",
+        action: () => openReviewForEdit(r),
+        actionLabel: "Continue",
+      });
+    });
+
+    // 3 — Assignments due within 7 days (educator oversight)
     assignments
       .filter(a => a.dueDate && a.dueDate >= nowIso && a.dueDate <= soonCutoff)
-      .slice(0, 2)
+      .slice(0, 3)
       .forEach(a => {
+        const pending = a.assignmentUsers.filter(u => u.status !== "Completed").length;
         items.push({
-          id: `assign-${a.id}`,
-          priority: 3,
-          label: `Assignment due ${a.dueDate}`,
-          detail: a.title ?? "Learning assignment",
+          id: `queue::assign::${a.id}`,
+          kind: "assignment_due",
+          sortOrder: 3,
+          title: a.title,
+          referees: "",
+          detail: `${pending} referee${pending !== 1 ? "s" : ""} yet to complete`,
+          dateLabel: `Due ${a.dueDate}`,
+          badgeLabel: "Due soon",
+          badgeColor: "#bbf7d0",
+          badgeBg: "rgba(34,197,94,.12)",
+          dotColor: "#22c55e",
           action: () => setScreen("assignments"),
-          color: "#22c55e",
+          actionLabel: "View Assignment",
         });
       });
-    return items.sort((a, b) => a.priority - b.priority).slice(0, 8);
-  }, [totalUnread, inProgressReviews, allRefereeGoalViews, refereeMembers, assignments, tags, setScreen, openReviewForEdit, onNavigateDevelopment]);
+
+    return items.sort((a, b) => a.sortOrder - b.sortOrder).slice(0, 10);
+  }, [totalUnread, visibleReviews, assignments, tags, setScreen, openReviewForEdit]);
 
   // ── Smart Follow-ups ──────────────────────────────────────────────────────────
 
@@ -379,63 +410,65 @@ export function EducatorDashboard({
           </div>
         </div>
 
-        {/* Continue Where You Left Off */}
-        {inProgressReviews.length > 0 && (
-          <div className="panel">
-            <h2 className="ed-section-title" style={{ marginBottom: 12 }}>Continue Where You Left Off</h2>
+        {/* Coaching Queue */}
+        <div className="panel">
+          <h2 className="ed-section-title" style={{ marginBottom: 12 }}>Coaching Queue</h2>
+          {coachingQueue.length === 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "18px 0", gap: 6 }}>
+              <div style={{ fontSize: 26 }}>✓</div>
+              <p style={{ margin: 0, fontWeight: 700, color: "var(--text)" }}>Your coaching queue is clear.</p>
+              <p className="hint" style={{ margin: 0, fontSize: 13 }}>No immediate actions needed. Keep up the great work.</p>
+            </div>
+          ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {inProgressReviews.map(r => {
-                const clipCount = tags.filter(t => t.reviewId === r.id).length;
-                const refs = [r.referee1Name, r.referee2Name, r.referee3Name].filter(Boolean);
-                return (
+              {coachingQueue.map(item => (
+                <div
+                  key={item.id}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    background: "var(--panel2)", border: "1px solid var(--border)",
+                    borderRadius: 10, padding: "10px 14px",
+                  }}
+                >
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.dotColor, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 280 }}>
+                        {item.title}
+                      </span>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 999,
+                        background: item.badgeBg, color: item.badgeColor,
+                        whiteSpace: "nowrap",
+                      }}>
+                        {item.badgeLabel}
+                      </span>
+                    </div>
+                    {item.referees && (
+                      <p style={{ margin: 0, fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {item.referees}
+                      </p>
+                    )}
+                    <p style={{ margin: "1px 0 0", fontSize: 11, color: "var(--muted)" }}>
+                      {item.detail}{item.dateLabel ? ` · ${item.dateLabel}` : ""}
+                    </p>
+                  </div>
                   <button
-                    key={r.id}
-                    onClick={() => openReviewForEdit(r)}
+                    onClick={item.action}
                     style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      background: "var(--panel2)", border: "1px solid var(--border)",
-                      borderRadius: 10, padding: "10px 14px", textAlign: "left", cursor: "pointer",
-                      width: "100%",
+                      flexShrink: 0, fontSize: 12, padding: "5px 12px",
+                      borderRadius: 7, background: "var(--panel3)",
+                      border: "1px solid var(--border)", color: "var(--text)",
+                      cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap",
                     }}
                   >
-                    <div style={{
-                      width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", flexShrink: 0,
-                    }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {r.game || "Untitled"}
-                      </p>
-                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted)" }}>
-                        {refs.join(", ") || "No referees"} · {clipCount} clip{clipCount !== 1 ? "s" : ""} · {fmtRel(r.createdAt)}
-                      </p>
-                    </div>
-                    <span className="status review" style={{ flexShrink: 0, fontSize: 11 }}>In Review</span>
-                    <ChevronRight size={14} style={{ color: "var(--muted)", flexShrink: 0 }} />
+                    {item.actionLabel}
                   </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Coaching Queue */}
-        {coachingQueue.length > 0 && (
-          <div className="panel ed-tasks-panel">
-            <h2 className="ed-section-title">Coaching Queue</h2>
-            <div className="ed-tasks-list">
-              {coachingQueue.map(item => (
-                <button key={item.id} className="ed-task-item" onClick={item.action}>
-                  <span className="ed-task-dot" style={{ background: item.color }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <span className="ed-task-label">{item.label}</span>
-                    <p style={{ margin: "1px 0 0", fontSize: 11, color: "var(--muted)" }}>{item.detail}</p>
-                  </div>
-                  <span className="ed-task-action"><ChevronRight size={13} /></span>
-                </button>
+                </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Smart Follow-ups */}
         <div className="panel">
