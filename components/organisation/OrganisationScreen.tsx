@@ -183,7 +183,7 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
     case "preferences":   return <PreferencesPage {...ctx} />;
     case "reviews":       return <ReviewsPage {...ctx} />;
     case "learning":      return <LearningPage {...ctx} />;
-    case "notifications": return <NotificationsPage />;
+    case "notifications": return <NotificationsPage {...ctx} />;
     case "security":      return <SecurityPage />;
     case "members":       return <MembersPage onNavigateMembers={ctx.onNavigateMembers} />;
     case "resources":     return <ResourcesPage />;
@@ -316,6 +316,30 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
           <button
             style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
             onClick={() => setCurrentPage("learning")}
+          >
+            Edit
+          </button>
+        </div>
+      </SettingsSection>
+
+      {/* Notification summary */}
+      <SettingsSection title="Notification configuration">
+        <div className="panel" style={{ padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: "8px 24px", alignItems: "center" }}>
+          {[
+            { label: "Delivery", value: settings.notifications.preferredDeliveryMethod === "email" ? "Email" : "In-app" },
+            { label: "Reminders", value: settings.notifications.enableReminderEmails ? settings.notifications.reminderFrequency.charAt(0).toUpperCase() + settings.notifications.reminderFrequency.slice(1) : "Off" },
+            { label: "Weekly digest", value: settings.notifications.weeklyDigestEnabled ? "On" : "Off" },
+            { label: "Review alerts", value: settings.notifications.notifyReviewAssigned || settings.notifications.notifyReviewCompleted ? "On" : "Off" },
+            { label: "Assignment alerts", value: settings.notifications.notifyAssignmentAssigned || settings.notifications.notifyAssignmentCompleted ? "On" : "Off" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span className="hint" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{value}</span>
+            </div>
+          ))}
+          <button
+            style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
+            onClick={() => setCurrentPage("notifications")}
           >
             Edit
           </button>
@@ -1468,21 +1492,177 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
   );
 }
 
-function NotificationsPage() {
+function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
+  const [draft, setDraft] = useState(() => ({ ...settings.notifications }));
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const saved = settings.notifications;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+
+  const patch = useCallback(<K extends keyof typeof draft>(key: K, value: typeof draft[K]) => {
+    setDraft(prev => ({ ...prev, [key]: value }));
+    setFeedback(null);
+  }, []);
+
+  const save = useCallback(() => {
+    onUpdateSettings({ notifications: { ...draft } });
+    setFeedback({ type: "success", message: "Notification settings saved." });
+  }, [draft, onUpdateSettings]);
+
+  const discard = useCallback(() => {
+    setDraft({ ...saved });
+    setFeedback(null);
+  }, [saved]);
+
+  const selectStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
+
   return (
-    <SettingsPage eyebrow="Organisation" title="Notifications" description="Control which events trigger notifications across your organisation.">
-      <SettingsSection title="Email notifications">
-        <SettingsPlaceholder
-          title="Notification settings"
-          description="Choose which events send email notifications to educators and referees in your organisation."
-          items={[
-            "New review assigned to referee",
-            "Review completed by educator",
-            "Learning assignment due soon",
-            "Learning assignment completed",
-            "Comment received on a clip",
-          ]}
-        />
+    <SettingsPage
+      eyebrow="Organisation"
+      title="Notifications"
+      description="Control which events trigger notifications across your organisation."
+      actions={
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
+          <button
+            className="primary"
+            onClick={save}
+            disabled={!dirty}
+            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
+          >
+            Save changes
+          </button>
+        </div>
+      }
+    >
+      {feedback && <FeedbackBanner {...feedback} />}
+
+      <SettingsSection title="Review notifications" description="Sent to referees and educators when review events occur.">
+        <SettingsCard>
+          <ToggleRow
+            label="Review assigned"
+            description="Notify the assigned referee when a new review is created for them."
+            checked={draft.notifyReviewAssigned}
+            onChange={v => patch("notifyReviewAssigned", v)}
+          />
+          <ToggleRow
+            label="Review completed"
+            description="Notify the referee when an educator marks their review as complete."
+            checked={draft.notifyReviewCompleted}
+            onChange={v => patch("notifyReviewCompleted", v)}
+          />
+          <ToggleRow
+            label="Review published"
+            description="Notify the referee when a completed review is published and made visible to them."
+            checked={draft.notifyReviewPublished}
+            onChange={v => patch("notifyReviewPublished", v)}
+          />
+          <ToggleRow
+            label="Comment received"
+            description="Notify users when a comment is added to a clip they are involved in."
+            checked={draft.commentReceived}
+            onChange={v => patch("commentReceived", v)}
+            last
+          />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Learning notifications" description="Sent when assignment events occur.">
+        <SettingsCard>
+          <ToggleRow
+            label="Assignment assigned"
+            description="Notify the referee when new learning is assigned to them."
+            checked={draft.notifyAssignmentAssigned}
+            onChange={v => patch("notifyAssignmentAssigned", v)}
+          />
+          <ToggleRow
+            label="Assignment completed"
+            description="Notify the assigning educator when a referee completes their learning."
+            checked={draft.notifyAssignmentCompleted}
+            onChange={v => patch("notifyAssignmentCompleted", v)}
+          />
+          <ToggleRow
+            label="Assignment overdue"
+            description="Notify the referee and the educator when an assignment passes its due date without completion."
+            checked={draft.notifyAssignmentOverdue}
+            onChange={v => patch("notifyAssignmentOverdue", v)}
+            last
+          />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Reminder defaults">
+        <SettingsCard>
+          <ToggleRow
+            label="Enable reminder emails"
+            description="Send periodic reminder emails to referees with outstanding tasks."
+            checked={draft.enableReminderEmails}
+            onChange={v => patch("enableReminderEmails", v)}
+          />
+          <SettingsRow
+            label="Reminder frequency"
+            description="How often reminder emails are sent. Requires reminder emails enabled."
+          >
+            <select
+              style={{ ...selectStyle, width: 160 }}
+              value={draft.reminderFrequency}
+              onChange={e => patch("reminderFrequency", e.target.value as typeof draft.reminderFrequency)}
+              disabled={!draft.enableReminderEmails}
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="fortnightly">Fortnightly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </SettingsRow>
+          <ToggleRow
+            label="Weekly digest"
+            description="Send educators a weekly summary of review and assignment activity across the organisation."
+            checked={draft.weeklyDigestEnabled}
+            onChange={v => patch("weeklyDigestEnabled", v)}
+            last
+          />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="System communications" description="Platform-level announcements from the RefCoach team.">
+        <SettingsCard>
+          <ToggleRow
+            label="System announcements"
+            description="Receive important platform updates and feature announcements."
+            checked={draft.notifySystemAnnouncements}
+            onChange={v => patch("notifySystemAnnouncements", v)}
+          />
+          <ToggleRow
+            label="Maintenance updates"
+            description="Receive advance notice of scheduled maintenance windows."
+            checked={draft.notifyMaintenanceUpdates}
+            onChange={v => patch("notifyMaintenanceUpdates", v)}
+            last
+          />
+        </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection title="Delivery preferences" description="Controls how notifications are delivered to your organisation's members. Additional channels will be available in a future update.">
+        <SettingsCard>
+          <SettingsRow
+            label="Preferred delivery method"
+            description="Primary channel for delivering notifications to organisation members."
+            last
+          >
+            <select
+              style={{ ...selectStyle, width: 160 }}
+              value={draft.preferredDeliveryMethod}
+              onChange={e => patch("preferredDeliveryMethod", e.target.value as typeof draft.preferredDeliveryMethod)}
+            >
+              <option value="email">Email</option>
+              <option value="in-app">In-app</option>
+            </select>
+          </SettingsRow>
+        </SettingsCard>
+        <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
+          Future channels — Push, SMS, Microsoft Teams, and Slack — will appear here when available.
+        </p>
       </SettingsSection>
     </SettingsPage>
   );

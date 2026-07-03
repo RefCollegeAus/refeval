@@ -6,6 +6,10 @@ export type OrgTimeFormat = "12h" | "24h";
 
 export type OrgReviewVisibility = "educators-only" | "assigned-referees";
 
+export type OrgReminderFrequency = "daily" | "weekly" | "fortnightly" | "monthly";
+
+export type OrgDeliveryMethod = "email" | "in-app";
+
 export type ResourceLink = {
   id: string;
   title: string;
@@ -71,11 +75,19 @@ export type OrganisationSettings = {
     defaultAssignmentMessage: string;
   };
   notifications: {
-    newReviewAssigned: boolean;
-    reviewCompleted: boolean;
-    assignmentDue: boolean;
-    assignmentCompleted: boolean;
+    notifyReviewAssigned: boolean;
+    notifyReviewCompleted: boolean;
+    notifyReviewPublished: boolean;
+    notifyAssignmentAssigned: boolean;
+    notifyAssignmentCompleted: boolean;
+    notifyAssignmentOverdue: boolean;
     commentReceived: boolean;
+    enableReminderEmails: boolean;
+    reminderFrequency: OrgReminderFrequency;
+    weeklyDigestEnabled: boolean;
+    notifySystemAnnouncements: boolean;
+    notifyMaintenanceUpdates: boolean;
+    preferredDeliveryMethod: OrgDeliveryMethod;
   };
   security: {
     requireEmailVerification: boolean;
@@ -144,11 +156,19 @@ export const DEFAULT_ORG_SETTINGS: Omit<OrganisationSettings, "profile"> & {
     defaultAssignmentMessage: "",
   },
   notifications: {
-    newReviewAssigned: true,
-    reviewCompleted: true,
-    assignmentDue: true,
-    assignmentCompleted: true,
+    notifyReviewAssigned: true,
+    notifyReviewCompleted: true,
+    notifyReviewPublished: true,
+    notifyAssignmentAssigned: true,
+    notifyAssignmentCompleted: true,
+    notifyAssignmentOverdue: true,
     commentReceived: true,
+    enableReminderEmails: true,
+    reminderFrequency: "weekly",
+    weeklyDigestEnabled: false,
+    notifySystemAnnouncements: true,
+    notifyMaintenanceUpdates: false,
+    preferredDeliveryMethod: "email",
   },
   security: {
     requireEmailVerification: false,
