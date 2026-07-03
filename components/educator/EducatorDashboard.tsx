@@ -11,7 +11,7 @@ import type { Screen } from "@/lib/types/auth";
 import type { Playlist } from "@/lib/types/playlists";
 import type { Assignment } from "@/lib/types/assignments";
 import type { MemberRecord } from "@/lib/types/members";
-import type { DevelopmentGoal } from "@/lib/types/developmentGoals";
+import type { RefereeGoalView } from "@/lib/types/developmentGoals";
 import { fmtRel } from "@/lib/utils/time";
 
 interface Props {
@@ -21,7 +21,7 @@ interface Props {
   playlists: Playlist[];
   assignments: Assignment[];
   refereeMembers: MemberRecord[];
-  devGoals: DevelopmentGoal[];
+  allRefereeGoalViews: RefereeGoalView[];
   totalUnread: number;
   canViewClipLibrary: boolean;
   canAccessPlaylists: boolean;
@@ -37,7 +37,7 @@ type KpiFilter = "all" | "in-review" | "completed" | "this-week";
 
 
 export function EducatorDashboard({
-  session, reviews, tags, playlists, assignments, refereeMembers, devGoals, totalUnread,
+  session, reviews, tags, playlists, assignments, refereeMembers, allRefereeGoalViews, totalUnread,
   canViewClipLibrary, canAccessPlaylists, canViewAssignments,
   startNewReview, openReviewForEdit, deleteReview, setScreen, onNavigateDevelopment,
 }: Props) {
@@ -445,9 +445,9 @@ export function EducatorDashboard({
             <h3 className="ed-section-title" style={{ marginBottom: 10 }}>Referee Development</h3>
             <div className="ed-activity-list">
               {refereeMembers.slice(0, 8).map(m => {
-                const mGoals = devGoals.filter(g => g.refereeId === m.id);
-                const active    = mGoals.filter(g => g.status === "Active").length;
-                const highPri   = mGoals.filter(g => g.status === "Active" && g.priority === "High").length;
+                const mGoals = allRefereeGoalViews.filter(v => v.refereeId === m.id);
+                const active    = mGoals.filter(v => v.status === "Active").length;
+                const highPri   = mGoals.filter(v => v.status === "Active" && v.priority === "High").length;
                 return (
                   <button
                     key={m.id}

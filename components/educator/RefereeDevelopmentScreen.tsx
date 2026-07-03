@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Plus, Target, CheckCircle, Archive, RotateCcw, Pencil, Trash2, ChevronLeft } from "lucide-react";
+import { Plus, CheckCircle, Archive, RotateCcw, Pencil, Trash2, ChevronLeft, Users, User, UserCheck } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { MemberRecord } from "@/lib/types/members";
-import type { DevelopmentGoal, GoalStatus, CreateGoalInput } from "@/lib/types/developmentGoals";
+import type { DevGoalDef, RefereeGoal, RefereeGoalView, GoalStatus, AssignGoalInput, GoalAssignmentType } from "@/lib/types/developmentGoals";
 import { GOAL_CATEGORIES, GOAL_PRIORITIES } from "@/lib/types/developmentGoals";
 
 // ── Colour tokens ─────────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ function fmtDate(iso: string) {
 // ── Goal Card ─────────────────────────────────────────────────────────────────
 
 function GoalCard({
-  goal,
+  view,
   canEdit,
   onEdit,
   onComplete,
@@ -90,9 +90,9 @@ function GoalCard({
   onReopen,
   onDelete,
 }: {
-  goal: DevelopmentGoal;
+  view: RefereeGoalView;
   canEdit: boolean;
-  onEdit: (goal: DevelopmentGoal) => void;
+  onEdit: (view: RefereeGoalView) => void;
   onComplete: (id: string) => void;
   onArchive: (id: string) => void;
   onReopen: (id: string) => void;
@@ -103,73 +103,84 @@ function GoalCard({
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontWeight: 800, fontSize: 15, lineHeight: 1.3 }}>{goal.title}</p>
+          <p style={{ margin: 0, fontWeight: 800, fontSize: 15, lineHeight: 1.3 }}>{view.title}</p>
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap" }}>
-          <StatusBadge status={goal.status} />
-          <PriorityBadge priority={goal.priority} />
+          <StatusBadge status={view.status} />
+          <PriorityBadge priority={view.priority} />
         </div>
       </div>
 
       {/* Meta chips */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <CategoryChip category={goal.category} />
-        <span className="hint" style={{ fontSize: 12 }}>Created {fmtDate(goal.createdAt)}</span>
-        {goal.targetReviewDate && (
+        <CategoryChip category={view.category} />
+        <span className="hint" style={{ fontSize: 12 }}>Created {fmtDate(view.createdAt)}</span>
+        {view.targetReviewDate && (
           <span className="hint" style={{ fontSize: 12 }}>
-            · Target review {fmtDate(goal.targetReviewDate)}
+            · Target review {fmtDate(view.targetReviewDate)}
           </span>
         )}
-        {goal.completedAt && (
+        {view.completedAt && (
           <span style={{ fontSize: 12, color: STATUS_COLOR.Completed }}>
-            · Completed {fmtDate(goal.completedAt)}
+            · Completed {fmtDate(view.completedAt)}
           </span>
         )}
       </div>
 
       {/* Description */}
-      {goal.description && (
+      {view.description && (
         <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
-          {goal.description}
+          {view.description}
         </p>
+      )}
+
+      {/* Referee notes */}
+      {view.notes && (
+        <div style={{ background: "rgba(165,106,27,.07)", borderRadius: 8, padding: "8px 12px", border: "1px solid rgba(165,106,27,.2)" }}>
+          <p className="hint" style={{ margin: "0 0 2px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Notes</p>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{view.notes}</p>
+        </div>
       )}
 
       {/* Actions */}
       {canEdit && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 4, borderTop: "1px solid var(--border)", marginTop: 2 }}>
-          <button style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 5 }} onClick={() => onEdit(goal)}>
+          <button
+            style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 5 }}
+            onClick={() => onEdit(view)}
+          >
             <Pencil size={12} /> Edit
           </button>
-          {goal.status === "Active" && (
+          {view.status === "Active" && (
             <>
               <button
                 style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 5, color: STATUS_COLOR.Completed }}
-                onClick={() => onComplete(goal.id)}
+                onClick={() => onComplete(view.id)}
               >
                 <CheckCircle size={12} /> Complete
               </button>
               <button
                 style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 5, color: "var(--muted)" }}
-                onClick={() => onArchive(goal.id)}
+                onClick={() => onArchive(view.id)}
               >
                 <Archive size={12} /> Archive
               </button>
             </>
           )}
-          {(goal.status === "Completed" || goal.status === "Archived") && (
+          {(view.status === "Completed" || view.status === "Archived") && (
             <button
               style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 5, color: STATUS_COLOR.Active }}
-              onClick={() => onReopen(goal.id)}
+              onClick={() => onReopen(view.id)}
             >
               <RotateCcw size={12} /> Reopen
             </button>
           )}
-          {goal.status === "Active" && (
+          {view.status === "Active" && (
             <button
               style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 5, color: "#ff453a", marginLeft: "auto" }}
               onClick={() => {
-                if (window.confirm(`Delete goal "${goal.title}"? This cannot be undone.`)) {
-                  onDelete(goal.id);
+                if (window.confirm(`Delete goal "${view.title}"? This removes only this referee's copy.`)) {
+                  onDelete(view.id);
                 }
               }}
             >
@@ -221,71 +232,212 @@ function EmptyState({ status, canEdit, onCreateGoal }: { status: GoalStatus; can
   );
 }
 
-// ── Goal form modal ───────────────────────────────────────────────────────────
+// ── Assign / Edit goal form modal ─────────────────────────────────────────────
 
-type GoalFormMode = { type: "create"; refereeId: string } | { type: "edit"; goal: DevelopmentGoal };
+type FormMode =
+  | { type: "create"; defaultRefereeId: string }
+  | { type: "edit"; view: RefereeGoalView };
+
+const ASSIGN_TYPE_OPTIONS: { value: GoalAssignmentType; label: string; hint: string; icon: React.ReactNode }[] = [
+  { value: "Individual",       label: "Individual",        hint: "One referee",          icon: <User size={14} /> },
+  { value: "SelectedReferees", label: "Selected Referees", hint: "Choose from the list", icon: <UserCheck size={14} /> },
+  { value: "Everyone",         label: "Everyone",          hint: "All referees in your organisation", icon: <Users size={14} /> },
+];
 
 function GoalFormModal({
   mode,
+  refereeMembers,
+  totalRefereeCount,
   onSave,
   onClose,
 }: {
-  mode: GoalFormMode;
-  onSave: (input: CreateGoalInput | Partial<DevelopmentGoal>, id?: string) => void;
+  mode: FormMode;
+  refereeMembers: MemberRecord[];
+  totalRefereeCount: number;
+  onSave: (
+    defPatch: Pick<DevGoalDef, "title" | "description" | "category" | "priority">,
+    rgPatch: Pick<RefereeGoal, "targetReviewDate" | "notes">,
+    assignInput?: AssignGoalInput,
+  ) => void;
   onClose: () => void;
 }) {
-  const existing = mode.type === "edit" ? mode.goal : null;
+  const existing = mode.type === "edit" ? mode.view : null;
 
-  const [title, setTitle] = useState(existing?.title ?? "");
+  const [title, setTitle]       = useState(existing?.title ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [category, setCategory] = useState<string>(existing?.category ?? GOAL_CATEGORIES[0]);
   const [priority, setPriority] = useState<string>(existing?.priority ?? "Medium");
   const [targetReviewDate, setTargetReviewDate] = useState(existing?.targetReviewDate ?? "");
+  const [notes, setNotes]       = useState(existing?.notes ?? "");
+
+  // Create-only: assignment type
+  const [assignType, setAssignType] = useState<GoalAssignmentType>("Individual");
+  const [selectedIndividual, setSelectedIndividual] = useState<string>(
+    mode.type === "create" ? mode.defaultRefereeId : "",
+  );
+  const [selectedMultiple, setSelectedMultiple] = useState<Set<string>>(
+    mode.type === "create" ? new Set([mode.defaultRefereeId]) : new Set(),
+  );
+
   const [error, setError] = useState("");
+
+  function toggleMulti(id: string) {
+    setSelectedMultiple(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   function submit() {
     if (!title.trim()) { setError("Title is required."); return; }
-    setError("");
 
     if (mode.type === "create") {
-      onSave({
-        refereeId: mode.refereeId,
-        title: title.trim(),
-        description: description.trim(),
-        category: category as CreateGoalInput["category"],
-        priority: priority as CreateGoalInput["priority"],
+      if (assignType === "Individual" && !selectedIndividual) {
+        setError("Please select a referee."); return;
+      }
+      if (assignType === "SelectedReferees" && selectedMultiple.size === 0) {
+        setError("Please select at least one referee."); return;
+      }
+    }
+
+    setError("");
+
+    const defPatch = {
+      title: title.trim(),
+      description: description.trim(),
+      category: category as DevGoalDef["category"],
+      priority: priority as DevGoalDef["priority"],
+    };
+    const rgPatch = {
+      targetReviewDate: targetReviewDate || null,
+      notes: notes.trim(),
+    };
+
+    if (mode.type === "create") {
+      const assignedRefereeIds =
+        assignType === "Individual"       ? [selectedIndividual] :
+        assignType === "SelectedReferees" ? Array.from(selectedMultiple) :
+        [];
+      onSave(defPatch, rgPatch, {
+        ...defPatch,
+        assignmentType: assignType,
+        assignedRefereeIds,
         targetReviewDate: targetReviewDate || null,
-      } satisfies CreateGoalInput);
+      });
     } else {
-      onSave({
-        title: title.trim(),
-        description: description.trim(),
-        category: category as DevelopmentGoal["category"],
-        priority: priority as DevelopmentGoal["priority"],
-        targetReviewDate: targetReviewDate || null,
-      }, existing!.id);
+      onSave(defPatch, rgPatch);
     }
   }
 
+  const isCreate = mode.type === "create";
+
   return (
     <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" style={{ maxWidth: 560 }}>
+      <div className="modal" style={{ maxWidth: 580 }}>
         <div className="modal-title">
           <div>
             <p className="eyebrow">Development Goal</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>{mode.type === "create" ? "Create Goal" : "Edit Goal"}</h1>
+            <h1 style={{ fontSize: 20, margin: 0 }}>{isCreate ? "Assign Goal" : "Edit Goal"}</h1>
           </div>
           <button onClick={onClose}>✕</button>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
+
+          {/* ── Assign-to section (create only) ── */}
+          {isCreate && (
+            <div>
+              <p style={{ margin: "0 0 8px", fontWeight: 600, fontSize: 13 }}>Assign to</p>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                {ASSIGN_TYPE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => { setAssignType(opt.value); setError(""); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      fontSize: 13, padding: "6px 14px", borderRadius: 8,
+                      background: assignType === opt.value ? "rgba(10,132,255,.12)" : "transparent",
+                      color: assignType === opt.value ? "#0a84ff" : "var(--muted)",
+                      border: `1px solid ${assignType === opt.value ? "#0a84ff55" : "var(--border)"}`,
+                      fontWeight: assignType === opt.value ? 700 : 400,
+                    }}
+                  >
+                    {opt.icon} {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Individual selector */}
+              {assignType === "Individual" && (
+                <select
+                  value={selectedIndividual}
+                  onChange={e => setSelectedIndividual(e.target.value)}
+                  style={{ width: "100%", boxSizing: "border-box" }}
+                >
+                  <option value="">Select referee…</option>
+                  {refereeMembers.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              )}
+
+              {/* Multi-select */}
+              {assignType === "SelectedReferees" && (
+                <div style={{
+                  border: "1px solid var(--border)", borderRadius: 8,
+                  maxHeight: 180, overflowY: "auto", padding: "4px 0",
+                }}>
+                  {refereeMembers.length === 0 && (
+                    <p className="hint" style={{ padding: "8px 14px", margin: 0, fontSize: 13 }}>No referees in this organisation.</p>
+                  )}
+                  {refereeMembers.map(m => (
+                    <label
+                      key={m.id}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "8px 14px", cursor: "pointer",
+                        background: selectedMultiple.has(m.id) ? "rgba(10,132,255,.06)" : "transparent",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedMultiple.has(m.id)}
+                        onChange={() => toggleMulti(m.id)}
+                        style={{ flexShrink: 0 }}
+                      />
+                      <span style={{ fontSize: 13 }}>{m.name}</span>
+                      <span className="hint" style={{ fontSize: 12, marginLeft: "auto" }}>{m.email}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {/* Everyone hint */}
+              {assignType === "Everyone" && (
+                <p className="hint" style={{ fontSize: 13, margin: 0 }}>
+                  This goal will be assigned to all {totalRefereeCount} referee{totalRefereeCount !== 1 ? "s" : ""} in your organisation. Each will track their own progress independently.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Edit-mode note */}
+          {!isCreate && (
+            <p className="hint" style={{ fontSize: 12, margin: 0, padding: "6px 12px", background: "rgba(165,106,27,.07)", borderRadius: 8, border: "1px solid rgba(165,106,27,.2)" }}>
+              Changes to title, description, category and priority apply to all referees assigned this goal.
+            </p>
+          )}
+
+          {/* ── Definition fields ── */}
           <label>
             Title <span style={{ color: "#ff453a" }}>*</span>
             <input
               value={title}
               onChange={e => { setTitle(e.target.value); setError(""); }}
               placeholder="e.g. Improve lead-foot positioning in the paint"
-              autoFocus
+              autoFocus={!isCreate}
             />
           </label>
 
@@ -315,6 +467,7 @@ function GoalFormModal({
             </label>
           </div>
 
+          {/* ── Per-referee fields ── */}
           <label>
             Target review date <span className="hint" style={{ fontSize: 12 }}>(optional)</span>
             <input
@@ -324,13 +477,26 @@ function GoalFormModal({
             />
           </label>
 
+          {!isCreate && (
+            <label>
+              Coaching notes <span className="hint" style={{ fontSize: 12 }}>(visible to educators only)</span>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Private notes about this referee's progress…"
+                style={{ resize: "vertical" }}
+              />
+            </label>
+          )}
+
           {error && <p style={{ margin: 0, color: "#ff453a", fontSize: 13 }}>{error}</p>}
         </div>
 
         <div className="action-row" style={{ marginTop: 20 }}>
           <button onClick={onClose}>Cancel</button>
           <button className="primary" onClick={submit}>
-            {mode.type === "create" ? "Create Goal" : "Save Changes"}
+            {isCreate ? "Assign Goal" : "Save Changes"}
           </button>
         </div>
       </div>
@@ -376,9 +542,11 @@ function FilterTabs({
 export interface RefereeDevelopmentScreenProps {
   session: RefEvalSession;
   referee: MemberRecord;
-  goals: DevelopmentGoal[];
-  onCreateGoal: (input: CreateGoalInput) => void;
-  onUpdateGoal: (id: string, patch: Partial<DevelopmentGoal>) => void;
+  refereeMembers: MemberRecord[];
+  goalViews: RefereeGoalView[];
+  onAssignGoal: (input: AssignGoalInput) => void;
+  onUpdateGoalDef: (goalId: string, patch: Partial<Pick<DevGoalDef, "title" | "description" | "category" | "priority">>) => void;
+  onUpdateRefereeGoal: (id: string, patch: Partial<Pick<RefereeGoal, "targetReviewDate" | "notes">>) => void;
   onCompleteGoal: (id: string) => void;
   onArchiveGoal: (id: string) => void;
   onReopenGoal: (id: string) => void;
@@ -389,9 +557,11 @@ export interface RefereeDevelopmentScreenProps {
 export function RefereeDevelopmentScreen({
   session,
   referee,
-  goals,
-  onCreateGoal,
-  onUpdateGoal,
+  refereeMembers,
+  goalViews,
+  onAssignGoal,
+  onUpdateGoalDef,
+  onUpdateRefereeGoal,
   onCompleteGoal,
   onArchiveGoal,
   onReopenGoal,
@@ -399,44 +569,46 @@ export function RefereeDevelopmentScreen({
   onBack,
 }: RefereeDevelopmentScreenProps) {
   const [filterStatus, setFilterStatus] = useState<GoalStatus>("Active");
-  const [formMode, setFormMode] = useState<GoalFormMode | null>(null);
+  const [formMode, setFormMode] = useState<FormMode | null>(null);
 
   const canEdit =
     session.activeRole === "educator" ||
     session.activeRole === "admin" ||
     session.activeRole === "super_admin";
 
-  const refGoals = useMemo(
-    () => goals.filter(g => g.refereeId === referee.id),
-    [goals, referee.id],
-  );
-
   const counts: Record<GoalStatus, number> = useMemo(() => ({
-    Active:    refGoals.filter(g => g.status === "Active").length,
-    Completed: refGoals.filter(g => g.status === "Completed").length,
-    Archived:  refGoals.filter(g => g.status === "Archived").length,
-  }), [refGoals]);
+    Active:    goalViews.filter(v => v.status === "Active").length,
+    Completed: goalViews.filter(v => v.status === "Completed").length,
+    Archived:  goalViews.filter(v => v.status === "Archived").length,
+  }), [goalViews]);
 
   const visible = useMemo(
-    () => refGoals.filter(g => g.status === filterStatus),
-    [refGoals, filterStatus],
+    () => goalViews.filter(v => v.status === filterStatus),
+    [goalViews, filterStatus],
   );
 
   const handleSaveForm = useCallback(
-    (input: CreateGoalInput | Partial<DevelopmentGoal>, id?: string) => {
-      if (id) {
-        onUpdateGoal(id, input as Partial<DevelopmentGoal>);
-      } else {
-        onCreateGoal(input as CreateGoalInput);
+    (
+      defPatch: Pick<DevGoalDef, "title" | "description" | "category" | "priority">,
+      rgPatch: Pick<RefereeGoal, "targetReviewDate" | "notes">,
+      assignInput?: AssignGoalInput,
+    ) => {
+      if (assignInput) {
+        // Create mode: create def + assignment + referee goals
+        onAssignGoal(assignInput);
+      } else if (formMode?.type === "edit") {
+        // Edit mode: update def and referee goal separately
+        onUpdateGoalDef(formMode.view.goalId, defPatch);
+        onUpdateRefereeGoal(formMode.view.id, rgPatch);
       }
       setFormMode(null);
     },
-    [onCreateGoal, onUpdateGoal],
+    [formMode, onAssignGoal, onUpdateGoalDef, onUpdateRefereeGoal],
   );
 
   const activeCount    = counts.Active;
   const completedCount = counts.Completed;
-  const highPriCount   = refGoals.filter(g => g.status === "Active" && g.priority === "High").length;
+  const highPriCount   = goalViews.filter(v => v.status === "Active" && v.priority === "High").length;
 
   const initials = referee.name.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
 
@@ -470,9 +642,9 @@ export function RefereeDevelopmentScreen({
           <button
             className="primary"
             style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
-            onClick={() => setFormMode({ type: "create", refereeId: referee.id })}
+            onClick={() => setFormMode({ type: "create", defaultRefereeId: referee.id })}
           >
-            <Plus size={14} /> Create Goal
+            <Plus size={14} /> Assign Goal
           </button>
         )}
       </div>
@@ -480,9 +652,9 @@ export function RefereeDevelopmentScreen({
       {/* Summary stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 10, marginBottom: 28 }}>
         {[
-          { label: "Active Goals",     value: activeCount,    colour: STATUS_COLOR.Active },
-          { label: "Completed Goals",  value: completedCount, colour: STATUS_COLOR.Completed },
-          { label: "High Priority",    value: highPriCount,   colour: PRIORITY_COLOR.High },
+          { label: "Active Goals",    value: activeCount,    colour: STATUS_COLOR.Active },
+          { label: "Completed Goals", value: completedCount, colour: STATUS_COLOR.Completed },
+          { label: "High Priority",   value: highPriCount,   colour: PRIORITY_COLOR.High },
         ].map(({ label, value, colour }) => (
           <div key={label} className="ed-summary-card">
             <div className="ed-summary-number" style={{ color: colour }}>{value}</div>
@@ -504,16 +676,16 @@ export function RefereeDevelopmentScreen({
           <EmptyState
             status={filterStatus}
             canEdit={canEdit}
-            onCreateGoal={() => setFormMode({ type: "create", refereeId: referee.id })}
+            onCreateGoal={() => setFormMode({ type: "create", defaultRefereeId: referee.id })}
           />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {visible.map(goal => (
+            {visible.map(view => (
               <GoalCard
-                key={goal.id}
-                goal={goal}
+                key={view.id}
+                view={view}
                 canEdit={canEdit}
-                onEdit={g => setFormMode({ type: "edit", goal: g })}
+                onEdit={v => setFormMode({ type: "edit", view: v })}
                 onComplete={onCompleteGoal}
                 onArchive={onArchiveGoal}
                 onReopen={onReopenGoal}
@@ -528,6 +700,8 @@ export function RefereeDevelopmentScreen({
       {formMode && (
         <GoalFormModal
           mode={formMode}
+          refereeMembers={refereeMembers}
+          totalRefereeCount={refereeMembers.length}
           onSave={handleSaveForm}
           onClose={() => setFormMode(null)}
         />

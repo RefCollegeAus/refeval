@@ -256,14 +256,15 @@ export default function Home() {
   );
 
   const {
-    goals: devGoals,
-    createGoal,
-    updateGoal,
-    completeGoal,
-    archiveGoal,
-    reopenGoal,
-    deleteGoal,
-    goalsForReferee,
+    allRefereeGoalViews,
+    assignGoal,
+    updateGoalDef,
+    updateRefereeGoal,
+    completeRefereeGoal,
+    archiveRefereeGoal,
+    reopenRefereeGoal,
+    deleteRefereeGoal,
+    refereeGoalViewsForReferee,
   } = useDevelopmentGoals(session?.activeOrganisation?.id, session?.user.id);
 
   const [devGoalRefereeId, setDevGoalRefereeId] = useState<string | null>(null);
@@ -1197,7 +1198,7 @@ export default function Home() {
           playlists={playlists}
           assignments={assignments}
           refereeMembers={refereeMembers}
-          devGoals={devGoals}
+          allRefereeGoalViews={allRefereeGoalViews}
           totalUnread={totalUnread}
           canViewClipLibrary={canViewClipLibrary}
           canAccessPlaylists={canAccessPlaylists}
@@ -1371,7 +1372,8 @@ export default function Home() {
   if (screen === "referee-development" && session) {
     const referee = members.find(m => m.id === devGoalRefereeId) ?? null;
     if (!referee) { setScreen("educator"); return null; }
-    const refGoals = goalsForReferee(referee.id);
+    const allRefereeIds = refereeMembers.map(m => m.id);
+    const goalViews = refereeGoalViewsForReferee(referee.id);
     return (
       <main>
         <Header
@@ -1386,13 +1388,15 @@ export default function Home() {
         <RefereeDevelopmentScreen
           session={session}
           referee={referee}
-          goals={refGoals}
-          onCreateGoal={createGoal}
-          onUpdateGoal={updateGoal}
-          onCompleteGoal={completeGoal}
-          onArchiveGoal={archiveGoal}
-          onReopenGoal={reopenGoal}
-          onDeleteGoal={deleteGoal}
+          refereeMembers={refereeMembers}
+          goalViews={goalViews}
+          onAssignGoal={input => assignGoal(input, allRefereeIds)}
+          onUpdateGoalDef={updateGoalDef}
+          onUpdateRefereeGoal={updateRefereeGoal}
+          onCompleteGoal={completeRefereeGoal}
+          onArchiveGoal={archiveRefereeGoal}
+          onReopenGoal={reopenRefereeGoal}
+          onDeleteGoal={deleteRefereeGoal}
           onBack={() => setScreen("educator")}
         />
       </main>
