@@ -205,6 +205,7 @@ export function useDevelopmentGoals(
       persistDefs([def, ...goalDefs]);
       persistAssignments([assignment, ...assignments]);
       persistRefereeGoals([...newRefereeGoals, ...refereeGoals]);
+      return defId;
     },
     [goalDefs, assignments, refereeGoals, orgId, currentUserId, persistDefs, persistAssignments, persistRefereeGoals],
   );

@@ -1,6 +1,7 @@
 import type { RefereeGoalView } from "@/lib/types/developmentGoals";
 import type { DevelopmentNote } from "@/lib/types/developmentNotes";
 import type { ReviewRecord } from "@/lib/types/reviews";
+import type { ReviewGoalLink } from "@/lib/types/reviewGoalLinks";
 
 // ── Timeline event types ──────────────────────────────────────────────────────
 // Extend this union to add future event sources (learning, competency, etc.)
@@ -11,7 +12,8 @@ export type TimelineEventKind =
   | "goal_archived"
   | "goal_reopened"
   | "note_added"
-  | "review_completed";
+  | "review_completed"
+  | "review_linked_to_goal";
 // Future: "learning_assigned" | "competency_updated" | "mentor_session" | "promotion_recommended"
 
 export type TimelineFilter = "all" | "goals" | "notes" | "reviews";
@@ -22,9 +24,9 @@ export type TimelineEvent = {
   date: string;          // ISO string — used for sort
   title: string;
   description: string;
-  badge?: string;        // e.g. category, priority, note type
+  badge?: string;
   badgeColor?: string;
-  sourceId: string;      // refereeGoal.id, note.id, or review.id
+  sourceId: string;      // refereeGoal.id, note.id, review.id, or reviewGoalLink.id
 };
 
 // ── Derivation ────────────────────────────────────────────────────────────────
@@ -33,6 +35,7 @@ export function buildTimeline(
   goalViews: RefereeGoalView[],
   notes: DevelopmentNote[],
   completedReviews: ReviewRecord[],
+  reviewGoalLinks: ReviewGoalLink[] = [],
 ): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
@@ -104,7 +107,8 @@ export function buildTimeline(
     });
   }
 
-  // Reviews
+  // Completed reviews
+  const reviewById = new Map(completedReviews.map(r => [r.id, r]));
   for (const r of completedReviews) {
     const date = r.submittedAt ?? r.createdAt;
     events.push({
@@ -119,6 +123,26 @@ export function buildTimeline(
     });
   }
 
+  // Review ↔ Goal links
+  const goalTitleById = new Map(goalViews.map(v => [v.goalId, v.title]));
+  for (const link of reviewGoalLinks) {
+    const goalTitle = goalTitleById.get(link.goalDefId);
+    const review    = reviewById.get(link.reviewId);
+    if (!goalTitle) continue; // linked goal no longer exists for this referee
+    events.push({
+      id: `rgl_${link.id}`,
+      kind: "review_linked_to_goal",
+      date: link.linkedAt,
+      title: goalTitle,
+      description: review
+        ? `Review: ${review.game || "Untitled"} · ${link.createdGoalFromReview ? "Goal created from this review" : "Linked from review"}`
+        : link.createdGoalFromReview ? "Goal created from a review" : "Linked from a review",
+      badge: link.createdGoalFromReview ? "Created" : "Linked",
+      badgeColor: "#30d158",
+      sourceId: link.id,
+    });
+  }
+
   // Sort newest first
   events.sort((a, b) => b.date.localeCompare(a.date));
   return events;
@@ -129,9 +153,9 @@ export function filterTimeline(
   filter: TimelineFilter,
 ): TimelineEvent[] {
   if (filter === "all") return events;
-  if (filter === "goals")   return events.filter(e => e.kind.startsWith("goal_"));
+  if (filter === "goals")   return events.filter(e => e.kind.startsWith("goal_") || e.kind === "review_linked_to_goal");
   if (filter === "notes")   return events.filter(e => e.kind === "note_added");
-  if (filter === "reviews") return events.filter(e => e.kind === "review_completed");
+  if (filter === "reviews") return events.filter(e => e.kind === "review_completed" || e.kind === "review_linked_to_goal");
   return events;
 }
 

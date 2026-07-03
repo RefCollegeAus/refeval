@@ -16,6 +16,7 @@ import { GOAL_CATEGORIES, GOAL_PRIORITIES } from "@/lib/types/developmentGoals";
 import type { DevelopmentNote, CreateNoteInput, NoteType, NoteVisibility } from "@/lib/types/developmentNotes";
 import { NOTE_TYPES, NOTE_VISIBILITIES } from "@/lib/types/developmentNotes";
 import type { ReviewRecord } from "@/lib/types/reviews";
+import type { ReviewGoalLink } from "@/lib/types/reviewGoalLinks";
 import {
   buildTimeline, filterTimeline,
   type TimelineFilter, type TimelineEvent, type TimelineEventKind,
@@ -175,21 +176,23 @@ function PageTabs({
 // ── Timeline components ───────────────────────────────────────────────────────
 
 const KIND_LABEL: Record<TimelineEventKind, string> = {
-  goal_assigned:    "Goal Assigned",
-  goal_completed:   "Goal Completed",
-  goal_archived:    "Goal Archived",
-  goal_reopened:    "Goal Reopened",
-  note_added:       "Note Added",
-  review_completed: "Review Completed",
+  goal_assigned:        "Goal Assigned",
+  goal_completed:       "Goal Completed",
+  goal_archived:        "Goal Archived",
+  goal_reopened:        "Goal Reopened",
+  note_added:           "Note Added",
+  review_completed:     "Review Completed",
+  review_linked_to_goal:"Review Linked",
 };
 
 const KIND_ICON: Record<TimelineEventKind, string> = {
-  goal_assigned:    "🎯",
-  goal_completed:   "✅",
-  goal_archived:    "📦",
-  goal_reopened:    "🔄",
-  note_added:       "📝",
-  review_completed: "🎬",
+  goal_assigned:        "🎯",
+  goal_completed:       "✅",
+  goal_archived:        "📦",
+  goal_reopened:        "🔄",
+  note_added:           "📝",
+  review_completed:     "🎬",
+  review_linked_to_goal:"🔗",
 };
 
 function TimelineEventCard({ event }: { event: TimelineEvent }) {
@@ -588,6 +591,7 @@ function OverviewTab({
 function GoalCard({
   view,
   canEdit,
+  supportingReviews,
   onEdit,
   onComplete,
   onArchive,
@@ -596,6 +600,7 @@ function GoalCard({
 }: {
   view: RefereeGoalView;
   canEdit: boolean;
+  supportingReviews: ReviewRecord[];
   onEdit: (view: RefereeGoalView) => void;
   onComplete: (id: string) => void;
   onArchive: (id: string) => void;
@@ -635,6 +640,21 @@ function GoalCard({
         <div style={{ background: "rgba(165,106,27,.07)", borderRadius: 8, padding: "8px 12px", border: "1px solid rgba(165,106,27,.2)" }}>
           <p className="hint" style={{ margin: "0 0 2px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Notes</p>
           <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{view.notes}</p>
+        </div>
+      )}
+
+      {supportingReviews.length > 0 && (
+        <div style={{ background: "rgba(191,90,242,.06)", borderRadius: 8, padding: "8px 12px", border: "1px solid rgba(191,90,242,.2)" }}>
+          <p className="hint" style={{ margin: "0 0 6px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>Supporting Reviews ({supportingReviews.length})</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {supportingReviews.map(r => (
+              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                <span style={{ fontSize: 11 }}>🎬</span>
+                <span style={{ fontWeight: 600, color: "var(--text)" }}>{r.game || "Untitled"}</span>
+                <span className="hint">{fmtDate(r.submittedAt ?? r.createdAt)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1063,6 +1083,8 @@ export interface RefereeDevelopmentScreenProps {
   goalViews: RefereeGoalView[];
   notes: DevelopmentNote[];
   completedReviews: ReviewRecord[];
+  reviewGoalLinks: ReviewGoalLink[];
+  allReviews: ReviewRecord[];
   onAssignGoal: (input: AssignGoalInput) => void;
   onUpdateGoalDef: (goalId: string, patch: Partial<Pick<DevGoalDef, "title" | "description" | "category" | "priority">>) => void;
   onUpdateRefereeGoal: (id: string, patch: Partial<Pick<RefereeGoal, "targetReviewDate" | "notes">>) => void;
@@ -1078,6 +1100,7 @@ export interface RefereeDevelopmentScreenProps {
 
 export function RefereeDevelopmentScreen({
   session, referee, refereeMembers, goalViews, notes, completedReviews,
+  reviewGoalLinks, allReviews,
   onAssignGoal, onUpdateGoalDef, onUpdateRefereeGoal,
   onCompleteGoal, onArchiveGoal, onReopenGoal, onDeleteGoal,
   onCreateNote, onUpdateNote, onDeleteNote,
@@ -1106,8 +1129,20 @@ export function RefereeDevelopmentScreen({
   );
 
   const timelineEvents = useMemo(
-    () => buildTimeline(goalViews, notes, completedReviews),
-    [goalViews, notes, completedReviews],
+    () => buildTimeline(goalViews, notes, completedReviews, reviewGoalLinks),
+    [goalViews, notes, completedReviews, reviewGoalLinks],
+  );
+
+  // Supporting reviews per goal — find all reviews linked to each goalDef for this referee
+  const allReviewsById = useMemo(() => new Map(allReviews.map(r => [r.id, r])), [allReviews]);
+  const supportingReviewsForGoal = useCallback(
+    (goalId: string) => {
+      const linkedReviewIds = reviewGoalLinks
+        .filter(l => l.goalDefId === goalId && l.refereeId === referee.id)
+        .map(l => l.reviewId);
+      return linkedReviewIds.flatMap(id => { const r = allReviewsById.get(id); return r ? [r] : []; });
+    },
+    [reviewGoalLinks, allReviewsById, referee.id],
   );
 
   const goalTitleById = useMemo(
@@ -1255,6 +1290,7 @@ export function RefereeDevelopmentScreen({
                   key={view.id}
                   view={view}
                   canEdit={canEdit}
+                  supportingReviews={supportingReviewsForGoal(view.goalId)}
                   onEdit={v => setGoalFormMode({ type: "edit", view: v })}
                   onComplete={onCompleteGoal}
                   onArchive={onArchiveGoal}
