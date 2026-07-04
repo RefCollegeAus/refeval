@@ -584,7 +584,7 @@ function FeedbackBanner({ type, message }: { type: "success" | "error"; message:
 
 // ── Profile page ──────────────────────────────────────────────────────────────
 
-function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
+function ProfilePage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
   const [draft, setDraft] = useState(() => ({ ...settings.profile }));
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -624,29 +624,21 @@ function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
     setFeedback(null);
   }, [saved]);
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    boxSizing: "border-box",
-  };
+  const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
+  const disabledInputStyle: React.CSSProperties = { ...inputStyle, opacity: 0.5, cursor: "not-allowed" };
 
-  const disabledInputStyle: React.CSSProperties = {
-    ...inputStyle,
-    opacity: 0.5,
-    cursor: "not-allowed",
-  };
+  // Completeness: count filled contact fields
+  const contactFields = [draft.contactEmail, draft.phone, draft.website, draft.address];
+  const filledCount = contactFields.filter(v => v && v.trim()).length;
 
   return (
     <SettingsPage
       eyebrow="Organisation"
-      title="Profile"
-      description="Basic identity information for your organisation."
+      title="Organisation Profile"
+      description="Identity and contact details for your organisation — used in reports, reviews, and platform-wide references."
       actions={
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {dirty && (
-            <button onClick={discard} style={{ fontSize: 13 }}>
-              Discard
-            </button>
-          )}
+          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
           <button
             className="primary"
             onClick={save}
@@ -660,7 +652,68 @@ function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      <SettingsSection title="Organisation identity">
+      {/* ── Live identity preview ── */}
+      <SettingsSection title="Preview" description="Updates live as you edit. Reflects how this organisation appears across the platform.">
+        <div className="panel" style={{ padding: "18px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <OrgLogoMark
+              name={draft.name}
+              branding={settings.branding}
+              size={56}
+              fontSize={20}
+              borderRadius={14}
+            />
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontWeight: 800, fontSize: 18 }}>{draft.name || <span style={{ color: "var(--muted)" }}>Organisation name</span>}</span>
+                {draft.shortName && (
+                  <span className="hint" style={{ fontSize: 13, fontWeight: 600 }}>{draft.shortName}</span>
+                )}
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", marginTop: 6 }}>
+                <span style={{
+                  display: "inline-block", fontSize: 11, fontWeight: 800,
+                  padding: "2px 8px", borderRadius: 5,
+                  background: `${settings.branding.primaryColour}1a`,
+                  border: `1px solid ${settings.branding.primaryColour}33`,
+                  color: settings.branding.primaryColour,
+                  textTransform: "uppercase", letterSpacing: "0.05em",
+                }}>
+                  Basketball
+                </span>
+                {draft.contactEmail && (
+                  <span className="hint" style={{ fontSize: 12 }}>{draft.contactEmail}</span>
+                )}
+                {draft.website && (
+                  <span className="hint" style={{ fontSize: 12 }}>{draft.website}</span>
+                )}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("branding")}>
+                Customise Branding →
+              </button>
+            </div>
+          </div>
+          {/* Contact completeness bar */}
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ flex: 1, height: 4, borderRadius: 999, background: "var(--panel3)", overflow: "hidden" }}>
+              <div style={{
+                height: "100%", borderRadius: 999,
+                width: `${Math.round((filledCount / contactFields.length) * 100)}%`,
+                background: filledCount === contactFields.length ? "#34c759" : "var(--accent)",
+                transition: "width 0.3s",
+              }} />
+            </div>
+            <span className="hint" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+              {filledCount}/{contactFields.length} contact fields filled
+            </span>
+          </div>
+        </div>
+      </SettingsSection>
+
+      {/* ── Organisation identity ── */}
+      <SettingsSection title="Organisation Identity" description="The name and short name appear in reviews, reports, and member-facing screens.">
         <SettingsCard>
           <div className="form-stack">
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
@@ -676,9 +729,8 @@ function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
                 />
               </label>
               <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
-                  Short name
-                </span>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Short name</span>
+                <span className="hint" style={{ display: "block", marginBottom: 6, fontSize: 12 }}>Abbreviation shown in compact contexts.</span>
                 <input
                   style={inputStyle}
                   value={draft.shortName}
@@ -687,25 +739,21 @@ function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
                 />
               </label>
             </div>
-
             <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
-                Sport
-              </span>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Sport</span>
               <input style={disabledInputStyle} value="Basketball" disabled />
             </label>
           </div>
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Contact details">
+      {/* ── Contact details ── */}
+      <SettingsSection title="Contact Details" description="Used in referee-facing communications and organisation reports.">
         <SettingsCard>
           <div className="form-stack">
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
               <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
-                  Contact email
-                </span>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Contact email</span>
                 <input
                   style={inputStyle}
                   type="email"
@@ -715,9 +763,7 @@ function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
                 />
               </label>
               <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
-                  Phone
-                </span>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Phone</span>
                 <input
                   style={inputStyle}
                   type="tel"
@@ -727,11 +773,8 @@ function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
                 />
               </label>
             </div>
-
             <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
-                Website
-              </span>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Website</span>
               <input
                 style={inputStyle}
                 type="url"
@@ -740,11 +783,8 @@ function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
                 placeholder="https://example.com"
               />
             </label>
-
             <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
-                Address
-              </span>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Address</span>
               <textarea
                 style={{ ...inputStyle, resize: "vertical", minHeight: 72 }}
                 value={draft.address}
@@ -756,6 +796,24 @@ function ProfilePage({ settings, onUpdateSettings }: PageCtx) {
           </div>
         </SettingsCard>
       </SettingsSection>
+
+      {/* ── Related ── */}
+      <SettingsSection title="Related">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("branding")}>
+            <Palette size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Branding & Colours
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("preferences")}>
+            <SlidersHorizontal size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Regional Preferences
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+            ← Dashboard
+          </button>
+        </div>
+      </SettingsSection>
+
     </SettingsPage>
   );
 }
@@ -1115,7 +1173,7 @@ function BrandingPreview({
   );
 }
 
-function BrandingPage({ settings, onUpdateSettings }: PageCtx) {
+function BrandingPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
   const [draft, setDraft] = useState(() => ({ ...settings.branding }));
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -1160,11 +1218,15 @@ function BrandingPage({ settings, onUpdateSettings }: PageCtx) {
 
   const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
 
+  const pcValid = isValidHex(draft.primaryColour);
+  const scValid = isValidHex(draft.secondaryColour);
+  const acValid = isValidHex(draft.accentColour);
+
   return (
     <SettingsPage
       eyebrow="Organisation"
       title="Branding"
-      description="Visual identity used across the RefCoach platform for your organisation."
+      description="Visual identity applied across the RefCoach platform for your organisation — logo mark, colour palette, and badges."
       actions={
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
@@ -1181,26 +1243,78 @@ function BrandingPage({ settings, onUpdateSettings }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      <SettingsSection title="Logo">
-        <SettingsCard description="Provide a logo URL for use in the app and reports. If left empty, your organisation's initials will be shown instead.">
+      {/* ── Live preview (top) ── */}
+      <SettingsSection title="Preview" description="Updates live as you make changes.">
+        <BrandingPreview
+          orgName={settings.profile.name}
+          shortName={settings.profile.shortName}
+          branding={draft}
+        />
+      </SettingsSection>
+
+      {/* ── Colour palette summary ── */}
+      <SettingsSection title="Current Palette" description="Your three brand colours at a glance. Edit them in the Colours section below.">
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {[
+            { label: "Primary",   color: draft.primaryColour,   valid: pcValid, usage: "Buttons, logo mark, key accents" },
+            { label: "Secondary", color: draft.secondaryColour, valid: scValid, usage: "Secondary buttons, surface treatments" },
+            { label: "Accent",    color: draft.accentColour,    valid: acValid, usage: "Badges, labels, tertiary highlights" },
+          ].map(({ label, color, valid, usage }) => (
+            <div key={label} className="panel" style={{ padding: "14px 16px", flex: "1 1 160px", minWidth: 160 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  background: valid ? color : "var(--panel3)",
+                  border: `1.5px solid ${valid ? `${color}66` : "var(--border)"}`,
+                }} />
+                <div>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>{label}</p>
+                  <code style={{ fontSize: 11, color: valid ? "var(--text)" : "#ff453a", fontFamily: "monospace" }}>
+                    {color || "—"}
+                  </code>
+                </div>
+              </div>
+              <p className="hint" style={{ margin: 0, fontSize: 11, lineHeight: 1.5 }}>{usage}</p>
+            </div>
+          ))}
+        </div>
+      </SettingsSection>
+
+      {/* ── Logo ── */}
+      <SettingsSection title="Logo" description="Provide a publicly accessible logo URL, or set a short text fallback. The logo mark is shown in headers, dashboards, and reports.">
+        <SettingsCard>
           <div className="form-stack" style={{ paddingTop: 4 }}>
-            <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Logo URL</span>
-              <input
-                style={inputStyle}
-                type="url"
-                value={draft.logoUrl ?? ""}
-                onChange={e => patch("logoUrl", e.target.value || null)}
-                placeholder="https://example.com/logo.png"
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+              <OrgLogoMark
+                name={settings.profile.name}
+                branding={draft}
+                size={56}
+                fontSize={20}
+                borderRadius={14}
               />
-            </label>
+              <div style={{ flex: 1 }}>
+                <label>
+                  <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Logo URL</span>
+                  <span className="hint" style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
+                    Must be a publicly accessible image URL (PNG, SVG, or WebP recommended).
+                  </span>
+                  <input
+                    style={inputStyle}
+                    type="url"
+                    value={draft.logoUrl ?? ""}
+                    onChange={e => patch("logoUrl", e.target.value || null)}
+                    placeholder="https://example.com/logo.png"
+                  />
+                </label>
+              </div>
+            </div>
             <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Logo placeholder text</span>
+              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Placeholder text</span>
               <span className="hint" style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
-                Shown when no logo URL is set. Defaults to your organisation's initials.
+                Shown when no logo URL is set. Defaults to your organisation's initials (up to 3 characters).
               </span>
               <input
-                style={inputStyle}
+                style={{ ...inputStyle, maxWidth: 120 }}
                 value={draft.logoText}
                 onChange={e => patch("logoText", e.target.value)}
                 placeholder="e.g. RCA"
@@ -1211,24 +1325,25 @@ function BrandingPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Colours">
+      {/* ── Colours ── */}
+      <SettingsSection title="Colours" description="Use 6-digit hex values (e.g. #a56a1b). The colour picker updates the hex field automatically.">
         <SettingsCard>
           <div className="form-stack" style={{ paddingTop: 4 }}>
             <ColorField
               label="Primary colour"
-              description="Used for primary buttons, logo background, and key accent elements."
+              description="Used for primary action buttons, the logo mark background, and key accent elements throughout the platform."
               value={draft.primaryColour}
               onChange={v => patch("primaryColour", v)}
             />
             <ColorField
               label="Secondary colour"
-              description="Used for secondary buttons and supporting surface treatments."
+              description="Used for secondary buttons and supporting surface colour treatments."
               value={draft.secondaryColour}
               onChange={v => patch("secondaryColour", v)}
             />
             <ColorField
               label="Accent colour"
-              description="Used for badges, labels, and tertiary accent elements."
+              description="Used for badges, labels, and tertiary accent elements such as sport tags."
               value={draft.accentColour}
               onChange={v => patch("accentColour", v)}
             />
@@ -1236,13 +1351,19 @@ function BrandingPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Preview" description="Updates live as you make changes. Reflects saved data after you save.">
-        <BrandingPreview
-          orgName={settings.profile.name}
-          shortName={settings.profile.shortName}
-          branding={draft}
-        />
+      {/* ── Related ── */}
+      <SettingsSection title="Related">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("profile")}>
+            <User size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Organisation Profile
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+            ← Dashboard
+          </button>
+        </div>
       </SettingsSection>
+
     </SettingsPage>
   );
 }
