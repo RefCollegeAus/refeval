@@ -1879,7 +1879,7 @@ function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
   );
 }
 
-function SecurityPage({ settings, onUpdateSettings }: PageCtx) {
+function SecurityPage({ settings, onUpdateSettings, session, members, setCurrentPage }: PageCtx) {
   const [draft, setDraft] = useState(() => ({ ...settings.security }));
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -1925,11 +1925,33 @@ function SecurityPage({ settings, onUpdateSettings }: PageCtx) {
     </span>
   );
 
+  // Derive live status chips for the overview panel
+  const hours = Math.floor(draft.sessionTimeoutMinutes / 60);
+  const mins  = draft.sessionTimeoutMinutes % 60;
+  const timeoutLabel = hours > 0
+    ? (mins > 0 ? `${hours}h ${mins}m` : `${hours}h`)
+    : `${draft.sessionTimeoutMinutes}m`;
+
+  const adminCount      = members.filter(m => m.role === "admin" || m.role === "super_admin").length;
+  const isSuperAdmin    = session.activeRole === "super_admin";
+
+  type StatusChip = { label: string; value: string; active: boolean; future?: boolean };
+  const statusChips: StatusChip[] = [
+    { label: "Session timeout",     value: timeoutLabel,                                               active: true },
+    { label: "Remember me",         value: draft.allowRememberMe ? "Allowed" : "Disabled",            active: draft.allowRememberMe },
+    { label: "Email verification",  value: draft.requireEmailVerification ? "Required" : "Optional",  active: draft.requireEmailVerification },
+    { label: "Strong passwords",    value: draft.requireStrongPasswords ? "Required" : "Not required", active: draft.requireStrongPasswords },
+    { label: "Domain restriction",  value: draft.restrictByOrganisationEmailDomain ? (draft.allowedEmailDomains.trim() || "On (no domains set)") : "Off", active: draft.restrictByOrganisationEmailDomain },
+    { label: "MFA",                 value: draft.requireTwoFactorAuthentication ? "Preference saved" : "Not set", active: false, future: true },
+    { label: "SSO",                 value: draft.allowSingleSignOn ? "Preference saved" : "Not set",  active: false, future: true },
+    { label: "Audit logging",       value: draft.auditLoggingEnabled ? "Preference saved" : "Not set", active: false, future: true },
+  ];
+
   return (
     <SettingsPage
       eyebrow="Organisation"
-      title="Security"
-      description="Authentication and session security settings for your organisation."
+      title="Security & Access"
+      description="Authentication, session, and access control settings for your organisation."
       actions={
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
@@ -1946,11 +1968,71 @@ function SecurityPage({ settings, onUpdateSettings }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      <InfoNote>
-        <strong>None of these settings are currently enforced.</strong> Your preferences are saved and will take effect as platform-level security features are enabled. MFA, SSO, and audit logging are future features; email domain restriction and session timeout are recorded but not yet applied.
-      </InfoNote>
+      {/* ── Access context ── */}
+      <div style={{
+        padding: "12px 16px",
+        background: "rgba(10,132,255,.08)", borderRadius: 10,
+        border: "1px solid rgba(10,132,255,.22)",
+        fontSize: 13, color: "#6fb8ff",
+        display: "flex", alignItems: "flex-start", gap: 10,
+      }}>
+        <Shield size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          Only{" "}
+          <button style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "#6fb8ff" }}
+            onClick={() => setCurrentPage("roles")}>Admins and Super Admins</button>
+          {" "}can change security settings.{" "}
+          {adminCount > 0
+            ? `${adminCount} admin${adminCount !== 1 ? "s" : ""} in your organisation.`
+            : "No admins are currently assigned."}
+          {!isSuperAdmin && " Some role assignments require a Super Admin."}
+        </span>
+      </div>
 
-      <SettingsSection title="Session controls">
+      {/* ── Security overview ── */}
+      <SettingsSection title="Current Configuration" description="A snapshot of your saved security preferences.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+          {statusChips.map(chip => (
+            <div key={chip.label} style={{
+              padding: "12px 14px", borderRadius: 10,
+              background: "var(--panel)",
+              border: `1px solid ${chip.future ? "var(--border)" : chip.active ? "rgba(52,199,89,.25)" : "var(--border)"}`,
+            }}>
+              <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                {chip.label}
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {chip.future ? (
+                  <span style={{ fontSize: 13, color: "var(--muted)" }}>{chip.value}</span>
+                ) : (
+                  <>
+                    <span style={{
+                      width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
+                      background: chip.active ? "#34c759" : "var(--muted)",
+                    }} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: chip.active ? "var(--text)" : "var(--muted)" }}>
+                      {chip.value}
+                    </span>
+                  </>
+                )}
+                {chip.future && (
+                  <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 4,
+                    background: "rgba(165,106,27,.12)", border: "1px solid rgba(165,106,27,.25)",
+                    color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Soon
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <InfoNote>
+          Settings marked <strong>Coming soon</strong> are saved as preferences and will be enforced when the platform-level feature is released. Session, password, and domain settings are recorded now.
+        </InfoNote>
+      </SettingsSection>
+
+      {/* ── Session controls ── */}
+      <SettingsSection title="Session Controls" description="Control how long members stay signed in and how sessions are managed.">
         <SettingsCard>
           <SettingsRow
             label="Session timeout"
@@ -1985,7 +2067,8 @@ function SecurityPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Password policy">
+      {/* ── Password policy ── */}
+      <SettingsSection title="Password Policy" description="Set minimum standards for member account passwords.">
         <SettingsCard>
           <ToggleRow
             label="Require strong passwords"
@@ -1997,7 +2080,8 @@ function SecurityPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Email domain restriction" description="Limit who can join this organisation based on their email domain.">
+      {/* ── Email domain restriction ── */}
+      <SettingsSection title="Email Domain Restriction" description="Limit who can join this organisation based on their email address domain.">
         <SettingsCard>
           <ToggleRow
             label="Restrict by email domain"
@@ -2006,7 +2090,7 @@ function SecurityPage({ settings, onUpdateSettings }: PageCtx) {
             onChange={v => patch("restrictByOrganisationEmailDomain", v)}
           />
           <SettingsRow
-            label="Allowed email domains"
+            label="Allowed domains"
             description="Comma-separated list of permitted domains (e.g. basketball.org.au, example.com). Leave empty to allow any domain."
             last
           >
@@ -2022,7 +2106,11 @@ function SecurityPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Advanced authentication" description="These settings are recorded as organisation preferences and will be enforced when the platform-level feature is available.">
+      {/* ── Advanced authentication (future) ── */}
+      <SettingsSection
+        title="Advanced Authentication"
+        description="Save your preferences now. These controls will be enforced when the platform-level feature is available."
+      >
         <SettingsCard>
           <SettingsRow
             label="Multi-factor authentication (MFA)"
@@ -2052,11 +2140,15 @@ function SecurityPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Audit logging" description="Audit logs capture sign-in events, role changes, and data access for compliance and review.">
+      {/* ── Audit logging (future) ── */}
+      <SettingsSection
+        title="Audit Logging"
+        description="Capture sign-in events, role changes, and data access for compliance and review."
+      >
         <SettingsCard>
           <SettingsRow
             label="Enable audit logging"
-            description="Record security-relevant events for this organisation. Logs will be viewable by super admins when the feature launches."
+            description="Record security-relevant events for this organisation. Logs will be viewable by Super Admins when the feature launches."
             last
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2072,6 +2164,24 @@ function SecurityPage({ settings, onUpdateSettings }: PageCtx) {
           Audit log storage and viewing will be available in a future release. Your preference is saved and will take effect when the feature launches.
         </p>
       </SettingsSection>
+
+      {/* ── Quick links ── */}
+      <SettingsSection title="Related">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
+            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Manage Members
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("roles")}>
+            <Shield size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Roles & Permissions
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+            ← Dashboard
+          </button>
+        </div>
+      </SettingsSection>
+
     </SettingsPage>
   );
 }
