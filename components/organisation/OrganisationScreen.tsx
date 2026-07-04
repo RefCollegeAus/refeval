@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import type { ReactNode } from "react";
 import {
   Building2, User, Palette, SlidersHorizontal, Film, BookOpen,
-  Bell, Shield, Users, FolderOpen, ChevronRight, Globe, Clock,
+  Bell, Shield, Users, FolderOpen, Globe, Clock,
   CheckCircle, AlertCircle, CreditCard, Key, Layers, Search,
 } from "lucide-react";
 import type { OrganisationSettings } from "@/lib/types/organisationSettings";
@@ -63,12 +63,6 @@ const NAV_ITEMS: NavItem[] = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatMinutes(m: number): string {
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  const rem = m % 60;
-  return rem > 0 ? `${h}h ${rem}m` : `${h}h`;
-}
 
 function isValidEmail(v: string): boolean {
   return !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
@@ -840,7 +834,7 @@ function ProfilePage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
                   color: settings.branding.primaryColour,
                   textTransform: "uppercase", letterSpacing: "0.05em",
                 }}>
-                  Basketball
+                  {draft.sport}
                 </span>
                 {draft.contactEmail && (
                   <span className="hint" style={{ fontSize: 12 }}>{draft.contactEmail}</span>
@@ -1297,10 +1291,11 @@ function ColorField({
 }
 
 function BrandingPreview({
-  orgName, shortName, branding,
+  orgName, shortName, sport, branding,
 }: {
   orgName: string;
   shortName: string;
+  sport: string;
   branding: OrganisationSettings["branding"];
 }) {
   const pc = isValidHex(branding.primaryColour) ? branding.primaryColour : "#a56a1b";
@@ -1336,7 +1331,7 @@ function BrandingPreview({
               textTransform: "uppercase", letterSpacing: "0.05em",
             }}
           >
-            Basketball
+            {sport}
           </span>
         </div>
       </div>
@@ -1468,6 +1463,7 @@ function BrandingPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
         <BrandingPreview
           orgName={settings.profile.name}
           shortName={settings.profile.shortName}
+          sport={settings.profile.sport}
           branding={draft}
         />
       </SettingsSection>
