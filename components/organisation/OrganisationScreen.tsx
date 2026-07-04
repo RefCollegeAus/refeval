@@ -1474,7 +1474,7 @@ function ToggleRow({
 
 // ── Reviews defaults page ─────────────────────────────────────────────────────
 
-function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
+function ReviewsPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
   const [draft, setDraft] = useState(() => ({ ...settings.reviewDefaults }));
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -1505,13 +1505,39 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
   }, [saved]);
 
   const selectStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
-  const numStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
+  const numStyle: React.CSSProperties = { width: 100, boxSizing: "border-box" };
+
+  // ── Required tagging fields summary ────────────────────────────────────────
+  const taggingFields: { key: keyof typeof draft; label: string }[] = [
+    { key: "requireOutcome",     label: "Outcome" },
+    { key: "requireCoverage",    label: "Coverage" },
+    { key: "requirePosition",    label: "Position" },
+    { key: "requireCategory",    label: "Category" },
+    { key: "requireSpecificTag", label: "Specific tag" },
+  ];
+  const requiredCount = taggingFields.filter(f => draft[f.key]).length;
+
+  const visibilityLabel = draft.defaultVisibility === "assigned-referees"
+    ? "Assigned referees"
+    : "Educators only";
+
+  // ── Live summary chips ──────────────────────────────────────────────────────
+  const summaryItems: { label: string; value: string; active?: boolean }[] = [
+    { label: "Crew size",       value: `${draft.defaultCrewSize} referee${draft.defaultCrewSize !== 1 ? "s" : ""}`, active: true },
+    { label: "Visibility",      value: visibilityLabel,                                                               active: true },
+    { label: "Draft reviews",   value: draft.allowDraftReviews ? "Allowed" : "Disabled",                             active: draft.allowDraftReviews },
+    { label: "Required fields", value: `${requiredCount} of ${taggingFields.length}`,                                active: requiredCount > 0 },
+    { label: "Completion notes",value: draft.requireCompletionNotes ? "Required" : "Optional",                       active: draft.requireCompletionNotes },
+    { label: "Signature",       value: draft.requireEducatorSignature ? "Required" : "Optional",                     active: draft.requireEducatorSignature },
+    { label: "Auto-publish",    value: draft.autoPublishCompletedReviews ? "On" : "Off",                             active: draft.autoPublishCompletedReviews },
+    { label: "Notify referee",  value: draft.notifyRefereeOnCompletion ? "On" : "Off",                               active: draft.notifyRefereeOnCompletion },
+  ];
 
   return (
     <SettingsPage
       eyebrow="Organisation"
       title="Review Defaults"
-      description="Default behaviour applied to all new evaluations in your organisation."
+      description="Pre-fill settings applied whenever an educator creates a new review. All defaults can be overridden per review."
       actions={
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
@@ -1528,18 +1554,52 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      <InfoNote>
-        These are <strong>saved defaults</strong> — they pre-fill settings when a new review is created, but can be overridden per review. Tagging field requirements are active in the review coding tool. Auto-publish and notification toggles are saved preferences; delivery is not yet wired to a notification service.
-      </InfoNote>
+      {/* ── Context note ── */}
+      <div style={{
+        padding: "12px 16px",
+        background: "rgba(10,132,255,.08)", borderRadius: 10,
+        border: "1px solid rgba(10,132,255,.22)",
+        fontSize: 13, color: "#6fb8ff",
+        display: "flex", alignItems: "flex-start", gap: 10,
+      }}>
+        <Film size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          These are <strong style={{ color: "#6fb8ff" }}>saved defaults</strong> — they pre-fill settings when a new review is created, but can be overridden per review.
+          Tagging field requirements are enforced in the review coding tool.
+          Auto-publish and notification preferences are saved and will take effect when the notification service is connected.
+        </span>
+      </div>
 
-      <SettingsSection title="Review creation defaults">
+      {/* ── Current Configuration summary ── */}
+      <SettingsSection title="Current Configuration" description="A live snapshot of your saved review defaults.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+          {summaryItems.map(({ label, value, active }) => (
+            <div key={label} style={{
+              padding: "12px 14px", borderRadius: 10,
+              background: "var(--panel)",
+              border: `1px solid ${active ? "rgba(52,199,89,.2)" : "var(--border)"}`,
+            }}>
+              <p style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                {label}
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: active ? "#34c759" : "var(--border)" }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: active ? "var(--text)" : "var(--muted)" }}>{value}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SettingsSection>
+
+      {/* ── Review Creation Defaults ── */}
+      <SettingsSection title="Review Creation Defaults" description="Applied when an educator creates a new review. Educators can adjust these per review.">
         <SettingsCard>
           <SettingsRow
             label="Default crew size"
             description="How many referees are assigned to a review by default."
           >
             <select
-              style={{ ...selectStyle, width: 120 }}
+              style={{ ...selectStyle, width: 140 }}
               value={draft.defaultCrewSize}
               onChange={e => patch("defaultCrewSize", Number(e.target.value) as 1 | 2 | 3)}
             >
@@ -1550,7 +1610,7 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
           </SettingsRow>
           <SettingsRow
             label="Default visibility"
-            description="Who can see a completed review by default."
+            description="Who can see a completed review by default. Educators can change this per review."
           >
             <select
               style={{ ...selectStyle, width: 220 }}
@@ -1563,7 +1623,7 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
           </SettingsRow>
           <ToggleRow
             label="Allow draft reviews"
-            description="Educators can save reviews as drafts before submitting."
+            description="Educators can save reviews as drafts before submitting for completion."
             checked={draft.allowDraftReviews}
             onChange={v => patch("allowDraftReviews", v)}
             last
@@ -1571,51 +1631,63 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Clip and video defaults">
+      {/* ── Clip & Video Defaults ── */}
+      <SettingsSection title="Clip & Video Defaults" description="Controls how clip timestamps and durations behave in the review coding tool.">
         <SettingsCard>
           <SettingsRow
             label="Timestamp offset (seconds)"
-            description="Applied to all clip timestamps. Negative values rewind before the moment."
+            description="Shift all clip timestamps by this amount. Use negative values to start playback before the coded moment."
           >
-            <input
-              type="number"
-              style={{ ...numStyle, width: 100 }}
-              value={draft.timestampOffsetSeconds}
-              onChange={e => patch("timestampOffsetSeconds", Number(e.target.value))}
-              step={1}
-              min={-300}
-              max={300}
-            />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="number"
+                style={numStyle}
+                value={draft.timestampOffsetSeconds}
+                onChange={e => patch("timestampOffsetSeconds", Number(e.target.value))}
+                step={1}
+                min={-300}
+                max={300}
+              />
+              <span className="hint" style={{ fontSize: 13 }}>sec</span>
+            </div>
           </SettingsRow>
           <SettingsRow
             label="Default clip length (seconds)"
             description="Suggested clip duration for tagged moments. Does not control external video playback length."
             last
           >
-            <input
-              type="number"
-              style={{ ...numStyle, width: 100 }}
-              value={draft.defaultClipLengthSeconds}
-              onChange={e => patch("defaultClipLengthSeconds", Number(e.target.value))}
-              step={5}
-              min={5}
-              max={600}
-            />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="number"
+                style={numStyle}
+                value={draft.defaultClipLengthSeconds}
+                onChange={e => patch("defaultClipLengthSeconds", Number(e.target.value))}
+                step={5}
+                min={5}
+                max={600}
+              />
+              <span className="hint" style={{ fontSize: 13 }}>sec</span>
+            </div>
           </SettingsRow>
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Required tagging fields" description="These fields must be filled in before an educator can save a coded moment.">
+      {/* ── Required Tagging Fields ── */}
+      <SettingsSection
+        title="Required Tagging Fields"
+        description={`Fields an educator must fill in before saving a coded moment. ${requiredCount} of ${taggingFields.length} currently required.`}
+      >
         <SettingsCard>
-          <ToggleRow label="Require outcome" description="Call outcome must be selected (e.g. Correct, Incorrect)." checked={draft.requireOutcome} onChange={v => patch("requireOutcome", v)} />
-          <ToggleRow label="Require coverage" description="Coverage position must be selected." checked={draft.requireCoverage} onChange={v => patch("requireCoverage", v)} />
-          <ToggleRow label="Require position" description="Referee position must be selected." checked={draft.requirePosition} onChange={v => patch("requirePosition", v)} />
-          <ToggleRow label="Require category" description="A top-level category must be selected." checked={draft.requireCategory} onChange={v => patch("requireCategory", v)} />
-          <ToggleRow label="Require specific tag" description="A specific tag within the category must be selected." checked={draft.requireSpecificTag} onChange={v => patch("requireSpecificTag", v)} last />
+          <ToggleRow label="Require outcome"      description="Call outcome must be selected (e.g. Correct, Incorrect)."    checked={draft.requireOutcome}     onChange={v => patch("requireOutcome", v)} />
+          <ToggleRow label="Require coverage"     description="Coverage position must be selected."                          checked={draft.requireCoverage}    onChange={v => patch("requireCoverage", v)} />
+          <ToggleRow label="Require position"     description="Referee position must be selected."                           checked={draft.requirePosition}    onChange={v => patch("requirePosition", v)} />
+          <ToggleRow label="Require category"     description="A top-level category must be selected."                       checked={draft.requireCategory}    onChange={v => patch("requireCategory", v)} />
+          <ToggleRow label="Require specific tag" description="A specific tag within the selected category must be chosen."  checked={draft.requireSpecificTag} onChange={v => patch("requireSpecificTag", v)} last />
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Completion rules">
+      {/* ── Completion Rules ── */}
+      <SettingsSection title="Completion Rules" description="Steps an educator must take before a review can be marked complete.">
         <SettingsCard>
           <ToggleRow
             label="Require completion notes"
@@ -1633,18 +1705,19 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Publishing and notifications">
+      {/* ── Publishing & Notifications ── */}
+      <SettingsSection title="Publishing & Notifications" description="Control how completed reviews are shared and how referees are informed.">
         <SettingsCard>
           <ToggleRow
             label="Auto-publish completed reviews"
-            description="Completed reviews are automatically made visible to the assigned referee without manual publishing."
+            description="Completed reviews are automatically made visible to the assigned referee — no manual publishing step required."
             checked={draft.autoPublishCompletedReviews}
             onChange={v => patch("autoPublishCompletedReviews", v)}
             badge={<StatusBadge status="not-enforced" />}
           />
           <ToggleRow
             label="Notify referee on completion"
-            description="Send the assigned referee a notification when their review is completed."
+            description="Send the assigned referee a notification when their review is completed and published."
             checked={draft.notifyRefereeOnCompletion}
             onChange={v => patch("notifyRefereeOnCompletion", v)}
             last
@@ -1652,6 +1725,28 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
           />
         </SettingsCard>
       </SettingsSection>
+
+      {/* ── Related ── */}
+      <SettingsSection title="Related">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("learning")}>
+            <BookOpen size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Learning Defaults
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("notifications")}>
+            <Bell size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Notification Preferences
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
+            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Manage Members
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+            ← Dashboard
+          </button>
+        </div>
+      </SettingsSection>
+
     </SettingsPage>
   );
 }
