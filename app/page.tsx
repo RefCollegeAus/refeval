@@ -41,6 +41,7 @@ import { OrganisationScreen } from "@/components/organisation/OrganisationScreen
 import { NotificationCentre } from "@/components/NotificationCentre";
 import { useOrganisationSettings } from "@/lib/hooks/useOrganisationSettings";
 import { useNotifications } from "@/lib/hooks/useNotifications";
+import { useNotificationPreferences } from "@/lib/hooks/useNotificationPreferences";
 import {
   makeReviewCompletedDraft,
   makeAssignmentAssignedDraft,
@@ -231,6 +232,9 @@ export default function Home() {
     markAllRead,
     deleteNotification: removeNotification,
   } = useNotifications(session?.user.id ?? null, session?.activeOrganisation?.id ?? null, session?.activeRole ?? null);
+
+  const { preferences: notifPrefs, updatePreferences: updateNotifPrefs } =
+    useNotificationPreferences(session?.user.id ?? null);
 
   const {
     playlists,
@@ -1710,6 +1714,8 @@ export default function Home() {
           onDelete={removeNotification}
           onNavigate={(route) => setScreen(route as Screen)}
           onBack={() => setScreen(homeScreen)}
+          preferences={notifPrefs}
+          onUpdatePreferences={updateNotifPrefs}
         />
       </main>
     );

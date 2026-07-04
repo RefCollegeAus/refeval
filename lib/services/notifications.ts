@@ -1,4 +1,29 @@
-import type { Notification, NotificationType, NotificationPriority, NotificationEntityType } from "@/lib/types/notifications";
+import type { Notification, NotificationCategory, NotificationType, NotificationPriority, NotificationEntityType } from "@/lib/types/notifications";
+
+export function getNotificationCategory(type: NotificationType): NotificationCategory {
+  switch (type) {
+    case "review_assigned":
+    case "review_completed":
+    case "review_updated":
+    case "comment_received":
+      return "reviews";
+    case "assignment_assigned":
+    case "assignment_due":
+    case "assignment_overdue":
+    case "assignment_completed":
+      return "assignments";
+    case "playlist_shared":
+    case "learning_note_added":
+      return "learning";
+    case "goal_review_due":
+    case "goal_updated":
+      return "goals";
+    case "organisation_announcement":
+      return "organisation";
+    default:
+      return "system";
+  }
+}
 
 // ── Draft factory helpers ──────────────────────────────────────────────────────
 

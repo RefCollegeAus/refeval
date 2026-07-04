@@ -1,3 +1,32 @@
+export type NotificationCategory =
+  | "reviews"
+  | "assignments"
+  | "learning"
+  | "goals"
+  | "organisation"
+  | "system";
+
+export type NotificationFilter =
+  | "all"
+  | "unread"
+  | "reviews"
+  | "assignments"
+  | "learning"
+  | "goals"
+  | "organisation"
+  | "system";
+
+export type NotificationPreferences = {
+  userId: string;
+  inAppEnabled: boolean;
+  reviewNotifications: boolean;
+  assignmentNotifications: boolean;
+  learningNotifications: boolean;
+  developmentGoalNotifications: boolean;
+  organisationNotifications: boolean;
+  systemNotifications: boolean;
+};
+
 export type NotificationType =
   | "review_assigned"
   | "review_completed"
