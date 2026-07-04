@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import {
   Building2, User, Palette, SlidersHorizontal, Film, BookOpen,
   Bell, Shield, Users, FolderOpen, ChevronRight, Globe, Clock,
-  CheckCircle, AlertCircle,
+  CheckCircle, AlertCircle, CreditCard,
 } from "lucide-react";
 import type { OrganisationSettings } from "@/lib/types/organisationSettings";
 import type { OrganisationRecord } from "@/lib/types/organisations";
@@ -34,7 +34,8 @@ type OrgPage =
   | "members"
   | "groups"
   | "roles"
-  | "resources";
+  | "resources"
+  | "billing";
 
 const NAV_ITEMS: { page: OrgPage; label: string; icon: ReactNode }[] = [
   { page: "dashboard",     label: "Dashboard",       icon: <Building2 size={15} /> },
@@ -49,6 +50,7 @@ const NAV_ITEMS: { page: OrgPage; label: string; icon: ReactNode }[] = [
   { page: "groups",        label: "Groups",          icon: <Users size={15} /> },
   { page: "roles",         label: "Roles",           icon: <Shield size={15} /> },
   { page: "resources",     label: "Resources",       icon: <FolderOpen size={15} /> },
+  { page: "billing",       label: "Billing & Plan",  icon: <CreditCard size={15} /> },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -224,6 +226,7 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
     case "groups":        return <GroupsPage {...ctx} />;
     case "roles":         return <RolesPage {...ctx} />;
     case "resources":     return <ResourcesPage {...ctx} />;
+    case "billing":       return <BillingPage {...ctx} />;
   }
 }
 
@@ -3278,6 +3281,176 @@ function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
           })}
         </div>
       </SettingsSection>
+    </SettingsPage>
+  );
+}
+
+// ── Billing & Plan page ───────────────────────────────────────────────────────
+
+function BillingPage({ org, members, reviews, assignments, session, setCurrentPage }: PageCtx) {
+  const memberCount     = members.length;
+  const reviewCount     = reviews.length;
+  const assignmentCount = assignments.length;
+
+  const roleBreakdown: { role: string; count: number }[] = [
+    { role: "Referees",  count: members.filter(m => m.role === "referee").length },
+    { role: "Educators", count: members.filter(m => m.role === "educator").length },
+    { role: "Admins",    count: members.filter(m => m.role === "admin" || m.role === "super_admin").length },
+  ].filter(r => r.count > 0);
+
+  const createdAt = org?.createdAt
+    ? new Date(org.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+
+  const isSuperAdmin = session.activeRole === "super_admin";
+  const isAdmin      = session.activeRole === "admin" || isSuperAdmin;
+
+  const usageItems: { label: string; value: string; sub?: string }[] = [
+    { label: "Members",     value: String(memberCount),     sub: roleBreakdown.map(r => `${r.count} ${r.role}`).join(" · ") || undefined },
+    { label: "Reviews",     value: String(reviewCount),     sub: "all time" },
+    { label: "Assignments", value: String(assignmentCount), sub: "all time" },
+  ];
+
+  return (
+    <SettingsPage
+      eyebrow="Organisation"
+      title="Billing & Plan"
+      description="Your organisation's current plan and account usage. Billing management will be available in a future update."
+    >
+      {/* ── Context note ── */}
+      <div style={{
+        padding: "12px 16px",
+        background: "rgba(10,132,255,.08)", borderRadius: 10,
+        border: "1px solid rgba(10,132,255,.22)",
+        fontSize: 13, color: "#6fb8ff",
+        display: "flex", alignItems: "flex-start", gap: 10,
+      }}>
+        <CreditCard size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          Billing and subscription management is coming to RefCoach. Your account details and usage are shown below.
+          To discuss your plan or request changes, contact the RefCoach team directly.
+        </span>
+      </div>
+
+      {/* ── Current Plan ── */}
+      <SettingsSection title="Current Plan" description="Your organisation's active plan and account standing.">
+        <div style={{
+          padding: "20px 24px", borderRadius: 12,
+          background: "var(--panel)",
+          border: "1px solid rgba(165,106,27,.3)",
+          display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, flexWrap: "wrap",
+        }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+              background: "rgba(165,106,27,.15)", border: "1px solid rgba(165,106,27,.3)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <CreditCard size={20} style={{ color: "var(--accent)" }} />
+            </div>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>RefCoach Platform</h2>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
+                  background: "rgba(52,199,89,.14)", color: "#34c759",
+                  border: "1px solid rgba(52,199,89,.3)", textTransform: "uppercase", letterSpacing: "0.05em",
+                }}>Active</span>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+                {org?.name ?? "Your organisation"}
+                {createdAt && <span style={{ marginLeft: 8 }}>· Member since {createdAt}</span>}
+              </p>
+            </div>
+          </div>
+          {isAdmin && (
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                Billing enquiries
+              </p>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
+                Contact <span style={{ color: "var(--text)" }}>support@refcoach.com.au</span>
+              </p>
+            </div>
+          )}
+        </div>
+      </SettingsSection>
+
+      {/* ── Account Usage ── */}
+      <SettingsSection title="Account Usage" description="Activity across your organisation based on your current data.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+          {usageItems.map(({ label, value, sub }) => (
+            <div key={label} style={{
+              padding: "16px 18px", borderRadius: 10,
+              background: "var(--panel)", border: "1px solid var(--border)",
+            }}>
+              <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                {label}
+              </p>
+              <p style={{ margin: "0 0 2px", fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{value}</p>
+              {sub && <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>{sub}</p>}
+            </div>
+          ))}
+        </div>
+      </SettingsSection>
+
+      {/* ── Upcoming billing features ── */}
+      <SettingsSection title="Coming Soon" description="These features will be available when billing management launches.">
+        <SettingsCard>
+          {[
+            { icon: <CreditCard size={15} />, label: "Payment methods",   desc: "Add and manage credit cards or bank accounts." },
+            { icon: <CheckCircle size={15} />, label: "Invoices",          desc: "View and download past invoices and receipts." },
+            { icon: <Shield size={15} />,      label: "Subscription plan", desc: "Upgrade, downgrade, or cancel your plan." },
+            { icon: <Users size={15} />,       label: "Seat management",   desc: "Manage member seats and plan limits." },
+          ].map(({ icon, label, desc }, i, arr) => (
+            <div key={label} style={{
+              display: "flex", alignItems: "center", gap: 14,
+              padding: "14px 0",
+              borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : undefined,
+              opacity: 0.55,
+            }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                background: "var(--panel2)", border: "1px solid var(--border)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "var(--muted)",
+              }}>
+                {icon}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 600 }}>{label}</p>
+                <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>{desc}</p>
+              </div>
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
+                background: "var(--panel3)", color: "var(--muted)",
+                border: "1px solid var(--border)", textTransform: "uppercase", letterSpacing: "0.04em",
+                flexShrink: 0,
+              }}>
+                Coming soon
+              </span>
+            </div>
+          ))}
+        </SettingsCard>
+      </SettingsSection>
+
+      {/* ── Related ── */}
+      <SettingsSection title="Related">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
+            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Manage Members
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("profile")}>
+            <Building2 size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Organisation Profile
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+            ← Dashboard
+          </button>
+        </div>
+      </SettingsSection>
+
     </SettingsPage>
   );
 }
