@@ -252,17 +252,6 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
     a.assignmentUsers.some(u => u.status !== "Completed"),
   ).length;
 
-  const settingsNav: { page: OrgPage; label: string; hint: string; icon: ReactNode }[] = [
-    { page: "profile",       label: "Profile",          hint: "Name, sport, contact",             icon: <User size={16} /> },
-    { page: "branding",      label: "Branding",          hint: "Colours and logo",                 icon: <Palette size={16} /> },
-    { page: "preferences",   label: "Preferences",       hint: "Date, time, regional",             icon: <SlidersHorizontal size={16} /> },
-    { page: "reviews",       label: "Review Defaults",   hint: "Crew size, visibility, fields",    icon: <Film size={16} /> },
-    { page: "learning",      label: "Learning",          hint: "Assignment rules, reminders",      icon: <BookOpen size={16} /> },
-    { page: "notifications", label: "Notifications",     hint: "Delivery and alert preferences",   icon: <Bell size={16} /> },
-    { page: "security",      label: "Security",          hint: "Session, passwords, MFA",          icon: <Shield size={16} /> },
-    { page: "resources",     label: "Resources",         hint: "Learning documents and links",     icon: <FolderOpen size={16} /> },
-  ];
-
   return (
     <SettingsPage eyebrow="Organisation" title={org?.name ?? "Organisation"}>
 
@@ -444,22 +433,6 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
             </div>
           )}
         </SectionCard>
-      </SettingsSection>
-
-      {/* ── Organisation Settings ── */}
-      <SettingsSection title="Organisation Settings" description="Configuration and defaults for your organisation.">
-        <div className="ed-hero-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
-          {settingsNav.map(({ page, label, hint, icon }) => (
-            <button key={page} className="ed-hero-card" onClick={() => setCurrentPage(page)}>
-              <span className="ed-hero-icon">{icon}</span>
-              <span className="ed-hero-text">
-                <span className="ed-hero-label">{label}</span>
-                <span className="ed-hero-hint">{hint}</span>
-              </span>
-              <ChevronRight size={14} className="ed-hero-chevron" />
-            </button>
-          ))}
-        </div>
       </SettingsSection>
 
     </SettingsPage>
