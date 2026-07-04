@@ -283,7 +283,7 @@ export function CommentInbox({
         </div>
       </div>
 
-      {loading && <p className="hint" style={{ padding: "20px 0" }}>Loading…</p>}
+      {loading && <div className="loading-state"><span className="loading-spinner" />Loading…</div>}
       {error && <p className="danger-text" style={{ padding: "20px 0" }}>{error}</p>}
 
       {!loading && !error && groups.length === 0 && (

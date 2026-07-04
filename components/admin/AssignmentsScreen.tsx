@@ -163,7 +163,7 @@ export function AssignmentsScreen({
         </div>
 
         {error && <p className="danger-text">{error}</p>}
-        {loading && <p className="hint">Loading…</p>}
+        {loading && <div className="loading-state"><span className="loading-spinner" />Loading…</div>}
 
         {/* Filter bar */}
         {!loading && assignments.length > 0 && (

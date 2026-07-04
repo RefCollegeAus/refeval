@@ -293,11 +293,7 @@ export function MembersScreen({
         )}
 
         {/* Loading */}
-        {loading && (
-          <div style={{ padding: "32px 0", textAlign: "center" }}>
-            <p className="hint" style={{ margin: 0 }}>Loading members…</p>
-          </div>
-        )}
+        {loading && <div className="loading-state" style={{ justifyContent: "center", padding: "32px 0" }}><span className="loading-spinner" />Loading members…</div>}
 
         {/* Empty state — no members */}
         {!loading && members.length === 0 && (

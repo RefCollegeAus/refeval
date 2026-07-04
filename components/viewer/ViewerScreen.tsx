@@ -34,7 +34,7 @@ export function ViewerScreen({ session, games, loading, error }: Props) {
         <p className="hint">Learning content assigned to you.</p>
       </div>
 
-      {loading && <p className="hint">Loading games…</p>}
+      {loading && <div className="loading-state"><span className="loading-spinner" />Loading games…</div>}
       {error && <p className="danger-text">{error}</p>}
 
       {!loading && !error && games.length === 0 && (

@@ -122,7 +122,7 @@ export function PlaylistsScreen({
           </button>
         </div>
 
-        {loading && <p className="hint">Loading playlists…</p>}
+        {loading && <div className="loading-state"><span className="loading-spinner" />Loading playlists…</div>}
         {error && <p className="danger-text">{error}</p>}
 
         {/* Empty state — no playlists at all */}

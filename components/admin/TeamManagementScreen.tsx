@@ -222,7 +222,7 @@ export function TeamManagementScreen({ session, members, permissionMap, permissi
         </div>
 
         {/* Loading */}
-        {permissionsLoading && <p className="hint">Loading permissions…</p>}
+        {permissionsLoading && <div className="loading-state"><span className="loading-spinner" />Loading permissions…</div>}
 
         {/* Search + result count */}
         {members.length > 0 && (

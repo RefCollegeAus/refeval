@@ -286,7 +286,7 @@ export function RefereeCommentsScreen({
       </div>
 
       {/* Loading */}
-      {loading && <p className="hint">Loading comments…</p>}
+      {loading && <div className="loading-state"><span className="loading-spinner" />Loading comments…</div>}
 
       {/* Empty state */}
       {!loading && visible.length === 0 && (

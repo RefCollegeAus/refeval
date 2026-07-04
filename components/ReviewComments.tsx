@@ -124,7 +124,7 @@ export function ReviewComments({
       </div>
 
       {loading ? (
-        <p className="hint" style={{ padding: "12px 0" }}>Loading…</p>
+        <div className="loading-state"><span className="loading-spinner" />Loading comments…</div>
       ) : (
         <div className="disc-list" ref={listRef}>
           {comments.length === 0 ? (

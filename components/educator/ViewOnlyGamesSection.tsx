@@ -263,7 +263,7 @@ export function ViewOnlyGamesSection({
         )}
       </div>
 
-      {loading && <p className="hint" style={{ fontSize: 13 }}>Loading…</p>}
+      {loading && <div className="loading-state"><span className="loading-spinner" />Loading…</div>}
       {error && <p className="danger-text" style={{ fontSize: 13 }}>{error}</p>}
 
       {!loading && games.length === 0 && (

@@ -586,7 +586,7 @@ export function GroupsScreen({
 
         {/* Loading */}
         {loading && (
-          <div className="empty-state"><p className="hint" style={{ margin: 0 }}>Loading groups…</p></div>
+          <div className="loading-state" style={{ justifyContent: "center", padding: "32px 0" }}><span className="loading-spinner" />Loading groups…</div>
         )}
 
         {/* Empty state — no groups yet */}
