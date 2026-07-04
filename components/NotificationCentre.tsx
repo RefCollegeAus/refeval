@@ -2,6 +2,7 @@
 
 import { Bell, CheckCheck, Trash2, ExternalLink, Info, AlertTriangle, CheckCircle, BookOpen, MessageSquare, Target, ListChecks, Megaphone } from "lucide-react";
 import type { Notification, NotificationType } from "@/lib/types/notifications";
+import { fmtRel } from "@/lib/utils/time";
 
 interface Props {
   notifications: Notification[];
@@ -65,18 +66,6 @@ function priorityAccent(priority: Notification["priority"]) {
   return "var(--muted)";
 }
 
-function formatRelativeTime(isoString: string): string {
-  const diffMs = Date.now() - new Date(isoString).getTime();
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1)   return "Just now";
-  if (diffMin < 60)  return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24)   return `${diffHr}h ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay === 1) return "Yesterday";
-  if (diffDay < 7)   return `${diffDay}d ago`;
-  return new Date(isoString).toLocaleDateString();
-}
 
 function isToday(isoString: string): boolean {
   const d = new Date(isoString);
@@ -170,7 +159,7 @@ function NotificationRow({
           {notif.message}
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 11, color: "var(--muted)" }}>{formatRelativeTime(notif.createdAt)}</span>
+          <span style={{ fontSize: 11, color: "var(--muted)" }}>{fmtRel(notif.createdAt)}</span>
           {notif.actionLabel && notif.actionRoute && (
             <button
               style={{ fontSize: 11, padding: "2px 8px", display: "flex", alignItems: "center", gap: 4 }}
@@ -250,9 +239,30 @@ export function NotificationCentre({
 
         {/* Empty state */}
         {notifications.length === 0 && (
-          <div style={{ textAlign: "center", padding: "48px 0", color: "var(--muted)" }}>
-            <Bell size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
-            <p style={{ margin: 0 }}>No notifications yet</p>
+          <div style={{
+            textAlign: "center",
+            padding: "56px 24px",
+            background: "var(--panel2)",
+            borderRadius: 16,
+            border: "1px solid var(--border)",
+          }}>
+            <div style={{
+              width: 56,
+              height: 56,
+              borderRadius: 16,
+              background: "var(--panel3)",
+              border: "1px solid var(--border)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+            }}>
+              <Bell size={24} style={{ color: "var(--muted)", opacity: 0.5 }} />
+            </div>
+            <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 15 }}>No notifications</p>
+            <p style={{ margin: 0, color: "var(--muted)", fontSize: 13, maxWidth: 280, marginInline: "auto" }}>
+              You'll see activity from reviews, learning and assignments here.
+            </p>
           </div>
         )}
 

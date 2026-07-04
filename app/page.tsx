@@ -41,6 +41,14 @@ import { OrganisationScreen } from "@/components/organisation/OrganisationScreen
 import { NotificationCentre } from "@/components/NotificationCentre";
 import { useOrganisationSettings } from "@/lib/hooks/useOrganisationSettings";
 import { useNotifications } from "@/lib/hooks/useNotifications";
+import {
+  makeReviewCompletedDraft,
+  makeAssignmentAssignedDraft,
+  makeAssignmentCompletedDraft,
+  makeGoalAssignedDraft,
+  makeGoalUpdatedDraft,
+  makeNoteAddedDraft,
+} from "@/lib/services/notifications";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Pause, Play, Trash2, Plus, Eye, MessageSquare } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -188,7 +196,18 @@ export default function Home() {
     setSummaryModalOpen(true);
   }
   async function confirmSubmit() {
+    const reviewSnapshot = activeReview;
     await saveReviewMeta("Completed", draftSummaries);
+    if (reviewSnapshot && session?.activeOrganisation?.id) {
+      const orgId = session.activeOrganisation.id;
+      const educatorName = session.profile.name;
+      const gameName = reviewSnapshot.game || "a game";
+      const refIds = [reviewSnapshot.referee1Id, reviewSnapshot.referee2Id, reviewSnapshot.referee3Id]
+        .filter((id): id is string => !!id);
+      for (const refId of refIds) {
+        addNotification(makeReviewCompletedDraft(orgId, refId, reviewSnapshot.id, gameName, educatorName));
+      }
+    }
     setSummaryModalOpen(false);
     setScreen("educator");
   }
@@ -206,6 +225,7 @@ export default function Home() {
   const {
     notifications,
     unreadCount,
+    createNotification: addNotification,
     markRead,
     markAllRead,
     deleteNotification: removeNotification,
@@ -992,8 +1012,28 @@ export default function Home() {
           assignments={!learningAssignmentUser ? assignments.filter(a => a.playlistId === activePlaylist.id) : undefined}
           members={members}
           groups={groups}
-          onCreateAssignment={async (input) => { await createAssignment(input); }}
-          onAddToAssignment={addUsersToAssignment}
+          onCreateAssignment={async (input) => {
+            const assignmentId = await createAssignment(input);
+            if (session?.activeOrganisation?.id) {
+              const orgId = session.activeOrganisation.id;
+              const assignerName = session.profile.name;
+              for (const userId of input.userIds) {
+                addNotification(makeAssignmentAssignedDraft(orgId, userId, assignmentId, input.title, assignerName));
+              }
+            }
+          }}
+          onAddToAssignment={async (assignmentId, userIds) => {
+            const result = await addUsersToAssignment(assignmentId, userIds);
+            const assignment = assignments.find(a => a.id === assignmentId);
+            if (assignment && session?.activeOrganisation?.id) {
+              const orgId = session.activeOrganisation.id;
+              const assignerName = session.profile.name;
+              for (const userId of userIds) {
+                addNotification(makeAssignmentAssignedDraft(orgId, userId, assignmentId, assignment.title, assignerName));
+              }
+            }
+            return result;
+          }}
           onViewAssignment={(assignmentId) => {
             setActiveAssignmentId(assignmentId);
             setScreen("assignment-detail");
@@ -1010,6 +1050,13 @@ export default function Home() {
             dueDate: learningAssignmentUser.assignment.dueDate,
             onMarkComplete: async () => {
               await updateAssignmentUserStatus(learningAssignmentUser.assignmentUser.id, "Completed");
+              if (session?.activeOrganisation?.id && session.user.id) {
+                addNotification(makeAssignmentCompletedDraft(
+                  session.activeOrganisation.id,
+                  session.user.id,
+                  learningAssignmentUser.assignment.title,
+                ));
+              }
               setLearningAssignmentUser(null);
               setPlaylistDetailId(null);
               setScreen("my-learning");
@@ -1087,9 +1134,28 @@ export default function Home() {
           onBack={() => setScreen("assignments")}
           onUpdate={updateAssignment}
           onDelete={async (id) => { await deleteAssignment(id); setActiveAssignmentId(null); setScreen("assignments"); }}
-          onAddUsers={addUsersToAssignment}
+          onAddUsers={async (assignmentId, userIds) => {
+            const result = await addUsersToAssignment(assignmentId, userIds);
+            if (session?.activeOrganisation?.id) {
+              const orgId = session.activeOrganisation.id;
+              const assignerName = session.profile.name;
+              for (const userId of userIds) {
+                addNotification(makeAssignmentAssignedDraft(orgId, userId, assignmentId, activeAssignment.title, assignerName));
+              }
+            }
+            return result;
+          }}
           onRemoveUser={removeUserFromAssignment}
-          onUpdateStatus={updateAssignmentUserStatus}
+          onUpdateStatus={async (auId, status) => {
+            await updateAssignmentUserStatus(auId, status);
+            if (status === "Completed" && session?.activeOrganisation?.id && session.user.id) {
+              addNotification(makeAssignmentCompletedDraft(
+                session.activeOrganisation.id,
+                session.user.id,
+                activeAssignment.title,
+              ));
+            }
+          }}
         />
       </main>
     );
@@ -1517,14 +1583,56 @@ export default function Home() {
           completedReviews={refereeCompletedReviews}
           reviewGoalLinks={refereeReviewGoalLinks}
           allReviews={reviews}
-          onAssignGoal={input => assignGoal(input, allRefereeIds)}
-          onUpdateGoalDef={updateGoalDef}
-          onUpdateRefereeGoal={updateRefereeGoal}
+          onAssignGoal={async (input) => {
+            await assignGoal(input, allRefereeIds);
+            if (session.activeOrganisation?.id) {
+              addNotification(makeGoalAssignedDraft(
+                session.activeOrganisation.id,
+                referee.id,
+                input.title,
+                session.profile.name,
+              ));
+            }
+          }}
+          onUpdateGoalDef={(id, patch) => {
+            updateGoalDef(id, patch);
+            const goalTitle = patch.title ?? goalViews.find(gv => gv.goalId === id)?.title ?? "a goal";
+            if (session.activeOrganisation?.id) {
+              addNotification(makeGoalUpdatedDraft(
+                session.activeOrganisation.id,
+                referee.id,
+                goalTitle,
+                session.profile.name,
+              ));
+            }
+          }}
+          onUpdateRefereeGoal={(id, patch) => {
+            updateRefereeGoal(id, patch);
+            const goalTitle = allRefereeGoalViews.find(gv => gv.id === id)?.title ?? "a goal";
+            if (session.activeOrganisation?.id) {
+              addNotification(makeGoalUpdatedDraft(
+                session.activeOrganisation.id,
+                referee.id,
+                goalTitle,
+                session.profile.name,
+              ));
+            }
+          }}
           onCompleteGoal={completeRefereeGoal}
           onArchiveGoal={archiveRefereeGoal}
           onReopenGoal={reopenRefereeGoal}
           onDeleteGoal={deleteRefereeGoal}
-          onCreateNote={createNote}
+          onCreateNote={async (input) => {
+            await createNote(input);
+            if (session.activeOrganisation?.id) {
+              addNotification(makeNoteAddedDraft(
+                session.activeOrganisation.id,
+                referee.id,
+                session.profile.name,
+                input.title,
+              ));
+            }
+          }}
           onUpdateNote={updateNote}
           onDeleteNote={deleteNote}
           onBack={() => setScreen("educator")}
