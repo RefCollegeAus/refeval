@@ -337,10 +337,15 @@ export function NotificationCentre({
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>Notification Settings</p>
                 <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Choose which categories appear in your notification centre.</p>
               </div>
-              <PrefToggle
-                checked={preferences.inAppEnabled}
-                onChange={v => onUpdatePreferences({ inAppEnabled: v })}
-              />
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {preferences.inAppEnabled ? "Enabled" : "Disabled"}
+                </span>
+                <PrefToggle
+                  checked={preferences.inAppEnabled}
+                  onChange={v => onUpdatePreferences({ inAppEnabled: v })}
+                />
+              </div>
             </div>
             {preferences.inAppEnabled && (
               <>

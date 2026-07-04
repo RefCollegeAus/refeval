@@ -50,6 +50,7 @@ import {
   makeGoalAssignedDraft,
   makeGoalUpdatedDraft,
   makeNoteAddedDraft,
+  getVisibleUnreadCount,
 } from "@/lib/services/notifications";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Pause, Play, Trash2, Plus, Eye, MessageSquare } from "lucide-react";
@@ -236,6 +237,11 @@ export default function Home() {
 
   const { preferences: notifPrefs, updatePreferences: updateNotifPrefs } =
     useNotificationPreferences(session?.user.id ?? null);
+
+  const visibleUnreadCount = useMemo(
+    () => getVisibleUnreadCount(notifications, notifPrefs),
+    [notifications, notifPrefs],
+  );
 
   const {
     playlists,
@@ -818,7 +824,7 @@ export default function Home() {
           onAdmin={() => {}}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <ViewerScreen
@@ -843,7 +849,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <MembersScreen
@@ -874,7 +880,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <OrgSettingsScreen
@@ -899,7 +905,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <OrganisationScreen
@@ -941,7 +947,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <ClipLibraryScreen
@@ -973,7 +979,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <PlaylistsScreen
@@ -1010,7 +1016,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <PlaylistDetailScreen
@@ -1109,7 +1115,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <AssignmentsScreen
@@ -1143,7 +1149,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <AssignmentDetailScreen
@@ -1197,7 +1203,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <MyLearningScreen
@@ -1237,7 +1243,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <TeamManagementScreen
@@ -1264,7 +1270,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <UserProfileScreen
@@ -1280,7 +1286,7 @@ export default function Home() {
   if (screen === "comment-inbox") {
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={unreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
         <div style={{ padding: "0 20px 40px", maxWidth: 900, margin: "0 auto" }}>
           <CommentInbox
             session={session}
@@ -1308,7 +1314,7 @@ export default function Home() {
     };
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={unreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
         <LearningHub
           session={session}
           tags={tags}
@@ -1335,7 +1341,7 @@ export default function Home() {
   if (screen === "learning-progress" && session) {
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen("learning-hub")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={unreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen("learning-hub")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
         <LearningProgress
           session={session}
           assignments={assignments}
@@ -1350,7 +1356,7 @@ export default function Home() {
   if (screen === "groups" && session) {
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={unreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
         <GroupsScreen
           session={session}
           groups={groups}
@@ -1378,7 +1384,7 @@ export default function Home() {
     };
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={unreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
         <EducatorDashboard
           session={session}
           reviews={reviews}
@@ -1421,7 +1427,7 @@ export default function Home() {
 
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={unreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
         <div className="layout">
           <section className="panel">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
@@ -1595,7 +1601,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <RefereeDevelopmentScreen
@@ -1682,7 +1688,7 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <RefereeCommentsScreen
@@ -1713,12 +1719,12 @@ export default function Home() {
           onLearning={() => setScreen("learning-hub")}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={unreadCount}
+          unreadNotificationCount={visibleUnreadCount}
           onLogout={logout}
         />
         <NotificationCentre
           notifications={notifications}
-          unreadCount={unreadCount}
+          unreadCount={visibleUnreadCount}
           onMarkRead={markRead}
           onMarkAllRead={markAllRead}
           onDelete={removeNotification}
@@ -1754,7 +1760,7 @@ export default function Home() {
     ] as [string, string, string][]
   ).filter(([id]) => !!id);
 
-  return <main><Header session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={unreadCount} onLogout={logout} /><div className="layout"><section className="panel"><div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--border)" }}><p className="eyebrow">Evaluation</p><h2 style={{ marginBottom: 4 }}>{reviewGame || "Untitled Review"}</h2><p className="hint">Educator: {activeReview?.educatorName || session?.profile.name || "—"} · Status: {activeReview?.status || "In Review"}</p><div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}><span className="chip">Crew Chief: {slotName("Referee 1", activeReview)}</span><span className="chip">Umpire 1: {slotName("Referee 2", activeReview)}</span><span className="chip">Umpire 2: {slotName("Referee 3", activeReview)}</span></div></div><div className="review-setup-bar"><div className="review-setup-info"><span className="review-setup-name">{reviewGame && reviewGame !== "New Review" ? reviewGame : "Untitled Review"}</span>{reviewGameDate && <span className="hint">· {reviewGameDate}</span>}{reviewVideoLink ? <span className="hint">· 🎥 Video</span> : <span className="hint" style={{color:"rgba(253,230,138,.6)"}}>· No video</span>}</div><button style={{fontSize:12,padding:"4px 10px",whiteSpace:"nowrap"}} onClick={()=>setSetupModalOpen(true)}>✏️ Edit Game Details</button></div><div className="mode-switch"><button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button><button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button></div>{mode === "video" ? <><div className="toolbar"><label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={16} /> / <Pause size={16} /></button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>-5s</button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>+5s</button><button className="primary" onClick={openVideoCoding}>Tag Moment</button></div><div className="video-placeholder" style={{margin:0,aspectRatio:"16/9",overflow:"hidden",padding:0}}>{usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} className="video-frame" onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}</div>{usingYouTubeVideo&&<p className="hint" style={{marginTop:4,fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}</> : <div className="timer-card"><div className="timer">{formatTime(timerSeconds)}</div><div className="toolbar"><button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button><button onClick={() => setTimerSeconds(0)}>Reset</button><button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button><button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button></div><p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p></div>}<div className="timeline"><div className="progress" style={{ width: `${progressPct}%` }} />{reviewTags.map(tag => <div key={tag.id} className="marker" title={`${tag.adjustedTime} — ${slotName(tag.refereeTarget, activeReview)} — ${tag.outcome || tag.category || "Tag"}`} style={{ left: `${Math.min(100, (tag.adjustedSeconds / scaleSeconds) * 100)}%` }} />)}</div></section><aside className="panel side-panel"><div className="export-row"><button className="warn" style={{fontSize:12,padding:"6px 12px"}} onClick={saveCompleteLater}>Save &amp; Complete Later</button><button className="good" style={{fontSize:12,padding:"6px 12px"}} onClick={submitReview}>Submit Review</button></div><div className="export-row"><button style={{fontSize:12,padding:"5px 10px"}} onClick={exportCsv}><Download size={14} /> CSV</button><button className="primary" style={{fontSize:12,padding:"5px 10px"}} onClick={exportExcel}><Download size={14} /> Excel</button></div><div className="review-side-block"><div className="analytics-card"><h2>Performance Analytics</h2><label>Analytics view<select value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div className="metric-grid" style={{ marginTop: 10 }}><div className="metric-tile"><div className="number">{analytics.total}</div><div className="hint">Total clips</div></div><div className="metric-tile"><div className="number">{analytics.accuracy}</div><div className="hint">Coded accuracy</div></div><div className="metric-tile"><div className="number">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="hint">Correct decisions</div></div><div className="metric-tile"><div className="number">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="hint">Incorrect decisions</div></div></div></div></div><div className="review-side-breakdowns-wrap"><div className="review-side-breakdowns"><div className="review-side-breakdowns-header"><span className="review-side-breakdowns-title">Breakdowns</span><span className="review-side-breakdowns-hint">Scroll ↓</span></div><div className="analytics-card"><h3>Outcome Breakdown</h3>{analytics.outcomeCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Category Breakdown</h3>{analytics.categoryCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Position Breakdown</h3>{analytics.positionCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Coverage Breakdown</h3>{analytics.coverageCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div></div></div><div className="review-side-actions">{mode === "video" ? <div className="analytics-card"><button className="primary big-tag" onClick={openVideoCoding}>Tag Moment</button><p className="hint">Shortcut: X opens the video coding panel.</p></div> : <div className="analytics-card"><h2>Non-video hotkeys</h2><div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div></div>}{summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&Object.values(activeReview.officialSummaries[id]).some(Boolean))&&<div className="analytics-card"><h3>Final Summaries</h3>{summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&(s.positives||s.workOns||s.nextFocus)?<div key={id} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid var(--border)"}}><p style={{margin:"0 0 6px",fontWeight:800}}>{name} <span className="hint" style={{fontWeight:400}}>· {role}</span></p>{s.positives&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Positives</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.positives}</p></>}{s.workOns&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Development Notes</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.workOns}</p></>}</div>:null})}</div>}</div>{activeReview && session && (()=>{
+  return <main><Header session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} /><div className="layout"><section className="panel"><div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--border)" }}><p className="eyebrow">Evaluation</p><h2 style={{ marginBottom: 4 }}>{reviewGame || "Untitled Review"}</h2><p className="hint">Educator: {activeReview?.educatorName || session?.profile.name || "—"} · Status: {activeReview?.status || "In Review"}</p><div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}><span className="chip">Crew Chief: {slotName("Referee 1", activeReview)}</span><span className="chip">Umpire 1: {slotName("Referee 2", activeReview)}</span><span className="chip">Umpire 2: {slotName("Referee 3", activeReview)}</span></div></div><div className="review-setup-bar"><div className="review-setup-info"><span className="review-setup-name">{reviewGame && reviewGame !== "New Review" ? reviewGame : "Untitled Review"}</span>{reviewGameDate && <span className="hint">· {reviewGameDate}</span>}{reviewVideoLink ? <span className="hint">· 🎥 Video</span> : <span className="hint" style={{color:"rgba(253,230,138,.6)"}}>· No video</span>}</div><button style={{fontSize:12,padding:"4px 10px",whiteSpace:"nowrap"}} onClick={()=>setSetupModalOpen(true)}>✏️ Edit Game Details</button></div><div className="mode-switch"><button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button><button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button></div>{mode === "video" ? <><div className="toolbar"><label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={16} /> / <Pause size={16} /></button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>-5s</button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>+5s</button><button className="primary" onClick={openVideoCoding}>Tag Moment</button></div><div className="video-placeholder" style={{margin:0,aspectRatio:"16/9",overflow:"hidden",padding:0}}>{usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} className="video-frame" onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}</div>{usingYouTubeVideo&&<p className="hint" style={{marginTop:4,fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}</> : <div className="timer-card"><div className="timer">{formatTime(timerSeconds)}</div><div className="toolbar"><button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button><button onClick={() => setTimerSeconds(0)}>Reset</button><button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button><button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button></div><p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p></div>}<div className="timeline"><div className="progress" style={{ width: `${progressPct}%` }} />{reviewTags.map(tag => <div key={tag.id} className="marker" title={`${tag.adjustedTime} — ${slotName(tag.refereeTarget, activeReview)} — ${tag.outcome || tag.category || "Tag"}`} style={{ left: `${Math.min(100, (tag.adjustedSeconds / scaleSeconds) * 100)}%` }} />)}</div></section><aside className="panel side-panel"><div className="export-row"><button className="warn" style={{fontSize:12,padding:"6px 12px"}} onClick={saveCompleteLater}>Save &amp; Complete Later</button><button className="good" style={{fontSize:12,padding:"6px 12px"}} onClick={submitReview}>Submit Review</button></div><div className="export-row"><button style={{fontSize:12,padding:"5px 10px"}} onClick={exportCsv}><Download size={14} /> CSV</button><button className="primary" style={{fontSize:12,padding:"5px 10px"}} onClick={exportExcel}><Download size={14} /> Excel</button></div><div className="review-side-block"><div className="analytics-card"><h2>Performance Analytics</h2><label>Analytics view<select value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div className="metric-grid" style={{ marginTop: 10 }}><div className="metric-tile"><div className="number">{analytics.total}</div><div className="hint">Total clips</div></div><div className="metric-tile"><div className="number">{analytics.accuracy}</div><div className="hint">Coded accuracy</div></div><div className="metric-tile"><div className="number">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="hint">Correct decisions</div></div><div className="metric-tile"><div className="number">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="hint">Incorrect decisions</div></div></div></div></div><div className="review-side-breakdowns-wrap"><div className="review-side-breakdowns"><div className="review-side-breakdowns-header"><span className="review-side-breakdowns-title">Breakdowns</span><span className="review-side-breakdowns-hint">Scroll ↓</span></div><div className="analytics-card"><h3>Outcome Breakdown</h3>{analytics.outcomeCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Category Breakdown</h3>{analytics.categoryCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Position Breakdown</h3>{analytics.positionCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Coverage Breakdown</h3>{analytics.coverageCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div></div></div><div className="review-side-actions">{mode === "video" ? <div className="analytics-card"><button className="primary big-tag" onClick={openVideoCoding}>Tag Moment</button><p className="hint">Shortcut: X opens the video coding panel.</p></div> : <div className="analytics-card"><h2>Non-video hotkeys</h2><div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div></div>}{summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&Object.values(activeReview.officialSummaries[id]).some(Boolean))&&<div className="analytics-card"><h3>Final Summaries</h3>{summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&(s.positives||s.workOns||s.nextFocus)?<div key={id} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid var(--border)"}}><p style={{margin:"0 0 6px",fontWeight:800}}>{name} <span className="hint" style={{fontWeight:400}}>· {role}</span></p>{s.positives&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Positives</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.positives}</p></>}{s.workOns&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Development Notes</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.workOns}</p></>}</div>:null})}</div>}</div>{activeReview && session && (()=>{
   const slots: Array<{id:string; name:string}> = [
     {id: activeReview.referee1Id, name: activeReview.referee1Name},
     {id: activeReview.referee2Id, name: activeReview.referee2Name},

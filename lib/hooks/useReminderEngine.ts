@@ -38,11 +38,17 @@ export function useReminderEngine({
   allRefereeGoalViews: RefereeGoalView[];
   addNotification: (draft: Omit<Notification, "id" | "isRead" | "readAt">) => void;
 }) {
-  // In-memory cache of seen keys so we don't hit localStorage on every run
+  // In-memory cache of seen keys so we don't hit localStorage on every run.
+  // Reset when userId changes so a new user never inherits a previous user's cache.
   const seenKeysRef = useRef<Set<string> | null>(null);
+  const cachedUserIdRef = useRef<string | null>(null);
 
   const getSeenKeys = useCallback((): Set<string> => {
     if (!userId) return new Set();
+    if (userId !== cachedUserIdRef.current) {
+      seenKeysRef.current = null;
+      cachedUserIdRef.current = userId;
+    }
     if (!seenKeysRef.current) {
       seenKeysRef.current = loadSeenKeys(userId);
     }

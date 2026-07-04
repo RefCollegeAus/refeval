@@ -32,8 +32,8 @@ function buildSampleNotifications(userId: string, organisationId: string, role: 
       isRead: false,
       readAt: null,
       priority: "high",
-      actionLabel: "View Review",
-      actionRoute: "refereeReview",
+      actionLabel: "View My Reviews",
+      actionRoute: "referee",
       metadata: null,
     },
     {

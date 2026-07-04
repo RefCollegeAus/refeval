@@ -1,4 +1,4 @@
-import type { Notification, NotificationCategory, NotificationType, NotificationPriority, NotificationEntityType } from "@/lib/types/notifications";
+import type { Notification, NotificationCategory, NotificationType, NotificationPriority, NotificationEntityType, NotificationPreferences } from "@/lib/types/notifications";
 
 export function getNotificationCategory(type: NotificationType): NotificationCategory {
   switch (type) {
@@ -67,7 +67,7 @@ export function makeReviewCompletedDraft(
   return draft(orgId, userId, "review_completed", "normal",
     "Review Ready to View",
     `${educatorName} has completed the review for "${gameName}".`,
-    "review", reviewId, "View Review", "refereeReview", educatorName);
+    "review", reviewId, "View My Reviews", "referee", educatorName);
 }
 
 export function makeAssignmentAssignedDraft(
@@ -125,7 +125,7 @@ export function makeAssignmentDueSoonDraft(
   title: string,
   dueDate: string,
 ): Omit<Notification, "id" | "isRead" | "readAt"> {
-  return draft(orgId, userId, "assignment_due", "high",
+  return draft(orgId, userId, "assignment_due", "normal",
     "Assignment Due Soon",
     `"${title}" is due on ${dueDate}. Complete it before the deadline.`,
     "assignment", assignmentId, "Start Learning", "my-learning");
@@ -213,4 +213,23 @@ export function deleteNotification(
 
 export function getUnreadNotificationCount(notifications: Notification[]): number {
   return notifications.filter(n => !n.isRead).length;
+}
+
+export function getVisibleUnreadCount(
+  notifications: Notification[],
+  prefs: NotificationPreferences | null,
+): number {
+  if (!prefs) return getUnreadNotificationCount(notifications);
+  if (!prefs.inAppEnabled) return 0;
+  return notifications.filter(n => {
+    if (n.isRead) return false;
+    switch (getNotificationCategory(n.type)) {
+      case "reviews":      return prefs.reviewNotifications;
+      case "assignments":  return prefs.assignmentNotifications;
+      case "learning":     return prefs.learningNotifications;
+      case "goals":        return prefs.developmentGoalNotifications;
+      case "organisation": return prefs.organisationNotifications;
+      case "system":       return prefs.systemNotifications;
+    }
+  }).length;
 }
