@@ -23,6 +23,8 @@ import { hasPermission } from "@/lib/utils/permissions";
 import { RefereeReviewScreen } from "@/components/referee/RefereeReviewScreen";
 import { RefereeStatsHub } from "@/components/referee/RefereeStatsHub";
 import { DateRangeFilter, datePassesFilter } from "@/components/common/DateRangeFilter";
+import { OnboardingPanel } from "@/components/common/OnboardingPanel";
+import { useOnboardingDismissed } from "@/lib/hooks/useOnboardingDismissed";
 import { ReviewComments } from "@/components/ReviewComments";
 import { CommentInbox } from "@/components/educator/CommentInbox";
 import { EducatorDashboard } from "@/components/educator/EducatorDashboard";
@@ -237,6 +239,9 @@ export default function Home() {
 
   const { preferences: notifPrefs, updatePreferences: updateNotifPrefs } =
     useNotificationPreferences(session?.user.id ?? null);
+
+  const { isDismissed: onboardingDismissed, dismiss: dismissOnboarding } =
+    useOnboardingDismissed(session?.user.id ?? null);
 
   const visibleUnreadCount = useMemo(
     () => getVisibleUnreadCount(notifications, notifPrefs),
@@ -1405,6 +1410,8 @@ export default function Home() {
             setDevGoalRefereeId(refereeId);
             setScreen("referee-development");
           }}
+          onboardingDismissed={onboardingDismissed}
+          dismissOnboarding={dismissOnboarding}
         />
       </main>
     );
@@ -1437,6 +1444,21 @@ export default function Home() {
                 <p className="hint" style={{ margin: "2px 0 0" }}>Only submitted/completed evaluations appear here.</p>
               </div>
             </div>
+
+            {/* Onboarding */}
+            {!onboardingDismissed && (
+              <div style={{ marginTop: 16 }}>
+                <OnboardingPanel
+                  role="referee"
+                  onDismiss={dismissOnboarding}
+                  onNavigate={setScreen}
+                  onNavigateDevelopment={session ? () => {
+                    setDevGoalRefereeId(session.user.id);
+                    setScreen("referee-development");
+                  } : undefined}
+                />
+              </div>
+            )}
 
             {/* Compact date filter */}
             <DateRangeFilter

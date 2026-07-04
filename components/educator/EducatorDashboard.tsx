@@ -13,6 +13,7 @@ import type { Assignment } from "@/lib/types/assignments";
 import type { MemberRecord } from "@/lib/types/members";
 import type { RefereeGoalView } from "@/lib/types/developmentGoals";
 import { fmtRel } from "@/lib/utils/time";
+import { OnboardingPanel } from "@/components/common/OnboardingPanel";
 
 interface Props {
   session: RefEvalSession;
@@ -31,6 +32,8 @@ interface Props {
   deleteReview: (id: string) => void;
   setScreen: (screen: Screen) => void;
   onNavigateDevelopment: (refereeId: string) => void;
+  onboardingDismissed: boolean;
+  dismissOnboarding: () => void;
 }
 
 type KpiFilter = "all" | "in-review" | "completed" | "this-week";
@@ -97,6 +100,7 @@ export function EducatorDashboard({
   session, reviews, tags, playlists: _playlists, assignments, refereeMembers, allRefereeGoalViews, totalUnread,
   canViewClipLibrary, canAccessPlaylists, canViewAssignments,
   startNewReview, openReviewForEdit, deleteReview, setScreen, onNavigateDevelopment,
+  onboardingDismissed, dismissOnboarding,
 }: Props) {
   const [filterStatus, setFilterStatus] = useState<"All" | "In Review" | "Completed">("All");
   const [filterReferee, setFilterReferee] = useState("");
@@ -482,6 +486,15 @@ export function EducatorDashboard({
             </span>
           </div>
         </div>
+
+        {/* ── Onboarding ── */}
+        {!onboardingDismissed && (
+          <OnboardingPanel
+            role={session.activeRole ?? "educator"}
+            onDismiss={dismissOnboarding}
+            onNavigate={setScreen}
+          />
+        )}
 
         {/* ── Coaching Queue ── */}
         <div className="panel">
