@@ -301,27 +301,45 @@ function SectionCard({
 }
 
 function DashboardPage({ org, members, reviews, assignments, settings, setCurrentPage, onNavigateMembers, groupCount, activeGoalCount, groups, canCreateGroups }: PageCtx) {
-  const refereeCount    = members.filter(m => m.role === "referee").length;
-  const educatorCount   = members.filter(m => m.role === "educator").length;
-  const adminCount      = members.filter(m => m.role === "admin" || m.role === "super_admin").length;
+  // ── Member breakdowns ─────────────────────────────────────────────
+  const refereeCount  = members.filter(m => m.role === "referee").length;
+  const educatorCount = members.filter(m => m.role === "educator").length;
+  const adminCount    = members.filter(m => m.role === "admin" || m.role === "super_admin").length;
 
+  // ── Review stats ──────────────────────────────────────────────────
   const completedReviews  = reviews.filter(r => r.status === "Completed").length;
-  const activeAssignments = assignments.filter(a =>
-    a.assignmentUsers.some(u => u.status !== "Completed"),
-  ).length;
+  const inProgressReviews = reviews.length - completedReviews;
+  const reviewPct = reviews.length > 0 ? Math.round((completedReviews / reviews.length) * 100) : 0;
+
+  // ── Assignment stats ──────────────────────────────────────────────
+  const activeAssignments    = assignments.filter(a => a.assignmentUsers.some(u => u.status !== "Completed")).length;
+  const completedAssignments = assignments.filter(a => a.assignmentUsers.length > 0 && a.assignmentUsers.every(u => u.status === "Completed")).length;
+
+  // ── Group coverage ────────────────────────────────────────────────
+  const inGroupIds   = new Set(groups.flatMap(g => g.members.map(gm => gm.userId)));
+  const inGroupCount = members.filter(m => inGroupIds.has(m.id)).length;
+  const ungrouped    = members.length - inGroupCount;
+  const coveragePct  = members.length > 0 ? Math.round((inGroupCount / members.length) * 100) : 0;
+
+  // ── Setup health ──────────────────────────────────────────────────
+  type SetupItem = { label: string; done: boolean; page: OrgPage | null };
+  const setupItems: SetupItem[] = [
+    { label: "Contact email",            done: !!settings.profile.contactEmail.trim(),    page: "profile" },
+    { label: "Website",                  done: !!settings.profile.website.trim(),         page: "profile" },
+    { label: "Branding configured",      done: !!(settings.branding.logoUrl || settings.branding.logoText.trim()), page: "branding" },
+    { label: "Members invited",          done: members.length > 0,                        page: null },
+    { label: "Groups created",           done: groups.length > 0,                         page: "groups" },
+    { label: "Notifications configured", done: settings.notifications.notifyReviewAssigned || settings.notifications.notifyAssignmentAssigned, page: "notifications" },
+  ];
+  const setupDone = setupItems.filter(s => s.done).length;
+  const setupPct  = Math.round((setupDone / setupItems.length) * 100);
 
   return (
     <SettingsPage eyebrow="Organisation" title={org?.name ?? "Organisation"}>
 
       {/* ── Org identity header ── */}
       <div className="panel" style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
-        <OrgLogoMark
-          name={org?.name ?? ""}
-          branding={settings.branding}
-          size={60}
-          fontSize={22}
-          borderRadius={16}
-        />
+        <OrgLogoMark name={org?.name ?? ""} branding={settings.branding} size={60} fontSize={22} borderRadius={16} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{org?.name ?? "—"}</h2>
@@ -351,20 +369,15 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
       {/* ── Summary metrics ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
         {[
-          { label: "Members",          value: members.length,      color: "var(--accent)", onClick: () => setCurrentPage("members") },
-          { label: "Referees",         value: refereeCount,        color: "#30d158",       onClick: () => setCurrentPage("members") },
-          { label: "Educators",        value: educatorCount,       color: "#0a84ff",       onClick: () => setCurrentPage("members") },
-          { label: "Groups",           value: groupCount,          color: "#8b5cf6",       onClick: undefined },
-          { label: "Reviews",          value: completedReviews,    color: "#bf5af2",       onClick: undefined },
-          { label: "Active Goals",     value: activeGoalCount,     color: "#ff9f0a",       onClick: undefined },
+          { label: "Members",      value: members.length,   color: "var(--accent)", onClick: () => setCurrentPage("members") },
+          { label: "Referees",     value: refereeCount,     color: "#30d158",       onClick: () => setCurrentPage("members") },
+          { label: "Educators",    value: educatorCount,    color: "#0a84ff",       onClick: () => setCurrentPage("members") },
+          { label: "Groups",       value: groupCount,       color: "#8b5cf6",       onClick: () => setCurrentPage("groups") },
+          { label: "Reviews",      value: reviews.length,   color: "#bf5af2",       onClick: undefined },
+          { label: "Active Goals", value: activeGoalCount,  color: "#ff9f0a",       onClick: undefined },
         ].map(({ label, value, color, onClick }) => (
           onClick ? (
-            <button
-              key={label}
-              className="ed-summary-card"
-              onClick={onClick}
-              style={{ cursor: "pointer", textAlign: "left", width: "100%", background: "var(--panel)", border: "1px solid var(--border)" }}
-            >
+            <button key={label} className="ed-summary-card" onClick={onClick} style={{ cursor: "pointer", textAlign: "left", width: "100%", background: "var(--panel)", border: "1px solid var(--border)" }}>
               <div className="ed-summary-number" style={{ color }}>{value}</div>
               <div className="ed-summary-label">{label}</div>
             </button>
@@ -377,7 +390,161 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
         ))}
       </div>
 
-      {/* ── Members section ── */}
+      {/* ── Activity Overview ── */}
+      <SettingsSection title="Activity Overview" description="Review completions, learning progress, and group coverage across your organisation.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+
+          {/* Reviews */}
+          <SectionCard title="Reviews" description={reviews.length === 0 ? "No reviews yet" : `${reviews.length} total`}>
+            {reviews.length === 0 ? (
+              <p className="hint" style={{ margin: 0, fontSize: 12 }}>Reviews created by educators will appear here.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>Completed</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#34c759" }}>{completedReviews}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>In Review</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#ff9f0a" }}>{inProgressReviews}</span>
+                </div>
+                <div style={{ height: 4, borderRadius: 999, background: "var(--panel3)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", borderRadius: 999, width: `${reviewPct}%`, background: reviewPct === 100 ? "#34c759" : "var(--accent)", transition: "width .3s" }} />
+                </div>
+                <span style={{ fontSize: 11, color: "var(--muted)" }}>{reviewPct}% complete</span>
+              </div>
+            )}
+          </SectionCard>
+
+          {/* Assignments */}
+          <SectionCard title="Assignments" description={assignments.length === 0 ? "No assignments yet" : `${assignments.length} total`}>
+            {assignments.length === 0 ? (
+              <p className="hint" style={{ margin: 0, fontSize: 12 }}>Learning assignments created by educators will appear here.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>Active</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0a84ff" }}>{activeAssignments}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>Completed</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#34c759" }}>{completedAssignments}</span>
+                </div>
+                {activeGoalCount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>Active goals</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#ff9f0a" }}>{activeGoalCount}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </SectionCard>
+
+          {/* Group coverage */}
+          <SectionCard
+            title="Group Coverage"
+            description={members.length === 0 ? "No members yet" : `${coveragePct}% of members in a group`}
+            action={groups.length > 0 && ungrouped > 0 ? { label: "Manage Groups", onClick: () => setCurrentPage("groups") } : undefined}
+          >
+            {members.length === 0 ? (
+              <p className="hint" style={{ margin: 0, fontSize: 12 }}>Invite members to start tracking group coverage.</p>
+            ) : groups.length === 0 ? (
+              <p className="hint" style={{ margin: 0, fontSize: 12 }}>
+                No groups created yet.{" "}
+                {canCreateGroups && (
+                  <button style={{ all: "unset", cursor: "pointer", color: "var(--accent)", textDecoration: "underline", fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
+                    Create a group →
+                  </button>
+                )}
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>In a group</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#8b5cf6" }}>{inGroupCount}</span>
+                </div>
+                {ungrouped > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>Ungrouped</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{ungrouped}</span>
+                  </div>
+                )}
+                <div style={{ height: 4, borderRadius: 999, background: "var(--panel3)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", borderRadius: 999, width: `${coveragePct}%`, background: coveragePct === 100 ? "#34c759" : "#8b5cf6", transition: "width .3s" }} />
+                </div>
+                <span style={{ fontSize: 11, color: coveragePct === 100 ? "#34c759" : "var(--muted)" }}>
+                  {coveragePct === 100 ? "All members are in a group" : `${ungrouped} member${ungrouped !== 1 ? "s" : ""} not in any group`}
+                </span>
+              </div>
+            )}
+          </SectionCard>
+
+        </div>
+      </SettingsSection>
+
+      {/* ── Organisation Setup ── */}
+      <SettingsSection
+        title="Organisation Setup"
+        description={setupDone === setupItems.length
+          ? "All setup tasks are complete — your organisation is fully configured."
+          : `${setupDone} of ${setupItems.length} setup tasks complete. Complete the remaining items to get the most out of RefCoach.`
+        }
+      >
+        <div className="panel" style={{ padding: "18px 20px" }}>
+          {/* Progress bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <div style={{ flex: 1, height: 6, borderRadius: 999, background: "var(--panel3)", overflow: "hidden" }}>
+              <div style={{
+                height: "100%", borderRadius: 999,
+                width: `${setupPct}%`,
+                background: setupPct === 100 ? "#34c759" : "var(--accent)",
+                transition: "width .3s",
+              }} />
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", color: setupPct === 100 ? "#34c759" : "var(--text)" }}>
+              {setupPct}%
+            </span>
+          </div>
+
+          {/* Checklist grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 8 }}>
+            {setupItems.map(({ label, done, page }) => (
+              <div key={label} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "9px 12px", borderRadius: 9, gap: 10,
+                background: done ? "rgba(52,199,89,.06)" : "var(--panel2)",
+                border: `1px solid ${done ? "rgba(52,199,89,.2)" : "var(--border)"}`,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <span style={{
+                    width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: done ? "rgba(52,199,89,.15)" : "var(--panel3)",
+                    border: `1.5px solid ${done ? "rgba(52,199,89,.4)" : "var(--border)"}`,
+                    fontSize: 10, fontWeight: 900,
+                    color: done ? "#34c759" : "var(--muted)",
+                  }}>
+                    {done ? "✓" : "·"}
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: done ? "var(--text)" : "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {label}
+                  </span>
+                </div>
+                {!done && (
+                  <button
+                    style={{ fontSize: 11, padding: "2px 8px", flexShrink: 0 }}
+                    onClick={page ? () => setCurrentPage(page) : onNavigateMembers}
+                  >
+                    Fix →
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </SettingsSection>
+
+      {/* ── Members ── */}
       <SettingsSection title="Members">
         <SectionCard
           title="Member Overview"
@@ -385,9 +552,9 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
           action={{ label: "Manage Members", onClick: onNavigateMembers, primary: true }}
         >
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-            <RolePill color="#30d158" label="Referees"    count={refereeCount} />
-            <RolePill color="#0a84ff" label="Educators"   count={educatorCount} />
-            <RolePill color="#ff9f0a" label="Admins"      count={adminCount} />
+            <RolePill color="#30d158" label="Referees"  count={refereeCount} />
+            <RolePill color="#0a84ff" label="Educators" count={educatorCount} />
+            <RolePill color="#ff9f0a" label="Admins"    count={adminCount} />
           </div>
           {members.length === 0 && (
             <div style={{ padding: "24px 0", textAlign: "center" }}>
@@ -431,46 +598,13 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
         </SectionCard>
       </SettingsSection>
 
-      {/* ── Roles & Permissions ── */}
-      <SettingsSection title="Roles & Permissions" description="How access levels work in your organisation.">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
-          {[
-            { color: "#30d158", label: "Referee",    count: refereeCount,  description: "Can view their own reviews and complete assigned learning." },
-            { color: "#0a84ff", label: "Educator",   count: educatorCount, description: "Creates reviews, assigns learning, and coaches referees." },
-            { color: "#ff9f0a", label: "Admin",       count: adminCount,    description: "Manages members, roles, and organisation settings." },
-          ].map(({ color, label, count, description }) => (
-            <div key={label} className="panel" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10, borderLeft: `3px solid ${color}` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 14, fontWeight: 800 }}>{label}</span>
-                <span style={{ fontSize: 20, fontWeight: 800, color }}>{count}</span>
-              </div>
-              <p className="hint" style={{ margin: 0, fontSize: 12, lineHeight: 1.5 }}>{description}</p>
-            </div>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("roles")}>
-            <Shield size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            View Roles
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
-            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            View Members
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("security")}>
-            <Shield size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Security Settings
-          </button>
-        </div>
-      </SettingsSection>
-
       {/* ── Groups ── */}
       <SettingsSection title="Groups" description="Organise referees into cohorts for targeted learning and coaching.">
         <div className="panel" style={{ padding: "18px 20px" }}>
           {groups.length === 0 ? (
             <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 0" }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(139,92,246,.1)", border: "1px solid rgba(139,92,246,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Users size={20} style={{ color: "#8b5cf6" }} />
+                <Layers size={20} style={{ color: "#8b5cf6" }} />
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No groups yet</p>
@@ -484,21 +618,10 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
             </div>
           ) : (
             <>
-              {/* Mini group list — up to 5 */}
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                 {groups.slice(0, 5).map((g, i) => (
-                  <div
-                    key={g.id}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      padding: "10px 0",
-                      borderBottom: i < Math.min(groups.length, 5) - 1 ? "1px solid var(--border)" : "none",
-                    }}
-                  >
-                    <div style={{
-                      width: 10, height: 10, borderRadius: "50%",
-                      background: g.colour, flexShrink: 0,
-                    }} />
+                  <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < Math.min(groups.length, 5) - 1 ? "1px solid var(--border)" : "none" }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: g.colour, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ fontWeight: 700, fontSize: 13 }}>{g.name}</span>
                       {g.description && (
