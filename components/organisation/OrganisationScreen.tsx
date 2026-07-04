@@ -849,7 +849,7 @@ const COUNTRIES = [
   "Canada",
 ];
 
-function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
+function PreferencesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
   const [draft, setDraft] = useState(() => ({ ...settings.preferences }));
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -878,23 +878,30 @@ function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
     setFeedback(null);
   }, [saved]);
 
-  const selectStyle: React.CSSProperties = {
-    width: "100%",
-    boxSizing: "border-box",
-  };
+  const selectStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
+
+  const localeName = LOCALES.find(l => l.value === draft.locale)?.label ?? draft.locale;
+  const dateExample = draft.dateFormat === "DD/MM/YYYY" ? "3 Jul 2026" : draft.dateFormat === "MM/DD/YYYY" ? "Jul 3 2026" : "2026-07-03";
+  const timeExample = draft.timeFormat === "12h" ? "2:30 PM" : "14:30";
+
+  const summaryItems = [
+    { label: "Timezone",       value: draft.timezone },
+    { label: "Language",       value: localeName },
+    { label: "Country",        value: draft.country },
+    { label: "Date format",    value: `${draft.dateFormat} · ${dateExample}` },
+    { label: "Time format",    value: `${draft.timeFormat === "12h" ? "12-hour" : "24-hour"} · ${timeExample}` },
+    { label: "Week starts",    value: draft.weekStartsOn === 1 ? "Monday" : "Sunday" },
+    { label: "Review default", value: draft.defaultReviewVisibility === "assigned-referees" ? "Visible to referee" : "Educators only" },
+  ];
 
   return (
     <SettingsPage
       eyebrow="Organisation"
-      title="Preferences"
-      description="Default platform behaviour for all members of your organisation."
+      title="Regional Preferences"
+      description="Timezone, locale, date and time formats, and review visibility defaults for all members."
       actions={
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {dirty && (
-            <button onClick={discard} style={{ fontSize: 13 }}>
-              Discard
-            </button>
-          )}
+          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
           <button
             className="primary"
             onClick={save}
@@ -908,10 +915,28 @@ function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      <SettingsSection title="Regional settings">
+      {/* ── Current configuration summary ── */}
+      <SettingsSection title="Current Configuration" description="A snapshot of your saved preferences. Updates live as you make changes.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+          {summaryItems.map(({ label, value }) => (
+            <div key={label} style={{
+              padding: "12px 14px", borderRadius: 10,
+              background: "var(--panel)", border: "1px solid var(--border)",
+            }}>
+              <p style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                {label}
+              </p>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{value}</p>
+            </div>
+          ))}
+        </div>
+      </SettingsSection>
+
+      {/* ── Regional identity ── */}
+      <SettingsSection title="Regional Identity" description="Sets the timezone and language used across all dates, times, and member-facing text.">
         <SettingsCard>
           <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
               <label>
                 <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Timezone</span>
                 <select style={selectStyle} value={draft.timezone} onChange={e => patch("timezone", e.target.value)}>
@@ -925,7 +950,6 @@ function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
                 </select>
               </label>
             </div>
-
             <label>
               <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Country / region</span>
               <select style={selectStyle} value={draft.country} onChange={e => patch("country", e.target.value)}>
@@ -936,10 +960,11 @@ function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Date &amp; time format">
+      {/* ── Date & time format ── */}
+      <SettingsSection title="Date & Time Format" description="Controls how dates and times are displayed throughout the platform for all members.">
         <SettingsCard>
           <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
               <label>
                 <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Date format</span>
                 <select
@@ -964,7 +989,6 @@ function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
                 </select>
               </label>
             </div>
-
             <label>
               <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Week starts on</span>
               <select
@@ -980,7 +1004,8 @@ function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Review defaults">
+      {/* ── Review defaults ── */}
+      <SettingsSection title="Review Defaults" description="Default visibility applied when new reviews are created. Can also be configured per review in Review Defaults settings.">
         <SettingsCard>
           <div className="form-stack">
             <label>
@@ -997,6 +1022,24 @@ function PreferencesPage({ settings, onUpdateSettings }: PageCtx) {
           </div>
         </SettingsCard>
       </SettingsSection>
+
+      {/* ── Related ── */}
+      <SettingsSection title="Related">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("reviews")}>
+            <Film size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Review Defaults
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("profile")}>
+            <User size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Organisation Profile
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+            ← Dashboard
+          </button>
+        </div>
+      </SettingsSection>
+
     </SettingsPage>
   );
 }
@@ -1821,7 +1864,7 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
   );
 }
 
-function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
+function NotificationsPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
   const [draft, setDraft] = useState(() => ({ ...settings.notifications }));
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -1845,11 +1888,24 @@ function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
 
   const selectStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
 
+  // Derive live counts for summary
+  const reviewToggles  = [draft.notifyReviewAssigned, draft.notifyReviewCompleted, draft.notifyReviewPublished, draft.commentReceived];
+  const learningToggles = [draft.notifyAssignmentAssigned, draft.notifyAssignmentCompleted, draft.notifyAssignmentOverdue];
+  const systemToggles  = [draft.notifySystemAnnouncements, draft.notifyMaintenanceUpdates];
+  const reviewOn  = reviewToggles.filter(Boolean).length;
+  const learningOn = learningToggles.filter(Boolean).length;
+  const systemOn  = systemToggles.filter(Boolean).length;
+
+  const deliveryLabel = draft.preferredDeliveryMethod === "email" ? "Email" : "In-app";
+  const reminderLabel = draft.enableReminderEmails
+    ? `${draft.reminderFrequency.charAt(0).toUpperCase()}${draft.reminderFrequency.slice(1)}`
+    : "Off";
+
   return (
     <SettingsPage
       eyebrow="Organisation"
-      title="Notifications"
-      description="Control which events trigger notifications across your organisation."
+      title="Notification Preferences"
+      description="Control which events trigger notifications for referees, educators, and admins across your organisation."
       actions={
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
@@ -1866,11 +1922,51 @@ function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      <InfoNote>
-        <strong>These settings are not yet active.</strong> Notification preferences are saved and will take effect when the notification delivery service is connected. No emails or in-app alerts are currently sent based on these settings.
-      </InfoNote>
+      {/* ── Pending activation note ── */}
+      <div style={{
+        padding: "12px 16px",
+        background: "rgba(10,132,255,.08)", borderRadius: 10,
+        border: "1px solid rgba(10,132,255,.22)",
+        fontSize: 13, color: "#6fb8ff",
+        display: "flex", alignItems: "flex-start", gap: 10,
+      }}>
+        <Bell size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          Preferences are saved now and will take effect when the notification delivery service is connected.
+          No emails or in-app alerts are currently sent, but your configuration will be ready.
+        </span>
+      </div>
 
-      <SettingsSection title="Review notifications" description="Sent to referees and educators when review events occur.">
+      {/* ── Status summary ── */}
+      <SettingsSection title="Current Configuration" description="A live snapshot of your saved notification preferences.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+          {[
+            { label: "Review alerts",   value: `${reviewOn} of ${reviewToggles.length} on`,   active: reviewOn > 0 },
+            { label: "Learning alerts", value: `${learningOn} of ${learningToggles.length} on`, active: learningOn > 0 },
+            { label: "System alerts",   value: `${systemOn} of ${systemToggles.length} on`,   active: systemOn > 0 },
+            { label: "Reminders",       value: reminderLabel,                                   active: draft.enableReminderEmails },
+            { label: "Weekly digest",   value: draft.weeklyDigestEnabled ? "On" : "Off",        active: draft.weeklyDigestEnabled },
+            { label: "Delivery",        value: deliveryLabel,                                   active: true },
+          ].map(({ label, value, active }) => (
+            <div key={label} style={{
+              padding: "12px 14px", borderRadius: 10,
+              background: "var(--panel)",
+              border: `1px solid ${active ? "rgba(52,199,89,.2)" : "var(--border)"}`,
+            }}>
+              <p style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                {label}
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: active ? "#34c759" : "var(--border)" }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: active ? "var(--text)" : "var(--muted)" }}>{value}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SettingsSection>
+
+      {/* ── Review notifications ── */}
+      <SettingsSection title="Review Notifications" description="Sent to referees and educators when review events occur.">
         <SettingsCard>
           <ToggleRow
             label="Review assigned"
@@ -1900,7 +1996,8 @@ function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Learning notifications" description="Sent when assignment events occur.">
+      {/* ── Learning notifications ── */}
+      <SettingsSection title="Learning Notifications" description="Sent to referees and educators when learning assignment events occur.">
         <SettingsCard>
           <ToggleRow
             label="Assignment assigned"
@@ -1924,7 +2021,8 @@ function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Reminder defaults">
+      {/* ── Reminder defaults ── */}
+      <SettingsSection title="Reminder Defaults" description="Periodic emails reminding referees of outstanding reviews and assignments.">
         <SettingsCard>
           <ToggleRow
             label="Enable reminder emails"
@@ -1934,7 +2032,7 @@ function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
           />
           <SettingsRow
             label="Reminder frequency"
-            description="How often reminder emails are sent. Requires reminder emails enabled."
+            description="How often reminder emails are sent. Requires reminder emails to be enabled."
           >
             <select
               style={{ ...selectStyle, width: 160 }}
@@ -1958,7 +2056,8 @@ function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="System communications" description="Platform-level announcements from the RefCoach team.">
+      {/* ── System communications ── */}
+      <SettingsSection title="System Communications" description="Platform-level announcements and maintenance notices from the RefCoach team.">
         <SettingsCard>
           <ToggleRow
             label="System announcements"
@@ -1976,11 +2075,12 @@ function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Delivery preferences" description="Controls how notifications are delivered to your organisation's members. Additional channels will be available in a future update.">
+      {/* ── Delivery preferences ── */}
+      <SettingsSection title="Delivery Preferences" description="Primary channel for delivering notifications to your organisation's members.">
         <SettingsCard>
           <SettingsRow
             label="Preferred delivery method"
-            description="Primary channel for delivering notifications to organisation members."
+            description="Email delivers to member inboxes. In-app shows notifications within the platform."
             last
           >
             <select
@@ -1994,9 +2094,27 @@ function NotificationsPage({ settings, onUpdateSettings }: PageCtx) {
           </SettingsRow>
         </SettingsCard>
         <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
-          Future channels — Push, SMS, Microsoft Teams, and Slack — will appear here when available.
+          Additional channels — Push, SMS, Microsoft Teams, and Slack — will appear here when available.
         </p>
       </SettingsSection>
+
+      {/* ── Related ── */}
+      <SettingsSection title="Related">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
+            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Manage Members
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("learning")}>
+            <BookOpen size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Learning Defaults
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+            ← Dashboard
+          </button>
+        </div>
+      </SettingsSection>
+
     </SettingsPage>
   );
 }
