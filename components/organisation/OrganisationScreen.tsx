@@ -12,8 +12,9 @@ import type { OrganisationRecord } from "@/lib/types/organisations";
 import type { MemberRecord } from "@/lib/types/members";
 import type { ReviewRecord } from "@/lib/types/reviews";
 import type { Assignment } from "@/lib/types/assignments";
-import type { RefEvalSession } from "@/lib/types/auth";
+import type { RefEvalSession, Role } from "@/lib/types/auth";
 import type { Group, CreateGroupInput, UpdateGroupInput } from "@/lib/types/groups";
+import { ROLE_DEFAULT_PERMISSIONS, PERMISSION_GROUPS } from "@/lib/types/permissions";
 import { GroupsScreen } from "@/components/educator/GroupsScreen";
 import {
   SettingsPage, SettingsSection, SettingsCard, SettingsRow,
@@ -32,20 +33,22 @@ type OrgPage =
   | "security"
   | "members"
   | "groups"
+  | "roles"
   | "resources";
 
 const NAV_ITEMS: { page: OrgPage; label: string; icon: ReactNode }[] = [
-  { page: "dashboard",     label: "Dashboard",      icon: <Building2 size={15} /> },
-  { page: "profile",       label: "Profile",        icon: <User size={15} /> },
-  { page: "branding",      label: "Branding",       icon: <Palette size={15} /> },
-  { page: "preferences",   label: "Preferences",    icon: <SlidersHorizontal size={15} /> },
+  { page: "dashboard",     label: "Dashboard",       icon: <Building2 size={15} /> },
+  { page: "profile",       label: "Profile",         icon: <User size={15} /> },
+  { page: "branding",      label: "Branding",        icon: <Palette size={15} /> },
+  { page: "preferences",   label: "Preferences",     icon: <SlidersHorizontal size={15} /> },
   { page: "reviews",       label: "Review Defaults", icon: <Film size={15} /> },
-  { page: "learning",      label: "Learning",       icon: <BookOpen size={15} /> },
-  { page: "notifications", label: "Notifications",  icon: <Bell size={15} /> },
-  { page: "security",      label: "Security",       icon: <Shield size={15} /> },
-  { page: "members",       label: "Members",        icon: <Users size={15} /> },
-  { page: "groups",        label: "Groups",         icon: <Users size={15} /> },
-  { page: "resources",     label: "Resources",      icon: <FolderOpen size={15} /> },
+  { page: "learning",      label: "Learning",        icon: <BookOpen size={15} /> },
+  { page: "notifications", label: "Notifications",   icon: <Bell size={15} /> },
+  { page: "security",      label: "Security",        icon: <Shield size={15} /> },
+  { page: "members",       label: "Members",         icon: <Users size={15} /> },
+  { page: "groups",        label: "Groups",          icon: <Users size={15} /> },
+  { page: "roles",         label: "Roles",           icon: <Shield size={15} /> },
+  { page: "resources",     label: "Resources",       icon: <FolderOpen size={15} /> },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -219,6 +222,7 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
     case "security":      return <SecurityPage {...ctx} />;
     case "members":       return <MembersPage {...ctx} />;
     case "groups":        return <GroupsPage {...ctx} />;
+    case "roles":         return <RolesPage {...ctx} />;
     case "resources":     return <ResourcesPage {...ctx} />;
   }
 }
@@ -422,6 +426,10 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
           ))}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("roles")}>
+            <Shield size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            View Roles
+          </button>
           <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
             <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
             View Members
@@ -2256,6 +2264,302 @@ function GroupsPage({
       onDeleteGroup={onDeleteGroup ?? (() => Promise.resolve())}
       onSetGroupMembers={onSetGroupMembers ?? (() => Promise.resolve())}
     />
+  );
+}
+
+// ── Roles page ────────────────────────────────────────────────────────────────
+
+const ROLE_META: {
+  role: Role;
+  label: string;
+  color: string;
+  tagline: string;
+  description: string;
+  capabilities: string[];
+}[] = [
+  {
+    role: "super_admin",
+    label: "Super Admin",
+    color: "#c4b5fd",
+    tagline: "Full platform ownership",
+    description: "Unrestricted access to every feature, setting, and data point in the platform. Typically the organisation owner or technical administrator.",
+    capabilities: ["All admin capabilities", "Assign and revoke any role including Admin", "Override per-user permissions", "Manage organisation billing and branding"],
+  },
+  {
+    role: "admin",
+    label: "Admin",
+    color: "#ff9f0a",
+    tagline: "Manages people, access, and settings",
+    description: "Has full control over organisation management: invite members, assign educator and referee roles, configure settings, and access all analytics and tools.",
+    capabilities: ["Invite and remove members", "Assign Referee and Educator roles", "Manage groups and assignments", "Configure organisation settings and learning defaults", "Access all reviews and analytics"],
+  },
+  {
+    role: "educator",
+    label: "Educator",
+    color: "#6fb8ff",
+    tagline: "Creates reviews and develops referees",
+    description: "Coaches and develops referees through reviews, learning assignments, and group management. Cannot manage other users or change organisation settings.",
+    capabilities: ["Create and assign video reviews", "Manage the clip library and playlists", "Create and manage referee groups", "Create and track learning assignments", "View analytics for their referees"],
+  },
+  {
+    role: "referee",
+    label: "Referee",
+    color: "#30d158",
+    tagline: "Views reviews and completes learning",
+    description: "Access is limited to their own data. Can view reviews assigned to them and complete learning tasks set by educators.",
+    capabilities: ["View their own reviews", "Complete assigned learning tasks", "Track their personal development goals"],
+  },
+  {
+    role: "viewer",
+    label: "Viewer",
+    color: "#636366",
+    tagline: "Read-only observer",
+    description: "No active permissions by default. Viewer accounts can be granted specific access via per-user permission overrides in Team Management.",
+    capabilities: ["No default access", "Can be granted specific permissions individually"],
+  },
+];
+
+function RolesPage({ members, session, setCurrentPage }: PageCtx) {
+  const [expandedRole, setExpandedRole] = useState<Role | null>(null);
+
+  const countByRole: Record<Role, number> = {
+    super_admin: 0, admin: 0, educator: 0, referee: 0, viewer: 0,
+  };
+  for (const m of members) {
+    if (m.role in countByRole) countByRole[m.role]++;
+  }
+
+  const isSuperAdmin = session.activeRole === "super_admin";
+
+  return (
+    <SettingsPage eyebrow="Organisation" title="Roles & Permissions">
+
+      {/* ── Info note ── */}
+      <div style={{
+        padding: "12px 16px",
+        background: "rgba(10,132,255,.08)", borderRadius: 10,
+        border: "1px solid rgba(10,132,255,.22)",
+        fontSize: 13, color: "#6fb8ff",
+        display: "flex", alignItems: "flex-start", gap: 10,
+      }}>
+        <Shield size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          Roles define what each user can see and do by default.
+          Individual permissions can be customised further in{" "}
+          <button
+            style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "#6fb8ff" }}
+            onClick={() => setCurrentPage("members")}
+          >
+            Team Management
+          </button>
+          .
+          {!isSuperAdmin && " Only Super Admins can assign Admin or Super Admin roles."}
+        </span>
+      </div>
+
+      {/* ── Role cards ── */}
+      <SettingsSection title="Role Definitions" description="Expand a role to see what it covers and who holds it.">
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {ROLE_META.map(({ role, label, color, tagline, description, capabilities }) => {
+            const count = countByRole[role];
+            const isExpanded = expandedRole === role;
+            const membersWithRole = members.filter(m => m.role === role);
+
+            return (
+              <div
+                key={role}
+                className="panel"
+                style={{ padding: 0, borderLeft: `3px solid ${color}`, overflow: "hidden" }}
+              >
+                {/* Header row — always visible */}
+                <button
+                  onClick={() => setExpandedRole(isExpanded ? null : role)}
+                  style={{
+                    all: "unset", cursor: "pointer", display: "flex",
+                    alignItems: "center", gap: 14, width: "100%",
+                    padding: "16px 20px", boxSizing: "border-box",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 15, fontWeight: 800 }}>{label}</span>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 5,
+                        background: `${color}18`, border: `1px solid ${color}38`, color,
+                        textTransform: "uppercase", letterSpacing: "0.05em",
+                      }}>
+                        {count} member{count !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <p className="hint" style={{ margin: "3px 0 0", fontSize: 12 }}>{tagline}</p>
+                  </div>
+                  <span style={{ color: "var(--muted)", flexShrink: 0, fontSize: 18, lineHeight: 1 }}>
+                    {isExpanded ? "−" : "+"}
+                  </span>
+                </button>
+
+                {/* Expanded detail */}
+                {isExpanded && (
+                  <div style={{ padding: "0 20px 20px", borderTop: "1px solid var(--border)" }}>
+                    <p style={{ margin: "14px 0 10px", fontSize: 13, lineHeight: 1.6, color: "var(--muted)" }}>{description}</p>
+
+                    {/* Capabilities */}
+                    <div style={{ marginBottom: 16 }}>
+                      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                        Default capabilities
+                      </p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                        {capabilities.map(cap => (
+                          <div key={cap} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13 }}>
+                            <span style={{ color, marginTop: 2, flexShrink: 0, fontSize: 14, lineHeight: 1 }}>✓</span>
+                            <span>{cap}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Permission count from ROLE_DEFAULT_PERMISSIONS */}
+                    {role !== "viewer" && (
+                      <p className="hint" style={{ margin: "0 0 14px", fontSize: 12 }}>
+                        {ROLE_DEFAULT_PERMISSIONS[role].length} of {Object.values(ROLE_DEFAULT_PERMISSIONS).reduce((max, perms) => Math.max(max, perms.length), 0)} permissions granted by default
+                      </p>
+                    )}
+
+                    {/* Members with this role */}
+                    {membersWithRole.length > 0 ? (
+                      <div>
+                        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                          Members ({membersWithRole.length})
+                        </p>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {membersWithRole.slice(0, 12).map(m => (
+                            <div key={m.id} style={{
+                              display: "flex", alignItems: "center", gap: 6,
+                              padding: "5px 10px", borderRadius: 8,
+                              background: "var(--panel2)", border: "1px solid var(--border)",
+                              fontSize: 12, fontWeight: 600,
+                            }}>
+                              <div style={{
+                                width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                                background: `${color}20`, border: `1.5px solid ${color}40`,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 9, fontWeight: 900, color,
+                              }}>
+                                {m.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase() || "?"}
+                              </div>
+                              {m.name}
+                            </div>
+                          ))}
+                          {membersWithRole.length > 12 && (
+                            <div style={{
+                              padding: "5px 10px", borderRadius: 8,
+                              background: "var(--panel2)", border: "1px solid var(--border)",
+                              fontSize: 12, color: "var(--muted)",
+                            }}>
+                              +{membersWithRole.length - 12} more
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="hint" style={{ margin: 0, fontSize: 12 }}>No members currently hold this role.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </SettingsSection>
+
+      {/* ── Permission summary table ── */}
+      <SettingsSection title="Permission Matrix" description="Default permissions granted per role. Individual overrides can be set in Team Management.">
+        <div className="panel" style={{ padding: "4px 0", overflowX: "auto" }}>
+          <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", minWidth: 560 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", padding: "10px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  Permission Area
+                </th>
+                {(["referee", "educator", "admin", "super_admin"] as Role[]).map(r => {
+                  const meta = ROLE_META.find(m => m.role === r)!;
+                  return (
+                    <th key={r} style={{ textAlign: "center", padding: "10px 12px", whiteSpace: "nowrap" }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 5,
+                        background: `${meta.color}18`, border: `1px solid ${meta.color}38`, color: meta.color,
+                      }}>
+                        {meta.label}
+                      </span>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {PERMISSION_GROUPS.map((group, gi) => (
+                group.permissions.map((perm, pi) => {
+                  const isFirstInGroup = pi === 0;
+                  return (
+                    <tr key={perm.key} style={{ borderTop: "1px solid var(--border)" }}>
+                      <td style={{ padding: "8px 16px", fontSize: 12 }}>
+                        {isFirstInGroup && (
+                          <span style={{ display: "block", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: 2 }}>
+                            {group.label}
+                          </span>
+                        )}
+                        {perm.label}
+                      </td>
+                      {(["referee", "educator", "admin", "super_admin"] as Role[]).map(r => {
+                        const has = ROLE_DEFAULT_PERMISSIONS[r].includes(perm.key);
+                        const meta = ROLE_META.find(m => m.role === r)!;
+                        return (
+                          <td key={r} style={{ textAlign: "center", padding: "8px 12px" }}>
+                            {has ? (
+                              <span style={{ color: meta.color, fontSize: 15, lineHeight: 1 }}>✓</span>
+                            ) : (
+                              <span style={{ color: "var(--border)", fontSize: 13, lineHeight: 1 }}>—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="hint" style={{ margin: 0, fontSize: 12 }}>
+          Viewer role has no default permissions. Individual overrides are managed in{" "}
+          <button
+            style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "var(--muted)" }}
+            onClick={() => setCurrentPage("members")}
+          >
+            Team Management
+          </button>
+          .
+        </p>
+      </SettingsSection>
+
+      {/* ── Quick links ── */}
+      <SettingsSection title="Actions">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
+            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Manage Members
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("security")}>
+            <Shield size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Security Settings
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+            ← Dashboard
+          </button>
+        </div>
+      </SettingsSection>
+
+    </SettingsPage>
   );
 }
 
