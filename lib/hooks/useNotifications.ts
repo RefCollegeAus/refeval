@@ -10,11 +10,14 @@ import {
   getUnreadNotificationCount,
 } from "@/lib/services/notifications";
 
-function buildSampleNotifications(userId: string, organisationId: string): Notification[] {
+type SeedRole = "referee" | "educator" | "admin" | "super_admin" | "viewer" | null | undefined;
+
+function buildSampleNotifications(userId: string, organisationId: string, role: SeedRole): Notification[] {
   const now = new Date();
   const ago = (minutes: number) => new Date(now.getTime() - minutes * 60 * 1000).toISOString();
 
-  return [
+  // Referee-specific samples — only relevant to referees
+  const refereeSamples: Notification[] = [
     {
       id: "sample_1",
       organisationId,
@@ -30,7 +33,7 @@ function buildSampleNotifications(userId: string, organisationId: string): Notif
       readAt: null,
       priority: "high",
       actionLabel: "View Review",
-      actionRoute: "reviewer",
+      actionRoute: "refereeReview",
       metadata: null,
     },
     {
@@ -73,24 +76,6 @@ function buildSampleNotifications(userId: string, organisationId: string): Notif
       id: "sample_4",
       organisationId,
       userId,
-      type: "playlist_shared",
-      title: "Playlist Shared With You",
-      message: "\"Advanced Mechanics — Block/Charge\" has been shared with your group.",
-      relatedEntityType: "playlist",
-      relatedEntityId: null,
-      createdAt: ago(300),
-      createdBy: null,
-      isRead: true,
-      readAt: ago(250),
-      priority: "normal",
-      actionLabel: "View Playlist",
-      actionRoute: "playlists",
-      metadata: null,
-    },
-    {
-      id: "sample_5",
-      organisationId,
-      userId,
       type: "goal_updated",
       title: "Development Goal Updated",
       message: "Your educator has updated notes on your defensive positioning goal.",
@@ -105,31 +90,42 @@ function buildSampleNotifications(userId: string, organisationId: string): Notif
       actionRoute: "referee-development",
       metadata: null,
     },
-    {
-      id: "sample_6",
-      organisationId,
-      userId,
-      type: "organisation_announcement",
-      title: "Season Schedule Updated",
-      message: "The upcoming season schedule has been updated. Please review your assigned games.",
-      relatedEntityType: "organisation",
-      relatedEntityId: null,
-      createdAt: ago(2880),
-      createdBy: null,
-      isRead: true,
-      readAt: ago(2500),
-      priority: "low",
-      actionLabel: null,
-      actionRoute: null,
-      metadata: null,
-    },
   ];
+
+  // Org-wide sample — shown to all roles
+  const orgSample: Notification = {
+    id: "sample_org",
+    organisationId,
+    userId,
+    type: "organisation_announcement",
+    title: "Season Schedule Updated",
+    message: "The upcoming season schedule has been updated. Please review your assigned games.",
+    relatedEntityType: "organisation",
+    relatedEntityId: null,
+    createdAt: ago(2880),
+    createdBy: null,
+    isRead: true,
+    readAt: ago(2500),
+    priority: "low",
+    actionLabel: null,
+    actionRoute: null,
+    metadata: null,
+  };
+
+  if (role === "referee") return [...refereeSamples, orgSample];
+  if (role === "educator") return [orgSample];
+  // admin / super_admin / viewer / unknown — no referee-specific samples
+  return [];
 }
 
-export function useNotifications(userId: string | null, organisationId: string | null) {
+export function useNotifications(
+  userId: string | null,
+  organisationId: string | null,
+  role: SeedRole = null,
+) {
   const [notifications, setNotifications] = useState<Notification[]>(() => {
     if (!userId || !organisationId) return [];
-    return buildSampleNotifications(userId, organisationId);
+    return buildSampleNotifications(userId, organisationId, role);
   });
 
   const unreadCount = useMemo(

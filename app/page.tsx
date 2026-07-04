@@ -198,14 +198,15 @@ export default function Home() {
   async function confirmSubmit() {
     const reviewSnapshot = activeReview;
     await saveReviewMeta("Completed", draftSummaries);
+    // Only notify if the current user is one of the assigned referees
     if (reviewSnapshot && session?.activeOrganisation?.id) {
       const orgId = session.activeOrganisation.id;
       const educatorName = session.profile.name;
       const gameName = reviewSnapshot.game || "a game";
       const refIds = [reviewSnapshot.referee1Id, reviewSnapshot.referee2Id, reviewSnapshot.referee3Id]
         .filter((id): id is string => !!id);
-      for (const refId of refIds) {
-        addNotification(makeReviewCompletedDraft(orgId, refId, reviewSnapshot.id, gameName, educatorName));
+      if (refIds.includes(session.user.id)) {
+        addNotification(makeReviewCompletedDraft(orgId, session.user.id, reviewSnapshot.id, gameName, educatorName));
       }
     }
     setSummaryModalOpen(false);
@@ -229,7 +230,7 @@ export default function Home() {
     markRead,
     markAllRead,
     deleteNotification: removeNotification,
-  } = useNotifications(session?.user.id ?? null, session?.activeOrganisation?.id ?? null);
+  } = useNotifications(session?.user.id ?? null, session?.activeOrganisation?.id ?? null, session?.activeRole ?? null);
 
   const {
     playlists,
@@ -1014,23 +1015,29 @@ export default function Home() {
           groups={groups}
           onCreateAssignment={async (input) => {
             const assignmentId = await createAssignment(input);
-            if (session?.activeOrganisation?.id) {
-              const orgId = session.activeOrganisation.id;
-              const assignerName = session.profile.name;
-              for (const userId of input.userIds) {
-                addNotification(makeAssignmentAssignedDraft(orgId, userId, assignmentId, input.title, assignerName));
-              }
+            // Only notify the current user if they are one of the assignees
+            if (session?.activeOrganisation?.id && input.userIds.includes(session.user.id)) {
+              addNotification(makeAssignmentAssignedDraft(
+                session.activeOrganisation.id,
+                session.user.id,
+                assignmentId,
+                input.title,
+                session.profile.name,
+              ));
             }
           }}
           onAddToAssignment={async (assignmentId, userIds) => {
             const result = await addUsersToAssignment(assignmentId, userIds);
             const assignment = assignments.find(a => a.id === assignmentId);
-            if (assignment && session?.activeOrganisation?.id) {
-              const orgId = session.activeOrganisation.id;
-              const assignerName = session.profile.name;
-              for (const userId of userIds) {
-                addNotification(makeAssignmentAssignedDraft(orgId, userId, assignmentId, assignment.title, assignerName));
-              }
+            // Only notify the current user if they are one of the newly added assignees
+            if (assignment && session?.activeOrganisation?.id && userIds.includes(session.user.id)) {
+              addNotification(makeAssignmentAssignedDraft(
+                session.activeOrganisation.id,
+                session.user.id,
+                assignmentId,
+                assignment.title,
+                session.profile.name,
+              ));
             }
             return result;
           }}
@@ -1136,12 +1143,15 @@ export default function Home() {
           onDelete={async (id) => { await deleteAssignment(id); setActiveAssignmentId(null); setScreen("assignments"); }}
           onAddUsers={async (assignmentId, userIds) => {
             const result = await addUsersToAssignment(assignmentId, userIds);
-            if (session?.activeOrganisation?.id) {
-              const orgId = session.activeOrganisation.id;
-              const assignerName = session.profile.name;
-              for (const userId of userIds) {
-                addNotification(makeAssignmentAssignedDraft(orgId, userId, assignmentId, activeAssignment.title, assignerName));
-              }
+            // Only notify the current user if they were just added as an assignee
+            if (session?.activeOrganisation?.id && userIds.includes(session.user.id)) {
+              addNotification(makeAssignmentAssignedDraft(
+                session.activeOrganisation.id,
+                session.user.id,
+                assignmentId,
+                activeAssignment.title,
+                session.profile.name,
+              ));
             }
             return result;
           }}
@@ -1585,10 +1595,11 @@ export default function Home() {
           allReviews={reviews}
           onAssignGoal={async (input) => {
             await assignGoal(input, allRefereeIds);
-            if (session.activeOrganisation?.id) {
+            // Only notify if the current user is the referee receiving this goal
+            if (session.activeOrganisation?.id && referee.id === session.user.id) {
               addNotification(makeGoalAssignedDraft(
                 session.activeOrganisation.id,
-                referee.id,
+                session.user.id,
                 input.title,
                 session.profile.name,
               ));
@@ -1596,11 +1607,12 @@ export default function Home() {
           }}
           onUpdateGoalDef={(id, patch) => {
             updateGoalDef(id, patch);
+            // Only notify if the current user is the referee whose goal changed
             const goalTitle = patch.title ?? goalViews.find(gv => gv.goalId === id)?.title ?? "a goal";
-            if (session.activeOrganisation?.id) {
+            if (session.activeOrganisation?.id && referee.id === session.user.id) {
               addNotification(makeGoalUpdatedDraft(
                 session.activeOrganisation.id,
-                referee.id,
+                session.user.id,
                 goalTitle,
                 session.profile.name,
               ));
@@ -1608,11 +1620,12 @@ export default function Home() {
           }}
           onUpdateRefereeGoal={(id, patch) => {
             updateRefereeGoal(id, patch);
+            // Only notify if the current user is the referee whose goal changed
             const goalTitle = allRefereeGoalViews.find(gv => gv.id === id)?.title ?? "a goal";
-            if (session.activeOrganisation?.id) {
+            if (session.activeOrganisation?.id && referee.id === session.user.id) {
               addNotification(makeGoalUpdatedDraft(
                 session.activeOrganisation.id,
-                referee.id,
+                session.user.id,
                 goalTitle,
                 session.profile.name,
               ));
@@ -1624,10 +1637,11 @@ export default function Home() {
           onDeleteGoal={deleteRefereeGoal}
           onCreateNote={async (input) => {
             await createNote(input);
-            if (session.activeOrganisation?.id) {
+            // Only notify if the current user is the referee receiving the note
+            if (session.activeOrganisation?.id && referee.id === session.user.id) {
               addNotification(makeNoteAddedDraft(
                 session.activeOrganisation.id,
-                referee.id,
+                session.user.id,
                 session.profile.name,
                 input.title,
               ));
