@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import {
   Building2, User, Palette, SlidersHorizontal, Film, BookOpen,
   Bell, Shield, Users, FolderOpen, ChevronRight, Globe, Clock,
-  CheckCircle, AlertCircle, CreditCard, Key, Layers,
+  CheckCircle, AlertCircle, CreditCard, Key, Layers, Search,
 } from "lucide-react";
 import type { OrganisationSettings } from "@/lib/types/organisationSettings";
 import type { OrganisationRecord } from "@/lib/types/organisations";
@@ -520,7 +520,7 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
               )}
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", gap: 8 }}>
                 <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
-                  <Users size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                  <Layers size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
                   Manage Groups
                 </button>
                 {canCreateGroups && (
@@ -2079,7 +2079,7 @@ function LearningPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
             Notification Preferences
           </button>
           <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
-            <FolderOpen size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            <Layers size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
             Manage Groups
           </button>
           <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
@@ -2722,7 +2722,7 @@ function MembersPage({ members, org, onNavigateMembers, setCurrentPage }: PageCt
             {/* Search */}
             <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ position: "relative", flex: "1 1 280px", maxWidth: 360 }}>
-                <Users size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+                <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
                 <input
                   value={query}
                   onChange={e => setQuery(e.target.value)}
@@ -3396,7 +3396,7 @@ function ResourcesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) 
             Learning Defaults
           </button>
           <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
-            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            <Layers size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
             Manage Groups
           </button>
           <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
