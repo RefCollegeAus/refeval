@@ -587,45 +587,6 @@ export function EducatorDashboard({
           )}
         </div>
 
-        {/* ── Organisation Management (admin/super_admin only) ── */}
-        {(session.activeRole === "admin" || session.activeRole === "super_admin") && (
-          <div
-            style={{
-              display: "flex", alignItems: "center", gap: 16,
-              background: "var(--panel)", border: "1px solid var(--border)",
-              borderRadius: 12, padding: "16px 20px",
-            }}
-          >
-            <div style={{
-              width: 42, height: 42, borderRadius: 10, flexShrink: 0,
-              background: "rgba(165,106,27,.12)", border: "1px solid rgba(165,106,27,.2)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "var(--accent)",
-            }}>
-              <Building2 size={20} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 14, color: "var(--text)" }}>
-                Organisation Management
-              </p>
-              <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-                Manage members, roles, groups, and organisation settings
-              </p>
-            </div>
-            <button
-              onClick={() => setScreen("organisation")}
-              style={{
-                flexShrink: 0, fontSize: 12, fontWeight: 600,
-                padding: "6px 14px", borderRadius: 7,
-                background: "var(--panel2)", border: "1px solid var(--border)",
-                color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap",
-              }}
-            >
-              Open
-            </button>
-          </div>
-        )}
-
         {/* ── All Reviews (collapsible) ── */}
         <div className="panel">
           <div style={{
