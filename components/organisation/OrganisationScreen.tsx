@@ -2638,19 +2638,39 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
   );
 }
 
-function MembersPage({ members, org, onNavigateMembers }: PageCtx) {
-  const refereeCount   = members.filter(m => m.role === "referee").length;
-  const educatorCount  = members.filter(m => m.role === "educator").length;
-  const adminCount     = members.filter(m => m.role === "admin").length;
+const ROLE_COLOUR: Record<string, string> = {
+  referee: "#30d158", educator: "#0a84ff",
+  admin: "#ff9f0a", super_admin: "#bf5af2", viewer: "var(--muted)",
+};
+const ROLE_LABEL: Record<string, string> = {
+  referee: "Referee", educator: "Educator",
+  admin: "Admin", super_admin: "Super Admin", viewer: "Viewer",
+};
+
+function MembersPage({ members, org, onNavigateMembers, setCurrentPage }: PageCtx) {
+  const [query, setQuery] = useState("");
+
+  const refereeCount    = members.filter(m => m.role === "referee").length;
+  const educatorCount   = members.filter(m => m.role === "educator").length;
+  const adminCount      = members.filter(m => m.role === "admin").length;
   const superAdminCount = members.filter(m => m.role === "super_admin").length;
 
-  const roleCounts: { label: string; count: number; hint: string; colour: string }[] = [
-    { label: "Total",        count: members.length,   hint: "All members",      colour: "var(--accent)" },
-    { label: "Referees",     count: refereeCount,      hint: "Referee role",     colour: "#30d158" },
-    { label: "Educators",    count: educatorCount,     hint: "Educator role",    colour: "#0a84ff" },
-    { label: "Admins",       count: adminCount,        hint: "Admin role",       colour: "#ff9f0a" },
-    { label: "Super Admins", count: superAdminCount,   hint: "Super Admin role", colour: "#bf5af2" },
+  const roleCounts = [
+    { label: "Total",        count: members.length,  colour: "var(--accent)" },
+    { label: "Referees",     count: refereeCount,     colour: "#30d158" },
+    { label: "Educators",    count: educatorCount,    colour: "#0a84ff" },
+    { label: "Admins",       count: adminCount,       colour: "#ff9f0a" },
+    { label: "Super Admins", count: superAdminCount,  colour: "#bf5af2" },
   ];
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? members.filter(m =>
+        (m.name || "").toLowerCase().includes(q) ||
+        m.email.toLowerCase().includes(q) ||
+        (ROLE_LABEL[m.role] || "").toLowerCase().includes(q)
+      )
+    : members;
 
   return (
     <SettingsPage
@@ -2664,124 +2684,141 @@ function MembersPage({ members, org, onNavigateMembers }: PageCtx) {
       }
     >
 
-      {/* Role breakdown */}
+      {/* ── Role Breakdown ── */}
       <SettingsSection title="Role Breakdown">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10 }}>
-          {roleCounts.map(({ label, count, hint, colour }) => (
-            <div key={label} className="ed-summary-card">
-              <div className="ed-summary-number" style={{ color: colour }}>{count}</div>
-              <div className="ed-summary-label">{label}</div>
-              <p className="hint" style={{ margin: "4px 0 0", fontSize: 11 }}>{hint}</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: 10 }}>
+          {roleCounts.map(({ label, count, colour }) => (
+            <div key={label} style={{
+              padding: "14px 16px", borderRadius: 14,
+              background: "var(--panel)", border: "1px solid var(--border)",
+              boxShadow: "0 2px 8px rgba(0,0,0,.2)",
+            }}>
+              <div style={{ fontSize: 28, fontWeight: 950, letterSpacing: "-.03em", lineHeight: 1, marginBottom: 4, color: colour }}>
+                {count}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)" }}>
+                {label}
+              </div>
             </div>
           ))}
         </div>
       </SettingsSection>
 
-      {/* Member list */}
-      <SettingsSection title="Members" description={`${members.length} user${members.length !== 1 ? "s" : ""} in ${org?.name ?? "this organisation"}.`}>
+      {/* ── Member List ── */}
+      <SettingsSection
+        title="Member List"
+        description={`${members.length} member${members.length !== 1 ? "s" : ""} in ${org?.name ?? "this organisation"}`}
+      >
         {members.length === 0 ? (
-          <SettingsCard description="No members found. Go to Admin Dashboard to invite users to your organisation.">{null}</SettingsCard>
-        ) : (
-          <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-            {members.map((m, i) => {
-              const isLast = i === members.length - 1;
-              const roleColour: Record<string, string> = {
-                referee: "#30d158",
-                educator: "#0a84ff",
-                admin: "#ff9f0a",
-                super_admin: "#bf5af2",
-                viewer: "var(--muted)",
-              };
-              const roleLabel: Record<string, string> = {
-                referee: "Referee",
-                educator: "Educator",
-                admin: "Admin",
-                super_admin: "Super Admin",
-                viewer: "Viewer",
-              };
-              return (
-                <div
-                  key={m.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 14,
-                    padding: "12px 18px",
-                    borderBottom: isLast ? "none" : "1px solid var(--border)",
-                  }}
-                >
-                  {/* Avatar initials */}
-                  <div
-                    style={{
-                      width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-                      background: `${roleColour[m.role] ?? "var(--muted)"}22`,
-                      border: `1.5px solid ${roleColour[m.role] ?? "var(--muted)"}44`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 13, fontWeight: 800,
-                      color: roleColour[m.role] ?? "var(--muted)",
-                    }}
-                  >
-                    {(m.name || m.email).slice(0, 1).toUpperCase()}
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {m.name || "—"}
-                    </p>
-                    <p className="hint" style={{ margin: "2px 0 0", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {m.email}
-                    </p>
-                  </div>
-
-                  <span
-                    style={{
-                      flexShrink: 0,
-                      fontSize: 11, fontWeight: 800,
-                      padding: "2px 9px", borderRadius: 6,
-                      background: `${roleColour[m.role] ?? "var(--muted)"}1a`,
-                      border: `1px solid ${roleColour[m.role] ?? "var(--muted)"}33`,
-                      color: roleColour[m.role] ?? "var(--muted)",
-                      textTransform: "uppercase", letterSpacing: "0.05em",
-                    }}
-                  >
-                    {roleLabel[m.role] ?? m.role}
-                  </span>
-                </div>
-              );
-            })}
+          <div className="panel" style={{ padding: "28px 20px", textAlign: "center" }}>
+            <Users size={28} style={{ color: "var(--muted)", margin: "0 auto 10px", display: "block" }} />
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No members yet</p>
+            <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
+              Go to Admin Dashboard to invite users to your organisation.
+            </p>
           </div>
+        ) : (
+          <>
+            {/* Search */}
+            <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ position: "relative", flex: "1 1 280px", maxWidth: 360 }}>
+                <Users size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+                <input
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder="Search by name, email, or role…"
+                  style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
+                />
+              </div>
+              <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                {q ? `${filtered.length} of ${members.length}` : `${members.length} member${members.length !== 1 ? "s" : ""}`}
+              </span>
+            </div>
+
+            {/* Compact table */}
+            <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+              {filtered.length === 0 ? (
+                <p className="hint" style={{ padding: "14px 16px", margin: 0 }}>No members match your search.</p>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--panel2)" }}>
+                        <th style={{ textAlign: "left", padding: "7px 14px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", whiteSpace: "nowrap" }}>
+                          Name
+                        </th>
+                        <th style={{ textAlign: "left", padding: "7px 14px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                          Email
+                        </th>
+                        <th style={{ textAlign: "left", padding: "7px 14px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", whiteSpace: "nowrap" }}>
+                          Role
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((m, i) => {
+                        const colour = ROLE_COLOUR[m.role] ?? "var(--muted)";
+                        const isLast = i === filtered.length - 1;
+                        return (
+                          <tr key={m.id} style={{ borderBottom: isLast ? "none" : "1px solid var(--border)" }}>
+                            <td style={{ padding: "8px 14px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{
+                                  width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                                  background: `${colour}22`, border: `1.5px solid ${colour}44`,
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  fontSize: 10, fontWeight: 800, color: colour,
+                                }}>
+                                  {(m.name || m.email).slice(0, 1).toUpperCase()}
+                                </div>
+                                <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>
+                                  {m.name || "—"}
+                                </span>
+                              </div>
+                            </td>
+                            <td style={{ padding: "8px 14px", color: "var(--muted)", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {m.email}
+                            </td>
+                            <td style={{ padding: "8px 14px", whiteSpace: "nowrap" }}>
+                              <span style={{
+                                fontSize: 10, fontWeight: 800,
+                                padding: "2px 7px", borderRadius: 5,
+                                background: `${colour}1a`, border: `1px solid ${colour}33`,
+                                color: colour, textTransform: "uppercase", letterSpacing: "0.05em",
+                              }}>
+                                {ROLE_LABEL[m.role] ?? m.role}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </SettingsSection>
 
-      {/* Related */}
+      {/* ── Related ── */}
       <SettingsSection title="Related">
-        <div className="ed-hero-grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))" }}>
-          <button className="ed-hero-card" onClick={onNavigateMembers}>
-            <span className="ed-hero-icon"><Users size={18} /></span>
-            <span className="ed-hero-text">
-              <span className="ed-hero-label">Member Management</span>
-              <span className="ed-hero-hint">Invite users, assign roles, manage access</span>
-            </span>
-            <ChevronRight size={14} className="ed-hero-chevron" />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={onNavigateMembers}>
+            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Member Management
           </button>
-
-          <div className="ed-hero-card" style={{ opacity: 0.55, cursor: "default" }}>
-            <span className="ed-hero-icon"><Users size={18} /></span>
-            <span className="ed-hero-text">
-              <span className="ed-hero-label">Invite Members</span>
-              <span className="ed-hero-hint">Send email invitations to new users</span>
-            </span>
-            <StatusBadge status="coming-soon" />
-          </div>
-
-          <div className="ed-hero-card" style={{ opacity: 0.55, cursor: "default" }}>
-            <span className="ed-hero-icon"><Shield size={18} /></span>
-            <span className="ed-hero-text">
-              <span className="ed-hero-label">Permission Groups</span>
-              <span className="ed-hero-hint">Fine-grained access control beyond roles</span>
-            </span>
-            <StatusBadge status="coming-soon" />
-          </div>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("roles")}>
+            <Key size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Roles & Permissions
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("security")}>
+            <Shield size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Security
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+            ← Dashboard
+          </button>
         </div>
       </SettingsSection>
 
