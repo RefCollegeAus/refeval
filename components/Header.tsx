@@ -1,4 +1,4 @@
-import { LogOut, Settings, User, GraduationCap, Building2 } from "lucide-react";
+import { LogOut, Settings, User, GraduationCap, Building2, Bell } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 
 export function Header({
@@ -7,16 +7,20 @@ export function Header({
   onAdmin,
   onLearning,
   onOrganisation,
+  onNotifications,
   onProfile,
   onLogout,
+  unreadNotificationCount = 0,
 }: {
   session: RefEvalSession | null;
   onHome: () => void;
   onAdmin: () => void;
   onLearning?: () => void;
   onOrganisation?: () => void;
+  onNotifications?: () => void;
   onProfile: () => void;
   onLogout: () => void;
+  unreadNotificationCount?: number;
 }) {
   const isManagement = session?.activeRole === "educator" || session?.activeRole === "admin" || session?.activeRole === "super_admin";
   const isAdmin = session?.activeRole === "admin" || session?.activeRole === "super_admin";
@@ -50,6 +54,15 @@ export function Header({
           {isAdmin && (
             <button onClick={onAdmin}>
               <Settings size={16} /> Admin Dashboard
+            </button>
+          )}
+
+          {onNotifications && (
+            <button onClick={onNotifications} title="Notifications" className="badge-wrap" style={{ position: "relative" }}>
+              <Bell size={16} />
+              {unreadNotificationCount > 0 && (
+                <span className="badge-count">{unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}</span>
+              )}
             </button>
           )}
 
