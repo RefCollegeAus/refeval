@@ -856,6 +856,16 @@ export default function Home() {
           onNavigateMembers={() => setScreen("database")}
           groupCount={groups.length}
           activeGoalCount={allRefereeGoalViews.filter(v => v.status === "Active").length}
+          groups={groups}
+          groupsLoading={groupsLoading}
+          groupsError={groupsError}
+          canCreateGroups={canCreateGroups}
+          canEditGroups={canEditGroups}
+          canDeleteGroups={canDeleteGroups}
+          onCreateGroup={async input => { await createGroup(input); }}
+          onUpdateGroup={async (id, input) => { await updateGroup(id, input); }}
+          onDeleteGroup={async id => { await deleteGroup(id); }}
+          onSetGroupMembers={async (groupId, userIds) => { await setGroupMembers(groupId, userIds); }}
         />
       </main>
     );

@@ -13,6 +13,8 @@ import type { MemberRecord } from "@/lib/types/members";
 import type { ReviewRecord } from "@/lib/types/reviews";
 import type { Assignment } from "@/lib/types/assignments";
 import type { RefEvalSession } from "@/lib/types/auth";
+import type { Group, CreateGroupInput, UpdateGroupInput } from "@/lib/types/groups";
+import { GroupsScreen } from "@/components/educator/GroupsScreen";
 import {
   SettingsPage, SettingsSection, SettingsCard, SettingsRow,
 } from "./SettingsLayout";
@@ -29,10 +31,11 @@ type OrgPage =
   | "notifications"
   | "security"
   | "members"
+  | "groups"
   | "resources";
 
 const NAV_ITEMS: { page: OrgPage; label: string; icon: ReactNode }[] = [
-  { page: "dashboard",     label: "Dashboard",     icon: <Building2 size={15} /> },
+  { page: "dashboard",     label: "Dashboard",      icon: <Building2 size={15} /> },
   { page: "profile",       label: "Profile",        icon: <User size={15} /> },
   { page: "branding",      label: "Branding",       icon: <Palette size={15} /> },
   { page: "preferences",   label: "Preferences",    icon: <SlidersHorizontal size={15} /> },
@@ -41,6 +44,7 @@ const NAV_ITEMS: { page: OrgPage; label: string; icon: ReactNode }[] = [
   { page: "notifications", label: "Notifications",  icon: <Bell size={15} /> },
   { page: "security",      label: "Security",       icon: <Shield size={15} /> },
   { page: "members",       label: "Members",        icon: <Users size={15} /> },
+  { page: "groups",        label: "Groups",         icon: <Users size={15} /> },
   { page: "resources",     label: "Resources",      icon: <FolderOpen size={15} /> },
 ];
 
@@ -75,6 +79,16 @@ interface Props {
   onNavigateMembers: () => void;
   groupCount?: number;
   activeGoalCount?: number;
+  groups?: Group[];
+  groupsLoading?: boolean;
+  groupsError?: string;
+  canCreateGroups?: boolean;
+  canEditGroups?: boolean;
+  canDeleteGroups?: boolean;
+  onCreateGroup?: (input: CreateGroupInput) => Promise<void>;
+  onUpdateGroup?: (id: string, input: UpdateGroupInput) => Promise<void>;
+  onDeleteGroup?: (id: string) => Promise<void>;
+  onSetGroupMembers?: (groupId: string, userIds: string[]) => Promise<void>;
 }
 
 // ── Main screen ───────────────────────────────────────────────────────────────
@@ -83,6 +97,9 @@ export function OrganisationScreen({
   session, org, members, reviews, assignments,
   settings, onUpdateSettings, onBack, onNavigateMembers,
   groupCount = 0, activeGoalCount = 0,
+  groups = [], groupsLoading = false, groupsError = "",
+  canCreateGroups = false, canEditGroups = false, canDeleteGroups = false,
+  onCreateGroup, onUpdateGroup, onDeleteGroup, onSetGroupMembers,
 }: Props) {
   const [currentPage, setCurrentPage] = useState<OrgPage>("dashboard");
 
@@ -155,6 +172,9 @@ export function OrganisationScreen({
           session, org, members, reviews, assignments,
           settings, onUpdateSettings, setCurrentPage, onNavigateMembers,
           groupCount, activeGoalCount,
+          groups, groupsLoading, groupsError,
+          canCreateGroups, canEditGroups, canDeleteGroups,
+          onCreateGroup, onUpdateGroup, onDeleteGroup, onSetGroupMembers,
         })}
       </div>
     </div>
@@ -175,6 +195,16 @@ interface PageCtx {
   onNavigateMembers: () => void;
   groupCount: number;
   activeGoalCount: number;
+  groups: Group[];
+  groupsLoading: boolean;
+  groupsError: string;
+  canCreateGroups: boolean;
+  canEditGroups: boolean;
+  canDeleteGroups: boolean;
+  onCreateGroup?: (input: CreateGroupInput) => Promise<void>;
+  onUpdateGroup?: (id: string, input: UpdateGroupInput) => Promise<void>;
+  onDeleteGroup?: (id: string) => Promise<void>;
+  onSetGroupMembers?: (groupId: string, userIds: string[]) => Promise<void>;
 }
 
 function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
@@ -188,6 +218,7 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
     case "notifications": return <NotificationsPage {...ctx} />;
     case "security":      return <SecurityPage {...ctx} />;
     case "members":       return <MembersPage {...ctx} />;
+    case "groups":        return <GroupsPage {...ctx} />;
     case "resources":     return <ResourcesPage {...ctx} />;
   }
 }
@@ -242,7 +273,7 @@ function SectionCard({
   );
 }
 
-function DashboardPage({ org, members, reviews, assignments, settings, setCurrentPage, onNavigateMembers, groupCount, activeGoalCount }: PageCtx) {
+function DashboardPage({ org, members, reviews, assignments, settings, setCurrentPage, onNavigateMembers, groupCount, activeGoalCount, groups, canCreateGroups }: PageCtx) {
   const refereeCount    = members.filter(m => m.role === "referee").length;
   const educatorCount   = members.filter(m => m.role === "educator").length;
   const adminCount      = members.filter(m => m.role === "admin" || m.role === "super_admin").length;
@@ -404,35 +435,72 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
 
       {/* ── Groups ── */}
       <SettingsSection title="Groups" description="Organise referees into cohorts for targeted learning and coaching.">
-        <SectionCard
-          title="Referee Groups"
-          description={groupCount > 0 ? `${groupCount} group${groupCount !== 1 ? "s" : ""} configured` : "No groups configured yet"}
-        >
-          {groupCount === 0 ? (
-            <div style={{ padding: "16px 0 4px", display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(139,92,246,.1)", border: "1px solid rgba(139,92,246,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Users size={18} style={{ color: "#8b5cf6" }} />
+        <div className="panel" style={{ padding: "18px 20px" }}>
+          {groups.length === 0 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 0" }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(139,92,246,.1)", border: "1px solid rgba(139,92,246,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Users size={20} style={{ color: "#8b5cf6" }} />
               </div>
-              <div>
-                <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>No groups yet</p>
-                <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>Create referee groups to assign learning by cohort and compare development progress.</p>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No groups yet</p>
+                <p className="hint" style={{ margin: "3px 0 0", fontSize: 12 }}>Create referee groups to target learning by cohort and track development progress.</p>
               </div>
+              {canCreateGroups && (
+                <button style={{ fontSize: 12, flexShrink: 0 }} onClick={() => setCurrentPage("groups")}>
+                  Create Group
+                </button>
+              )}
             </div>
           ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 0" }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(139,92,246,.1)", border: "1px solid rgba(139,92,246,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Users size={18} style={{ color: "#8b5cf6" }} />
+            <>
+              {/* Mini group list — up to 5 */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {groups.slice(0, 5).map((g, i) => (
+                  <div
+                    key={g.id}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "10px 0",
+                      borderBottom: i < Math.min(groups.length, 5) - 1 ? "1px solid var(--border)" : "none",
+                    }}
+                  >
+                    <div style={{
+                      width: 10, height: 10, borderRadius: "50%",
+                      background: g.colour, flexShrink: 0,
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13 }}>{g.name}</span>
+                      {g.description && (
+                        <span className="hint" style={{ fontSize: 12, marginLeft: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {g.description}
+                        </span>
+                      )}
+                    </div>
+                    <span className="hint" style={{ fontSize: 12, flexShrink: 0 }}>
+                      {g.members.length} member{g.members.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div>
-                <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>
-                  <span style={{ fontSize: 20, fontWeight: 800, color: "#8b5cf6", marginRight: 6 }}>{groupCount}</span>
-                  group{groupCount !== 1 ? "s" : ""}
+              {groups.length > 5 && (
+                <p className="hint" style={{ margin: "8px 0 0", fontSize: 12 }}>
+                  +{groups.length - 5} more group{groups.length - 5 !== 1 ? "s" : ""}
                 </p>
-                <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>Manage groups from the Learning Hub.</p>
+              )}
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", gap: 8 }}>
+                <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
+                  <Users size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                  Manage Groups
+                </button>
+                {canCreateGroups && (
+                  <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
+                    + New Group
+                  </button>
+                )}
               </div>
-            </div>
+            </>
           )}
-        </SectionCard>
+        </div>
       </SettingsSection>
 
     </SettingsPage>
@@ -2160,6 +2228,34 @@ function MembersPage({ members, org, onNavigateMembers }: PageCtx) {
       </SettingsSection>
 
     </SettingsPage>
+  );
+}
+
+// ── Groups page ───────────────────────────────────────────────────────────────
+
+function GroupsPage({
+  session, members, groups, groupsLoading, groupsError,
+  canCreateGroups, canEditGroups, canDeleteGroups,
+  onCreateGroup, onUpdateGroup, onDeleteGroup, onSetGroupMembers,
+  setCurrentPage,
+}: PageCtx) {
+  return (
+    <GroupsScreen
+      session={session}
+      groups={groups}
+      members={members}
+      loading={groupsLoading}
+      error={groupsError}
+      canCreate={canCreateGroups}
+      canEdit={canEditGroups}
+      canDelete={canDeleteGroups}
+      eyebrow="Organisation"
+      onBack={() => setCurrentPage("dashboard")}
+      onCreateGroup={onCreateGroup ?? (() => Promise.resolve())}
+      onUpdateGroup={onUpdateGroup ?? (() => Promise.resolve())}
+      onDeleteGroup={onDeleteGroup ?? (() => Promise.resolve())}
+      onSetGroupMembers={onSetGroupMembers ?? (() => Promise.resolve())}
+    />
   );
 }
 

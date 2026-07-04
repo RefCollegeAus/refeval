@@ -461,6 +461,7 @@ export function GroupsScreen({
   onUpdateGroup,
   onDeleteGroup,
   onSetGroupMembers,
+  eyebrow,
 }: {
   session: RefEvalSession;
   groups: Group[];
@@ -475,6 +476,7 @@ export function GroupsScreen({
   onUpdateGroup: (id: string, input: UpdateGroupInput) => Promise<void>;
   onDeleteGroup: (id: string) => Promise<void>;
   onSetGroupMembers: (groupId: string, userIds: string[]) => Promise<void>;
+  eyebrow?: string;
 }) {
   const [search, setSearch]                   = useState("");
   const [sort, setSort]                       = useState<SortKey>("name");
@@ -531,7 +533,7 @@ export function GroupsScreen({
         <div className="panel">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
             <div>
-              <p className="eyebrow" style={{ margin: 0 }}>Learning Hub</p>
+              <p className="eyebrow" style={{ margin: 0 }}>{eyebrow ?? "Learning Hub"}</p>
               <h1 style={{ margin: 0, fontSize: 22 }}>Groups</h1>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
