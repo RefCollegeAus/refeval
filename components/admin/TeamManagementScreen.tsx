@@ -194,7 +194,7 @@ export function TeamManagementScreen({ session, members, permissionMap, permissi
     session.activeRole === "admin" || session.activeRole === "super_admin";
 
   return (
-    <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
+    <div className="layout one-col">
       <div className="panel">
 
         {/* Header */}
@@ -213,7 +213,7 @@ export function TeamManagementScreen({ session, members, permissionMap, permissi
         </div>
 
         {/* Info banner */}
-        <div style={{ padding: "10px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13, color: "var(--muted)", marginBottom: 16, display: "flex", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ padding: "10px 14px", background: "rgba(10,132,255,.08)", borderRadius: 8, border: "1px solid rgba(10,132,255,.25)", fontSize: 13, color: "#6fb8ff", marginBottom: 16, display: "flex", alignItems: "flex-start", gap: 8 }}>
           <Shield size={15} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>
             Permissions extend the base role. If a member has no custom permissions set, their role defaults apply.

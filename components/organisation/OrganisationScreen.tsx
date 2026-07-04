@@ -2142,11 +2142,6 @@ function MembersPage({ members, org, onNavigateMembers }: PageCtx) {
         )}
       </SettingsSection>
 
-      {/* Activity status note */}
-      <SettingsSection title="Activity status">
-        <SettingsCard description="Active / inactive status is not tracked in the current data model. This information will become available in a future update.">{null}</SettingsCard>
-      </SettingsSection>
-
       {/* Quick links */}
       <SettingsSection title="Actions">
         <div className="ed-hero-grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))" }}>
