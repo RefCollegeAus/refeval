@@ -1656,7 +1656,7 @@ function ReviewsPage({ settings, onUpdateSettings }: PageCtx) {
   );
 }
 
-function LearningPage({ settings, onUpdateSettings }: PageCtx) {
+function LearningPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
   const [draft, setDraft] = useState(() => ({ ...settings.learningDefaults }));
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -1696,11 +1696,27 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
 
   const numStyle: React.CSSProperties = { width: 100, boxSizing: "border-box" };
 
+  // ── Live summary chips ────────────────────────────────────────────────────
+  const reminderLabel = draft.sendDueReminders
+    ? `${draft.reminderDaysBefore} day${draft.reminderDaysBefore !== 1 ? "s" : ""} before`
+    : "Off";
+
+  const summaryItems: { label: string; value: string; active?: boolean }[] = [
+    { label: "Due window",     value: `${draft.assignmentDueDays} day${draft.assignmentDueDays !== 1 ? "s" : ""}`, active: true },
+    { label: "Completion",     value: `${draft.requiredCompletionPercent}% required`,                               active: true },
+    { label: "Passing score",  value: `${draft.passingPercent}%`,                                                   active: true },
+    { label: "Late completion",value: draft.allowLateCompletion ? "Allowed" : "Blocked",                            active: draft.allowLateCompletion },
+    { label: "Reflection",     value: draft.requireReflection ? "Required" : "Optional",                           active: draft.requireReflection },
+    { label: "Reminders",      value: reminderLabel,                                                                active: draft.sendDueReminders },
+    { label: "Auto-notify",    value: draft.autoNotifyAssignedReferees ? "On" : "Off",                             active: draft.autoNotifyAssignedReferees },
+    { label: "Show progress",  value: draft.showProgressToReferees ? "Visible" : "Hidden",                         active: draft.showProgressToReferees },
+  ];
+
   return (
     <SettingsPage
       eyebrow="Organisation"
       title="Learning Defaults"
-      description="Default settings for learning assignments and referee engagement."
+      description="Pre-fill settings applied whenever an educator assigns learning to a referee. All defaults can be overridden per assignment."
       actions={
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
@@ -1717,24 +1733,60 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      <InfoNote>
-        These are <strong>saved defaults</strong> — they pre-fill settings when learning is assigned, but can be overridden per assignment. Certificate generation is not yet available; enabling it records your preference for when the feature launches.
-      </InfoNote>
+      {/* ── Context note ── */}
+      <div style={{
+        padding: "12px 16px",
+        background: "rgba(10,132,255,.08)", borderRadius: 10,
+        border: "1px solid rgba(10,132,255,.22)",
+        fontSize: 13, color: "#6fb8ff",
+        display: "flex", alignItems: "flex-start", gap: 10,
+      }}>
+        <BookOpen size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          These are <strong style={{ color: "#6fb8ff" }}>saved defaults</strong> — they pre-fill settings when an educator assigns learning, but can be overridden per assignment.
+          {draft.enableCertificates && " Certificate generation is not yet active; your preference is saved and will take effect when the feature launches."}
+        </span>
+      </div>
 
-      <SettingsSection title="Assignment defaults">
+      {/* ── Current configuration summary ── */}
+      <SettingsSection title="Current Configuration" description="A live snapshot of your saved learning defaults.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+          {summaryItems.map(({ label, value, active }) => (
+            <div key={label} style={{
+              padding: "12px 14px", borderRadius: 10,
+              background: "var(--panel)",
+              border: `1px solid ${active ? "rgba(52,199,89,.2)" : "var(--border)"}`,
+            }}>
+              <p style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                {label}
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: active ? "#34c759" : "var(--border)" }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: active ? "var(--text)" : "var(--muted)" }}>{value}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SettingsSection>
+
+      {/* ── Assignment Defaults ── */}
+      <SettingsSection title="Assignment Defaults" description="Applied when an educator creates a new learning assignment. Educators can adjust these per assignment.">
         <SettingsCard>
           <SettingsRow
             label="Default due days"
             description="How many days after assignment a referee has to complete the learning."
           >
-            <input
-              type="number"
-              style={numStyle}
-              value={draft.assignmentDueDays}
-              onChange={e => patch("assignmentDueDays", Number(e.target.value))}
-              min={1}
-              step={1}
-            />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="number"
+                style={numStyle}
+                value={draft.assignmentDueDays}
+                onChange={e => patch("assignmentDueDays", Number(e.target.value))}
+                min={1}
+                step={1}
+              />
+              <span className="hint" style={{ fontSize: 13 }}>days</span>
+            </div>
           </SettingsRow>
           <ToggleRow
             label="Allow late completion"
@@ -1752,7 +1804,8 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Completion rules">
+      {/* ── Completion Rules ── */}
+      <SettingsSection title="Completion Rules" description="Define what counts as completing an assignment and whether reflections are required.">
         <SettingsCard>
           <SettingsRow
             label="Required completion %"
@@ -1796,7 +1849,7 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
           />
           <ToggleRow
             label="Enable certificates"
-            description="Issue a completion certificate when a referee finishes an assignment."
+            description="Issue a completion certificate when a referee finishes an assignment. Preference is saved — certificates will be issued when the feature launches."
             checked={draft.enableCertificates}
             onChange={v => patch("enableCertificates", v)}
             last
@@ -1805,7 +1858,8 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Reminders and notifications">
+      {/* ── Reminders & Notifications ── */}
+      <SettingsSection title="Reminders & Notifications" description="Control when and how referees are notified about new and upcoming assignments.">
         <SettingsCard>
           <ToggleRow
             label="Auto-notify assigned referees"
@@ -1821,23 +1875,27 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
           />
           <SettingsRow
             label="Reminder days before due"
-            description="How many days before the due date to send the reminder. Requires reminders enabled."
+            description="How many days before the due date to send the reminder. Requires reminders to be enabled."
             last
           >
-            <input
-              type="number"
-              style={numStyle}
-              value={draft.reminderDaysBefore}
-              onChange={e => patch("reminderDaysBefore", Number(e.target.value))}
-              min={0}
-              step={1}
-              disabled={!draft.sendDueReminders}
-            />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="number"
+                style={numStyle}
+                value={draft.reminderDaysBefore}
+                onChange={e => patch("reminderDaysBefore", Number(e.target.value))}
+                min={0}
+                step={1}
+                disabled={!draft.sendDueReminders}
+              />
+              <span className="hint" style={{ fontSize: 13, opacity: draft.sendDueReminders ? 1 : 0.45 }}>days before</span>
+            </div>
           </SettingsRow>
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Referee visibility">
+      {/* ── Referee Visibility ── */}
+      <SettingsSection title="Referee Visibility" description="Control what referees can see about their own learning progress.">
         <SettingsCard>
           <ToggleRow
             label="Show progress to referees"
@@ -1849,7 +1907,8 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Default assignment message" description="Pre-filled message included when an educator assigns learning to a referee. Can be overridden per assignment.">
+      {/* ── Default Assignment Message ── */}
+      <SettingsSection title="Default Assignment Message" description="Pre-filled message sent to a referee when an educator assigns learning. Educators can edit or clear it per assignment.">
         <SettingsCard>
           <textarea
             value={draft.defaultAssignmentMessage}
@@ -1858,8 +1917,31 @@ function LearningPage({ settings, onUpdateSettings }: PageCtx) {
             placeholder="e.g. Please review the clips in this assignment and focus on your positioning. Reach out if you have any questions."
             style={{ width: "100%", boxSizing: "border-box", resize: "vertical", minHeight: 96 }}
           />
+          <p className="hint" style={{ margin: "6px 0 0", fontSize: 12 }}>
+            {draft.defaultAssignmentMessage.trim().length > 0
+              ? `${draft.defaultAssignmentMessage.trim().length} characters`
+              : "No default message set — educators will start with an empty message field."}
+          </p>
         </SettingsCard>
       </SettingsSection>
+
+      {/* ── Related ── */}
+      <SettingsSection title="Related">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("notifications")}>
+            <Bell size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Notification Preferences
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
+            <FolderOpen size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Manage Groups
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+            ← Dashboard
+          </button>
+        </div>
+      </SettingsSection>
+
     </SettingsPage>
   );
 }
