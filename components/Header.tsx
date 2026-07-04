@@ -1,5 +1,15 @@
-import { LogOut, Settings, User, GraduationCap, Building2, Bell } from "lucide-react";
-import type { RefEvalSession } from "@/lib/types/auth";
+import { LogOut, Home, GraduationCap, Building2, Bell, User, LayoutDashboard } from "lucide-react";
+import type { RefEvalSession, Screen } from "@/lib/types/auth";
+
+const LEARNING_SCREENS: Screen[] = [
+  "learning-hub", "my-learning", "learning-progress", "playlists",
+  "playlist-detail", "clip-library", "assignments", "assignment-detail",
+  "groups",
+];
+
+const DASHBOARD_SCREENS: Screen[] = [
+  "database", "team-management",
+];
 
 export function Header({
   session,
@@ -11,6 +21,7 @@ export function Header({
   onProfile,
   onLogout,
   unreadNotificationCount = 0,
+  activeScreen,
 }: {
   session: RefEvalSession | null;
   onHome: () => void;
@@ -21,9 +32,21 @@ export function Header({
   onProfile: () => void;
   onLogout: () => void;
   unreadNotificationCount?: number;
+  activeScreen?: Screen;
 }) {
   const isManagement = session?.activeRole === "educator" || session?.activeRole === "admin" || session?.activeRole === "super_admin";
   const isAdmin = session?.activeRole === "admin" || session?.activeRole === "super_admin";
+
+  const isActive = (screens: Screen[]) =>
+    activeScreen ? screens.includes(activeScreen) : false;
+
+  const homeScreens: Screen[] = ["educator", "referee", "viewer", "org-selector"];
+  const homeActive = isActive(homeScreens);
+  const learningActive = isActive(LEARNING_SCREENS);
+  const orgActive = isActive(["organisation"]);
+  const dashActive = isActive(DASHBOARD_SCREENS);
+  const notifActive = isActive(["notifications"]);
+  const profileActive = isActive(["user-profile"]);
 
   return (
     <header className="header">
@@ -36,43 +59,74 @@ export function Header({
       </div>
 
       {session && (
-        <div className="export-row">
-          <button onClick={onHome}>Home</button>
-
-          {isManagement && onLearning && (
-            <button onClick={onLearning}>
-              <GraduationCap size={16} /> Learning
+        <div className="header-nav">
+          {/* Primary navigation */}
+          <div className="header-nav-primary">
+            <button
+              className={homeActive ? "header-btn header-btn-active" : "header-btn"}
+              onClick={onHome}
+            >
+              <Home size={15} /> Home
             </button>
-          )}
 
-          {isAdmin && onOrganisation && (
-            <button onClick={onOrganisation}>
-              <Building2 size={16} /> Organisation
+            {isManagement && onLearning && (
+              <button
+                className={learningActive ? "header-btn header-btn-active" : "header-btn"}
+                onClick={onLearning}
+              >
+                <GraduationCap size={15} /> Learning
+              </button>
+            )}
+
+            {isAdmin && onOrganisation && (
+              <button
+                className={orgActive ? "header-btn header-btn-active" : "header-btn"}
+                onClick={onOrganisation}
+              >
+                <Building2 size={15} /> Organisation
+              </button>
+            )}
+
+            {isAdmin && (
+              <button
+                className={dashActive ? "header-btn header-btn-active" : "header-btn"}
+                onClick={onAdmin}
+              >
+                <LayoutDashboard size={15} /> Dashboard
+              </button>
+            )}
+          </div>
+
+          {/* Utility cluster */}
+          <div className="header-nav-utility">
+            {onNotifications && (
+              <button
+                className={notifActive ? "header-btn header-btn-icon header-btn-active" : "header-btn header-btn-icon"}
+                onClick={onNotifications}
+                title="Notifications"
+                style={{ position: "relative" }}
+              >
+                <Bell size={15} />
+                {unreadNotificationCount > 0 && (
+                  <span className="badge-count">
+                    {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            <button
+              className={profileActive ? "header-btn header-btn-active" : "header-btn"}
+              onClick={onProfile}
+              title={`Profile: ${session.profile.name}`}
+            >
+              <User size={15} /> {session.profile.name}
             </button>
-          )}
 
-          {isAdmin && (
-            <button onClick={onAdmin}>
-              <Settings size={16} /> Admin Dashboard
+            <button className="header-btn" onClick={onLogout}>
+              <LogOut size={15} />
             </button>
-          )}
-
-          {onNotifications && (
-            <button onClick={onNotifications} title="Notifications" className="badge-wrap" style={{ position: "relative" }}>
-              <Bell size={16} />
-              {unreadNotificationCount > 0 && (
-                <span className="badge-count">{unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}</span>
-              )}
-            </button>
-          )}
-
-          <button onClick={onProfile} title={`Profile: ${session.profile.name}`}>
-            <User size={16} /> {session.profile.name}
-          </button>
-
-          <button onClick={onLogout}>
-            <LogOut size={16} /> Logout
-          </button>
+          </div>
         </div>
       )}
     </header>
