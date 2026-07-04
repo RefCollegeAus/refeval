@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import {
   Building2, User, Palette, SlidersHorizontal, Film, BookOpen,
   Bell, Shield, Users, FolderOpen, ChevronRight, Globe, Clock,
-  CheckCircle, AlertCircle, CreditCard,
+  CheckCircle, AlertCircle, CreditCard, Key, Layers,
 } from "lucide-react";
 import type { OrganisationSettings } from "@/lib/types/organisationSettings";
 import type { OrganisationRecord } from "@/lib/types/organisations";
@@ -37,20 +37,28 @@ type OrgPage =
   | "resources"
   | "billing";
 
-const NAV_ITEMS: { page: OrgPage; label: string; icon: ReactNode }[] = [
-  { page: "dashboard",     label: "Dashboard",       icon: <Building2 size={15} /> },
-  { page: "profile",       label: "Profile",         icon: <User size={15} /> },
-  { page: "branding",      label: "Branding",        icon: <Palette size={15} /> },
-  { page: "preferences",   label: "Preferences",     icon: <SlidersHorizontal size={15} /> },
-  { page: "reviews",       label: "Review Defaults", icon: <Film size={15} /> },
-  { page: "learning",      label: "Learning",        icon: <BookOpen size={15} /> },
-  { page: "notifications", label: "Notifications",   icon: <Bell size={15} /> },
-  { page: "security",      label: "Security",        icon: <Shield size={15} /> },
-  { page: "members",       label: "Members",         icon: <Users size={15} /> },
-  { page: "groups",        label: "Groups",          icon: <Users size={15} /> },
-  { page: "roles",         label: "Roles",           icon: <Shield size={15} /> },
-  { page: "resources",     label: "Resources",       icon: <FolderOpen size={15} /> },
-  { page: "billing",       label: "Billing & Plan",  icon: <CreditCard size={15} /> },
+type NavItem =
+  | { type: "page";      page: OrgPage; label: string; icon: ReactNode }
+  | { type: "divider";   label: string };
+
+const NAV_ITEMS: NavItem[] = [
+  { type: "page",    page: "dashboard",     label: "Dashboard",       icon: <Building2 size={15} /> },
+  { type: "divider", label: "Identity" },
+  { type: "page",    page: "profile",       label: "Profile",         icon: <User size={15} /> },
+  { type: "page",    page: "branding",      label: "Branding",        icon: <Palette size={15} /> },
+  { type: "page",    page: "preferences",   label: "Preferences",     icon: <SlidersHorizontal size={15} /> },
+  { type: "divider", label: "People" },
+  { type: "page",    page: "members",       label: "Members",         icon: <Users size={15} /> },
+  { type: "page",    page: "groups",        label: "Groups",          icon: <Layers size={15} /> },
+  { type: "page",    page: "roles",         label: "Roles",           icon: <Key size={15} /> },
+  { type: "page",    page: "security",      label: "Security",        icon: <Shield size={15} /> },
+  { type: "divider", label: "Defaults" },
+  { type: "page",    page: "reviews",       label: "Review Defaults", icon: <Film size={15} /> },
+  { type: "page",    page: "learning",      label: "Learning",        icon: <BookOpen size={15} /> },
+  { type: "page",    page: "notifications", label: "Notifications",   icon: <Bell size={15} /> },
+  { type: "divider", label: "Platform" },
+  { type: "page",    page: "resources",     label: "Resources",       icon: <FolderOpen size={15} /> },
+  { type: "page",    page: "billing",       label: "Billing & Plan",  icon: <CreditCard size={15} /> },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -120,7 +128,19 @@ export function OrganisationScreen({
           </p>
         </div>
 
-        {NAV_ITEMS.map(({ page, label, icon }) => {
+        {NAV_ITEMS.map((item, idx) => {
+          if (item.type === "divider") {
+            return (
+              <p key={`div-${idx}`} style={{
+                margin: "10px 0 4px", padding: "0 10px",
+                fontSize: 10, fontWeight: 800, textTransform: "uppercase",
+                letterSpacing: "0.07em", color: "var(--muted)", opacity: 0.6,
+              }}>
+                {item.label}
+              </p>
+            );
+          }
+          const { page, label, icon } = item;
           const active = currentPage === page;
           return (
             <button
@@ -412,7 +432,7 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
       </SettingsSection>
 
       {/* ── Roles & Permissions ── */}
-      <SettingsSection title="Roles &amp; Permissions" description="How access levels work in your organisation.">
+      <SettingsSection title="Roles & Permissions" description="How access levels work in your organisation.">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
           {[
             { color: "#30d158", label: "Referee",    count: refereeCount,  description: "Can view their own reviews and complete assigned learning." },
@@ -2335,16 +2355,6 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
 
   const numStyle: React.CSSProperties = { width: 120, boxSizing: "border-box" };
 
-  const FutureBadge = () => (
-    <span style={{
-      fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 5,
-      background: "rgba(165,106,27,.15)", border: "1px solid rgba(165,106,27,.3)",
-      color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em",
-    }}>
-      Coming soon
-    </span>
-  );
-
   // Derive live status chips for the overview panel
   const hours = Math.floor(draft.sessionTimeoutMinutes / 60);
   const mins  = draft.sessionTimeoutMinutes % 60;
@@ -2435,13 +2445,7 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
                     </span>
                   </>
                 )}
-                {chip.future && (
-                  <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 4,
-                    background: "rgba(165,106,27,.12)", border: "1px solid rgba(165,106,27,.25)",
-                    color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    Soon
-                  </span>
-                )}
+                {chip.future && <StatusBadge status="coming-soon" />}
               </div>
             </div>
           ))}
@@ -2541,7 +2545,7 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
                 checked={draft.requireTwoFactorAuthentication}
                 onChange={v => patch("requireTwoFactorAuthentication", v)}
               />
-              <FutureBadge />
+              <StatusBadge status="coming-soon" />
             </div>
           </SettingsRow>
           <SettingsRow
@@ -2554,7 +2558,7 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
                 checked={draft.allowSingleSignOn}
                 onChange={v => patch("allowSingleSignOn", v)}
               />
-              <FutureBadge />
+              <StatusBadge status="coming-soon" />
             </div>
           </SettingsRow>
         </SettingsCard>
@@ -2576,7 +2580,7 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
                 checked={draft.auditLoggingEnabled}
                 onChange={v => patch("auditLoggingEnabled", v)}
               />
-              <FutureBadge />
+              <StatusBadge status="coming-soon" />
             </div>
           </SettingsRow>
         </SettingsCard>
@@ -2613,11 +2617,11 @@ function MembersPage({ members, org, onNavigateMembers }: PageCtx) {
   const superAdminCount = members.filter(m => m.role === "super_admin").length;
 
   const roleCounts: { label: string; count: number; hint: string; colour: string }[] = [
-    { label: "Total members", count: members.length,    hint: "All users in this organisation", colour: "var(--accent)" },
-    { label: "Referees",      count: refereeCount,       hint: "Active referees",                colour: "#30d158" },
-    { label: "Educators",     count: educatorCount,      hint: "Review educators",               colour: "#0a84ff" },
-    { label: "Admins",        count: adminCount,         hint: "Organisation admins",             colour: "#ff9f0a" },
-    { label: "Super admins",  count: superAdminCount,    hint: "Platform super admins",           colour: "#bf5af2" },
+    { label: "Total",        count: members.length,   hint: "All members",      colour: "var(--accent)" },
+    { label: "Referees",     count: refereeCount,      hint: "Referee role",     colour: "#30d158" },
+    { label: "Educators",    count: educatorCount,     hint: "Educator role",    colour: "#0a84ff" },
+    { label: "Admins",       count: adminCount,        hint: "Admin role",       colour: "#ff9f0a" },
+    { label: "Super Admins", count: superAdminCount,   hint: "Super Admin role", colour: "#bf5af2" },
   ];
 
   return (
@@ -2626,14 +2630,14 @@ function MembersPage({ members, org, onNavigateMembers }: PageCtx) {
       title="Members"
       description="Overview of users in your organisation. Full member management is available in the Admin Dashboard."
       actions={
-        <button className="primary" onClick={onNavigateMembers} style={{ fontSize: 13 }}>
+        <button className="primary" onClick={onNavigateMembers} style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
           <Users size={14} /> Member Management
         </button>
       }
     >
 
       {/* Role breakdown */}
-      <SettingsSection title="Role breakdown">
+      <SettingsSection title="Role Breakdown">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10 }}>
           {roleCounts.map(({ label, count, hint, colour }) => (
             <div key={label} className="ed-summary-card">
@@ -2721,8 +2725,8 @@ function MembersPage({ members, org, onNavigateMembers }: PageCtx) {
         )}
       </SettingsSection>
 
-      {/* Quick links */}
-      <SettingsSection title="Actions">
+      {/* Related */}
+      <SettingsSection title="Related">
         <div className="ed-hero-grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))" }}>
           <button className="ed-hero-card" onClick={onNavigateMembers}>
             <span className="ed-hero-icon"><Users size={18} /></span>
@@ -2739,13 +2743,7 @@ function MembersPage({ members, org, onNavigateMembers }: PageCtx) {
               <span className="ed-hero-label">Invite Members</span>
               <span className="ed-hero-hint">Send email invitations to new users</span>
             </span>
-            <span style={{
-              fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 5,
-              background: "rgba(165,106,27,.15)", border: "1px solid rgba(165,106,27,.3)",
-              color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0,
-            }}>
-              Soon
-            </span>
+            <StatusBadge status="coming-soon" />
           </div>
 
           <div className="ed-hero-card" style={{ opacity: 0.55, cursor: "default" }}>
@@ -2754,13 +2752,7 @@ function MembersPage({ members, org, onNavigateMembers }: PageCtx) {
               <span className="ed-hero-label">Permission Groups</span>
               <span className="ed-hero-hint">Fine-grained access control beyond roles</span>
             </span>
-            <span style={{
-              fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 5,
-              background: "rgba(165,106,27,.15)", border: "1px solid rgba(165,106,27,.3)",
-              color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0,
-            }}>
-              Soon
-            </span>
+            <StatusBadge status="coming-soon" />
           </div>
         </div>
       </SettingsSection>
@@ -3072,8 +3064,8 @@ function RolesPage({ members, session, setCurrentPage }: PageCtx) {
         </p>
       </SettingsSection>
 
-      {/* ── Quick links ── */}
-      <SettingsSection title="Actions">
+      {/* ── Related ── */}
+      <SettingsSection title="Related">
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
             <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
