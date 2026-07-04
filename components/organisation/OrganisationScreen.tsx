@@ -3093,7 +3093,7 @@ function RolesPage({ members, session, setCurrentPage }: PageCtx) {
   );
 }
 
-function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
+function ResourcesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
   const [draft, setDraft] = useState(() => {
     const { learningDocuments: _ld, ...rest } = settings.resources;
     return rest;
@@ -3121,25 +3121,41 @@ function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
 
   const selectStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
 
-  const resourceTypes: {
+  const visibilityLabel: Record<string, string> = {
+    "all-members":    "All members",
+    "assigned-only":  "Assigned referees",
+    "educators-only": "Educators only",
+  };
+
+  // ── Live summary chips ────────────────────────────────────────────────────────
+  const summaryItems: { label: string; value: string; active?: boolean }[] = [
+    { label: "Resources",       value: draft.enableLearningResources ? "Enabled" : "Disabled",              active: draft.enableLearningResources },
+    { label: "External links",  value: draft.allowExternalResourceLinks ? "Allowed" : "Blocked",             active: draft.allowExternalResourceLinks },
+    { label: "Document upload", value: draft.allowDocumentResources ? "Allowed" : "Blocked",                 active: draft.allowDocumentResources },
+    { label: "Visibility",      value: visibilityLabel[draft.defaultResourceVisibility] ?? draft.defaultResourceVisibility, active: true },
+    { label: "Referee access",  value: draft.showResourcesToReferees ? "Can browse" : "Hidden",              active: draft.showResourcesToReferees },
+    { label: "Approval",        value: draft.resourceReviewRequired ? "Required" : "Not required",           active: draft.resourceReviewRequired },
+  ];
+
+  const resourceFormats: {
     label: string;
     description: string;
     available: boolean;
-    icon: string;
+    icon: ReactNode;
   }[] = [
-    { label: "External video links", description: "YouTube, Hudl, GloryLeague, and other video URLs", available: true, icon: "▶" },
-    { label: "External article links", description: "Links to officiating guides, rules documents, and web resources", available: true, icon: "🔗" },
-    { label: "PDF documents", description: "Rulebooks, officiating guides, and reference materials", available: false, icon: "📄" },
-    { label: "DOCX documents", description: "Word documents and written case studies", available: false, icon: "📝" },
-    { label: "PPTX presentations", description: "Slide decks and visual training materials", available: false, icon: "📊" },
-    { label: "XLSX spreadsheets", description: "Statistics, schedules, and structured data", available: false, icon: "📋" },
+    { label: "External video links",  description: "YouTube, Hudl, GloryLeague, and other video URLs",                  available: true,  icon: <Film size={15} /> },
+    { label: "External article links",description: "Links to officiating guides, rules documents, and web resources",   available: true,  icon: <Globe size={15} /> },
+    { label: "PDF documents",         description: "Rulebooks, officiating guides, and reference materials",             available: false, icon: <FolderOpen size={15} /> },
+    { label: "DOCX documents",        description: "Word documents and written case studies",                            available: false, icon: <FolderOpen size={15} /> },
+    { label: "PPTX presentations",    description: "Slide decks and visual training materials",                          available: false, icon: <FolderOpen size={15} /> },
+    { label: "XLSX spreadsheets",     description: "Statistics, schedules, and structured data",                         available: false, icon: <FolderOpen size={15} /> },
   ];
 
   return (
     <SettingsPage
       eyebrow="Organisation"
       title="Resources"
-      description="Learning documents and reference materials for your organisation's referees."
+      description="Control how learning resources are shared with referees across your organisation."
       actions={
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
@@ -3156,15 +3172,48 @@ function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      <InfoNote>
-        External video and article links are <strong>available now</strong>. Document upload (PDF, DOCX, PPTX, XLSX) is a future feature — enabling it here records your preference and will take effect when document hosting is available.
-      </InfoNote>
+      {/* ── Context note ── */}
+      <div style={{
+        padding: "12px 16px",
+        background: "rgba(10,132,255,.08)", borderRadius: 10,
+        border: "1px solid rgba(10,132,255,.22)",
+        fontSize: 13, color: "#6fb8ff",
+        display: "flex", alignItems: "flex-start", gap: 10,
+      }}>
+        <FolderOpen size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          External video and article links are <strong style={{ color: "#6fb8ff" }}>available now</strong>.
+          Document upload (PDF, DOCX, PPTX, XLSX) is coming — enabling it here saves your preference and will take effect when document hosting launches.
+        </span>
+      </div>
 
-      <SettingsSection title="Resource availability">
+      {/* ── Current Configuration ── */}
+      <SettingsSection title="Current Configuration" description="A live snapshot of your saved resource settings.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+          {summaryItems.map(({ label, value, active }) => (
+            <div key={label} style={{
+              padding: "12px 14px", borderRadius: 10,
+              background: "var(--panel)",
+              border: `1px solid ${active ? "rgba(52,199,89,.2)" : "var(--border)"}`,
+            }}>
+              <p style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                {label}
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: active ? "#34c759" : "var(--border)" }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: active ? "var(--text)" : "var(--muted)" }}>{value}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SettingsSection>
+
+      {/* ── Resource Availability ── */}
+      <SettingsSection title="Resource Availability" description="Master switch for resource functionality across the organisation.">
         <SettingsCard>
           <ToggleRow
             label="Enable learning resources"
-            description="Allow resources to be attached to assignments and made available to referees."
+            description="Allow educators to attach resources to assignments and make them available to referees."
             checked={draft.enableLearningResources}
             onChange={v => patch("enableLearningResources", v)}
             last
@@ -3172,20 +3221,18 @@ function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Supported resource types" description="Control which types of resources educators can attach to learning assignments.">
+      {/* ── Allowed Resource Types ── */}
+      <SettingsSection title="Allowed Resource Types" description="Control which resource types educators can attach to learning assignments.">
         <SettingsCard>
           <ToggleRow
             label="External resource links"
-            description="Allow educators to link to external videos, articles, and web-based reference materials."
+            description="Educators can link to external videos (YouTube, Hudl), articles, and web-based reference materials."
             checked={draft.allowExternalResourceLinks}
             onChange={v => patch("allowExternalResourceLinks", v)}
-            last={true}
           />
-        </SettingsCard>
-        <SettingsCard>
           <ToggleRow
-            label="Document resources"
-            description="Allow educators to attach document files such as PDFs, DOCX, PPTX, and XLSX. Document upload infrastructure is coming in a future release."
+            label="Document uploads"
+            description="Educators can attach document files (PDF, DOCX, PPTX, XLSX). Requires document hosting — your preference is saved for when it launches."
             checked={draft.allowDocumentResources}
             onChange={v => patch("allowDocumentResources", v)}
             last
@@ -3194,11 +3241,12 @@ function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Visibility defaults" description="Control who can see resources by default when they are published.">
+      {/* ── Visibility & Access ── */}
+      <SettingsSection title="Visibility & Access" description="Control who can see resources and whether referees can browse them independently.">
         <SettingsCard>
           <SettingsRow
             label="Default resource visibility"
-            description="Who can access resources in this organisation."
+            description="Who can access resources in this organisation. Educators can override this per resource."
           >
             <select
               style={{ ...selectStyle, width: 220 }}
@@ -3212,7 +3260,7 @@ function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
           </SettingsRow>
           <ToggleRow
             label="Show resources to referees"
-            description="Referees can browse available resources from their learning area."
+            description="Referees can browse available resources from their learning area, not just from assigned assignments."
             checked={draft.showResourcesToReferees}
             onChange={v => patch("showResourcesToReferees", v)}
             last
@@ -3220,10 +3268,11 @@ function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Review and approval" description="Control whether resources must be approved before they become visible to referees.">
+      {/* ── Review & Approval ── */}
+      <SettingsSection title="Review & Approval" description="Control whether new resources need admin approval before referees can access them.">
         <SettingsCard>
           <ToggleRow
-            label="Require resource review"
+            label="Require resource approval"
             description="Resources added by educators must be reviewed and approved by an admin before referees can see them."
             checked={draft.resourceReviewRequired}
             onChange={v => patch("resourceReviewRequired", v)}
@@ -3232,47 +3281,47 @@ function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
         </SettingsCard>
       </SettingsSection>
 
-      <SettingsSection title="Supported formats" description="Current and upcoming resource formats available in RefCoach.">
+      {/* ── Supported Formats ── */}
+      <SettingsSection title="Supported Formats" description="Resource formats currently available and coming soon in RefCoach.">
         <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-          {resourceTypes.map((rt, i) => {
-            const isLast = i === resourceTypes.length - 1;
+          {resourceFormats.map((rf, i) => {
+            const isLast = i === resourceFormats.length - 1;
             return (
-              <div
-                key={rt.label}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 18px",
-                  borderBottom: isLast ? "none" : "1px solid var(--border)",
-                  opacity: rt.available ? 1 : 0.6,
-                }}
-              >
-                <span style={{ fontSize: 18, flexShrink: 0, width: 28, textAlign: "center" }}>{rt.icon}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>{rt.label}</p>
-                  <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>{rt.description}</p>
+              <div key={rf.label} style={{
+                display: "flex", alignItems: "center", gap: 14,
+                padding: "13px 18px",
+                borderBottom: isLast ? "none" : "1px solid var(--border)",
+                opacity: rf.available ? 1 : 0.55,
+              }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  background: rf.available ? "rgba(10,132,255,.1)" : "var(--panel2)",
+                  border: `1px solid ${rf.available ? "rgba(10,132,255,.25)" : "var(--border)"}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: rf.available ? "#6fb8ff" : "var(--muted)",
+                }}>
+                  {rf.icon}
                 </div>
-                {rt.available ? (
-                  <span
-                    style={{
-                      flexShrink: 0, fontSize: 11, fontWeight: 800,
-                      padding: "2px 9px", borderRadius: 6,
-                      background: "rgba(52,199,89,.12)", border: "1px solid rgba(52,199,89,.3)",
-                      color: "#34c759", textTransform: "uppercase", letterSpacing: "0.05em",
-                    }}
-                  >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{rf.label}</p>
+                  <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>{rf.description}</p>
+                </div>
+                {rf.available ? (
+                  <span style={{
+                    flexShrink: 0, fontSize: 11, fontWeight: 700,
+                    padding: "2px 9px", borderRadius: 20,
+                    background: "rgba(52,199,89,.12)", border: "1px solid rgba(52,199,89,.3)",
+                    color: "#34c759", textTransform: "uppercase", letterSpacing: "0.05em",
+                  }}>
                     Available
                   </span>
                 ) : (
-                  <span
-                    style={{
-                      flexShrink: 0, fontSize: 11, fontWeight: 800,
-                      padding: "2px 9px", borderRadius: 6,
-                      background: "rgba(165,106,27,.12)", border: "1px solid rgba(165,106,27,.25)",
-                      color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.05em",
-                    }}
-                  >
+                  <span style={{
+                    flexShrink: 0, fontSize: 11, fontWeight: 700,
+                    padding: "2px 9px", borderRadius: 20,
+                    background: "var(--panel3)", border: "1px solid var(--border)",
+                    color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em",
+                  }}>
                     Coming soon
                   </span>
                 )}
@@ -3281,6 +3330,24 @@ function ResourcesPage({ settings, onUpdateSettings }: PageCtx) {
           })}
         </div>
       </SettingsSection>
+
+      {/* ── Related ── */}
+      <SettingsSection title="Related">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("learning")}>
+            <BookOpen size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Learning Defaults
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
+            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Manage Groups
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+            ← Dashboard
+          </button>
+        </div>
+      </SettingsSection>
+
     </SettingsPage>
   );
 }
