@@ -675,6 +675,21 @@ function ProfilePage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
+      {/* ── Context note ── */}
+      <div style={{
+        padding: "12px 16px",
+        background: "rgba(10,132,255,.08)", borderRadius: 10,
+        border: "1px solid rgba(10,132,255,.22)",
+        fontSize: 13, color: "#6fb8ff",
+        display: "flex", alignItems: "flex-start", gap: 10,
+      }}>
+        <User size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          Organisation name and contact details appear in reviews, reports, and member-facing screens.
+          Changes take effect immediately after saving.
+        </span>
+      </div>
+
       {/* ── Live identity preview ── */}
       <SettingsSection title="Preview" description="Updates live as you edit. Reflects how this organisation appears across the platform.">
         <div className="panel" style={{ padding: "18px 20px" }}>
@@ -940,7 +955,7 @@ function PreferencesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx
 
       {/* ── Current configuration summary ── */}
       <SettingsSection title="Current Configuration" description="A snapshot of your saved preferences. Updates live as you make changes.">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
           {summaryItems.map(({ label, value }) => (
             <div key={label} style={{
               padding: "12px 14px", borderRadius: 10,
@@ -1310,6 +1325,21 @@ function BrandingPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
+      {/* ── Context note ── */}
+      <div style={{
+        padding: "12px 16px",
+        background: "rgba(10,132,255,.08)", borderRadius: 10,
+        border: "1px solid rgba(10,132,255,.22)",
+        fontSize: 13, color: "#6fb8ff",
+        display: "flex", alignItems: "flex-start", gap: 10,
+      }}>
+        <Palette size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          Branding is applied across the platform for your organisation — logo mark, colour palette, and badge styling.
+          Changes take effect immediately after saving.
+        </span>
+      </div>
+
       {/* ── Live preview (top) ── */}
       <SettingsSection title="Preview" description="Updates live as you make changes.">
         <BrandingPreview
@@ -1435,9 +1465,7 @@ function BrandingPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
   );
 }
 
-// ── Placeholder pages ─────────────────────────────────────────────────────────
-
-// ── Toggle component (shared across review and future pages) ─────────────────
+// ── Toggle component ─────────────────────────────────────────────────────────
 
 function OrgToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -2836,7 +2864,7 @@ const ROLE_META: {
     label: "Viewer",
     color: "#636366",
     tagline: "Read-only observer",
-    description: "No active permissions by default. Viewer accounts can be granted specific access via per-user permission overrides in Team Management.",
+    description: "No active permissions by default. Viewer accounts can be granted specific access via per-user permission overrides in Members.",
     capabilities: ["No default access", "Can be granted specific permissions individually"],
   },
 ];
@@ -2854,7 +2882,7 @@ function RolesPage({ members, session, setCurrentPage }: PageCtx) {
   const isSuperAdmin = session.activeRole === "super_admin";
 
   return (
-    <SettingsPage eyebrow="Organisation" title="Roles & Permissions">
+    <SettingsPage eyebrow="Organisation" title="Roles & Permissions" description="Understand what each role can see and do, and how many members hold each role in your organisation.">
 
       {/* ── Info note ── */}
       <div style={{
@@ -2872,7 +2900,7 @@ function RolesPage({ members, session, setCurrentPage }: PageCtx) {
             style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "#6fb8ff" }}
             onClick={() => setCurrentPage("members")}
           >
-            Team Management
+            Members
           </button>
           .
           {!isSuperAdmin && " Only Super Admins can assign Admin or Super Admin roles."}
@@ -2995,7 +3023,7 @@ function RolesPage({ members, session, setCurrentPage }: PageCtx) {
       </SettingsSection>
 
       {/* ── Permission summary table ── */}
-      <SettingsSection title="Permission Matrix" description="Default permissions granted per role. Individual overrides can be set in Team Management.">
+      <SettingsSection title="Permission Matrix" description="Default permissions granted per role. Individual overrides can be set in Members.">
         <div className="panel" style={{ padding: "4px 0", overflowX: "auto" }}>
           <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", minWidth: 560 }}>
             <thead>
@@ -3058,7 +3086,7 @@ function RolesPage({ members, session, setCurrentPage }: PageCtx) {
             style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "var(--muted)" }}
             onClick={() => setCurrentPage("members")}
           >
-            Team Management
+            Members
           </button>
           .
         </p>
