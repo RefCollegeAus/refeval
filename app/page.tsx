@@ -854,6 +854,8 @@ export default function Home() {
           onUpdateSettings={orgSettings.updateSettings}
           onBack={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onNavigateMembers={() => setScreen("database")}
+          groupCount={groups.length}
+          activeGoalCount={allRefereeGoalViews.filter(v => v.status === "Active").length}
         />
       </main>
     );

@@ -73,6 +73,8 @@ interface Props {
   onUpdateSettings: (patch: Partial<OrganisationSettings>) => void;
   onBack: () => void;
   onNavigateMembers: () => void;
+  groupCount?: number;
+  activeGoalCount?: number;
 }
 
 // ── Main screen ───────────────────────────────────────────────────────────────
@@ -80,6 +82,7 @@ interface Props {
 export function OrganisationScreen({
   session, org, members, reviews, assignments,
   settings, onUpdateSettings, onBack, onNavigateMembers,
+  groupCount = 0, activeGoalCount = 0,
 }: Props) {
   const [currentPage, setCurrentPage] = useState<OrgPage>("dashboard");
 
@@ -90,7 +93,7 @@ export function OrganisationScreen({
       <nav className="org-sidebar">
         <div className="org-sidebar-header" style={{ marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
           <p className="eyebrow" style={{ margin: 0 }}>Organisation</p>
-          <p style={{ margin: "3px 0 0", fontWeight: 800, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <p style={{ margin: "3px 0 0", fontWeight: 800, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>
             {org?.name ?? "Settings"}
           </p>
         </div>
@@ -151,6 +154,7 @@ export function OrganisationScreen({
         {renderPage(currentPage, {
           session, org, members, reviews, assignments,
           settings, onUpdateSettings, setCurrentPage, onNavigateMembers,
+          groupCount, activeGoalCount,
         })}
       </div>
     </div>
@@ -169,6 +173,8 @@ interface PageCtx {
   onUpdateSettings: (patch: Partial<OrganisationSettings>) => void;
   setCurrentPage: (page: OrgPage) => void;
   onNavigateMembers: () => void;
+  groupCount: number;
+  activeGoalCount: number;
 }
 
 function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
@@ -188,215 +194,262 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
 
 // ── Dashboard page ────────────────────────────────────────────────────────────
 
-function DashboardPage({ org, members, reviews, assignments, settings, setCurrentPage }: PageCtx) {
-  const refereeCount  = members.filter(m => m.role === "referee").length;
-  const educatorCount = members.filter(m => m.role === "educator").length;
+function RolePill({ color, label, count }: { color: string; label: string; count: number }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "10px 14px", borderRadius: 10,
+      background: `${color}0f`, border: `1px solid ${color}28`,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{
+          width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0,
+        }} />
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
+      </div>
+      <span style={{ fontSize: 16, fontWeight: 800, color }}>{count}</span>
+    </div>
+  );
+}
 
-  const stats: { label: string; value: number; hint: string }[] = [
-    { label: "Members",     value: members.length,    hint: "All users" },
-    { label: "Referees",    value: refereeCount,       hint: "Active referees" },
-    { label: "Educators",   value: educatorCount,      hint: "Review educators" },
-    { label: "Reviews",     value: reviews.length,     hint: "Total evaluations" },
-    { label: "Assignments", value: assignments.length, hint: "Learning assignments" },
-  ];
+function SectionCard({
+  title, description, action, children,
+}: {
+  title: string;
+  description?: string;
+  action?: { label: string; onClick: () => void; primary?: boolean };
+  children: ReactNode;
+}) {
+  return (
+    <div className="panel" style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 800, letterSpacing: "-0.01em" }}>{title}</p>
+          {description && <p className="hint" style={{ margin: "3px 0 0", fontSize: 12 }}>{description}</p>}
+        </div>
+        {action && (
+          <button
+            className={action.primary ? "primary" : undefined}
+            style={{ fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
+            onClick={action.onClick}
+          >
+            {action.label}
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
 
-  const quickLinks: { page: OrgPage; label: string; hint: string; icon: ReactNode }[] = [
-    { page: "profile",     label: "Profile",           hint: "Name, sport, contact",          icon: <User size={18} /> },
-    { page: "branding",    label: "Branding",           hint: "Colours and logo",               icon: <Palette size={18} /> },
-    { page: "preferences", label: "Preferences",        hint: "Date format and defaults",       icon: <SlidersHorizontal size={18} /> },
-    { page: "reviews",     label: "Review Defaults",    hint: "Timestamp offset, required fields", icon: <Film size={18} /> },
-    { page: "learning",    label: "Learning Defaults",  hint: "Assignment and reminder rules",  icon: <BookOpen size={18} /> },
-    { page: "resources",   label: "Resources",          hint: "Learning documents",             icon: <FolderOpen size={18} /> },
+function DashboardPage({ org, members, reviews, assignments, settings, setCurrentPage, onNavigateMembers, groupCount, activeGoalCount }: PageCtx) {
+  const refereeCount    = members.filter(m => m.role === "referee").length;
+  const educatorCount   = members.filter(m => m.role === "educator").length;
+  const adminCount      = members.filter(m => m.role === "admin" || m.role === "super_admin").length;
+
+  const completedReviews  = reviews.filter(r => r.status === "Completed").length;
+  const activeAssignments = assignments.filter(a =>
+    a.assignmentUsers.some(u => u.status !== "Completed"),
+  ).length;
+
+  const settingsNav: { page: OrgPage; label: string; hint: string; icon: ReactNode }[] = [
+    { page: "profile",       label: "Profile",          hint: "Name, sport, contact",             icon: <User size={16} /> },
+    { page: "branding",      label: "Branding",          hint: "Colours and logo",                 icon: <Palette size={16} /> },
+    { page: "preferences",   label: "Preferences",       hint: "Date, time, regional",             icon: <SlidersHorizontal size={16} /> },
+    { page: "reviews",       label: "Review Defaults",   hint: "Crew size, visibility, fields",    icon: <Film size={16} /> },
+    { page: "learning",      label: "Learning",          hint: "Assignment rules, reminders",      icon: <BookOpen size={16} /> },
+    { page: "notifications", label: "Notifications",     hint: "Delivery and alert preferences",   icon: <Bell size={16} /> },
+    { page: "security",      label: "Security",          hint: "Session, passwords, MFA",          icon: <Shield size={16} /> },
+    { page: "resources",     label: "Resources",         hint: "Learning documents and links",     icon: <FolderOpen size={16} /> },
   ];
 
   return (
     <SettingsPage eyebrow="Organisation" title={org?.name ?? "Organisation"}>
 
-      <InfoNote>
-        Some settings take effect immediately (tagging fields, branding, preferences). Others are <strong>saved defaults</strong> that pre-fill new reviews or assignments but can be overridden. Notification delivery, security enforcement, and certificate generation are <strong>future features</strong> — your preferences are saved and will activate when each feature launches.
-      </InfoNote>
-
-      {/* Org identity strip */}
-      <div className="panel" style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+      {/* ── Org identity header ── */}
+      <div className="panel" style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
         <OrgLogoMark
           name={org?.name ?? ""}
           branding={settings.branding}
-          size={56}
-          fontSize={20}
-          borderRadius={14}
+          size={60}
+          fontSize={22}
+          borderRadius={16}
         />
-
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 20 }}>
-            {org?.name ?? "—"}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{org?.name ?? "—"}</h2>
             {settings.profile.shortName && (
-              <span className="hint" style={{ fontSize: 13, fontWeight: 600, marginLeft: 10 }}>
-                {settings.profile.shortName}
-              </span>
+              <span className="hint" style={{ fontSize: 13, fontWeight: 600 }}>{settings.profile.shortName}</span>
             )}
-          </h2>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 5 }}>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", marginTop: 6 }}>
             <span className="hint" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
-              <span style={{ color: "var(--accent)", fontSize: 9 }}>●</span>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)", display: "inline-block" }} />
               {settings.profile.sport}
             </span>
             <span className="hint" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
-              <Clock size={11} />
-              {settings.preferences.timezone}
+              <Clock size={11} />{settings.preferences.timezone}
             </span>
             <span className="hint" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
-              <Globe size={11} />
-              {settings.preferences.locale} · {settings.preferences.country}
+              <Globe size={11} />{settings.preferences.locale} · {settings.preferences.country}
             </span>
           </div>
         </div>
-
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <button style={{ fontSize: 12, padding: "6px 12px" }} onClick={() => setCurrentPage("profile")}>
-            Edit Profile
-          </button>
-          <button style={{ fontSize: 12, padding: "6px 12px" }} onClick={() => setCurrentPage("branding")}>
-            Branding
-          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("profile")}>Edit Profile</button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("branding")}>Branding</button>
         </div>
       </div>
 
-      {/* Stats */}
-      <SettingsSection title="Overview">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 10 }}>
-          {stats.map(({ label, value, hint }) => (
-            <div key={label} className="ed-summary-card">
-              <div className="ed-summary-number">{value}</div>
+      {/* ── Summary metrics ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
+        {[
+          { label: "Members",          value: members.length,      color: "var(--accent)", onClick: () => setCurrentPage("members") },
+          { label: "Referees",         value: refereeCount,        color: "#30d158",       onClick: () => setCurrentPage("members") },
+          { label: "Educators",        value: educatorCount,       color: "#0a84ff",       onClick: () => setCurrentPage("members") },
+          { label: "Groups",           value: groupCount,          color: "#8b5cf6",       onClick: undefined },
+          { label: "Reviews",          value: completedReviews,    color: "#bf5af2",       onClick: undefined },
+          { label: "Active Goals",     value: activeGoalCount,     color: "#ff9f0a",       onClick: undefined },
+        ].map(({ label, value, color, onClick }) => (
+          onClick ? (
+            <button
+              key={label}
+              className="ed-summary-card"
+              onClick={onClick}
+              style={{ cursor: "pointer", textAlign: "left", width: "100%", background: "var(--panel)", border: "1px solid var(--border)" }}
+            >
+              <div className="ed-summary-number" style={{ color }}>{value}</div>
               <div className="ed-summary-label">{label}</div>
-              <p className="hint" style={{ margin: "4px 0 0", fontSize: 11 }}>{hint}</p>
+            </button>
+          ) : (
+            <div key={label} className="ed-summary-card">
+              <div className="ed-summary-number" style={{ color }}>{value}</div>
+              <div className="ed-summary-label">{label}</div>
+            </div>
+          )
+        ))}
+      </div>
+
+      {/* ── Members section ── */}
+      <SettingsSection title="Members">
+        <SectionCard
+          title="Member Overview"
+          description={`${members.length} user${members.length !== 1 ? "s" : ""} across all roles`}
+          action={{ label: "Manage Members", onClick: onNavigateMembers, primary: true }}
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
+            <RolePill color="#30d158" label="Referees"    count={refereeCount} />
+            <RolePill color="#0a84ff" label="Educators"   count={educatorCount} />
+            <RolePill color="#ff9f0a" label="Admins"      count={adminCount} />
+          </div>
+          {members.length === 0 && (
+            <div style={{ padding: "24px 0", textAlign: "center" }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No members yet</p>
+              <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>Invite users from the Admin Dashboard to populate your organisation.</p>
+            </div>
+          )}
+          {members.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 0, borderRadius: 10, overflow: "hidden", border: "1px solid var(--border)" }}>
+              {members.slice(0, 5).map((m, i) => {
+                const roleColor: Record<string, string> = { referee: "#30d158", educator: "#0a84ff", admin: "#ff9f0a", super_admin: "#bf5af2", viewer: "var(--muted)" };
+                const roleLabel: Record<string, string> = { referee: "Referee", educator: "Educator", admin: "Admin", super_admin: "Super Admin", viewer: "Viewer" };
+                const isLast = i === Math.min(members.length, 5) - 1;
+                return (
+                  <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderBottom: isLast ? "none" : "1px solid var(--border)", background: "var(--panel2)" }}>
+                    <div style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, background: `${roleColor[m.role] ?? "var(--muted)"}20`, border: `1.5px solid ${roleColor[m.role] ?? "var(--muted)"}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: roleColor[m.role] ?? "var(--muted)" }}>
+                      {(m.name || m.email).slice(0, 1).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name || "—"}</p>
+                      <p className="hint" style={{ margin: 0, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</p>
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 5, background: `${roleColor[m.role] ?? "var(--muted)"}18`, border: `1px solid ${roleColor[m.role] ?? "var(--muted)"}30`, color: roleColor[m.role] ?? "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0 }}>
+                      {roleLabel[m.role] ?? m.role}
+                    </span>
+                  </div>
+                );
+              })}
+              {members.length > 5 && (
+                <div style={{ padding: "10px 14px", background: "var(--panel2)", borderTop: "1px solid var(--border)" }}>
+                  <button
+                    style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}
+                    onClick={onNavigateMembers}
+                  >
+                    View all {members.length} members →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </SectionCard>
+      </SettingsSection>
+
+      {/* ── Roles & Permissions ── */}
+      <SettingsSection title="Roles &amp; Permissions" description="How access levels work in your organisation.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+          {[
+            { color: "#30d158", label: "Referee",    count: refereeCount,  description: "Can view their own reviews and complete assigned learning." },
+            { color: "#0a84ff", label: "Educator",   count: educatorCount, description: "Creates reviews, assigns learning, and coaches referees." },
+            { color: "#ff9f0a", label: "Admin",       count: adminCount,    description: "Manages members, roles, and organisation settings." },
+          ].map(({ color, label, count, description }) => (
+            <div key={label} className="panel" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10, borderLeft: `3px solid ${color}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 14, fontWeight: 800 }}>{label}</span>
+                <span style={{ fontSize: 20, fontWeight: 800, color }}>{count}</span>
+              </div>
+              <p className="hint" style={{ margin: 0, fontSize: 12, lineHeight: 1.5 }}>{description}</p>
             </div>
           ))}
         </div>
-      </SettingsSection>
-
-      {/* Review defaults summary */}
-      <SettingsSection title="Review configuration">
-        <div className="panel" style={{ padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: "8px 24px", alignItems: "center" }}>
-          {[
-            { label: "Crew size", value: `${settings.reviewDefaults.defaultCrewSize} referee${settings.reviewDefaults.defaultCrewSize > 1 ? "s" : ""}` },
-            { label: "Clip length", value: `${settings.reviewDefaults.defaultClipLengthSeconds}s default` },
-            { label: "Visibility", value: settings.reviewDefaults.defaultVisibility === "assigned-referees" ? "Referee can view" : "Educators only" },
-            { label: "Auto-publish", value: settings.reviewDefaults.autoPublishCompletedReviews ? "On" : "Off" },
-            { label: "Notify referee", value: settings.reviewDefaults.notifyRefereeOnCompletion ? "On" : "Off" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span className="hint" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>{value}</span>
-            </div>
-          ))}
-          <button
-            style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
-            onClick={() => setCurrentPage("reviews")}
-          >
-            Edit
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
+            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            View Members
+          </button>
+          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("security")}>
+            <Shield size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+            Security Settings
           </button>
         </div>
       </SettingsSection>
 
-      {/* Learning defaults summary */}
-      <SettingsSection title="Learning configuration">
-        <div className="panel" style={{ padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: "8px 24px", alignItems: "center" }}>
-          {[
-            { label: "Due days", value: `${settings.learningDefaults.assignmentDueDays} days` },
-            { label: "Completion", value: `${settings.learningDefaults.requiredCompletionPercent}% required` },
-            { label: "Passing", value: `${settings.learningDefaults.passingPercent}% to pass` },
-            { label: "Reminders", value: settings.learningDefaults.sendDueReminders ? `On (${settings.learningDefaults.reminderDaysBefore}d before)` : "Off" },
-            { label: "Reflection", value: settings.learningDefaults.requireReflection ? "Required" : "Optional" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span className="hint" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>{value}</span>
+      {/* ── Groups ── */}
+      <SettingsSection title="Groups" description="Organise referees into cohorts for targeted learning and coaching.">
+        <SectionCard
+          title="Referee Groups"
+          description={groupCount > 0 ? `${groupCount} group${groupCount !== 1 ? "s" : ""} configured` : "No groups configured yet"}
+        >
+          {groupCount === 0 ? (
+            <div style={{ padding: "16px 0 4px", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(139,92,246,.1)", border: "1px solid rgba(139,92,246,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Users size={18} style={{ color: "#8b5cf6" }} />
+              </div>
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>No groups yet</p>
+                <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>Create referee groups to assign learning by cohort and compare development progress.</p>
+              </div>
             </div>
-          ))}
-          <button
-            style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
-            onClick={() => setCurrentPage("learning")}
-          >
-            Edit
-          </button>
-        </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 0" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(139,92,246,.1)", border: "1px solid rgba(139,92,246,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Users size={18} style={{ color: "#8b5cf6" }} />
+              </div>
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>
+                  <span style={{ fontSize: 20, fontWeight: 800, color: "#8b5cf6", marginRight: 6 }}>{groupCount}</span>
+                  group{groupCount !== 1 ? "s" : ""}
+                </p>
+                <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>Manage groups from the Learning Hub.</p>
+              </div>
+            </div>
+          )}
+        </SectionCard>
       </SettingsSection>
 
-      {/* Notification summary */}
-      <SettingsSection title="Notification configuration">
-        <div className="panel" style={{ padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: "8px 24px", alignItems: "center" }}>
-          {[
-            { label: "Delivery", value: settings.notifications.preferredDeliveryMethod === "email" ? "Email" : "In-app" },
-            { label: "Reminders", value: settings.notifications.enableReminderEmails ? settings.notifications.reminderFrequency.charAt(0).toUpperCase() + settings.notifications.reminderFrequency.slice(1) : "Off" },
-            { label: "Weekly digest", value: settings.notifications.weeklyDigestEnabled ? "On" : "Off" },
-            { label: "Review alerts", value: settings.notifications.notifyReviewAssigned || settings.notifications.notifyReviewCompleted ? "On" : "Off" },
-            { label: "Assignment alerts", value: settings.notifications.notifyAssignmentAssigned || settings.notifications.notifyAssignmentCompleted ? "On" : "Off" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span className="hint" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>{value}</span>
-            </div>
-          ))}
-          <button
-            style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
-            onClick={() => setCurrentPage("notifications")}
-          >
-            Edit
-          </button>
-        </div>
-      </SettingsSection>
-
-      {/* Resources summary */}
-      <SettingsSection title="Resources configuration">
-        <div className="panel" style={{ padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: "8px 24px", alignItems: "center" }}>
-          {[
-            { label: "Resources", value: settings.resources.enableLearningResources ? "Enabled" : "Disabled" },
-            { label: "External links", value: settings.resources.allowExternalResourceLinks ? "On" : "Off" },
-            { label: "Documents", value: settings.resources.allowDocumentResources ? "On" : "Coming soon" },
-            { label: "Referee access", value: settings.resources.showResourcesToReferees ? "Can view" : "Hidden" },
-            { label: "Review required", value: settings.resources.resourceReviewRequired ? "Yes" : "No" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span className="hint" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>{value}</span>
-            </div>
-          ))}
-          <button
-            style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
-            onClick={() => setCurrentPage("resources")}
-          >
-            Edit
-          </button>
-        </div>
-      </SettingsSection>
-
-      {/* Security summary */}
-      <SettingsSection title="Security configuration">
-        <div className="panel" style={{ padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: "8px 24px", alignItems: "center" }}>
-          {[
-            { label: "Session timeout", value: formatMinutes(settings.security.sessionTimeoutMinutes) },
-            { label: "Strong passwords", value: settings.security.requireStrongPasswords ? "Required" : "Off" },
-            { label: "MFA", value: settings.security.requireTwoFactorAuthentication ? "Required" : "Not required" },
-            { label: "Audit logging", value: settings.security.auditLoggingEnabled ? "On" : "Off" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span className="hint" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>{value}</span>
-            </div>
-          ))}
-          <button
-            style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
-            onClick={() => setCurrentPage("security")}
-          >
-            Edit
-          </button>
-        </div>
-      </SettingsSection>
-
-      {/* Quick links */}
-      <SettingsSection title="Quick links" description="Jump to a settings area to configure your organisation.">
-        <div className="ed-hero-grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))" }}>
-          {quickLinks.map(({ page, label, hint, icon }) => (
+      {/* ── Organisation Settings ── */}
+      <SettingsSection title="Organisation Settings" description="Configuration and defaults for your organisation.">
+        <div className="ed-hero-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
+          {settingsNav.map(({ page, label, hint, icon }) => (
             <button key={page} className="ed-hero-card" onClick={() => setCurrentPage(page)}>
               <span className="ed-hero-icon">{icon}</span>
               <span className="ed-hero-text">
