@@ -716,7 +716,7 @@ function ProfilePage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
       <SettingsSection title="Organisation Identity" description="The name and short name appear in reviews, reports, and member-facing screens.">
         <SettingsCard>
           <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
               <label>
                 <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
                   Organisation name <span style={{ color: "#ff453a" }}>*</span>
@@ -729,8 +729,9 @@ function ProfilePage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
                 />
               </label>
               <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Short name</span>
-                <span className="hint" style={{ display: "block", marginBottom: 6, fontSize: 12 }}>Abbreviation shown in compact contexts.</span>
+                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
+                  Short name
+                </span>
                 <input
                   style={inputStyle}
                   value={draft.shortName}
@@ -751,7 +752,7 @@ function ProfilePage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
       <SettingsSection title="Contact Details" description="Used in referee-facing communications and organisation reports.">
         <SettingsCard>
           <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
               <label>
                 <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Contact email</span>
                 <input
