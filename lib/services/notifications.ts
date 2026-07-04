@@ -118,6 +118,50 @@ export function makeGoalUpdatedDraft(
     "development_goal", null, "View Goals", "referee-development", educatorName);
 }
 
+export function makeAssignmentDueSoonDraft(
+  orgId: string,
+  userId: string,
+  assignmentId: string,
+  title: string,
+  dueDate: string,
+): Omit<Notification, "id" | "isRead" | "readAt"> {
+  return draft(orgId, userId, "assignment_due", "high",
+    "Assignment Due Soon",
+    `"${title}" is due on ${dueDate}. Complete it before the deadline.`,
+    "assignment", assignmentId, "Start Learning", "my-learning");
+}
+
+export function makeAssignmentOverdueDraft(
+  orgId: string,
+  userId: string,
+  assignmentId: string,
+  title: string,
+  dueDate: string,
+): Omit<Notification, "id" | "isRead" | "readAt"> {
+  return draft(orgId, userId, "assignment_overdue", "high",
+    "Assignment Overdue",
+    `"${title}" was due on ${dueDate} and has not been completed.`,
+    "assignment", assignmentId, "Complete Now", "my-learning");
+}
+
+export function makeGoalReviewDueDraft(
+  orgId: string,
+  userId: string,
+  goalId: string,
+  goalTitle: string,
+  targetDate: string,
+  isOverdue: boolean,
+): Omit<Notification, "id" | "isRead" | "readAt"> {
+  return draft(
+    orgId, userId, "goal_review_due",
+    isOverdue ? "high" : "normal",
+    isOverdue ? "Goal Review Overdue" : "Goal Review Due Soon",
+    isOverdue
+      ? `Your review for "${goalTitle}" was due on ${targetDate}.`
+      : `Your review for "${goalTitle}" is due on ${targetDate}.`,
+    "development_goal", goalId, "View Goals", "referee-development");
+}
+
 export function makeNoteAddedDraft(
   orgId: string,
   userId: string,

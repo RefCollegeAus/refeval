@@ -42,6 +42,7 @@ import { NotificationCentre } from "@/components/NotificationCentre";
 import { useOrganisationSettings } from "@/lib/hooks/useOrganisationSettings";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { useNotificationPreferences } from "@/lib/hooks/useNotificationPreferences";
+import { useReminderEngine } from "@/lib/hooks/useReminderEngine";
 import {
   makeReviewCompletedDraft,
   makeAssignmentAssignedDraft,
@@ -321,6 +322,15 @@ export default function Home() {
     updateNote,
     deleteNote,
   } = useDevelopmentNotes(session?.activeOrganisation?.id, session?.user.id);
+
+  // --- Reminder engine ---
+  useReminderEngine({
+    userId: session?.user.id ?? null,
+    orgId: session?.activeOrganisation?.id ?? null,
+    myAssignments,
+    allRefereeGoalViews,
+    addNotification,
+  });
 
   const {
     reviewGoalLinks,
