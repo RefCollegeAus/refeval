@@ -1,4 +1,4 @@
-import { LogOut, Home, GraduationCap, Building2, Bell, User, LayoutDashboard } from "lucide-react";
+import { LogOut, Home, GraduationCap, Building2, Bell, User, LayoutDashboard, Search } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
 
 const LEARNING_SCREENS: Screen[] = [
@@ -18,6 +18,7 @@ export function Header({
   onLearning,
   onOrganisation,
   onNotifications,
+  onSearch,
   onProfile,
   onLogout,
   unreadNotificationCount = 0,
@@ -29,6 +30,7 @@ export function Header({
   onLearning?: () => void;
   onOrganisation?: () => void;
   onNotifications?: () => void;
+  onSearch?: () => void;
   onProfile: () => void;
   onLogout: () => void;
   unreadNotificationCount?: number;
@@ -99,6 +101,17 @@ export function Header({
 
           {/* Utility cluster */}
           <div className="header-nav-utility">
+            {onSearch && (
+              <button
+                className="header-btn header-btn-icon"
+                onClick={onSearch}
+                title="Search"
+                aria-label="Open search"
+              >
+                <Search size={15} />
+              </button>
+            )}
+
             {onNotifications && (
               <button
                 className={notifActive ? "header-btn header-btn-icon header-btn-active" : "header-btn header-btn-icon"}

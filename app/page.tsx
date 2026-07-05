@@ -24,6 +24,7 @@ import { RefereeReviewScreen } from "@/components/referee/RefereeReviewScreen";
 import { RefereeStatsHub } from "@/components/referee/RefereeStatsHub";
 import { DateRangeFilter, datePassesFilter } from "@/components/common/DateRangeFilter";
 import { OnboardingPanel } from "@/components/common/OnboardingPanel";
+import { GlobalSearch } from "@/components/common/GlobalSearch";
 import { useOnboardingDismissed } from "@/lib/hooks/useOnboardingDismissed";
 import { ReviewComments } from "@/components/ReviewComments";
 import { CommentInbox } from "@/components/educator/CommentInbox";
@@ -243,6 +244,8 @@ export default function Home() {
   const { isDismissed: onboardingDismissed, dismiss: dismissOnboarding } =
     useOnboardingDismissed(session?.user.id ?? null);
 
+  const [showSearch, setShowSearch] = useState(false);
+
   const visibleUnreadCount = useMemo(
     () => getVisibleUnreadCount(notifications, notifPrefs),
     [notifications, notifPrefs],
@@ -367,6 +370,23 @@ export default function Home() {
   } = usePlaylistLearningClips(
     learningAssignmentUser ? learningAssignmentUser.assignment.playlistId : null,
     learningAssignmentUser ? learningAssignmentUser.assignmentUser.id     : null,
+  );
+
+  // --- Search data (role-filtered) ---
+  const searchableReviews = useMemo(
+    () => session?.activeRole === "referee"
+      ? assignedReviewsForReferee(session.user.id)
+      : reviews,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session?.activeRole, session?.user.id, reviews],
+  );
+
+  const searchableGoals = useMemo(
+    () => session?.activeRole === "referee"
+      ? allRefereeGoalViews.filter(gv => gv.refereeId === session.user.id)
+      : allRefereeGoalViews,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session?.activeRole, session?.user.id, allRefereeGoalViews],
   );
 
   // --- UI state ---
@@ -795,6 +815,23 @@ export default function Home() {
   // --- Render ---
   if (!authChecked) return null;
 
+  const globalSearchOverlay = showSearch && session ? (
+    <GlobalSearch
+      session={session}
+      searchableReviews={searchableReviews}
+      searchableAssignments={session.activeRole === "referee" ? myAssignments : assignments}
+      playlists={session.activeRole === "referee" ? [] : playlists}
+      members={session.activeRole === "referee" ? [] : members}
+      groups={session.activeRole === "referee" ? [] : groups}
+      searchableGoals={searchableGoals}
+      onNavigate={setScreen}
+      onOpenReview={openReviewForEdit}
+      onNavigatePlaylist={(id) => { setPlaylistDetailId(id); setScreen("playlist-detail"); }}
+      onNavigateDevelopment={(rid) => { setDevGoalRefereeId(rid); setScreen("referee-development"); }}
+      onClose={() => setShowSearch(false)}
+    />
+  ) : null;
+
   if (screen === "login")
     return (
       <main>
@@ -804,7 +841,7 @@ export default function Home() {
           loginPassword={loginPassword} setLoginPassword={setLoginPassword}
           loginError={loginError || urlAuthError} login={login}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
 
   if (screen === "org-selector" && pendingSession)
@@ -816,7 +853,7 @@ export default function Home() {
           onSelect={selectOrganisation}
           onLogout={logout}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
 
   if (screen === "viewer" && session) {
@@ -830,6 +867,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <ViewerScreen
@@ -838,7 +876,7 @@ export default function Home() {
           loading={viewOnlyGamesLoading}
           error={viewOnlyGamesError}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -855,6 +893,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <MembersScreen
@@ -867,7 +906,7 @@ export default function Home() {
           }
           onRefreshOrgMembers={refreshMembers}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -886,6 +925,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <OrgSettingsScreen
@@ -894,7 +934,7 @@ export default function Home() {
           onSaved={() => refreshOrganisations()}
           onNavigateMembers={() => setScreen("database")}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -911,6 +951,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <OrganisationScreen
@@ -936,7 +977,7 @@ export default function Home() {
           onDeleteGroup={async id => { await deleteGroup(id); }}
           onSetGroupMembers={async (groupId, userIds) => { await setGroupMembers(groupId, userIds); }}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -953,6 +994,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <ClipLibraryScreen
@@ -968,7 +1010,7 @@ export default function Home() {
           onCreatePlaylist={createPlaylist}
           onViewPlaylist={(id) => { setPlaylistDetailId(id); setScreen("playlist-detail"); }}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -985,6 +1027,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <PlaylistsScreen
@@ -999,7 +1042,7 @@ export default function Home() {
           canDelete={canDeletePlaylists}
           onBack={() => setScreen(returnToScreen)}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1022,6 +1065,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <PlaylistDetailScreen
@@ -1104,7 +1148,7 @@ export default function Home() {
             }
           }}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1121,6 +1165,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <AssignmentsScreen
@@ -1135,7 +1180,7 @@ export default function Home() {
           onDelete={deleteAssignment}
           onBack={() => setScreen(returnToScreen)}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1155,6 +1200,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <AssignmentDetailScreen
@@ -1192,7 +1238,7 @@ export default function Home() {
             }
           }}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1209,6 +1255,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <MyLearningScreen
@@ -1232,7 +1279,7 @@ export default function Home() {
           }}
           onBack={() => setScreen("referee")}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1249,6 +1296,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <TeamManagementScreen
@@ -1259,7 +1307,7 @@ export default function Home() {
           onSavePerms={saveUserPerms}
           onBack={() => setScreen("educator")}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1276,6 +1324,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <UserProfileScreen
@@ -1284,14 +1333,14 @@ export default function Home() {
           onSwitchOrg={switchOrganisation}
           onProfileNameSaved={updateSessionProfile}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
   if (screen === "comment-inbox") {
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
         <div style={{ padding: "0 20px 40px", maxWidth: 900, margin: "0 auto" }}>
           <CommentInbox
             session={session}
@@ -1304,7 +1353,7 @@ export default function Home() {
             }}
           />
         </div>
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1319,7 +1368,7 @@ export default function Home() {
     };
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
         <LearningHub
           session={session}
           tags={tags}
@@ -1339,14 +1388,14 @@ export default function Home() {
             setScreen("referee-development");
           }}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
   if (screen === "learning-progress" && session) {
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen("learning-hub")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen("learning-hub")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
         <LearningProgress
           session={session}
           assignments={assignments}
@@ -1354,14 +1403,14 @@ export default function Home() {
           groups={groups}
           setScreen={setScreen}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
   if (screen === "groups" && session) {
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
         <GroupsScreen
           session={session}
           groups={groups}
@@ -1377,7 +1426,7 @@ export default function Home() {
           onDeleteGroup={async id => { await deleteGroup(id); }}
           onSetGroupMembers={async (groupId, userIds) => { await setGroupMembers(groupId, userIds); }}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1389,7 +1438,7 @@ export default function Home() {
     };
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
         <EducatorDashboard
           session={session}
           reviews={reviews}
@@ -1413,7 +1462,7 @@ export default function Home() {
           onboardingDismissed={onboardingDismissed}
           dismissOnboarding={dismissOnboarding}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1434,7 +1483,7 @@ export default function Home() {
 
     return (
       <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} />
+        <Header session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
         <div className="layout">
           <section className="panel">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
@@ -1578,7 +1627,7 @@ export default function Home() {
           </aside>
         </div>
 
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1624,6 +1673,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <RefereeDevelopmentScreen
@@ -1693,7 +1743,7 @@ export default function Home() {
           onDeleteNote={deleteNote}
           onBack={() => setScreen("educator")}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1711,6 +1761,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <RefereeCommentsScreen
@@ -1724,7 +1775,7 @@ export default function Home() {
           }}
           onBack={() => setScreen("referee")}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1742,6 +1793,7 @@ export default function Home() {
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
           onLogout={logout}
         />
         <NotificationCentre
@@ -1755,7 +1807,7 @@ export default function Home() {
           preferences={notifPrefs}
           onUpdatePreferences={updateNotifPrefs}
         />
-      </main>
+      {globalSearchOverlay}</main>
     );
   }
 
@@ -1782,7 +1834,7 @@ export default function Home() {
     ] as [string, string, string][]
   ).filter(([id]) => !!id);
 
-  return <main><Header session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} /><div className="layout"><section className="panel"><div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--border)" }}><p className="eyebrow">Evaluation</p><h2 style={{ marginBottom: 4 }}>{reviewGame || "Untitled Review"}</h2><p className="hint">Educator: {activeReview?.educatorName || session?.profile.name || "—"} · Status: {activeReview?.status || "In Review"}</p><div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}><span className="chip">Crew Chief: {slotName("Referee 1", activeReview)}</span><span className="chip">Umpire 1: {slotName("Referee 2", activeReview)}</span><span className="chip">Umpire 2: {slotName("Referee 3", activeReview)}</span></div></div><div className="review-setup-bar"><div className="review-setup-info"><span className="review-setup-name">{reviewGame && reviewGame !== "New Review" ? reviewGame : "Untitled Review"}</span>{reviewGameDate && <span className="hint">· {reviewGameDate}</span>}{reviewVideoLink ? <span className="hint">· 🎥 Video</span> : <span className="hint" style={{color:"rgba(253,230,138,.6)"}}>· No video</span>}</div><button style={{fontSize:12,padding:"4px 10px",whiteSpace:"nowrap"}} onClick={()=>setSetupModalOpen(true)}>✏️ Edit Game Details</button></div><div className="mode-switch"><button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button><button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button></div>{mode === "video" ? <><div className="toolbar"><label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={16} /> / <Pause size={16} /></button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>-5s</button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>+5s</button><button className="primary" onClick={openVideoCoding}>Tag Moment</button></div><div className="video-placeholder" style={{margin:0,aspectRatio:"16/9",overflow:"hidden",padding:0}}>{usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} className="video-frame" onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}</div>{usingYouTubeVideo&&<p className="hint" style={{marginTop:4,fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}</> : <div className="timer-card"><div className="timer">{formatTime(timerSeconds)}</div><div className="toolbar"><button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button><button onClick={() => setTimerSeconds(0)}>Reset</button><button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button><button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button></div><p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p></div>}<div className="timeline"><div className="progress" style={{ width: `${progressPct}%` }} />{reviewTags.map(tag => <div key={tag.id} className="marker" title={`${tag.adjustedTime} — ${slotName(tag.refereeTarget, activeReview)} — ${tag.outcome || tag.category || "Tag"}`} style={{ left: `${Math.min(100, (tag.adjustedSeconds / scaleSeconds) * 100)}%` }} />)}</div></section><aside className="panel side-panel"><div className="export-row"><button className="warn" style={{fontSize:12,padding:"6px 12px"}} onClick={saveCompleteLater}>Save &amp; Complete Later</button><button className="good" style={{fontSize:12,padding:"6px 12px"}} onClick={submitReview}>Submit Review</button></div><div className="export-row"><button style={{fontSize:12,padding:"5px 10px"}} onClick={exportCsv}><Download size={14} /> CSV</button><button className="primary" style={{fontSize:12,padding:"5px 10px"}} onClick={exportExcel}><Download size={14} /> Excel</button></div><div className="review-side-block"><div className="analytics-card"><h2>Performance Analytics</h2><label>Analytics view<select value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div className="metric-grid" style={{ marginTop: 10 }}><div className="metric-tile"><div className="number">{analytics.total}</div><div className="hint">Total clips</div></div><div className="metric-tile"><div className="number">{analytics.accuracy}</div><div className="hint">Coded accuracy</div></div><div className="metric-tile"><div className="number">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="hint">Correct decisions</div></div><div className="metric-tile"><div className="number">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="hint">Incorrect decisions</div></div></div></div></div><div className="review-side-breakdowns-wrap"><div className="review-side-breakdowns"><div className="review-side-breakdowns-header"><span className="review-side-breakdowns-title">Breakdowns</span><span className="review-side-breakdowns-hint">Scroll ↓</span></div><div className="analytics-card"><h3>Outcome Breakdown</h3>{analytics.outcomeCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Category Breakdown</h3>{analytics.categoryCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Position Breakdown</h3>{analytics.positionCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Coverage Breakdown</h3>{analytics.coverageCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div></div></div><div className="review-side-actions">{mode === "video" ? <div className="analytics-card"><button className="primary big-tag" onClick={openVideoCoding}>Tag Moment</button><p className="hint">Shortcut: X opens the video coding panel.</p></div> : <div className="analytics-card"><h2>Non-video hotkeys</h2><div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div></div>}{summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&Object.values(activeReview.officialSummaries[id]).some(Boolean))&&<div className="analytics-card"><h3>Final Summaries</h3>{summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&(s.positives||s.workOns||s.nextFocus)?<div key={id} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid var(--border)"}}><p style={{margin:"0 0 6px",fontWeight:800}}>{name} <span className="hint" style={{fontWeight:400}}>· {role}</span></p>{s.positives&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Positives</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.positives}</p></>}{s.workOns&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Development Notes</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.workOns}</p></>}</div>:null})}</div>}</div>{activeReview && session && (()=>{
+  return <main><Header session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} /><div className="layout"><section className="panel"><div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--border)" }}><p className="eyebrow">Evaluation</p><h2 style={{ marginBottom: 4 }}>{reviewGame || "Untitled Review"}</h2><p className="hint">Educator: {activeReview?.educatorName || session?.profile.name || "—"} · Status: {activeReview?.status || "In Review"}</p><div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}><span className="chip">Crew Chief: {slotName("Referee 1", activeReview)}</span><span className="chip">Umpire 1: {slotName("Referee 2", activeReview)}</span><span className="chip">Umpire 2: {slotName("Referee 3", activeReview)}</span></div></div><div className="review-setup-bar"><div className="review-setup-info"><span className="review-setup-name">{reviewGame && reviewGame !== "New Review" ? reviewGame : "Untitled Review"}</span>{reviewGameDate && <span className="hint">· {reviewGameDate}</span>}{reviewVideoLink ? <span className="hint">· 🎥 Video</span> : <span className="hint" style={{color:"rgba(253,230,138,.6)"}}>· No video</span>}</div><button style={{fontSize:12,padding:"4px 10px",whiteSpace:"nowrap"}} onClick={()=>setSetupModalOpen(true)}>✏️ Edit Game Details</button></div><div className="mode-switch"><button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button><button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button></div>{mode === "video" ? <><div className="toolbar"><label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={16} /> / <Pause size={16} /></button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>-5s</button><button onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>+5s</button><button className="primary" onClick={openVideoCoding}>Tag Moment</button></div><div className="video-placeholder" style={{margin:0,aspectRatio:"16/9",overflow:"hidden",padding:0}}>{usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} className="video-frame" onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}</div>{usingYouTubeVideo&&<p className="hint" style={{marginTop:4,fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}</> : <div className="timer-card"><div className="timer">{formatTime(timerSeconds)}</div><div className="toolbar"><button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button><button onClick={() => setTimerSeconds(0)}>Reset</button><button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button><button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button></div><p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p></div>}<div className="timeline"><div className="progress" style={{ width: `${progressPct}%` }} />{reviewTags.map(tag => <div key={tag.id} className="marker" title={`${tag.adjustedTime} — ${slotName(tag.refereeTarget, activeReview)} — ${tag.outcome || tag.category || "Tag"}`} style={{ left: `${Math.min(100, (tag.adjustedSeconds / scaleSeconds) * 100)}%` }} />)}</div></section><aside className="panel side-panel"><div className="export-row"><button className="warn" style={{fontSize:12,padding:"6px 12px"}} onClick={saveCompleteLater}>Save &amp; Complete Later</button><button className="good" style={{fontSize:12,padding:"6px 12px"}} onClick={submitReview}>Submit Review</button></div><div className="export-row"><button style={{fontSize:12,padding:"5px 10px"}} onClick={exportCsv}><Download size={14} /> CSV</button><button className="primary" style={{fontSize:12,padding:"5px 10px"}} onClick={exportExcel}><Download size={14} /> Excel</button></div><div className="review-side-block"><div className="analytics-card"><h2>Performance Analytics</h2><label>Analytics view<select value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div className="metric-grid" style={{ marginTop: 10 }}><div className="metric-tile"><div className="number">{analytics.total}</div><div className="hint">Total clips</div></div><div className="metric-tile"><div className="number">{analytics.accuracy}</div><div className="hint">Coded accuracy</div></div><div className="metric-tile"><div className="number">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="hint">Correct decisions</div></div><div className="metric-tile"><div className="number">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="hint">Incorrect decisions</div></div></div></div></div><div className="review-side-breakdowns-wrap"><div className="review-side-breakdowns"><div className="review-side-breakdowns-header"><span className="review-side-breakdowns-title">Breakdowns</span><span className="review-side-breakdowns-hint">Scroll ↓</span></div><div className="analytics-card"><h3>Outcome Breakdown</h3>{analytics.outcomeCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Category Breakdown</h3>{analytics.categoryCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Position Breakdown</h3>{analytics.positionCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div><div className="analytics-card"><h3>Coverage Breakdown</h3>{analytics.coverageCounts.map(([n, c]) => <div className="metric-row" key={n}><span>{n}</span><strong>{c}</strong></div>)}</div></div></div><div className="review-side-actions">{mode === "video" ? <div className="analytics-card"><button className="primary big-tag" onClick={openVideoCoding}>Tag Moment</button><p className="hint">Shortcut: X opens the video coding panel.</p></div> : <div className="analytics-card"><h2>Non-video hotkeys</h2><div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div></div>}{summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&Object.values(activeReview.officialSummaries[id]).some(Boolean))&&<div className="analytics-card"><h3>Final Summaries</h3>{summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&(s.positives||s.workOns||s.nextFocus)?<div key={id} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid var(--border)"}}><p style={{margin:"0 0 6px",fontWeight:800}}>{name} <span className="hint" style={{fontWeight:400}}>· {role}</span></p>{s.positives&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Positives</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.positives}</p></>}{s.workOns&&<><p className="hint" style={{margin:"0 0 2px",fontSize:11}}>Development Notes</p><p style={{margin:"0 0 6px",fontSize:13,whiteSpace:"pre-wrap"}}>{s.workOns}</p></>}</div>:null})}</div>}</div>{activeReview && session && (()=>{
   const slots: Array<{id:string; name:string}> = [
     {id: activeReview.referee1Id, name: activeReview.referee1Name},
     {id: activeReview.referee2Id, name: activeReview.referee2Name},
@@ -1811,5 +1863,5 @@ export default function Home() {
       ))}
     </div>
   ) : null;
-})()}</aside><section className="panel table-panel"><div className="table-head"><h2>Coded clips</h2><button className="danger" onClick={async () => { if (!confirm("Clear all tags?")) return; await clearReviewClips(activeReviewId); }}><Trash2 size={16} /> Clear Tags</button></div><table><thead><tr><th>Time</th><th>Referees</th><th>Mode</th><th>Outcome</th><th>Coverage</th><th>Position</th><th>Category</th><th>Comments</th><th></th></tr></thead><tbody>{reviewTags.map(tag => <tr key={tag.id}><td><button onClick={() => jump(tag.adjustedSeconds)}>{tag.adjustedTime}</button></td><td><strong>{slotName(tag.refereeTarget, activeReview)}</strong> <span className="hint">(Call)</span><br />{(tag.extraReviewOfficials || []).map(s => <span className="chip" key={s}>{slotName(s, activeReview)} Review</span>)}</td><td>{tag.mode}</td><td><span style={(tag.outcome&&OUTCOME_COLOR[tag.outcome])?{color:OUTCOME_COLOR[tag.outcome].color,fontWeight:700}:{}}>{tag.outcome}</span></td><td>{tag.coverage}</td><td>{tag.position}</td><td>{tag.category}</td><td>{tag.notes}</td><td>{tag.mode === "video" && <button className="clip-action-btn" onClick={() => openEditTag(tag)}>Edit</button>}<button className="clip-action-btn danger" onClick={() => deleteClip(tag.id)}>Delete</button><div className="badge-wrap"><button className={"clip-action-btn" + (activeCommentTagId === tag.id ? " selected" : "")} onClick={() => setActiveCommentTagId(t => t === tag.id ? null : tag.id)}>Comments</button>{(counts?.[`${activeReviewId}::${tag.id}`] ?? 0) > 0 && <span className="badge-count">{Math.min(counts![`${activeReviewId}::${tag.id}`], 99)}</span>}</div></td></tr>)}</tbody></table>{activeCommentTagId && <ReviewComments reviewId={activeReviewId} tagId={activeCommentTagId} session={session} onRead={refreshUnread} />}</section></div>{codingOpen && <div className="modal-backdrop"><div className="modal wizard-modal"><div className="modal-title"><div><p className="eyebrow">{editingTagId?"Edit clip":"Tag Moment"} · Step {wizardStep} of 8</p><h1 style={{fontSize:20,margin:0}}>{wizardStep===1?"Outcome":wizardStep===2?"Coverage":wizardStep===3?"Position":wizardStep===4?"Category":wizardStep===5?(draftCategoryGroup||"Specific Tag"):wizardStep===6?"Responsible Official":wizardStep===7?"Notes & Reference":"Review & Save"}</h1><p className="hint" style={{margin:"3px 0 0",fontSize:12}}>{formatTime(codingSecond)} · Adjusted: {formatTime(Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0)))}</p></div><button onClick={()=>{setCodingOpen(false);setEditingTagId(null);if(shouldResumeVideo)playActiveVideo();}}>✕</button></div><div className="wizard-dots">{[1,2,3,4,5,6,7,8].map(s=><div key={s} className={"wizard-dot"+(s===wizardStep?" wizard-dot--active":s<wizardStep?" wizard-dot--done":"")} />)}</div>{wizardStep===1&&<><p className="wizard-prompt">What was the result of this moment?</p><div className="wizard-opts">{OUTCOMES.map(item=>{const oc=OUTCOME_COLOR[item];const sel=draftOutcome===item;return<button key={item} className={"wizard-opt"+(sel?" selected":"")} style={oc?{color:sel?oc.color:"var(--muted)",background:sel?oc.bg:"transparent",borderColor:sel?oc.border:"var(--border)"}:{}} onClick={()=>{setDraftOutcome(item);setCodingError("");setWizardStep(2);}}>{item}</button>;})}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===2&&<><p className="wizard-prompt">What was the referee's coverage area?</p><div className="wizard-opts">{COVERAGE.map(item=><button key={item} className={"wizard-opt"+(draftCoverage===item?" selected":"")} onClick={()=>{setDraftCoverage(item);setCodingError("");setWizardStep(3);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===3&&<><p className="wizard-prompt">Where was the referee positioned?</p><div className="wizard-opts">{POSITIONS.map(item=><button key={item} className={"wizard-opt"+(draftPosition===item?" selected":"")} onClick={()=>{setDraftPosition(item);setCodingError("");setWizardStep(4);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===4&&<><p className="wizard-prompt">What type of call is this?</p><div className="wizard-opts">{CATEGORY_GROUPS.map(item=><button key={item} className={"wizard-opt"+(draftCategoryGroup===item?" selected":"")} onClick={()=>{setDraftCategoryGroup(item);if(item!==draftCategoryGroup)setDraftSpecificTag("");setCodingError("");setWizardStep(5);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===5&&(()=>{const allTags=SPECIFIC_TAGS[draftCategoryGroup]||[];const recent=recentSpecificTags.filter(t=>allTags.includes(t));const rest=allTags.filter(t=>!recent.includes(t));return(<><p className="wizard-prompt">Select the specific {draftCategoryGroup.toLowerCase()} tag.</p>{recent.length>0&&<><p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>Recently used</p><div className="wizard-opts wizard-opts--compact" style={{marginBottom:12}}>{recent.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(6);}}>{item}</button>)}</div></>}<p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>{recent.length>0?"All tags":"Tags"}</p><div className="wizard-opts wizard-opts--compact">{rest.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(6);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>);})()}{wizardStep===6&&<><p className="wizard-prompt">Who was responsible for this moment?</p><div className="wizard-opts">{REF_SLOTS.map(s=><button key={s} className={"wizard-opt"+(draftRefereeTarget===s?" selected":"")} onClick={()=>{setDraftRefereeTarget(s as RefSlot);setDraftExtraOfficials(items=>items.filter(x=>x!==s));setCodingError("");setWizardStep(7);}}>{slotName(s,activeReview)}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===7&&<><p className="wizard-prompt">Add notes and reference officials. <span className="hint">(optional)</span></p><textarea value={draftNotes} onChange={e=>setDraftNotes(e.target.value)} placeholder="Notes for this clip…" style={{width:"100%",minHeight:80,resize:"vertical",boxSizing:"border-box",marginBottom:14}} /><div><p style={{fontSize:13,fontWeight:700,margin:"0 0 4px"}}>Also show this clip to <span className="hint" style={{fontWeight:400}}>(optional)</span></p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{REF_SLOTS.filter(s=>s!=="All Referees"&&s!==draftRefereeTarget).map(s=><button type="button" key={s} className={"wizard-opt wizard-opt--sm"+(draftExtraOfficials.includes(s)?" selected":"")} onClick={()=>toggleExtra(s)}>{slotName(s,activeReview)}</button>)}</div><p className="hint" style={{fontSize:11,marginTop:5}}>Reference officials can view this clip but are not counted as responsible for the decision.</p></div></>}{wizardStep===8&&<><p className="wizard-prompt">Confirm all details before saving.</p><div style={{display:"flex",flexDirection:"column",gap:6}}>{([["Outcome",draftOutcome,1,!draftOutcome],["Coverage",draftCoverage,2,!draftCoverage],["Position",draftPosition,3,!draftPosition],["Category",draftCategoryGroup,4,!draftCategoryGroup],["Specific Tag",draftSpecificTag,5,!draftSpecificTag],["Responsible Official",slotName(draftRefereeTarget,activeReview),6,false],["Reference Officials",draftExtraOfficials.length>0?draftExtraOfficials.map(s=>slotName(s,activeReview)).join(", "):"(none)",7,false],["Notes",draftNotes||"(none)",7,false]] as [string,string,number,boolean][]).map(([label,value,step,isError])=><div key={label} className={"wizard-review-row"+(isError?" wizard-review-row--error":"")}><div style={{flex:1,minWidth:0}}><span className="hint" style={{display:"block",fontSize:11,marginBottom:1}}>{label}</span><span style={{fontWeight:isError?900:700,color:isError?"#fecaca":"var(--text)"}}>{value||"⚠ Required"}</span></div><button style={{fontSize:11,padding:"2px 8px",flexShrink:0}} onClick={()=>setWizardStep(step)}>Edit</button></div>)}{codingError&&<p className="danger-text" style={{margin:"4px 0 0"}}>{codingError}</p>}</div></>}<div className="wizard-nav"><div>{wizardStep>1&&<button onClick={()=>setWizardStep(s=>s-1)}>← Back</button>}</div><div style={{display:"flex",gap:8,alignItems:"center"}}>{wizardStep<8&&draftOutcome&&draftCoverage&&draftPosition&&draftCategoryGroup&&draftSpecificTag&&wizardStep!==1&&<button style={{fontSize:12}} onClick={()=>setWizardStep(8)}>Skip to Review →</button>}{wizardStep===6&&<button className="primary" onClick={()=>setWizardStep(7)}>Next →</button>}{wizardStep===7&&<><button onClick={()=>setWizardStep(8)}>Skip</button><button className="primary" onClick={()=>setWizardStep(8)}>Next →</button></>}{wizardStep===8&&<button className="primary" onClick={saveVideoCode}>{editingTagId?"Save Changes":"Save & Resume"}</button>}</div></div></div></div>}{setupModalOpen&&<div className="modal-backdrop" onClick={e=>{if(e.target===e.currentTarget&&reviewGame&&reviewGame!=="New Review")setSetupModalOpen(false);}}><div className="modal" style={{maxWidth:660}}><div className="modal-title"><div><p className="eyebrow">{reviewGame&&reviewGame!=="New Review"?"Edit Game Details":"New Review Setup"}</p><h1 style={{fontSize:22,margin:0}}>{reviewGame&&reviewGame!=="New Review"?reviewGame:"Set up your review"}</h1></div>{reviewGame&&reviewGame!=="New Review"&&<button onClick={()=>setSetupModalOpen(false)}>✕</button>}</div><div style={{display:"flex",flexDirection:"column",gap:12,marginTop:12}}><div className="setup-grid"><label>Game / Competition name<input value={reviewGame==="New Review"?"":reviewGame} onChange={e=>setReviewGame(e.target.value)} placeholder="e.g. NBL Round 5 — Wildcats vs Kings" autoFocus /></label><label>Game Date<input type="date" value={reviewGameDate} onChange={e=>setReviewGameDate(e.target.value)} /></label></div><div className="setup-grid"><label>Crew Chief<select value={reviewRef1} onChange={e=>setReviewRef1(e.target.value)}><option value="">Select Crew Chief...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label>Umpire 1<select value={reviewRef2} onChange={e=>setReviewRef2(e.target.value)}><option value="">Select Umpire 1...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label>Umpire 2<select value={reviewRef3} onChange={e=>setReviewRef3(e.target.value)}><option value="">Select Umpire 2...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label></div><div className="grid-2"><label>Video link<input value={reviewVideoLink} onChange={e=>setReviewVideoLink(e.target.value)} placeholder="YouTube, direct MP4/WebM, Hudl, GloryLeague..." /></label><label>Timestamp offset (seconds)<input type="number" step="1" max="0" value={reviewOffset} onChange={e=>setReviewOffset(-Math.abs(Math.trunc(Number(e.target.value)||0)))} /></label></div></div><div className="action-row" style={{marginTop:18}}>{reviewGame&&reviewGame!=="New Review"?<button onClick={()=>setSetupModalOpen(false)}>Cancel</button>:<span style={{fontSize:12,color:"var(--muted)",cursor:"pointer",padding:"6px 4px",userSelect:"none"}} onClick={()=>setSetupModalOpen(false)}>Skip for now</span>}<button className="primary" onClick={()=>{saveReviewMeta();setSetupModalOpen(false);}}>{ !reviewGame||reviewGame==="New Review"?"Save & Start Review":"Save Changes"}</button></div></div></div>}{summaryModalOpen&&<div className="modal-backdrop"><div className="modal" style={{maxWidth:600}}><div className="modal-title"><div><p className="eyebrow">Complete Review</p><h1>Final Summaries</h1><p className="hint">Add optional notes for each official before completing the review.</p></div><button onClick={()=>setSummaryModalOpen(false)}>✕</button></div>{summarySlots.length===0&&<p className="hint" style={{marginTop:14}}>No officials assigned to this review.</p>}{summarySlots.length>0&&(()=>{const idx=Math.min(summaryActiveIdx,summarySlots.length-1);const [id,name,role]=summarySlots[idx];return(<><div style={{display:"flex",gap:6,marginTop:14,flexWrap:"wrap"}}>{summarySlots.map(([sid,sname],i)=><button key={sid} onClick={()=>setSummaryActiveIdx(i)} style={{fontSize:13,padding:"5px 14px",borderRadius:8,background:i===idx?"rgba(165,106,27,.12)":"transparent",color:i===idx?"var(--accent)":"var(--muted)",border:`1px solid ${i===idx?"rgba(165,106,27,.35)":"var(--border)"}`,fontWeight:i===idx?700:400}}>{sname}</button>)}</div><div style={{marginTop:18}}><h2 style={{margin:"0 0 14px"}}>{name} <span className="hint" style={{fontWeight:400,fontSize:14}}>· {role}</span></h2><div style={{display:"flex",flexDirection:"column",gap:12}}><label>Positives<textarea rows={4} value={draftSummaries[id]?.positives||""} onChange={e=>updateSummaryField(id,"positives",e.target.value)} placeholder="What did this official do well?" /></label><label>Development Notes<textarea rows={4} value={draftSummaries[id]?.workOns||""} onChange={e=>updateSummaryField(id,"workOns",e.target.value)} placeholder="Key development areas and coaching notes…" /></label></div></div></>);})()}<div className="action-row" style={{marginTop:24}}><button onClick={()=>setSummaryModalOpen(false)}>Cancel</button><button className="good" onClick={confirmSubmit}>✓ Confirm &amp; Complete Review</button></div></div></div>}</main>;
+})()}</aside><section className="panel table-panel"><div className="table-head"><h2>Coded clips</h2><button className="danger" onClick={async () => { if (!confirm("Clear all tags?")) return; await clearReviewClips(activeReviewId); }}><Trash2 size={16} /> Clear Tags</button></div><table><thead><tr><th>Time</th><th>Referees</th><th>Mode</th><th>Outcome</th><th>Coverage</th><th>Position</th><th>Category</th><th>Comments</th><th></th></tr></thead><tbody>{reviewTags.map(tag => <tr key={tag.id}><td><button onClick={() => jump(tag.adjustedSeconds)}>{tag.adjustedTime}</button></td><td><strong>{slotName(tag.refereeTarget, activeReview)}</strong> <span className="hint">(Call)</span><br />{(tag.extraReviewOfficials || []).map(s => <span className="chip" key={s}>{slotName(s, activeReview)} Review</span>)}</td><td>{tag.mode}</td><td><span style={(tag.outcome&&OUTCOME_COLOR[tag.outcome])?{color:OUTCOME_COLOR[tag.outcome].color,fontWeight:700}:{}}>{tag.outcome}</span></td><td>{tag.coverage}</td><td>{tag.position}</td><td>{tag.category}</td><td>{tag.notes}</td><td>{tag.mode === "video" && <button className="clip-action-btn" onClick={() => openEditTag(tag)}>Edit</button>}<button className="clip-action-btn danger" onClick={() => deleteClip(tag.id)}>Delete</button><div className="badge-wrap"><button className={"clip-action-btn" + (activeCommentTagId === tag.id ? " selected" : "")} onClick={() => setActiveCommentTagId(t => t === tag.id ? null : tag.id)}>Comments</button>{(counts?.[`${activeReviewId}::${tag.id}`] ?? 0) > 0 && <span className="badge-count">{Math.min(counts![`${activeReviewId}::${tag.id}`], 99)}</span>}</div></td></tr>)}</tbody></table>{activeCommentTagId && <ReviewComments reviewId={activeReviewId} tagId={activeCommentTagId} session={session} onRead={refreshUnread} />}</section></div>{codingOpen && <div className="modal-backdrop"><div className="modal wizard-modal"><div className="modal-title"><div><p className="eyebrow">{editingTagId?"Edit clip":"Tag Moment"} · Step {wizardStep} of 8</p><h1 style={{fontSize:20,margin:0}}>{wizardStep===1?"Outcome":wizardStep===2?"Coverage":wizardStep===3?"Position":wizardStep===4?"Category":wizardStep===5?(draftCategoryGroup||"Specific Tag"):wizardStep===6?"Responsible Official":wizardStep===7?"Notes & Reference":"Review & Save"}</h1><p className="hint" style={{margin:"3px 0 0",fontSize:12}}>{formatTime(codingSecond)} · Adjusted: {formatTime(Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0)))}</p></div><button onClick={()=>{setCodingOpen(false);setEditingTagId(null);if(shouldResumeVideo)playActiveVideo();}}>✕</button></div><div className="wizard-dots">{[1,2,3,4,5,6,7,8].map(s=><div key={s} className={"wizard-dot"+(s===wizardStep?" wizard-dot--active":s<wizardStep?" wizard-dot--done":"")} />)}</div>{wizardStep===1&&<><p className="wizard-prompt">What was the result of this moment?</p><div className="wizard-opts">{OUTCOMES.map(item=>{const oc=OUTCOME_COLOR[item];const sel=draftOutcome===item;return<button key={item} className={"wizard-opt"+(sel?" selected":"")} style={oc?{color:sel?oc.color:"var(--muted)",background:sel?oc.bg:"transparent",borderColor:sel?oc.border:"var(--border)"}:{}} onClick={()=>{setDraftOutcome(item);setCodingError("");setWizardStep(2);}}>{item}</button>;})}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===2&&<><p className="wizard-prompt">What was the referee's coverage area?</p><div className="wizard-opts">{COVERAGE.map(item=><button key={item} className={"wizard-opt"+(draftCoverage===item?" selected":"")} onClick={()=>{setDraftCoverage(item);setCodingError("");setWizardStep(3);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===3&&<><p className="wizard-prompt">Where was the referee positioned?</p><div className="wizard-opts">{POSITIONS.map(item=><button key={item} className={"wizard-opt"+(draftPosition===item?" selected":"")} onClick={()=>{setDraftPosition(item);setCodingError("");setWizardStep(4);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===4&&<><p className="wizard-prompt">What type of call is this?</p><div className="wizard-opts">{CATEGORY_GROUPS.map(item=><button key={item} className={"wizard-opt"+(draftCategoryGroup===item?" selected":"")} onClick={()=>{setDraftCategoryGroup(item);if(item!==draftCategoryGroup)setDraftSpecificTag("");setCodingError("");setWizardStep(5);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===5&&(()=>{const allTags=SPECIFIC_TAGS[draftCategoryGroup]||[];const recent=recentSpecificTags.filter(t=>allTags.includes(t));const rest=allTags.filter(t=>!recent.includes(t));return(<><p className="wizard-prompt">Select the specific {draftCategoryGroup.toLowerCase()} tag.</p>{recent.length>0&&<><p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>Recently used</p><div className="wizard-opts wizard-opts--compact" style={{marginBottom:12}}>{recent.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(6);}}>{item}</button>)}</div></>}<p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>{recent.length>0?"All tags":"Tags"}</p><div className="wizard-opts wizard-opts--compact">{rest.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(6);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>);})()}{wizardStep===6&&<><p className="wizard-prompt">Who was responsible for this moment?</p><div className="wizard-opts">{REF_SLOTS.map(s=><button key={s} className={"wizard-opt"+(draftRefereeTarget===s?" selected":"")} onClick={()=>{setDraftRefereeTarget(s as RefSlot);setDraftExtraOfficials(items=>items.filter(x=>x!==s));setCodingError("");setWizardStep(7);}}>{slotName(s,activeReview)}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===7&&<><p className="wizard-prompt">Add notes and reference officials. <span className="hint">(optional)</span></p><textarea value={draftNotes} onChange={e=>setDraftNotes(e.target.value)} placeholder="Notes for this clip…" style={{width:"100%",minHeight:80,resize:"vertical",boxSizing:"border-box",marginBottom:14}} /><div><p style={{fontSize:13,fontWeight:700,margin:"0 0 4px"}}>Also show this clip to <span className="hint" style={{fontWeight:400}}>(optional)</span></p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{REF_SLOTS.filter(s=>s!=="All Referees"&&s!==draftRefereeTarget).map(s=><button type="button" key={s} className={"wizard-opt wizard-opt--sm"+(draftExtraOfficials.includes(s)?" selected":"")} onClick={()=>toggleExtra(s)}>{slotName(s,activeReview)}</button>)}</div><p className="hint" style={{fontSize:11,marginTop:5}}>Reference officials can view this clip but are not counted as responsible for the decision.</p></div></>}{wizardStep===8&&<><p className="wizard-prompt">Confirm all details before saving.</p><div style={{display:"flex",flexDirection:"column",gap:6}}>{([["Outcome",draftOutcome,1,!draftOutcome],["Coverage",draftCoverage,2,!draftCoverage],["Position",draftPosition,3,!draftPosition],["Category",draftCategoryGroup,4,!draftCategoryGroup],["Specific Tag",draftSpecificTag,5,!draftSpecificTag],["Responsible Official",slotName(draftRefereeTarget,activeReview),6,false],["Reference Officials",draftExtraOfficials.length>0?draftExtraOfficials.map(s=>slotName(s,activeReview)).join(", "):"(none)",7,false],["Notes",draftNotes||"(none)",7,false]] as [string,string,number,boolean][]).map(([label,value,step,isError])=><div key={label} className={"wizard-review-row"+(isError?" wizard-review-row--error":"")}><div style={{flex:1,minWidth:0}}><span className="hint" style={{display:"block",fontSize:11,marginBottom:1}}>{label}</span><span style={{fontWeight:isError?900:700,color:isError?"#fecaca":"var(--text)"}}>{value||"⚠ Required"}</span></div><button style={{fontSize:11,padding:"2px 8px",flexShrink:0}} onClick={()=>setWizardStep(step)}>Edit</button></div>)}{codingError&&<p className="danger-text" style={{margin:"4px 0 0"}}>{codingError}</p>}</div></>}<div className="wizard-nav"><div>{wizardStep>1&&<button onClick={()=>setWizardStep(s=>s-1)}>← Back</button>}</div><div style={{display:"flex",gap:8,alignItems:"center"}}>{wizardStep<8&&draftOutcome&&draftCoverage&&draftPosition&&draftCategoryGroup&&draftSpecificTag&&wizardStep!==1&&<button style={{fontSize:12}} onClick={()=>setWizardStep(8)}>Skip to Review →</button>}{wizardStep===6&&<button className="primary" onClick={()=>setWizardStep(7)}>Next →</button>}{wizardStep===7&&<><button onClick={()=>setWizardStep(8)}>Skip</button><button className="primary" onClick={()=>setWizardStep(8)}>Next →</button></>}{wizardStep===8&&<button className="primary" onClick={saveVideoCode}>{editingTagId?"Save Changes":"Save & Resume"}</button>}</div></div></div></div>}{setupModalOpen&&<div className="modal-backdrop" onClick={e=>{if(e.target===e.currentTarget&&reviewGame&&reviewGame!=="New Review")setSetupModalOpen(false);}}><div className="modal" style={{maxWidth:660}}><div className="modal-title"><div><p className="eyebrow">{reviewGame&&reviewGame!=="New Review"?"Edit Game Details":"New Review Setup"}</p><h1 style={{fontSize:22,margin:0}}>{reviewGame&&reviewGame!=="New Review"?reviewGame:"Set up your review"}</h1></div>{reviewGame&&reviewGame!=="New Review"&&<button onClick={()=>setSetupModalOpen(false)}>✕</button>}</div><div style={{display:"flex",flexDirection:"column",gap:12,marginTop:12}}><div className="setup-grid"><label>Game / Competition name<input value={reviewGame==="New Review"?"":reviewGame} onChange={e=>setReviewGame(e.target.value)} placeholder="e.g. NBL Round 5 — Wildcats vs Kings" autoFocus /></label><label>Game Date<input type="date" value={reviewGameDate} onChange={e=>setReviewGameDate(e.target.value)} /></label></div><div className="setup-grid"><label>Crew Chief<select value={reviewRef1} onChange={e=>setReviewRef1(e.target.value)}><option value="">Select Crew Chief...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label>Umpire 1<select value={reviewRef2} onChange={e=>setReviewRef2(e.target.value)}><option value="">Select Umpire 1...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label><label>Umpire 2<select value={reviewRef3} onChange={e=>setReviewRef3(e.target.value)}><option value="">Select Umpire 2...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</select></label></div><div className="grid-2"><label>Video link<input value={reviewVideoLink} onChange={e=>setReviewVideoLink(e.target.value)} placeholder="YouTube, direct MP4/WebM, Hudl, GloryLeague..." /></label><label>Timestamp offset (seconds)<input type="number" step="1" max="0" value={reviewOffset} onChange={e=>setReviewOffset(-Math.abs(Math.trunc(Number(e.target.value)||0)))} /></label></div></div><div className="action-row" style={{marginTop:18}}>{reviewGame&&reviewGame!=="New Review"?<button onClick={()=>setSetupModalOpen(false)}>Cancel</button>:<span style={{fontSize:12,color:"var(--muted)",cursor:"pointer",padding:"6px 4px",userSelect:"none"}} onClick={()=>setSetupModalOpen(false)}>Skip for now</span>}<button className="primary" onClick={()=>{saveReviewMeta();setSetupModalOpen(false);}}>{ !reviewGame||reviewGame==="New Review"?"Save & Start Review":"Save Changes"}</button></div></div></div>}{summaryModalOpen&&<div className="modal-backdrop"><div className="modal" style={{maxWidth:600}}><div className="modal-title"><div><p className="eyebrow">Complete Review</p><h1>Final Summaries</h1><p className="hint">Add optional notes for each official before completing the review.</p></div><button onClick={()=>setSummaryModalOpen(false)}>✕</button></div>{summarySlots.length===0&&<p className="hint" style={{marginTop:14}}>No officials assigned to this review.</p>}{summarySlots.length>0&&(()=>{const idx=Math.min(summaryActiveIdx,summarySlots.length-1);const [id,name,role]=summarySlots[idx];return(<><div style={{display:"flex",gap:6,marginTop:14,flexWrap:"wrap"}}>{summarySlots.map(([sid,sname],i)=><button key={sid} onClick={()=>setSummaryActiveIdx(i)} style={{fontSize:13,padding:"5px 14px",borderRadius:8,background:i===idx?"rgba(165,106,27,.12)":"transparent",color:i===idx?"var(--accent)":"var(--muted)",border:`1px solid ${i===idx?"rgba(165,106,27,.35)":"var(--border)"}`,fontWeight:i===idx?700:400}}>{sname}</button>)}</div><div style={{marginTop:18}}><h2 style={{margin:"0 0 14px"}}>{name} <span className="hint" style={{fontWeight:400,fontSize:14}}>· {role}</span></h2><div style={{display:"flex",flexDirection:"column",gap:12}}><label>Positives<textarea rows={4} value={draftSummaries[id]?.positives||""} onChange={e=>updateSummaryField(id,"positives",e.target.value)} placeholder="What did this official do well?" /></label><label>Development Notes<textarea rows={4} value={draftSummaries[id]?.workOns||""} onChange={e=>updateSummaryField(id,"workOns",e.target.value)} placeholder="Key development areas and coaching notes…" /></label></div></div></>);})()}<div className="action-row" style={{marginTop:24}}><button onClick={()=>setSummaryModalOpen(false)}>Cancel</button><button className="good" onClick={confirmSubmit}>✓ Confirm &amp; Complete Review</button></div></div></div>}{globalSearchOverlay}</main>;
 }
