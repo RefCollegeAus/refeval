@@ -116,6 +116,7 @@ export type Database = {
       }
       clip_playlists: {
         Row: {
+          archived_at: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -125,6 +126,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -134,6 +136,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null

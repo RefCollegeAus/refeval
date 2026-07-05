@@ -17,6 +17,7 @@ interface Props {
   assignments?: Assignment[];
   onViewPlaylist: (id: string) => void;
   onDeletePlaylist: (id: string) => Promise<void>;
+  onArchivePlaylist: (id: string) => Promise<void>;
   onBack: () => void;
   canDelete?: boolean;
 }
@@ -35,7 +36,7 @@ function fmt(iso: string) {
 
 export function PlaylistsScreen({
   session, playlists, loading, error, members, assignments = [],
-  onViewPlaylist, onDeletePlaylist, onBack, canDelete = true,
+  onViewPlaylist, onDeletePlaylist, onArchivePlaylist, onBack, canDelete = true,
 }: Props) {
   const [deleting, setDeleting]               = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -46,7 +47,14 @@ export function PlaylistsScreen({
   async function handleDelete(id: string) {
     setPendingDeleteId(null);
     setDeleting(id);
-    try { await onDeletePlaylist(id); } finally { setDeleting(null); }
+    const aCount = assignmentCounts.get(id) ?? 0;
+    try {
+      if (aCount > 0) {
+        await onArchivePlaylist(id);
+      } else {
+        await onDeletePlaylist(id);
+      }
+    } finally { setDeleting(null); }
   }
 
   // Assignment count per playlist
@@ -248,11 +256,17 @@ export function PlaylistsScreen({
 
       {pendingDeleteId && (() => {
         const pl = playlists.find(p => p.id === pendingDeleteId);
+        const aCount = assignmentCounts.get(pendingDeleteId) ?? 0;
+        const hasAssignments = aCount > 0;
         return (
           <ConfirmModal
-            title="Delete Playlist"
-            message={`Delete "${pl?.title ?? "this playlist"}"? Any existing assignments referencing it will lose their content. This cannot be undone.`}
-            confirmLabel="Yes, Delete"
+            title={hasAssignments ? "Archive Playlist" : "Delete Playlist"}
+            message={
+              hasAssignments
+                ? `"${pl?.title ?? "This playlist"}" has ${aCount} active assignment${aCount !== 1 ? "s" : ""}. Deleting it would destroy all referee progress.\n\nArchiving hides it from new assignments while preserving all existing referee progress. This can be reversed by support if needed.`
+                : `Permanently delete "${pl?.title ?? "this playlist"}" and all its clips? This cannot be undone.`
+            }
+            confirmLabel={hasAssignments ? "Archive Playlist" : "Yes, Delete"}
             busy={deleting === pendingDeleteId}
             onConfirm={() => handleDelete(pendingDeleteId)}
             onCancel={() => setPendingDeleteId(null)}

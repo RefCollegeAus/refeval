@@ -35,6 +35,7 @@ interface Props {
   onUpdatePositions: (items: PlaylistItem[]) => Promise<void>;
   onRemoveItem: (itemId: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onArchive: (id: string) => Promise<void>;
   canEdit?: boolean;
   canDelete?: boolean;
   // Assign playlist
@@ -698,6 +699,7 @@ export function PlaylistDetailScreen({
   onUpdatePositions,
   onRemoveItem,
   onDelete,
+  onArchive,
   canEdit = true,
   canDelete = true,
   members,
@@ -847,10 +849,18 @@ export function PlaylistDetailScreen({
 
   // ── Delete playlist ───────────────────────────────────────────────────────────
 
+  const activeAssignmentCount = assignments.length;
+
   async function handleDelete() {
     setConfirmDelete(false);
     setSaving(true);
-    try { await onDelete(playlist.id); } finally { setSaving(false); }
+    try {
+      if (activeAssignmentCount > 0) {
+        await onArchive(playlist.id);
+      } else {
+        await onDelete(playlist.id);
+      }
+    } finally { setSaving(false); }
   }
 
   return (
@@ -904,7 +914,7 @@ export function PlaylistDetailScreen({
                 onClick={() => setConfirmDelete(true)}
                 disabled={saving}
               >
-                <Trash2 size={13} /> Delete
+                <Trash2 size={13} /> {activeAssignmentCount > 0 ? "Archive" : "Delete"}
               </button>
             )}
             <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}><ChevronLeft size={15} /> Back</button>
@@ -1387,9 +1397,13 @@ export function PlaylistDetailScreen({
 
       {confirmDelete && (
         <ConfirmModal
-          title="Delete Playlist"
-          message="This will permanently delete the playlist and all its clips. Existing assignments referencing this playlist will lose their content. This cannot be undone."
-          confirmLabel="Yes, Delete"
+          title={activeAssignmentCount > 0 ? "Archive Playlist" : "Delete Playlist"}
+          message={
+            activeAssignmentCount > 0
+              ? `This playlist has ${activeAssignmentCount} active assignment${activeAssignmentCount !== 1 ? "s" : ""}. Deleting it would permanently destroy all referee progress.\n\nArchiving hides it from new assignments while preserving all existing assignment data and referee progress.`
+              : "Permanently delete this playlist and all its clips? This cannot be undone."
+          }
+          confirmLabel={activeAssignmentCount > 0 ? "Archive Playlist" : "Yes, Delete"}
           busy={saving}
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(false)}

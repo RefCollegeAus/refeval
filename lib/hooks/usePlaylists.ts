@@ -27,6 +27,7 @@ function mapPlaylist(row: any): Playlist {
     createdBy: row.created_by ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    archivedAt: row.archived_at ?? null,
     items,
   };
 }
@@ -45,6 +46,7 @@ export function usePlaylists(orgId: string, userId: string) {
         .from("clip_playlists")
         .select("*, clip_playlist_items(*)")
         .eq("organisation_id", orgId)
+        .is("archived_at", null)
         .order("updated_at", { ascending: false });
       if (err) throw err;
       setPlaylists((data || []).map(mapPlaylist));
@@ -104,6 +106,15 @@ export function usePlaylists(orgId: string, userId: string) {
     await load();
   }
 
+  async function archivePlaylist(id: string) {
+    const { error: err } = await getSupabaseClient()
+      .from("clip_playlists")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", id);
+    if (err) throw err;
+    await load();
+  }
+
   async function updateItemPositions(items: PlaylistItem[]) {
     const supabase = getSupabaseClient();
     for (let i = 0; i < items.length; i++) {
@@ -141,6 +152,7 @@ export function usePlaylists(orgId: string, userId: string) {
     createPlaylist,
     updatePlaylist,
     deletePlaylist,
+    archivePlaylist,
     updateItemPositions,
     removeItem,
     updateItemNote,
