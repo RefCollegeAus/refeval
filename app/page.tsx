@@ -380,6 +380,20 @@ export default function Home() {
     assignmentUser: AssignmentUser;
   } | null>(null);
 
+  // Keep learningAssignmentUser in sync with fresh hook data after load().
+  // Without this, assignmentUser fields like reflectionSubmittedAt / quizSubmittedAt
+  // remain stale snapshots, preventing canComplete from updating.
+  const liveLearningAssignmentUser = useMemo(() => {
+    if (!learningAssignmentUser) return null;
+    const freshAssignment = myAssignments.find(a => a.id === learningAssignmentUser.assignment.id);
+    if (!freshAssignment) return learningAssignmentUser;
+    const freshAU = freshAssignment.assignmentUsers.find(u => u.id === learningAssignmentUser.assignmentUser.id);
+    return {
+      assignment: freshAssignment,
+      assignmentUser: freshAU ?? learningAssignmentUser.assignmentUser,
+    };
+  }, [learningAssignmentUser, myAssignments]);
+
   // Fetch playlist clips via service-role API when referee is in learning mode.
   // This bypasses review RLS so clips tagged to other referees are visible.
   const {
@@ -1145,43 +1159,43 @@ export default function Home() {
           onRemoveItem={removePlaylistItem}
           onDelete={async (id) => { await deletePlaylist(id); setPlaylistDetailId(null); setScreen("playlists"); }}
           onArchive={async (id) => { await archivePlaylist(id); setPlaylistDetailId(null); setScreen("playlists"); }}
-          learningContext={learningAssignmentUser ? {
-            assignmentUser: learningAssignmentUser.assignmentUser,
-            assignedByName: members.find(m => m.id === learningAssignmentUser.assignment.assignedBy)?.name ?? null,
-            instructions: learningAssignmentUser.assignment.instructions,
-            dueDate: learningAssignmentUser.assignment.dueDate,
-            questions: learningAssignmentUser.assignment.questions,
-            quizQuestions: learningAssignmentUser.assignment.quizQuestions,
+          learningContext={liveLearningAssignmentUser ? {
+            assignmentUser: liveLearningAssignmentUser.assignmentUser,
+            assignedByName: members.find(m => m.id === liveLearningAssignmentUser.assignment.assignedBy)?.name ?? null,
+            instructions: liveLearningAssignmentUser.assignment.instructions,
+            dueDate: liveLearningAssignmentUser.assignment.dueDate,
+            questions: liveLearningAssignmentUser.assignment.questions,
+            quizQuestions: liveLearningAssignmentUser.assignment.quizQuestions,
             clipsLoading: learningClipsLoading,
             clipsError: learningClipsError || undefined,
             onToggleWatched: async (_itemId, nextIds) => {
-              await updateWatchedClips(learningAssignmentUser.assignmentUser.id, nextIds);
+              await updateWatchedClips(liveLearningAssignmentUser.assignmentUser.id, nextIds);
             },
             onSaveReflectionDraft: async (responses) => {
-              await saveReflectionDraft(learningAssignmentUser.assignmentUser.id, responses);
+              await saveReflectionDraft(liveLearningAssignmentUser.assignmentUser.id, responses);
             },
             onSubmitReflection: async (responses) => {
-              await submitReflection(learningAssignmentUser.assignmentUser.id, responses);
+              await submitReflection(liveLearningAssignmentUser.assignmentUser.id, responses);
             },
             onSaveQuizAnswers: async (answers) => {
-              await saveQuizAnswers(learningAssignmentUser.assignmentUser.id, answers);
+              await saveQuizAnswers(liveLearningAssignmentUser.assignmentUser.id, answers);
             },
             onSubmitQuiz: async (answers, score, total) => {
               await submitQuiz(
-                learningAssignmentUser.assignmentUser.id,
+                liveLearningAssignmentUser.assignmentUser.id,
                 answers,
                 score,
                 total,
-                learningAssignmentUser.assignmentUser.quizAttemptCount,
+                liveLearningAssignmentUser.assignmentUser.quizAttemptCount,
               );
             },
             onMarkComplete: async () => {
-              await updateAssignmentUserStatus(learningAssignmentUser.assignmentUser.id, "Completed");
+              await updateAssignmentUserStatus(liveLearningAssignmentUser.assignmentUser.id, "Completed");
               if (session?.activeOrganisation?.id && session.user.id) {
                 addNotification(makeAssignmentCompletedDraft(
                   session.activeOrganisation.id,
                   session.user.id,
-                  learningAssignmentUser.assignment.title,
+                  liveLearningAssignmentUser.assignment.title,
                 ));
               }
               setLearningAssignmentUser(null);
