@@ -27,7 +27,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
       const mappedReviews: ReviewRecord[] = supabaseReviews.map((r: any) => ({
         id: r.id,
         organisationId: r.organisation_id || "",
-        game: r.game || r.title || "Untitled Review",
+        game: r.game || "Untitled Review",
         educatorId: r.educator_id || "",
         educatorName: r.educator_name || "",
         referee1Id: r.referee1_id || "",
@@ -93,7 +93,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
     const { data, error } = await getSupabaseClient()
       .from("reviews")
       .insert({
-        game: "New Review", title: "New Review",
+        game: "New Review",
         organisation_id: orgId,
         educator_id: session.user.id,
         educator_name: session.profile.name,
@@ -131,7 +131,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
     const nextStatus = status || activeReview?.status || "In Review";
     const submittedAt = nextStatus === "Completed" ? new Date().toISOString() : activeReview?.submittedAt;
     const patch = {
-      game: reviewGame, title: reviewGame,
+      game: reviewGame,
       game_date: reviewGameDate || null,
       referee1_id: reviewRef1 || null, referee2_id: reviewRef2 || null, referee3_id: reviewRef3 || null,
       referee1_name: r1?.name || "", referee2_name: r2?.name || "", referee3_name: r3?.name || "",
