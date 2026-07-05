@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, CheckCircle2, ArrowUpDown, MessageSquare, Plus } from "lucide-react";
+import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, ChevronUp, CheckCircle2, ArrowUpDown, MessageSquare, Plus } from "lucide-react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import type { Assignment, AssignmentStatus, ReflectionQuestion } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
@@ -47,15 +47,30 @@ function EditModal({
   const [err, setErr]             = useState("");
 
   function addQuestion() {
-    setQuestions(prev => [...prev, { id: crypto.randomUUID(), text: "" }]);
+    setQuestions(prev => [...prev, { id: crypto.randomUUID(), text: "", required: false, displayOrder: prev.length }]);
   }
 
   function updateQuestion(id: string, text: string) {
     setQuestions(prev => prev.map(q => q.id === id ? { ...q, text } : q));
   }
 
+  function toggleRequired(id: string) {
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, required: !q.required } : q));
+  }
+
+  function moveQuestion(id: string, dir: -1 | 1) {
+    setQuestions(prev => {
+      const idx = prev.findIndex(q => q.id === id);
+      const swapIdx = idx + dir;
+      if (swapIdx < 0 || swapIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      return next.map((q, i) => ({ ...q, displayOrder: i }));
+    });
+  }
+
   function removeQuestion(id: string) {
-    setQuestions(prev => prev.filter(q => q.id !== id));
+    setQuestions(prev => prev.filter(q => q.id !== id).map((q, i) => ({ ...q, displayOrder: i })));
   }
 
   async function handleSave() {
@@ -132,14 +147,24 @@ function EditModal({
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {questions.map((q, i) => (
-                  <div key={q.id} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                    <span style={{ fontSize: 12, color: "var(--muted)", paddingTop: 10, minWidth: 18, textAlign: "right" }}>{i + 1}.</span>
+                  <div key={q.id} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                    {/* Reorder */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 1, paddingTop: 4, flexShrink: 0 }}>
+                      <button type="button" onClick={() => moveQuestion(q.id, -1)} disabled={i === 0} style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", padding: "1px 3px", color: "var(--muted)", opacity: i === 0 ? 0.3 : 1 }} title="Move up"><ChevronUp size={12} /></button>
+                      <button type="button" onClick={() => moveQuestion(q.id, 1)} disabled={i === questions.length - 1} style={{ background: "none", border: "none", cursor: i === questions.length - 1 ? "default" : "pointer", padding: "1px 3px", color: "var(--muted)", opacity: i === questions.length - 1 ? 0.3 : 1 }} title="Move down"><ChevronDown size={12} /></button>
+                    </div>
+                    <span style={{ fontSize: 12, color: "var(--muted)", paddingTop: 10, minWidth: 14, textAlign: "right", flexShrink: 0 }}>{i + 1}.</span>
                     <input
                       value={q.text}
                       onChange={e => updateQuestion(q.id, e.target.value)}
                       placeholder={`Question ${i + 1}…`}
                       style={{ flex: 1, fontSize: 13 }}
                     />
+                    {/* Required toggle */}
+                    <label style={{ display: "flex", alignItems: "center", gap: 3, paddingTop: 9, cursor: "pointer", flexShrink: 0, fontSize: 11, color: q.required ? "#fca5a5" : "var(--muted)", whiteSpace: "nowrap" }} title="Mark as required">
+                      <input type="checkbox" checked={q.required} onChange={() => toggleRequired(q.id)} style={{ width: 12, height: 12, accentColor: "var(--accent)", cursor: "pointer" }} />
+                      Req
+                    </label>
                     <button
                       type="button"
                       onClick={() => removeQuestion(q.id)}

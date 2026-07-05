@@ -30,7 +30,14 @@ function mapAssignment(row: any): Assignment {
     dueDate: row.due_date ?? null,
     required: row.required,
     createdAt: row.created_at,
-    questions: Array.isArray(row.questions) ? (row.questions as ReflectionQuestion[]) : [],
+    questions: Array.isArray(row.questions)
+      ? (row.questions as any[]).map((q, i) => ({
+          id: q.id,
+          text: q.text ?? "",
+          required: q.required ?? false,
+          displayOrder: q.displayOrder ?? i,
+        }))
+      : [],
     assignmentUsers: Array.isArray(row.learning_assignment_users)
       ? row.learning_assignment_users.map(mapAssignmentUser)
       : [],

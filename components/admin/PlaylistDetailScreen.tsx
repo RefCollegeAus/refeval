@@ -312,13 +312,26 @@ function AssignModal({
   const [questions, setQuestions] = useState<ReflectionQuestion[]>([]);
 
   function addQuestion() {
-    setQuestions(prev => [...prev, { id: crypto.randomUUID(), text: "" }]);
+    setQuestions(prev => [...prev, { id: crypto.randomUUID(), text: "", required: false, displayOrder: prev.length }]);
   }
   function updateQuestion(id: string, text: string) {
     setQuestions(prev => prev.map(q => q.id === id ? { ...q, text } : q));
   }
+  function toggleRequired(id: string) {
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, required: !q.required } : q));
+  }
+  function moveQuestion(id: string, dir: -1 | 1) {
+    setQuestions(prev => {
+      const idx = prev.findIndex(q => q.id === id);
+      const swapIdx = idx + dir;
+      if (swapIdx < 0 || swapIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      return next.map((q, i) => ({ ...q, displayOrder: i }));
+    });
+  }
   function removeQuestion(id: string) {
-    setQuestions(prev => prev.filter(q => q.id !== id));
+    setQuestions(prev => prev.filter(q => q.id !== id).map((q, i) => ({ ...q, displayOrder: i })));
   }
 
   // Existing assignment fields
@@ -476,15 +489,25 @@ function AssignModal({
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {questions.map((q, i) => (
-                        <div key={q.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 18, textAlign: "right" }}>{i + 1}.</span>
+                        <div key={q.id} style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                          {/* Reorder */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 0, flexShrink: 0 }}>
+                            <button type="button" onClick={() => moveQuestion(q.id, -1)} disabled={i === 0} style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", padding: "1px 2px", color: "var(--muted)", opacity: i === 0 ? 0.3 : 1 }} title="Move up"><ChevronUp size={11} /></button>
+                            <button type="button" onClick={() => moveQuestion(q.id, 1)} disabled={i === questions.length - 1} style={{ background: "none", border: "none", cursor: i === questions.length - 1 ? "default" : "pointer", padding: "1px 2px", color: "var(--muted)", opacity: i === questions.length - 1 ? 0.3 : 1 }} title="Move down"><ChevronDown size={11} /></button>
+                          </div>
+                          <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 14, textAlign: "right", flexShrink: 0 }}>{i + 1}.</span>
                           <input
                             value={q.text}
                             onChange={e => updateQuestion(q.id, e.target.value)}
                             placeholder={`Question ${i + 1}…`}
                             style={{ flex: 1, fontSize: 13 }}
                           />
-                          <button type="button" onClick={() => removeQuestion(q.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "4px" }}>✕</button>
+                          {/* Required toggle */}
+                          <label style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer", flexShrink: 0, fontSize: 11, color: q.required ? "#fca5a5" : "var(--muted)", whiteSpace: "nowrap" }} title="Mark as required">
+                            <input type="checkbox" checked={q.required} onChange={() => toggleRequired(q.id)} style={{ width: 11, height: 11, accentColor: "var(--accent)", cursor: "pointer" }} />
+                            Req
+                          </label>
+                          <button type="button" onClick={() => removeQuestion(q.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "4px", flexShrink: 0 }}>✕</button>
                         </div>
                       ))}
                     </div>
@@ -1302,7 +1325,7 @@ export function PlaylistDetailScreen({
       {/* Reflection modal (learning mode) */}
       {learningContext && reflectionOpen && learningContext.questions.length > 0 && (() => {
         const isSubmitted = !!learningContext.assignmentUser.reflectionSubmittedAt;
-        const allAnswered = learningContext.questions.every(q => (reflectionDraft[q.id] ?? "").trim().length > 0);
+        const requiredAnswered = learningContext.questions.filter(q => q.required).every(q => (reflectionDraft[q.id] ?? "").trim().length > 0);
 
         async function handleSaveDraft() {
           setReflectionSaving(true); setReflectionErr("");
@@ -1319,7 +1342,7 @@ export function PlaylistDetailScreen({
         }
 
         async function handleSubmit() {
-          if (!allAnswered) { setReflectionErr("Please answer all questions before submitting."); return; }
+          if (!requiredAnswered) { setReflectionErr("Please answer all required questions before submitting."); return; }
           setReflectionSaving(true); setReflectionErr("");
           try {
             await learningContext!.onSubmitReflection(
@@ -1354,6 +1377,7 @@ export function PlaylistDetailScreen({
                   <div key={q.id}>
                     <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
                       {i + 1}. {q.text}
+                      {q.required && <span style={{ color: "#fca5a5", marginLeft: 4 }} title="Required">*</span>}
                     </div>
                     <textarea
                       value={reflectionDraft[q.id] ?? ""}
@@ -1381,9 +1405,9 @@ export function PlaylistDetailScreen({
                     <button
                       className="primary"
                       onClick={handleSubmit}
-                      disabled={reflectionSaving || !allAnswered}
-                      style={{ opacity: allAnswered ? 1 : 0.6 }}
-                      title={!allAnswered ? "Answer all questions to submit" : undefined}
+                      disabled={reflectionSaving || !requiredAnswered}
+                      style={{ opacity: requiredAnswered ? 1 : 0.6 }}
+                      title={!requiredAnswered ? "Answer all required questions to submit" : undefined}
                     >
                       {reflectionSaving ? "Submitting…" : "Submit Reflection"}
                     </button>

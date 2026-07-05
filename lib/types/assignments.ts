@@ -47,6 +47,8 @@ export const REQUIRED_BADGE_STYLE: CSSProperties = {
 export type ReflectionQuestion = {
   id: string;
   text: string;
+  required: boolean;
+  displayOrder: number;
 };
 
 export type ReflectionResponse = {
