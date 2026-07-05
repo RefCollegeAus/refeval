@@ -1,6 +1,6 @@
 # RefCoach — Supabase Schema Draft
 
-**Phase:** 13.2  
+**Phase:** 13.2 (updated 13.2a)  
 **Date:** July 2026  
 **Source of truth:** `docs/supabase-migration-audit.md`  
 **Status:** Design only — no SQL applied, no code changed, no migrations created.
@@ -10,25 +10,26 @@
 ## Contents
 
 1. [Context and conventions](#1-context-and-conventions)
-2. [ERD-style relationship map](#2-erd-style-relationship-map)
-3. [Table designs](#3-table-designs)
-   - [development_goal_defs](#31-development_goal_defs)
-   - [development_goal_assignments](#32-development_goal_assignments)
-   - [development_goal_assignment_referees](#33-development_goal_assignment_referees)
-   - [referee_goals](#34-referee_goals)
-   - [development_notes](#35-development_notes)
-   - [review_goal_links](#36-review_goal_links)
-   - [clip_goal_links](#37-clip_goal_links)
-   - [organisation_settings](#38-organisation_settings)
-   - [notifications](#39-notifications)
-   - [notification_preferences](#310-notification_preferences)
-   - [sent_reminders](#311-sent_reminders)
-   - [user_thread_state](#312-user_thread_state)
-4. [Existing table alterations](#4-existing-table-alterations)
-5. [RLS policy plan](#5-rls-policy-plan)
-6. [Index plan](#6-index-plan)
-7. [Migration notes](#7-migration-notes)
-8. [Open questions and risks](#8-open-questions-and-risks)
+2. [Resolved design decisions](#2-resolved-design-decisions)
+3. [ERD-style relationship map](#3-erd-style-relationship-map)
+4. [Table designs](#4-table-designs)
+   - [development_goal_defs](#41-development_goal_defs)
+   - [development_goal_assignments](#42-development_goal_assignments)
+   - [development_goal_assignment_referees](#43-development_goal_assignment_referees)
+   - [referee_goals](#44-referee_goals)
+   - [development_notes](#45-development_notes)
+   - [review_goal_links](#46-review_goal_links)
+   - [clip_goal_links](#47-clip_goal_links)
+   - [organisation_settings](#48-organisation_settings)
+   - [notifications](#49-notifications)
+   - [notification_preferences](#410-notification_preferences)
+   - [sent_reminders](#411-sent_reminders)
+   - [user_thread_state](#412-user_thread_state)
+5. [Existing table alterations](#5-existing-table-alterations)
+6. [RLS policy plan](#6-rls-policy-plan)
+7. [Index plan](#7-index-plan)
+8. [Migration notes](#8-migration-notes)
+9. [Remaining open questions](#9-remaining-open-questions)
 
 ---
 
@@ -50,14 +51,30 @@
 | `user_id` fields | Always reference `auth.users(id)` (not `profiles`) |
 | JSONB columns | Used only where the shape is intentionally flexible (settings, metadata); all other columns are typed |
 | Naming | `snake_case`; plural table names; timestamp columns named `_at` |
-
-### Assumption marker
-
-Lines marked **[ASSUMPTION]** represent design decisions not fully specified by the TypeScript types. These should be confirmed before applying to production.
+| Soft delete | `deleted_at timestamptz` — NULL means active; set to `now()` on "delete". Active queries always filter `WHERE deleted_at IS NULL`. |
 
 ---
 
-## 2. ERD-style relationship map
+## 2. Resolved design decisions
+
+These decisions were open questions in the initial draft (Phase 13.2). They are now resolved and applied throughout this document.
+
+| # | Decision | Resolution |
+|---|---|---|
+| D1 | **Goal def deletion** | Soft delete — `deleted_at timestamptz` on `development_goal_defs`. Hard DELETE is not used. Referee history (`referee_goals`, notes, links) is preserved. Active queries filter `WHERE deleted_at IS NULL`. |
+| D2 | **`clip_goal_links` audit fields** | Add `linked_at timestamptz DEFAULT now()` and `linked_by uuid` for audit parity with `review_goal_links`. Low cost now; expensive later. |
+| D3 | **RLS helper function** | Use inline `EXISTS (SELECT 1 FROM organisation_members ...)` checks. Do not invent a new helper unless one is found in the existing schema. Before applying SQL, verify the pattern on the live `reviews` table: `SELECT * FROM pg_policies WHERE tablename = 'reviews'`. |
+| D4 | **Development notes visibility** | Enforced by RLS — not just UI. Referees SELECT only `WHERE visibility = 'Visible to Referee' AND referee_id = auth.uid()`. Educators and admins see all notes in their org. |
+| D5 | **`assignment_type = 'Everyone'`** | Resolved at creation time into explicit referee rows in `development_goal_assignment_referees`. The API route resolves all current org referees and writes each one as a junction row. No dynamic "everyone" queries. |
+| D6 | **Watched clips progress** | Stored as `watched_clip_ids jsonb DEFAULT '[]'` on `learning_assignment_users`. No separate table for this phase. |
+| D7 | **Notification sample data** | `buildSampleNotifications()` in `useNotifications.ts` is removed when the `notifications` table is live. Only real, server-generated notifications are persisted. No sample rows migrate. |
+| D8 | **Reminder deduplication** | `sent_reminders` table with `UNIQUE (user_id, reminder_key)`. Persistence only — no background jobs in this phase. |
+| D9 | **User thread state** | Separate `user_thread_state` table. `review_comment_reads` is not extended — starred/dismissed state is semantically distinct from clip-level read tracking. |
+| D10 | **Onboarding dismissed** | `onboarding_dismissed boolean DEFAULT false` added to `profiles`. Simple user profile state; no separate table. |
+
+---
+
+## 3. ERD-style relationship map
 
 ```
 organisations
@@ -65,18 +82,21 @@ organisations
   │     └── development_goal_assignments   (goal_id → development_goal_defs)
   │           └── development_goal_assignment_referees  (assignment_id, referee_id)
   │     └── referee_goals                 (goal_id → development_goal_defs)
-  │           └── development_notes       (linked_goal_id → development_goal_defs, nullable)
+  │     └── development_notes             (linked_goal_id → development_goal_defs, nullable)
+  │     └── review_goal_links             (goal_def_id → development_goal_defs)
+  │     └── clip_goal_links               (goal_def_id → development_goal_defs)
   │
   ├── development_notes              (organisation_id, referee_id)
-  ├── review_goal_links              (organisation_id, review_id → reviews, goal_def_id → development_goal_defs)
-  ├── clip_goal_links                (organisation_id, clip_id → clips, goal_def_id → development_goal_defs)
+  ├── review_goal_links              (organisation_id, review_id → reviews)
+  ├── clip_goal_links                (organisation_id, clip_id → clips)
   ├── organisation_settings          (organisation_id, 1:1)
   └── notifications                  (organisation_id, user_id)
 
 profiles (auth.users)
   ├── notification_preferences       (user_id, 1:1)
   ├── sent_reminders                 (user_id)
-  └── user_thread_state              (user_id, review_id → reviews, tag_id → clips nullable)
+  ├── user_thread_state              (user_id, review_id → reviews)
+  └── onboarding_dismissed           (column on profiles)
 
 reviews
   ├── review_goal_links              (review_id)
@@ -88,11 +108,11 @@ clips
 
 ---
 
-## 3. Table designs
+## 4. Table designs
 
 ---
 
-### 3.1 `development_goal_defs`
+### 4.1 `development_goal_defs`
 
 **Maps from:** `DevGoalDef` in `lib/types/developmentGoals.ts`  
 **localStorage key:** `refcoach_goal_defs_{orgId}`  
@@ -109,24 +129,27 @@ CREATE TABLE development_goal_defs (
                                   'Rules', 'Professionalism', 'Mechanics', 'Other'
                                 )),
   priority          text        NOT NULL CHECK (priority IN ('Low', 'Medium', 'High')),
-  created_by        uuid        NOT NULL REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_by        uuid        REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at        timestamptz NOT NULL DEFAULT now(),
-  updated_at        timestamptz NOT NULL DEFAULT now()
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  deleted_at        timestamptz
 );
 ```
 
 **Notes:**
-- `ON DELETE CASCADE` on `organisation_id` — if an org is deleted, all its goal defs go with it. Child tables (`development_goal_assignments`, `referee_goals`) will also cascade from this table (see below).
-- `ON DELETE SET NULL` on `created_by` — goal defs should survive if the educator who created them leaves the org. **[ASSUMPTION]**
-- `updated_at` should be kept current via a trigger (see Migration Notes §7).
+- `deleted_at` implements soft delete (Decision D1). Application code sets `deleted_at = now()` instead of issuing a `DELETE`. All read queries must filter `WHERE deleted_at IS NULL`.
+- Goal defs are never hard-deleted via the application. This means all child FK constraints (`referee_goals`, `development_notes.linked_goal_id`, `review_goal_links`, `clip_goal_links`) pointing here will never fire their `ON DELETE` action in normal usage. The FK constraint is retained as a safety net against direct database modifications.
+- `ON DELETE CASCADE` on `organisation_id` — if an entire organisation is deleted from the platform, its goal defs are hard-deleted. This is an administrative-level operation, not a normal educator workflow.
+- `ON DELETE SET NULL` on `created_by` — goal defs survive if the educator who created them leaves the org.
+- `updated_at` kept current via trigger (see §8).
 
 ---
 
-### 3.2 `development_goal_assignments`
+### 4.2 `development_goal_assignments`
 
 **Maps from:** `DevGoalAssignment` in `lib/types/developmentGoals.ts`  
 **localStorage key:** `refcoach_goal_assignments_{orgId}`  
-**Purpose:** Records the act of assigning a goal to one or more referees. Preserved for reporting (who assigned what, when, to whom). The `assigned_referee_ids` array from TypeScript becomes a junction table — see §3.3.
+**Purpose:** Records the act of assigning a goal to one or more referees. Preserved for reporting (who assigned what, when, to whom). The `assigned_referee_ids` array from TypeScript becomes a junction table — see §4.3.
 
 ```sql
 CREATE TABLE development_goal_assignments (
@@ -136,22 +159,22 @@ CREATE TABLE development_goal_assignments (
   assignment_type   text        NOT NULL CHECK (assignment_type IN (
                                   'Individual', 'SelectedReferees', 'Everyone'
                                 )),
-  assigned_by       uuid        NOT NULL REFERENCES auth.users(id) ON DELETE SET NULL,
+  assigned_by       uuid        REFERENCES auth.users(id) ON DELETE SET NULL,
   assigned_at       timestamptz NOT NULL DEFAULT now()
 );
 ```
 
 **Notes:**
-- `assigned_referee_ids: string[]` from TypeScript is normalised out into `development_goal_assignment_referees` (§3.3).
-- `assignment_type = 'Everyone'` means "all org referees at the time of assignment". The resolved referee list must be written to the junction table at assignment time — not resolved lazily. **[ASSUMPTION]**
-- `ON DELETE CASCADE` on `goal_id` — if a goal def is deleted, assignment records are removed too. Whether referees' in-progress `referee_goals` rows should also cascade is an open question (see §8).
+- `assigned_referee_ids: string[]` from TypeScript is normalised into `development_goal_assignment_referees` (§4.3).
+- `assignment_type = 'Everyone'` is stored as a label for reporting history (it records the intent), but the junction table always contains the resolved explicit referee list at creation time (Decision D5). The API route resolves all org members with role `referee` and inserts one junction row per referee before returning.
+- `assignment_type` is retained even after referees are added or removed from the org. The junction table reflects who was assigned; `assignment_type` reflects why.
 
 ---
 
-### 3.3 `development_goal_assignment_referees`
+### 4.3 `development_goal_assignment_referees`
 
 **Maps from:** `DevGoalAssignment.assignedRefereeIds` (junction table normalisation)  
-**Purpose:** Junction table between a goal assignment and the referees it targets.
+**Purpose:** Junction table between a goal assignment and the referees it targets. Always contains explicit referee IDs — never lazy-resolved.
 
 ```sql
 CREATE TABLE development_goal_assignment_referees (
@@ -163,20 +186,21 @@ CREATE TABLE development_goal_assignment_referees (
 
 **Notes:**
 - Composite primary key — no surrogate `id` column needed.
-- `ON DELETE CASCADE` on both sides — if an assignment is deleted, all its referee rows go with it. If a user account is deleted, their assignment rows are removed. **[ASSUMPTION: user deletion cascades are acceptable]**
+- `ON DELETE CASCADE` on `assignment_id` — if an assignment record is deleted, all its referee rows go with it.
+- `ON DELETE CASCADE` on `referee_id` — if a user account is deleted, their rows in this junction table are removed. Their `referee_goals` progress rows are handled separately.
 
 ---
 
-### 3.4 `referee_goals`
+### 4.4 `referee_goals`
 
 **Maps from:** `RefereeGoal` in `lib/types/developmentGoals.ts`  
-**localStorage key:** `refcoach_referee_goals_{orgId}` (per-referee progress records within the org key)  
+**localStorage key:** `refcoach_referee_goals_{orgId}`  
 **Purpose:** Per-referee progress record for a goal. Each referee assigned to a goal gets one row here.
 
 ```sql
 CREATE TABLE referee_goals (
   id                   uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  goal_id              uuid        NOT NULL REFERENCES development_goal_defs(id) ON DELETE CASCADE,
+  goal_id              uuid        NOT NULL REFERENCES development_goal_defs(id) ON DELETE RESTRICT,
   referee_id           uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   organisation_id      uuid        NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
   status               text        NOT NULL DEFAULT 'Active'
@@ -193,17 +217,18 @@ CREATE TABLE referee_goals (
 ```
 
 **Notes:**
-- `UNIQUE (goal_id, referee_id)` — one progress record per referee per goal def. **[ASSUMPTION]** If the business logic ever allows a referee to be assigned the same goal twice (e.g. after archival and re-assignment), this constraint should be relaxed and a version/sequence column added.
-- `target_review_date` is `date` (not `timestamptz`) — it stores a calendar date, not an exact time, matching the TypeScript `string | null` used as a date picker value.
-- `ON DELETE CASCADE` on `goal_id` — if a goal def is deleted, all referee progress rows go with it. This is a destructive side-effect to document in the UI (see §8, risk #1).
+- `ON DELETE RESTRICT` on `goal_id` — prevents hard deletion of a `development_goal_defs` row that has referee progress records attached. Since soft delete is used for goal defs (Decision D1), hard DELETE on goal defs should never occur in normal application flow. `RESTRICT` acts as a safety net.
+- `UNIQUE (goal_id, referee_id)` — one active progress record per referee per goal def. This reflects current business logic. If re-assignment after archival becomes a supported workflow, this constraint should be relaxed and an `assignment_version int` column added; that is a future-phase decision.
+- `target_review_date` is `date` (not `timestamptz`) — stores a calendar date, matching the TypeScript `string | null` used as a date picker value.
+- `updated_at` kept current via trigger (see §8).
 
 ---
 
-### 3.5 `development_notes`
+### 4.5 `development_notes`
 
 **Maps from:** `DevelopmentNote` in `lib/types/developmentNotes.ts`  
 **localStorage key:** `refcoach_dev_notes_{orgId}`  
-**Purpose:** Coaching notes written by educators about a specific referee. May be private (Educator Only) or visible to the referee.
+**Purpose:** Coaching notes written by educators about a specific referee. Visibility is enforced at the RLS layer.
 
 ```sql
 CREATE TABLE development_notes (
@@ -219,7 +244,7 @@ CREATE TABLE development_notes (
                                 )),
   visibility        text        NOT NULL DEFAULT 'Educator Only'
                                   CHECK (visibility IN ('Educator Only', 'Visible to Referee')),
-  created_by        uuid        NOT NULL REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_by        uuid        REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now(),
   linked_goal_id    uuid        REFERENCES development_goal_defs(id) ON DELETE SET NULL
@@ -227,14 +252,15 @@ CREATE TABLE development_notes (
 ```
 
 **Notes:**
-- `visibility` drives RLS: referees can only `SELECT` rows where `visibility = 'Visible to Referee'` and `referee_id = auth.uid()`. See §5.
-- `linked_goal_id` is nullable; `ON DELETE SET NULL` — if a goal def is deleted, the note is preserved but its link is cleared.
-- The TypeScript type has three commented-out future fields (`linkedReviewId`, `linkedAssignmentId`, `linkedCompetencyId`). These are not included here; add via `ALTER TABLE` when needed.
-- `ON DELETE CASCADE` on `referee_id` — if a referee's account is deleted, their notes are removed. **[ASSUMPTION: confirm welfare/support note retention policy]**
+- `visibility` is enforced by RLS (Decision D4) — not just UI. The SELECT policy for referee role explicitly checks `visibility = 'Visible to Referee' AND referee_id = auth.uid()`. See §6.5.
+- `linked_goal_id` is nullable; `ON DELETE SET NULL` — if a goal def is soft-deleted (its `deleted_at` is set), the note retains its link; the goal def row still exists. If a goal def row is ever hard-deleted (e.g. org deletion), the note is preserved with `linked_goal_id` cleared.
+- The TypeScript type has three commented-out future fields (`linkedReviewId`, `linkedAssignmentId`, `linkedCompetencyId`). Not included here; add via `ALTER TABLE` when needed.
+- `ON DELETE CASCADE` on `referee_id` — if a referee's account is deleted, their notes are removed. For `note_type = 'Welfare / Support'`, confirm with the org whether notes should be retained separately before enabling account deletion for referees with notes.
+- `updated_at` kept current via trigger (see §8).
 
 ---
 
-### 3.6 `review_goal_links`
+### 4.6 `review_goal_links`
 
 **Maps from:** `ReviewGoalLink` in `lib/types/reviewGoalLinks.ts`  
 **localStorage key:** `refcoach_review_goal_links_{orgId}`  
@@ -248,7 +274,7 @@ CREATE TABLE review_goal_links (
   goal_def_id               uuid        NOT NULL REFERENCES development_goal_defs(id) ON DELETE CASCADE,
   referee_id                uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   linked_at                 timestamptz NOT NULL DEFAULT now(),
-  linked_by                 uuid        NOT NULL REFERENCES auth.users(id) ON DELETE SET NULL,
+  linked_by                 uuid        REFERENCES auth.users(id) ON DELETE SET NULL,
   created_goal_from_review  boolean     NOT NULL DEFAULT false,
 
   UNIQUE (review_id, goal_def_id, referee_id)
@@ -257,12 +283,12 @@ CREATE TABLE review_goal_links (
 
 **Notes:**
 - `UNIQUE (review_id, goal_def_id, referee_id)` — prevents duplicate links for the same review/goal/referee triple.
-- `ON DELETE CASCADE` on `review_id` and `goal_def_id` — links are removed if either the review or the goal def is deleted.
-- `created_goal_from_review` records whether this link created the goal (vs linked an existing goal). Useful for reporting.
+- `ON DELETE CASCADE` on `goal_def_id` — link is removed if the goal def row is ever hard-deleted. Under soft-delete normal flow, this FK action does not fire.
+- `created_goal_from_review` records whether this link was the event that created the goal (vs linking a pre-existing goal). Used for reporting and timeline views.
 
 ---
 
-### 3.7 `clip_goal_links`
+### 4.7 `clip_goal_links`
 
 **Maps from:** `ClipGoalLink` in `lib/types/reviewGoalLinks.ts`  
 **localStorage key:** `refcoach_clip_goal_links_{orgId}`  
@@ -270,61 +296,77 @@ CREATE TABLE review_goal_links (
 
 ```sql
 CREATE TABLE clip_goal_links (
-  id               uuid  PRIMARY KEY DEFAULT gen_random_uuid(),
-  organisation_id  uuid  NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
-  clip_id          uuid  NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
-  review_id        uuid  NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
-  goal_def_id      uuid  NOT NULL REFERENCES development_goal_defs(id) ON DELETE CASCADE,
-  referee_id       uuid  NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  id               uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organisation_id  uuid        NOT NULL REFERENCES organisations(id) ON DELETE CASCADE,
+  clip_id          uuid        NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
+  review_id        uuid        NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
+  goal_def_id      uuid        NOT NULL REFERENCES development_goal_defs(id) ON DELETE CASCADE,
+  referee_id       uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  linked_at        timestamptz NOT NULL DEFAULT now(),
+  linked_by        uuid        REFERENCES auth.users(id) ON DELETE SET NULL,
 
   UNIQUE (clip_id, goal_def_id, referee_id)
 );
 ```
 
 **Notes:**
-- `review_id` is denormalised here (it can be derived from `clips.review_id`) for query convenience — avoids a join when listing all clips linked to a goal. **[ASSUMPTION]**
+- `linked_at` and `linked_by` added for audit parity with `review_goal_links` (Decision D2). The TypeScript `ClipGoalLink` type will need these fields added when the hook is migrated.
+- `review_id` is denormalised (derivable from `clips.review_id`) for query convenience — avoids an extra join when listing all clips linked to a goal.
 - `ON DELETE CASCADE` on `clip_id` — if a clip is deleted, its goal links are removed.
-- No `linked_at` or `linked_by` in the TypeScript type. **[ASSUMPTION: add both for audit parity with `review_goal_links`]** — flagged as open question in §8.
 
 ---
 
-### 3.8 `organisation_settings`
+### 4.8 `organisation_settings`
 
 **Maps from:** `OrganisationSettings` in `lib/types/organisationSettings.ts`  
 **localStorage key:** `refcoach_org_settings_{orgId}`  
-**Purpose:** Wide organisation configuration object (~60 fields across 8 sections).
+**Purpose:** Wide organisation configuration object (~60 fields across 8 sections), stored as JSONB per section.
 
-**Design decision: JSONB for first migration pass**
+**Design: one JSONB column per section**
 
-The `OrganisationSettings` type has 8 nested sections (`profile`, `branding`, `preferences`, `reviewDefaults`, `learningDefaults`, `notifications`, `security`, `resources`). Normalising these into individual columns or section rows now would require significant migration effort for fields whose query patterns are not yet known. A single JSONB column per section preserves the existing section-level merge logic and allows schema evolution without `ALTER TABLE`.
+Each TypeScript settings section maps to a dedicated JSONB column. This preserves the section-level merge behaviour in `useOrganisationSettings` and allows partial updates without touching other sections.
+
+TypeScript section → DB column mapping:
+
+| TypeScript section | DB column | Content summary |
+|---|---|---|
+| `profile` | `profile` | name, shortName, sport, contactEmail, phone, website, address |
+| `branding` | `branding` | colours, logoUrl, logoText |
+| `preferences` | `preferences` | timezone, locale, dateFormat, timeFormat, weekStartsOn, country, defaultReviewVisibility |
+| `reviewDefaults` | `review_settings` | crew size, clip length, visibility, require-field flags |
+| `learningDefaults` | `learning_settings` | due days, reminders, completion thresholds, certificates |
+| `notifications` | `notification_settings` | notify-on-event flags, delivery method, digest preferences |
+| `security` | `security_settings` | session timeout, password policy, 2FA, domain restrictions |
+| `resources` | `resource_settings` | learningDocuments array, feature toggles for document sharing |
 
 ```sql
 CREATE TABLE organisation_settings (
-  organisation_id   uuid        PRIMARY KEY REFERENCES organisations(id) ON DELETE CASCADE,
-  profile           jsonb       NOT NULL DEFAULT '{}',
-  branding          jsonb       NOT NULL DEFAULT '{}',
-  preferences       jsonb       NOT NULL DEFAULT '{}',
-  review_defaults   jsonb       NOT NULL DEFAULT '{}',
-  learning_defaults jsonb       NOT NULL DEFAULT '{}',
-  notifications     jsonb       NOT NULL DEFAULT '{}',
-  security          jsonb       NOT NULL DEFAULT '{}',
-  resources         jsonb       NOT NULL DEFAULT '{}',
-  updated_at        timestamptz NOT NULL DEFAULT now()
+  organisation_id     uuid        PRIMARY KEY REFERENCES organisations(id) ON DELETE CASCADE,
+  profile             jsonb       NOT NULL DEFAULT '{}',
+  branding            jsonb       NOT NULL DEFAULT '{}',
+  preferences         jsonb       NOT NULL DEFAULT '{}',
+  review_settings     jsonb       NOT NULL DEFAULT '{}',
+  learning_settings   jsonb       NOT NULL DEFAULT '{}',
+  notification_settings jsonb     NOT NULL DEFAULT '{}',
+  security_settings   jsonb       NOT NULL DEFAULT '{}',
+  resource_settings   jsonb       NOT NULL DEFAULT '{}',
+  updated_at          timestamptz NOT NULL DEFAULT now()
 );
 ```
 
 **Notes:**
 - One row per organisation (1:1 with `organisations`). `organisation_id` is both PK and FK — no surrogate `id` needed.
-- Each section is its own `jsonb` column rather than one monolithic `settings jsonb` column. This preserves the section-level merge behaviour in `useOrganisationSettings` and makes partial updates (`UPDATE organisation_settings SET preferences = preferences || $1 WHERE organisation_id = $2`) efficient.
-- The `resources.learningDocuments` array (`ResourceLink[]`) is stored within the `resources` JSONB column. If documents grow to large volumes, a separate `organisation_resource_links` table should be considered in a future phase. **[ASSUMPTION]**
-- `DEFAULT_ORG_SETTINGS` in `lib/types/organisationSettings.ts` remains the code-level fallback when a row does not exist. The API layer should `INSERT ... ON CONFLICT DO NOTHING` to create the row lazily on first settings save.
+- Partial section updates use `jsonb_set` or the `||` merge operator: `UPDATE organisation_settings SET review_settings = review_settings || $1 WHERE organisation_id = $2`.
+- `DEFAULT_ORG_SETTINGS` in `lib/types/organisationSettings.ts` remains the code-level fallback when a row does not exist. The API layer uses `INSERT ... ON CONFLICT (organisation_id) DO UPDATE SET <section> = EXCLUDED.<section>` (upsert) so the first settings save also creates the row.
+- The `resource_settings.learningDocuments` array stores `ResourceLink[]` objects inline. If document lists grow large, a separate `organisation_resource_links` table becomes preferable — flag this if document counts exceed 50 per org.
+- `updated_at` kept current via trigger (see §8).
 
 ---
 
-### 3.9 `notifications`
+### 4.9 `notifications`
 
 **Maps from:** `Notification` in `lib/types/notifications.ts`  
-**Current storage:** In-memory React state, lost on page reload. Seeded with `buildSampleNotifications()` on mount.  
+**Current storage:** In-memory React state, lost on page reload.  
 **Purpose:** Persisted notification records per user per organisation.
 
 ```sql
@@ -360,47 +402,46 @@ CREATE TABLE notifications (
 ```
 
 **Notes:**
-- `related_entity_id` is `uuid` (not `text`). This requires all related entity IDs to be UUIDs. All existing Supabase tables use `uuid` PKs, so this is safe. **[ASSUMPTION: all entity IDs are UUIDs]**
-- `related_entity_type` does not have a FK — the entity type is a discriminator for multiple tables. Application code is responsible for validity.
-- `metadata jsonb` is nullable; stores arbitrary extra context per notification type (e.g. `{ "assignmentTitle": "...", "dueDate": "..." }`).
-- `action_route` stores a screen name (e.g. `"my-learning"`, `"referee-development"`) not a URL, matching the current `Screen` union type in `lib/types/auth.ts`. **[ASSUMPTION]**
-- Notifications should be soft-deleted or retained for a configurable period. **[ASSUMPTION: no auto-delete on read; application-layer cleanup or Supabase cron job required]**
-- `buildSampleNotifications()` in `useNotifications.ts` must be removed once this table is live.
+- `buildSampleNotifications()` in `useNotifications.ts` must be removed when this table is live (Decision D7). No sample rows are migrated. Notifications start empty for all users.
+- `related_entity_id` is `uuid`. All existing Supabase tables use `uuid` PKs, so this is safe.
+- `related_entity_type` has no FK — it is a discriminator across multiple tables. Application code is responsible for providing valid values.
+- `action_route` stores a `Screen` union value (e.g. `"my-learning"`, `"referee-development"`), not a URL. If the `Screen` type is refactored, a data migration on this column will be needed. Extra context (e.g. entity IDs needed to navigate) goes in `metadata`.
+- Notifications are INSERT-only from the browser's perspective — created server-side via API routes using the service role key. The anon key policy for INSERT is `false` (no direct browser inserts).
+- Cleanup policy (e.g. auto-delete notifications older than 90 days) is deferred to a future phase via Supabase scheduled functions.
 
 ---
 
-### 3.10 `notification_preferences`
+### 4.10 `notification_preferences`
 
 **Maps from:** `NotificationPreferences` in `lib/types/notifications.ts`  
 **localStorage key:** `refcoach_notif_prefs_{userId}`  
-**Purpose:** Per-user notification toggle preferences.
+**Purpose:** Per-user notification toggle preferences. Scoped to the user across all their organisations.
 
 ```sql
 CREATE TABLE notification_preferences (
-  user_id                          uuid     PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  in_app_enabled                   boolean  NOT NULL DEFAULT true,
-  review_notifications             boolean  NOT NULL DEFAULT true,
-  assignment_notifications         boolean  NOT NULL DEFAULT true,
-  learning_notifications           boolean  NOT NULL DEFAULT true,
-  development_goal_notifications   boolean  NOT NULL DEFAULT true,
-  organisation_notifications       boolean  NOT NULL DEFAULT true,
-  system_notifications             boolean  NOT NULL DEFAULT true,
+  user_id                          uuid        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  in_app_enabled                   boolean     NOT NULL DEFAULT true,
+  review_notifications             boolean     NOT NULL DEFAULT true,
+  assignment_notifications         boolean     NOT NULL DEFAULT true,
+  learning_notifications           boolean     NOT NULL DEFAULT true,
+  development_goal_notifications   boolean     NOT NULL DEFAULT true,
+  organisation_notifications       boolean     NOT NULL DEFAULT true,
+  system_notifications             boolean     NOT NULL DEFAULT true,
   updated_at                       timestamptz NOT NULL DEFAULT now()
 );
 ```
 
 **Notes:**
-- `user_id` is PK (1:1 with `auth.users`); no `organisation_id` — preferences are per-user, not per-org-per-user. This matches the TypeScript type and the `refcoach_notif_prefs_{userId}` scoping. **[ASSUMPTION: preferences apply across all orgs a user is a member of. If per-org preferences are ever needed, add `organisation_id` to the PK.]**
-- Row is created lazily on first preference save; defaults match those in the TypeScript type.
-- `updated_at` is for auditing only — no FK or policy depends on it.
+- Per-user, not per-org-per-user, matching the TypeScript type and localStorage key scoping. A user with multiple org memberships shares one preference row. If per-org preferences are ever needed, add `organisation_id` to the PK in a future phase.
+- Row is created lazily on first save. Defaults match those in the TypeScript type — no row is equivalent to all defaults being `true`.
 
 ---
 
-### 3.11 `sent_reminders`
+### 4.11 `sent_reminders`
 
 **Maps from:** `refcoach_reminder_keys_{userId}` string array  
 **localStorage key:** `refcoach_reminder_keys_{userId}`  
-**Purpose:** Deduplication log of reminder notifications already fired for a user. Prevents a reminder from firing twice in the same session (currently) or across sessions (after migration).
+**Purpose:** Deduplication log of reminders fired for a user. Ensures a reminder is not shown more than once per key, across sessions (Decision D8).
 
 ```sql
 CREATE TABLE sent_reminders (
@@ -414,25 +455,21 @@ CREATE TABLE sent_reminders (
 ```
 
 **Notes:**
-- `reminder_key` is an opaque string generated by `useReminderEngine` (format TBD — typically `{entityType}_{entityId}_{checkType}`). The table stores it as-is; no parsing or FK.
-- `UNIQUE (user_id, reminder_key)` — enforces idempotency. An `INSERT ... ON CONFLICT DO NOTHING` from the reminder engine is safe to call multiple times.
-- Old reminder keys should be cleaned up periodically (e.g. keys older than 90 days). **[ASSUMPTION: manual cleanup or Supabase scheduled function required]**
-- This table is a stepping stone. The long-term goal is server-side reminder scheduling (Supabase Edge Functions or a cron job), at which point `sent_reminders` may be replaced by a proper `scheduled_reminders` table with `status` and `scheduled_for` columns. Keep the design minimal for now.
+- `reminder_key` is an opaque string from `useReminderEngine` (format: `{entityType}_{entityId}_{checkType}`). Stored as-is; no parsing at the DB layer.
+- `UNIQUE (user_id, reminder_key)` enforces idempotency. The reminder engine uses `INSERT ... ON CONFLICT DO NOTHING`.
+- This is a persistence-only table for this phase. Background job scheduling (Supabase Edge Functions, cron) is deferred to a later phase. When that happens, this table may be replaced by a `scheduled_reminders` table with `status` and `scheduled_for` columns.
+- Old rows should be cleaned up periodically (keys older than 90 days). A Supabase scheduled function is the intended mechanism; deferred to the same phase as background jobs.
 
 ---
 
-### 3.12 `user_thread_state`
+### 4.12 `user_thread_state`
 
-**Maps from:** Three localStorage keys in `RefereeCommentsScreen.tsx`:
-- `refcoach_starred_comment_threads_{userId}` — `string[]`
-- `refcoach_dismissed_comment_threads_{userId}` — `string[]`
+**Maps from:** Three localStorage keys in `RefereeCommentsScreen.tsx`:  
+- `refcoach_starred_comment_threads_{userId}` — `string[]`  
+- `refcoach_dismissed_comment_threads_{userId}` — `string[]`  
 - `refcoach_thread_seen_at_{userId}` — `Record<string, ISO>`
 
-**Purpose:** Per-user state for comment threads in the Referee Comments screen: starred, dismissed, and last-seen timestamp.
-
-**Design decision: new table rather than extending `review_comment_reads`**
-
-`review_comment_reads` records per-clip (`tag_id`) read state. The comment thread state in `RefereeCommentsScreen` operates at a higher level — a "thread" is grouped by `review_id` (not individual `tag_id`), and "starred" and "dismissed" have no equivalent in `review_comment_reads`. Adding `starred` and `dismissed` to `review_comment_reads` would mix two different concepts. A separate table is cleaner.
+**Purpose:** Per-user interaction state for comment threads — starred, dismissed, and last-seen timestamp. Kept separate from `review_comment_reads` because starred/dismissed state is semantically distinct from clip-level read tracking (Decision D9).
 
 ```sql
 CREATE TABLE user_thread_state (
@@ -448,22 +485,20 @@ CREATE TABLE user_thread_state (
 ```
 
 **Notes:**
-- The localStorage `thread_key` strings currently stored by the app are `review_id` values (UUID strings). The schema uses `review_id` directly as the FK — no opaque key strings. **[ASSUMPTION: verify that thread keys in `RefereeCommentsScreen.tsx` are bare `review_id` UUIDs and not composite keys]**
-- `seen_at` is the last time the user viewed this thread. It replaces `refcoach_thread_seen_at_{userId}`.
-- Composite `PRIMARY KEY (user_id, review_id)` — one state row per user per review.
-- `ON DELETE CASCADE` on both sides — if a user or review is deleted, their thread state rows go with them.
-- If the thread key format is NOT a bare `review_id` (see open question in §8), the `review_id` FK may need to be relaxed to a plain `text` column.
+- The localStorage `thread_key` strings are `review_id` UUID values. Before applying this table, verify in `RefereeCommentsScreen.tsx` that keys are bare UUIDs. If they are composite strings (e.g. `review_123_thread_456`), replace `review_id uuid FK` with a `thread_key text` column and drop the FK.
+- `seen_at` replaces `refcoach_thread_seen_at_{userId}`. It records the last time the user opened this review's thread.
+- Composite `PRIMARY KEY (user_id, review_id)` — one row per user per review.
+- `updated_at` kept current via trigger (see §8).
 
 ---
 
-## 4. Existing table alterations
+## 5. Existing table alterations
 
-Two columns need to be added to existing tables. These are `ALTER TABLE` statements, not new tables.
+Two `ALTER TABLE` statements on existing Supabase tables.
 
-### 4.1 `learning_assignment_users` — add `watched_clip_ids`
+### 5.1 `learning_assignment_users` — add `watched_clip_ids`
 
-**Maps from:** `refcoach_watched_clips_{assignmentUserId}` localStorage key in `PlaylistDetailScreen.tsx`  
-**Scope:** Already an existing Supabase table.
+**Maps from:** `refcoach_watched_clips_{assignmentUserId}` in `PlaylistDetailScreen.tsx`
 
 ```sql
 ALTER TABLE learning_assignment_users
@@ -471,14 +506,12 @@ ALTER TABLE learning_assignment_users
 ```
 
 **Notes:**
-- `watched_clip_ids` is a JSON array of clip UUIDs (`string[]`). Using `jsonb` avoids a separate junction table for what is effectively a lightweight progress tracker.
-- The key is scoped by `learning_assignment_users.id` (not `user_id`), so the column belongs here rather than on a separate table.
-- **[ASSUMPTION]** If watched-clip granularity is ever needed for analytics (e.g. "which clips were most commonly watched"), a junction table `assignment_watched_clips (assignment_user_id, clip_id, watched_at)` would be preferable. Keep as JSONB for now.
+- JSONB array of clip UUIDs (`string[]`). Scoped to `learning_assignment_users.id` (not `user_id`) because one user can be assigned the same playlist across multiple assignments, each with independent progress (Decision D6).
+- If per-clip analytics become a requirement (e.g. "which clips are most re-watched"), migrate this to a junction table `assignment_watched_clips (assignment_user_id, clip_id, watched_at)` in a future phase.
 
-### 4.2 `profiles` — add `onboarding_dismissed`
+### 5.2 `profiles` — add `onboarding_dismissed`
 
-**Maps from:** `refcoach_onboarding_dismissed_{userId}` localStorage key  
-**Scope:** Already an existing Supabase table.
+**Maps from:** `refcoach_onboarding_dismissed_{userId}` localStorage key
 
 ```sql
 ALTER TABLE profiles
@@ -486,185 +519,194 @@ ALTER TABLE profiles
 ```
 
 **Notes:**
-- Simple boolean; no FK or index needed.
-- The existing `useOnboardingDismissed` hook reads and writes `localStorage` — after migration, it should read from `profiles` via the session.
+- Simple boolean; no FK or index needed (Decision D10).
+- After migration, `useOnboardingDismissed` reads this from the session profile rather than localStorage.
 
 ---
 
-## 5. RLS policy plan
+## 6. RLS policy plan
 
-All new tables require RLS to be enabled and at least one policy. The patterns below follow the conventions of existing RefCoach tables.
+All new tables require `ALTER TABLE <name> ENABLE ROW LEVEL SECURITY` plus at least one policy.
 
-### Helper function assumption
+### RLS pattern (Decision D3)
 
-Existing tables appear to use a helper or inline `EXISTS` subquery to check org membership. **[ASSUMPTION]** The following policies use an inline pattern — adjust to match whatever helper is already in use:
+Use inline `EXISTS` checks against `organisation_members`. Do not invent a new helper function unless the existing tables are found to already use one — verify before applying:
 
 ```sql
--- Inline org-membership check pattern (adjust to match existing helper):
+-- Before applying any policies, check the pattern in use on an existing table:
+SELECT policyname, cmd, qual, with_check
+FROM pg_policies
+WHERE tablename = 'reviews';
+```
+
+If a helper function exists (e.g. `is_org_member(org_id uuid)` or a custom JWT claim), use it consistently. If no helper exists, use:
+
+```sql
+-- Org membership check:
 EXISTS (
   SELECT 1 FROM organisation_members om
   WHERE om.organisation_id = <table>.organisation_id
     AND om.user_id = auth.uid()
 )
+
+-- Org membership with role check:
+EXISTS (
+  SELECT 1 FROM organisation_members om
+  WHERE om.organisation_id = <table>.organisation_id
+    AND om.user_id = auth.uid()
+    AND om.role = ANY(ARRAY['educator', 'admin', 'super_admin'])
+)
 ```
 
 ---
 
-### 5.1 `development_goal_defs`
+### 6.1 `development_goal_defs`
 
 | Operation | Who | Condition |
 |---|---|---|
-| SELECT | All org members | User is a member of the goal def's organisation |
-| INSERT | Educators and admins only | User is a member with role `educator`, `admin`, or `super_admin` |
-| UPDATE | Educators and admins only | Same as INSERT |
-| DELETE | Admins only | User has role `admin` or `super_admin` in the org |
+| SELECT | All org members | Member of goal def's organisation |
+| INSERT | Educators, admins | Member with role `educator`, `admin`, or `super_admin` |
+| UPDATE | Educators, admins | Same as INSERT (sets `deleted_at` for soft delete; updates title/description) |
+| DELETE | Blocked at app layer | Hard DELETE not used; soft delete via UPDATE `deleted_at` |
 
-**Notes:** Referees need SELECT to see their assigned goals. The RLS policy must allow referees to read goal defs even though they cannot write them.
+**Note:** Referees need SELECT to read their assigned goal defs. The policy must not restrict referees from reading — only from writing.
 
 ---
 
-### 5.2 `development_goal_assignments`
+### 6.2 `development_goal_assignments`
 
 | Operation | Who | Condition |
 |---|---|---|
-| SELECT | Educators and admins | User is a member with role `educator`, `admin`, or `super_admin` |
-| INSERT | Educators and admins | Same |
-| UPDATE | Educators and admins | Same |
-| DELETE | Admins only | Role `admin` or `super_admin` |
+| SELECT | Educators, admins | Member with role `educator`, `admin`, or `super_admin` in org |
+| INSERT | Educators, admins | Same |
+| UPDATE | Educators, admins | Same |
+| DELETE | Admins | Role `admin` or `super_admin` |
 
-**Notes:** Referees do NOT need to read assignment records directly — they read their `referee_goals` rows instead. Assignment records are reporting-level data.
-
----
-
-### 5.3 `development_goal_assignment_referees`
-
-Same policy as `development_goal_assignments` — access is controlled via the parent assignment row. **[ASSUMPTION]**
+**Note:** Referees do not read assignment records — they read their `referee_goals` rows.
 
 ---
 
-### 5.4 `referee_goals`
+### 6.3 `development_goal_assignment_referees`
+
+Same policy as `development_goal_assignments`. Access controlled via the parent assignment row.
+
+---
+
+### 6.4 `referee_goals`
 
 | Operation | Who | Condition |
 |---|---|---|
 | SELECT | Educators, admins | Any row in their org |
-| SELECT | Referees | Only rows where `referee_id = auth.uid()` |
-| INSERT | Educators and admins | Inserting into their org |
-| UPDATE | Educators and admins | Any row in their org |
-| UPDATE | Referees | Own rows only (`referee_id = auth.uid()`), restricted columns (status, notes only) **[ASSUMPTION]** |
-| DELETE | Admins only | Within their org |
+| SELECT | Referees | `referee_id = auth.uid()` |
+| INSERT | Educators, admins | Own org |
+| UPDATE | Educators, admins | Any row in their org |
+| UPDATE | Referees | Own rows (`referee_id = auth.uid()`); status and notes columns only (enforced at app layer) |
+| DELETE | Admins | Own org |
 
 ---
 
-### 5.5 `development_notes`
+### 6.5 `development_notes`
+
+Visibility is enforced at the RLS layer (Decision D4). Two SELECT policies are needed — Postgres evaluates them as OR.
 
 | Operation | Who | Condition |
 |---|---|---|
-| SELECT | Educators, admins | All notes in their org |
-| SELECT | Referees | Only rows where `referee_id = auth.uid()` AND `visibility = 'Visible to Referee'` |
-| INSERT | Educators and admins | Own org |
-| UPDATE | Created-by user only | `created_by = auth.uid()` **[ASSUMPTION: only author can edit]** |
-| DELETE | Created-by user or admins | `created_by = auth.uid()` OR role is `admin`/`super_admin` |
+| SELECT (policy 1) | Educators, admins | Member with role `educator`, `admin`, or `super_admin` in note's org |
+| SELECT (policy 2) | Referees | `referee_id = auth.uid()` AND `visibility = 'Visible to Referee'` |
+| INSERT | Educators, admins | Own org |
+| UPDATE | Author only | `created_by = auth.uid()` |
+| DELETE | Author or admins | `created_by = auth.uid()` OR role `admin`/`super_admin` in org |
 
-**Critical:** The `visibility = 'Educator Only'` filter MUST be enforced in RLS, not just in UI. This is identified in the Phase 13.1 audit as risk #10.
+**Critical:** A referee querying this table without a matching policy must receive zero rows for `visibility = 'Educator Only'` notes, even if they query with `SELECT *`. The two-policy pattern ensures this without application-layer filtering.
 
 ---
 
-### 5.6 `review_goal_links` and `clip_goal_links`
+### 6.6 `review_goal_links` and `clip_goal_links`
 
 | Operation | Who | Condition |
 |---|---|---|
-| SELECT | All org members | User is a member of the link's organisation |
-| INSERT | Educators and admins | Own org |
-| DELETE | Educators and admins | Own org |
-
-**Notes:** Referees may SELECT to view links but cannot create or remove them. **[ASSUMPTION]**
+| SELECT | All org members | Member of link's organisation |
+| INSERT | Educators, admins | Own org |
+| DELETE | Educators, admins | Own org |
 
 ---
 
-### 5.7 `organisation_settings`
+### 6.7 `organisation_settings`
 
 | Operation | Who | Condition |
 |---|---|---|
-| SELECT | All org members | User is a member of the org |
-| INSERT / UPDATE | Admins only | Role is `admin` or `super_admin` |
-| DELETE | Super admins only | Role is `super_admin` |
-
-**Notes:** Sensitive sections (`security`, `notifications`) are still readable by all members here — they affect the entire org's UI. If section-level access control is needed in future, consider splitting sections into separate tables.
+| SELECT | All org members | Member of org |
+| INSERT / UPDATE | Admins | Role `admin` or `super_admin` |
+| DELETE | Super admins | Role `super_admin` |
 
 ---
 
-### 5.8 `notifications`
+### 6.8 `notifications`
 
 | Operation | Who | Condition |
 |---|---|---|
-| SELECT | Any authenticated user | `user_id = auth.uid()` |
-| INSERT | Service role only (API routes) | Not accessible from browser anon key |
-| UPDATE | Owner (`is_read`, `read_at` only) | `user_id = auth.uid()` **[ASSUMPTION: limit updatable columns via policy or app-layer]** |
+| SELECT | Owner | `user_id = auth.uid()` |
+| INSERT | Service role only | Anon key INSERT policy: `false`. Only API routes via service role key may insert. |
+| UPDATE | Owner | `user_id = auth.uid()` (marks `is_read`, `read_at` — column restriction enforced at app layer) |
 | DELETE | Owner or admins | `user_id = auth.uid()` OR admin role in org |
 
-**Notes:** Notifications are created server-side via API routes using the service role key — never directly from the browser. This prevents users from injecting notifications for other users.
+---
+
+### 6.9 `notification_preferences`
+
+| Operation | Who | Condition |
+|---|---|---|
+| SELECT / INSERT / UPDATE / DELETE | Owner | `user_id = auth.uid()` |
 
 ---
 
-### 5.9 `notification_preferences`
+### 6.10 `sent_reminders`
 
 | Operation | Who | Condition |
 |---|---|---|
 | SELECT | Owner | `user_id = auth.uid()` |
-| INSERT / UPDATE | Owner | `user_id = auth.uid()` |
-| DELETE | Owner | `user_id = auth.uid()` |
+| INSERT | Owner | `user_id = auth.uid()` |
+| DELETE | Owner or service role | `user_id = auth.uid()` |
 
 ---
 
-### 5.10 `sent_reminders`
+### 6.11 `user_thread_state`
 
 | Operation | Who | Condition |
 |---|---|---|
-| SELECT | Owner | `user_id = auth.uid()` |
-| INSERT | Owner or service role | `user_id = auth.uid()` |
-| DELETE | Service role or owner | Cleanup jobs or self |
+| SELECT / INSERT / UPDATE / DELETE | Owner | `user_id = auth.uid()` |
 
 ---
 
-### 5.11 `user_thread_state`
+## 7. Index plan
 
-| Operation | Who | Condition |
-|---|---|---|
-| SELECT | Owner | `user_id = auth.uid()` |
-| INSERT / UPDATE | Owner | `user_id = auth.uid()` |
-| DELETE | Owner | `user_id = auth.uid()` |
+Indexes beyond primary keys and unique constraints.
 
----
-
-## 6. Index plan
-
-Indexes beyond primary keys and unique constraints. Listed per table; only the non-obvious ones are called out.
-
-| Table | Index | Rationale |
-|---|---|---|
-| `development_goal_defs` | `(organisation_id)` | Filter all goals for an org |
-| `development_goal_assignments` | `(goal_id)`, `(organisation_id)` | Join from goal defs; org-level queries |
-| `development_goal_assignment_referees` | `(referee_id)` | "All goals assigned to referee X" |
-| `referee_goals` | `(organisation_id)`, `(referee_id)`, `(goal_id, referee_id)` unique already covers the pair | Educator's view of all goals in org; referee's own view |
-| `referee_goals` | `(status)` WHERE status != 'Archived' (partial) | Active/completed queries without scanning archived rows |
-| `development_notes` | `(referee_id, organisation_id)` | Load all notes for a referee in an org |
-| `development_notes` | `(linked_goal_id)` WHERE linked_goal_id IS NOT NULL (partial) | Goal → notes lookup |
-| `review_goal_links` | `(review_id)`, `(goal_def_id)`, `(referee_id)` | Joins from review screen and goal screen |
-| `clip_goal_links` | `(clip_id)`, `(goal_def_id)`, `(referee_id)` | Joins from clip screen |
-| `organisation_settings` | — | PK is the only lookup key; no additional indexes needed |
-| `notifications` | `(user_id, created_at DESC)` | Primary read pattern: user's notifications, newest first |
-| `notifications` | `(user_id, is_read)` WHERE is_read = false (partial) | Unread count badge |
-| `notification_preferences` | — | PK is the only lookup key |
-| `sent_reminders` | `(user_id, reminder_key)` unique already covers this | No additional indexes needed |
-| `user_thread_state` | `(user_id)` | Load all thread state for a user at once |
+| Table | Index columns | Type | Rationale |
+|---|---|---|---|
+| `development_goal_defs` | `(organisation_id)` | Standard | Load all goals for an org |
+| `development_goal_defs` | `(organisation_id) WHERE deleted_at IS NULL` | Partial | Active-only queries — avoids scanning soft-deleted rows |
+| `development_goal_assignments` | `(goal_id)` | Standard | Join from goal defs |
+| `development_goal_assignments` | `(organisation_id)` | Standard | Org-level reporting queries |
+| `development_goal_assignment_referees` | `(referee_id)` | Standard | "All goals assigned to referee X" |
+| `referee_goals` | `(organisation_id)` | Standard | Educator's view of all goals in org |
+| `referee_goals` | `(referee_id)` | Standard | Referee's own goals |
+| `referee_goals` | `(status) WHERE status != 'Archived'` | Partial | Active/completed queries |
+| `development_notes` | `(referee_id, organisation_id)` | Standard | All notes for a referee in an org |
+| `development_notes` | `(linked_goal_id) WHERE linked_goal_id IS NOT NULL` | Partial | Goal → notes lookup |
+| `review_goal_links` | `(review_id)`, `(goal_def_id)`, `(referee_id)` | Standard | Joins from review and goal screens |
+| `clip_goal_links` | `(clip_id)`, `(goal_def_id)`, `(referee_id)` | Standard | Joins from clip screen |
+| `notifications` | `(user_id, created_at DESC)` | Standard | Primary read: newest first per user |
+| `notifications` | `(user_id) WHERE is_read = false` | Partial | Unread count badge |
+| `user_thread_state` | `(user_id)` | Standard | Load all thread state for a user at session start |
 
 ---
 
-## 7. Migration notes
+## 8. Migration notes
 
 ### `updated_at` trigger
 
-All tables with an `updated_at` column need a trigger to keep it current. A single reusable function works across all tables:
+All tables with an `updated_at` column require a trigger. A single reusable function:
 
 ```sql
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -675,55 +717,61 @@ BEGIN
 END;
 $$;
 
--- Apply to each table that has updated_at:
+-- Apply to each table with updated_at:
 CREATE TRIGGER trg_development_goal_defs_updated_at
   BEFORE UPDATE ON development_goal_defs
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Repeat for: development_notes, referee_goals,
---             organisation_settings, notification_preferences,
---             user_thread_state
+-- Repeat for:
+--   development_notes
+--   referee_goals
+--   organisation_settings
+--   notification_preferences
+--   user_thread_state
 ```
 
-### Data migration from localStorage (Stage 5 substeps)
+### Soft delete query convention
 
-The Phase 13.1 audit recommends a one-time migration script. The recommended approach:
+All application queries against `development_goal_defs` must include `WHERE deleted_at IS NULL`. This applies to:
+- Listing goal defs for an org
+- Joining from `referee_goals` to their parent goal def
+- Joining from `review_goal_links` and `clip_goal_links`
+- The global search overlay in `GlobalSearch.tsx`
 
-1. **Admin UI export action** — add a temporary "Export data to Supabase" button in the Organisation Settings screen, visible only to `super_admin`. When clicked, it reads all localStorage keys for the current org and POSTs them to a new API route (`/api/admin/migrate-localstorage`).
-2. **API route** — accepts the payload, inserts into Supabase using the service role key, returns a summary of rows created.
-3. **Validation** — the admin can view the migrated data in the app before removing localStorage.
-4. **Removal** — once validated, remove localStorage writes from each hook in a follow-up phase (13.3).
+The partial index on `(organisation_id) WHERE deleted_at IS NULL` (§7) makes these queries efficient.
 
-This approach is preferable to a Node.js CLI script because the app already has access to the correct org scoping and auth context.
+### Data migration from localStorage (Stage 5 approach)
 
-### localStorage keys to remove after each stage
+The recommended migration path is an admin-triggered export rather than a CLI script:
 
-| Stage | Keys to remove |
+1. **Admin UI export action** — temporary "Export data to Supabase" button in Organisation Settings, visible only to `super_admin`. Reads all localStorage keys for the current org and POSTs to `/api/admin/migrate-localstorage`.
+2. **API route** — accepts the payload, validates org scoping, inserts into Supabase via service role key, returns a row-count summary.
+3. **Validation** — the admin reviews migrated data in the app before hooks switch to Supabase reads.
+4. **Removal** — localStorage writes removed from each hook in Phase 13.3; read fallback removed in Phase 13.4 once all orgs are confirmed migrated.
+
+The V1 legacy migration path (`migrateV1()` in `useDevelopmentGoals`) runs on first localStorage access and converts old flat goal records to the three-layer format. By Stage 5, all v1 data will already be in the three-layer localStorage keys. The export script reads only the three-layer keys. `KEY_V1_LEGACY` and `migrateV1()` are removed during the Phase 13.3 hook rewrite.
+
+### localStorage keys removed per stage
+
+| Stage | Keys to remove from app code |
 |---|---|
 | Stage 5 | `refcoach_goal_defs_{orgId}`, `refcoach_goal_assignments_{orgId}`, `refcoach_referee_goals_{orgId}`, `refcoach_dev_goals_{orgId}` (v1 legacy), `refcoach_dev_notes_{orgId}`, `refcoach_review_goal_links_{orgId}`, `refcoach_clip_goal_links_{orgId}` |
 | Stage 6 | `refcoach_org_settings_{orgId}` |
 | Stage 7 | `refcoach_notif_prefs_{userId}`, `refcoach_reminder_keys_{userId}` |
 | Stage 8 | `refcoach_watched_clips_{assignmentUserId}`, `refcoach_starred_comment_threads_{userId}`, `refcoach_dismissed_comment_threads_{userId}`, `refcoach_thread_seen_at_{userId}`, `refcoach_onboarding_dismissed_{userId}` |
 
-Do NOT remove `sh-split-pct` — it is a pure UI preference with no migration path needed.
-
-### V1 legacy migration
-
-The `migrateV1()` function in `useDevelopmentGoals` converts old `refcoach_dev_goals_{orgId}` flat records to the three-layer format. This migration runs on first load and removes the old key. By the time Stage 5 runs, all v1 data should already be in the three-layer localStorage format. The admin export script should therefore only read the three-layer keys. The `KEY_V1_LEGACY` constant and `migrateV1()` function can be removed as part of Stage 5 hook rewrites.
+`sh-split-pct` in `RefereeStatsHub.tsx` is not migrated — it is a pure UI preference with no cross-device value.
 
 ---
 
-## 8. Open questions and risks
+## 9. Remaining open questions
 
-| # | Question / Risk | Severity | Recommendation |
-|---|---|---|---|
-| 1 | **Goal def deletion cascades to referee_goals** — if an educator deletes a `development_goal_def`, all referees' progress rows cascade-delete. Is this acceptable, or should goal defs be soft-deleted (archived) instead? | High | Add a `deleted_at timestamptz` column to `development_goal_defs` and use soft delete. Filter `WHERE deleted_at IS NULL` in queries. Do not use `ON DELETE CASCADE` for `referee_goals`. |
-| 2 | **`clip_goal_links` — no `linked_at` or `linked_by`** — the TypeScript type has no audit fields, unlike `review_goal_links`. Should these be added for parity? | Low | Add `linked_at timestamptz DEFAULT now()` and `linked_by uuid REFERENCES auth.users(id)`. Low cost to add now; expensive to add later. |
-| 3 | **Thread key format in `RefereeCommentsScreen.tsx`** — the schema assumes `user_thread_state.review_id` is a bare UUID. If the localStorage key strings are composite (e.g. `review_123_thread_456`), the FK design breaks. | Medium | Read `RefereeCommentsScreen.tsx` to verify key format before applying this table. If composite, use `text thread_key` instead of a `review_id uuid FK`. |
-| 4 | **`notification_preferences` — per-user vs per-org-per-user** — current design is per-user across all orgs. If a user is a referee in one org and an educator in another, their preferences apply to both roles. | Low | Accept for now. Add `organisation_id` to the PK in a later phase if per-org preferences are needed. |
-| 5 | **`referee_goals` UNIQUE (goal_id, referee_id)** — prevents re-assigning the same goal after archival. Is re-assignment after archival a valid workflow? | Medium | If yes, remove the UNIQUE constraint and add a `version int` column, or allow multiple rows filtered by `status != 'Archived'`. |
-| 6 | **`organisation_settings.resources.learningDocuments` array** — stored as part of the `resources` JSONB column. If document lists grow large (100+ documents), JSONB becomes unwieldy and there is no way to query individual documents efficiently. | Low | Acceptable for initial migration. Flag for a future `organisation_resource_links` table if document counts grow. |
-| 7 | **`sent_reminders` key format** — the exact format of `reminder_key` strings generated by `useReminderEngine` is not documented in the type files. The schema stores them as opaque `text`. | Low | Read `useReminderEngine.ts` to document key format. Add a comment to the column definition. |
-| 8 | **`notifications.action_route` as Screen name** — stores a string like `"my-learning"` from the `Screen` union type. If the Screen union changes, stored routes become stale. | Medium | Consider storing a structured route object in `metadata` instead of a flat string, or add a migration step to update routes when screens are renamed. |
-| 9 | **`development_notes` creator edit restriction** — the RLS plan assumes only the author can edit their own notes. Some orgs may want any educator/admin in the org to be able to edit any note. | Low | Make this a settings-level option (`organisation_settings.security` section) rather than a hard RLS constraint. **[ASSUMPTION: confirm with product owner]** |
-| 10 | **Supabase RLS helper function** — this schema uses an inline `EXISTS (SELECT 1 FROM organisation_members ...)` pattern. If existing tables use a different helper (e.g. a `get_my_org_ids()` function or a custom JWT claim), all policies above must be updated to match. | High | Before applying any SQL, inspect one existing table's RLS policies (`SELECT * FROM pg_policies WHERE tablename = 'reviews'`) to confirm the pattern in use. |
+All ten open questions from the initial Phase 13.2 draft have been resolved (see §2). The following items remain as pre-implementation checkpoints — they are not blockers for the schema design, but must be verified before SQL is applied to Supabase.
+
+| # | Checkpoint | Action required |
+|---|---|---|
+| C1 | **RLS pattern on existing tables** | Before writing any policy SQL, run `SELECT policyname, cmd, qual FROM pg_policies WHERE tablename = 'reviews'` on the live Supabase instance. If a helper function exists, use it consistently. |
+| C2 | **Thread key format in `RefereeCommentsScreen.tsx`** | Read the component to confirm that localStorage keys `refcoach_starred_comment_threads_{userId}` store bare `review_id` UUIDs. If composite keys are used, the `user_thread_state` FK design must be revised to `text thread_key`. |
+| C3 | **`Welfare / Support` note retention on user deletion** | If referees have welfare notes that the org wants to retain after account deletion, change `development_notes.referee_id` FK from `ON DELETE CASCADE` to `ON DELETE SET NULL` (and make `referee_id` nullable). Confirm with the organisation before applying. |
+| C4 | **`ClipGoalLink` TypeScript type — add audit fields** | When the `useReviewGoalLinks` hook is migrated in Phase 13.3, add `linked_at: string` and `linked_by: string` to the `ClipGoalLink` type in `lib/types/reviewGoalLinks.ts` to match the new DB columns. |
+| C5 | **`organisation_settings.notifications` column name conflict** | The `notifications` table name and the `notification_settings` column on `organisation_settings` share a root word. Confirm there is no tooling or type-generation conflict (e.g. Supabase types codegen) before applying. The column is named `notification_settings` in this design specifically to avoid any ambiguity. |
