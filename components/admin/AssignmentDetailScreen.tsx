@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, CheckCircle2 } from "lucide-react";
+import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, CheckCircle2, ArrowUpDown } from "lucide-react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import type { Assignment, AssignmentStatus } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
-import { ASSIGNMENT_STATUSES as ALL_STATUSES, STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
+import { ASSIGNMENT_STATUSES as ALL_STATUSES, STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE, learningPctColor } from "@/lib/types/assignments";
 
 interface Props {
   assignment: Assignment;
@@ -263,8 +263,45 @@ export function AssignmentDetailScreen({
     try { await onUpdateStatus(auId, status); } catch { /* toast in future */ } finally { setUpdatingStatus(null); }
   }
 
-  const completedCount = assignment.assignmentUsers.filter(u => u.status === "Completed").length;
-  const total = assignment.assignmentUsers.length;
+  type ProgressSort = "status" | "progress" | "name";
+  const [progressSort, setProgressSort] = useState<ProgressSort>("status");
+  const [progressSortAsc, setProgressSortAsc] = useState(true);
+
+  function handleProgressSort(key: ProgressSort) {
+    if (progressSort === key) { setProgressSortAsc(a => !a); return; }
+    setProgressSort(key);
+    setProgressSortAsc(key === "name");
+  }
+
+  const totalClips    = playlist?.items.length ?? 0;
+  const total         = assignment.assignmentUsers.length;
+  const completedCount   = assignment.assignmentUsers.filter(u => u.status === "Completed").length;
+  const inProgressCount  = assignment.assignmentUsers.filter(u => u.status === "Started").length;
+  const notStartedCount  = assignment.assignmentUsers.filter(u => u.status === "Assigned").length;
+  const overallWatched   = assignment.assignmentUsers.reduce((s, u) => s + u.watchedClipIds.length, 0);
+  const overallPossible  = total * totalClips;
+  const overallPct       = overallPossible > 0 ? Math.round((overallWatched / overallPossible) * 100) : 0;
+
+  // Status sort order: In Progress → Not Started → Completed
+  const STATUS_SORT_ORDER: Record<AssignmentStatus, number> = { Started: 0, Assigned: 1, Completed: 2 };
+
+  const sortedUsers = useMemo(() => {
+    const users = [...assignment.assignmentUsers];
+    users.sort((a, b) => {
+      let cmp = 0;
+      if (progressSort === "status") {
+        cmp = STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status];
+        if (cmp === 0) cmp = (memberOf(a.userId)?.name ?? "").localeCompare(memberOf(b.userId)?.name ?? "");
+      } else if (progressSort === "progress") {
+        cmp = a.watchedClipIds.length - b.watchedClipIds.length;
+      } else {
+        cmp = (memberOf(a.userId)?.name ?? "").localeCompare(memberOf(b.userId)?.name ?? "");
+      }
+      return progressSortAsc ? cmp : -cmp;
+    });
+    return users;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignment.assignmentUsers, progressSort, progressSortAsc, members]);
 
   return (
     <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
@@ -302,7 +339,7 @@ export function AssignmentDetailScreen({
         </div>
 
         {/* Meta row */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 24, marginTop: 14, padding: "12px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 14, padding: "12px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
           <div>
             <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Playlist</div>
             <div style={{ fontWeight: 600 }}>{playlist?.title ?? "Unknown playlist"}</div>
@@ -312,16 +349,45 @@ export function AssignmentDetailScreen({
             <div style={{ fontWeight: 600 }}>{fmt(assignment.dueDate)}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Progress</div>
-            <div style={{ fontWeight: 600, color: completedCount === total && total > 0 ? STATUS_COLORS.Completed : "var(--text)" }}>
-              {completedCount}/{total} Completed
-            </div>
-          </div>
-          <div>
             <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Clips</div>
-            <div style={{ fontWeight: 600 }}>{playlist?.items.length ?? "—"}</div>
+            <div style={{ fontWeight: 600 }}>{totalClips > 0 ? totalClips : "—"}</div>
           </div>
         </div>
+
+        {/* Progress summary */}
+        {total > 0 && (
+          <div style={{ marginTop: 12 }}>
+            {/* Stat chips */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+              {([
+                { label: "Assigned",    value: total,          color: "var(--muted)",          bg: "var(--panel2)" },
+                { label: "In Progress", value: inProgressCount, color: STATUS_COLORS.Started,   bg: STATUS_BG.Started },
+                { label: "Not Started", value: notStartedCount, color: STATUS_COLORS.Assigned,  bg: STATUS_BG.Assigned },
+                { label: "Completed",   value: completedCount,  color: STATUS_COLORS.Completed, bg: STATUS_BG.Completed },
+              ] as const).map(({ label, value, color, bg }) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 8, background: bg, border: "1px solid var(--border)", fontSize: 12 }}>
+                  <span style={{ fontWeight: 700, color }}>{value}</span>
+                  <span style={{ color: "var(--muted)" }}>{label}</span>
+                </div>
+              ))}
+            </div>
+            {/* Overall clip progress bar */}
+            {totalClips > 0 && (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>
+                  <span>Overall clip progress</span>
+                  <span style={{ fontWeight: 700, color: learningPctColor(overallPct) }}>{overallPct}%</span>
+                </div>
+                <div className="lh-progress-bar">
+                  <div className="lh-progress-fill" style={{ width: `${overallPct}%`, background: learningPctColor(overallPct) }} />
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
+                  {overallWatched} of {overallPossible} clips watched across all referees
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Instructions */}
         {assignment.instructions && (
@@ -334,7 +400,30 @@ export function AssignmentDetailScreen({
 
       {/* Users panel */}
       <div className="panel">
-        <h2 className="ed-section-title">Assigned Members</h2>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+          <h2 className="ed-section-title" style={{ margin: 0 }}>Assigned Members</h2>
+          {assignment.assignmentUsers.length > 1 && (
+            <div style={{ display: "flex", gap: 6, fontSize: 12 }}>
+              {(["status", "progress", "name"] as ProgressSort[]).map(key => (
+                <button
+                  key={key}
+                  onClick={() => handleProgressSort(key)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 4,
+                    padding: "3px 10px", borderRadius: 6, fontSize: 12,
+                    background: progressSort === key ? "var(--panel2)" : "transparent",
+                    border: `1px solid ${progressSort === key ? "var(--accent)" : "var(--border)"}`,
+                    color: progressSort === key ? "var(--accent)" : "var(--muted)",
+                    fontWeight: progressSort === key ? 700 : 400,
+                  }}
+                >
+                  {key === "status" ? "Status" : key === "progress" ? "Progress" : "Name"}
+                  <ArrowUpDown size={10} style={{ opacity: progressSort === key ? 1 : 0.4 }} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {assignment.assignmentUsers.length === 0 ? (
           <p className="hint">No members assigned yet.</p>
@@ -344,31 +433,28 @@ export function AssignmentDetailScreen({
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--border)" }}>
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Name</th>
-                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Role</th>
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Status</th>
+                  {totalClips > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, minWidth: 140 }}>Progress</th>}
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Assigned</th>
-                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Started</th>
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Completed</th>
                   {canEdit && <th style={{ padding: "8px 10px" }} />}
                 </tr>
               </thead>
               <tbody>
-                {[...assignment.assignmentUsers]
-                  .sort((a, b) => (memberOf(a.userId)?.name || "").localeCompare(memberOf(b.userId)?.name || ""))
-                  .map(au => {
+                {sortedUsers.map(au => {
                   const m = memberOf(au.userId);
                   const isUpdating = updatingStatus === au.id;
                   const isRemoving = removing === au.id;
                   const statusColor = STATUS_COLORS[au.status];
                   const statusBg = STATUS_BG[au.status];
+                  const watchedCount = au.watchedClipIds.length;
+                  const clipPct = totalClips > 0 ? Math.round((watchedCount / totalClips) * 100) : 0;
+                  const pctColor = learningPctColor(clipPct);
                   return (
                     <tr key={au.id} style={{ borderBottom: "1px solid var(--border)", opacity: isRemoving ? 0.5 : 1 }}>
                       <td style={{ padding: "10px 10px" }}>
                         <div style={{ fontWeight: 600 }}>{m?.name || "Unknown"}</div>
                         <div style={{ fontSize: 11, color: "var(--muted)" }}>{m?.email || "—"}</div>
-                      </td>
-                      <td style={{ padding: "10px 10px" }}>
-                        {m && <span className={`role-badge role-${m.role}`}>{m.role}</span>}
                       </td>
                       <td style={{ padding: "10px 10px" }}>
                         {canEdit && onUpdateStatus ? (
@@ -416,11 +502,21 @@ export function AssignmentDetailScreen({
                           </span>
                         )}
                       </td>
+                      {totalClips > 0 && (
+                        <td style={{ padding: "10px 10px", minWidth: 140 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div className="lh-progress-bar" style={{ flex: 1 }} aria-hidden="true">
+                              <div className="lh-progress-fill" style={{ width: `${clipPct}%`, background: pctColor }} />
+                            </div>
+                            <span style={{ fontSize: 12, fontWeight: 700, minWidth: 34, color: pctColor }}>{clipPct}%</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                            {watchedCount} of {totalClips} clips
+                          </div>
+                        </td>
+                      )}
                       <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12, minWidth: 90 }}>
                         {fmt(au.assignedAt)}
-                      </td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12, minWidth: 90 }}>
-                        {fmt(au.startedAt)}
                       </td>
                       <td style={{ padding: "10px 10px", whiteSpace: "nowrap", fontSize: 12, minWidth: 90 }}>
                         {au.completedAt ? (
