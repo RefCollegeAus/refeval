@@ -1,5 +1,6 @@
 -- ============================================================
 -- Phase 13.3 Draft — User Thread State
+-- Updated: Phase 13.4 hardening
 --
 -- Tables:
 --   user_thread_state    Per-user starred / dismissed / seen state for comment threads.
@@ -13,16 +14,22 @@
 --
 -- Design rationale (separate table, not extending review_comment_reads):
 --   review_comment_reads operates at clip level (per tag_id).
---   This table operates at review level (per review_id): starred/dismissed state
---   applies to the entire thread, not individual clips. Mixing the concepts into
---   review_comment_reads would complicate its existing unread-count queries.
+--   This table operates at thread level (per review_id + tag_id pair): starred/dismissed
+--   state applies to one thread, not the whole review or an individual clip.
+--   Mixing this into review_comment_reads would complicate its existing unread-count queries.
 --
--- VERIFY BEFORE APPLYING (Checkpoint C2 from supabase-schema-draft.md):
---   The thread key format used in RefereeCommentsScreen.tsx must be confirmed
---   as bare review_id UUIDs before this table is applied. If the localStorage
---   keys are composite strings (e.g. 'review_abc_thread_xyz'), replace the
---   review_id uuid FK with a plain `thread_key text` column and remove the
---   reference to public.reviews(id).
+-- Thread key format (VERIFIED in Phase 13.4):
+--   RefereeCommentsScreen.tsx threadKey() function returns:
+--     `${reviewId}::${tagId ?? ""}`
+--   e.g. "a1b2c3d4-...::" (review-level thread, no tag)
+--        "a1b2c3d4-...::e5f6g7h8-..." (clip-level thread)
+--   Keys are NOT bare review UUIDs. The schema was updated to use
+--   thread_key text as the primary key component.
+--
+-- review_id column:
+--   Stored alongside thread_key (redundant but derivable by splitting on '::').
+--   Required for ON DELETE CASCADE: when a review is deleted, all thread state rows
+--   for that review are removed without needing application-layer cleanup.
 --
 -- Rollback:
 --   drop table if exists public.user_thread_state;
@@ -33,18 +40,24 @@
 
 create table if not exists public.user_thread_state (
   user_id     uuid        not null references auth.users(id) on delete cascade,
+  thread_key  text        not null,
+  -- Composite key: '{review_id}::{tag_id}' or '{review_id}::' for review-level threads.
+  -- Mirrors threadKey() in components/referee/RefereeCommentsScreen.tsx.
   review_id   uuid        not null references public.reviews(id) on delete cascade,
-  -- ASSUMPTION: thread keys in RefereeCommentsScreen.tsx are bare review_id UUIDs.
-  -- Verify this before applying. If composite keys are used, change to text.
+  -- review_id is stored for cascade deletion support (not part of the PK).
+  -- Application code must keep review_id consistent with the review_id embedded
+  -- in thread_key. Constraint: thread_key must start with review_id::
   starred     boolean     not null default false,
   dismissed   boolean     not null default false,
   seen_at     timestamptz,
   updated_at  timestamptz not null default now(),
-  primary key (user_id, review_id)
+  primary key (user_id, thread_key)
 );
 
 -- Load all thread state for a user at session start.
-create index if not exists uts_user_idx on public.user_thread_state(user_id);
+create index if not exists uts_user_idx    on public.user_thread_state(user_id);
+-- Cascade support: find all thread state rows for a review being deleted.
+create index if not exists uts_review_idx  on public.user_thread_state(review_id);
 
 drop trigger if exists user_thread_state_updated_at on public.user_thread_state;
 create trigger user_thread_state_updated_at

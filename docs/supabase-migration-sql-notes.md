@@ -1,8 +1,8 @@
 # RefCoach — Supabase Migration SQL Notes
 
-**Phase:** 13.3  
+**Phase:** 13.4 (hardened — ready for dev instance review)
 **Date:** July 2026  
-**Status:** Draft SQL only — not applied to Supabase.
+**Status:** Draft SQL hardened — not applied to Supabase.
 
 ---
 
@@ -30,7 +30,7 @@ Creates the three-layer development goal architecture:
 
 - **`development_goal_defs`** — reusable goal templates with soft delete (`deleted_at timestamptz`). Application code sets `deleted_at = now()` instead of hard DELETE. Two indexes: `(organisation_id)` and a partial `(organisation_id) WHERE deleted_at IS NULL` for active-only queries.
 - **`development_goal_assignments`** — audit record of each assignment event. `assignment_type` stores the intent (`'Everyone'`, `'SelectedReferees'`, `'Individual'`); the junction table always stores the resolved explicit list.
-- **`development_goal_assignment_referees`** — junction table. Includes a new SECURITY DEFINER helper `dga_org_id(uuid)` (modelled on the existing `la_org_id()` and `grp_org_id()` helpers) to avoid RLS recursion when the junction table's policies need to look up the parent assignment's `organisation_id`.
+- **`development_goal_assignment_referees`** — junction table. Includes a SECURITY DEFINER helper `dga_org_id(uuid)` (modelled on the existing `la_org_id()` and `grp_org_id()` helpers) to avoid RLS recursion when the junction table's policies need to look up the parent assignment's `organisation_id`.
 - **`referee_goals`** — per-referee progress rows. `goal_id` FK uses `ON DELETE RESTRICT` (not CASCADE) — soft delete means the goal def row is never hard-deleted in normal flow; RESTRICT is a safety net. `UNIQUE (goal_id, referee_id)`.
 
 ### `019_development_notes.sql`
@@ -53,7 +53,7 @@ Creates `notifications` and `notification_preferences`. The `notifications` tabl
 Creates `sent_reminders` with `UNIQUE (user_id, reminder_key)`. The reminder engine uses `INSERT ... ON CONFLICT (user_id, reminder_key) DO NOTHING` for idempotent deduplication.
 
 ### `024_user_thread_state.sql`
-Creates `user_thread_state` with composite PK `(user_id, review_id)`. Contains a prominent verification note about the thread key format assumption (Checkpoint C2 from `supabase-schema-draft.md`).
+Creates `user_thread_state` with composite PK `(user_id, thread_key)`. `thread_key` is a composite string in the format `{review_id}::{tag_id}` (or `{review_id}::` for review-level threads) — verified in Phase 13.4 by reading `RefereeCommentsScreen.tsx`. A separate `review_id uuid FK` column is also stored for ON DELETE CASCADE support.
 
 ### `025_alter_existing_tables.sql`
 Adds two columns to existing tables:
@@ -76,48 +76,78 @@ The files have no circular dependencies and can be applied sequentially in numer
 
 ---
 
-## What must be verified before applying
+## Phase 13.4 review outcome
 
-### 1. `organisation_role` enum — does it include `'viewer'`?
+All 8 draft migration files were reviewed against existing migrations (001–017), the TypeScript types, and the schema design doc. Five issues were found and resolved.
 
-Migration `002_rls_policies.sql` defines `organisation_role` as a custom enum. The policies in `018_development_goals.sql` and `020_goal_links.sql` reference `'viewer'::organisation_role`. Verify that `viewer` is a valid enum value:
+### Issues found and fixed
 
-```sql
-SELECT enumlabel FROM pg_enum
-JOIN pg_type ON pg_enum.enumtypid = pg_type.oid
-WHERE pg_type.typname = 'organisation_role'
-ORDER BY enumsortorder;
+#### 1. `viewer` role in policy arrays (018, 020) — CRITICAL
+**Problem:** `dgd_select` (018) and `rgl_select`/`cgl_select` (020) used `'viewer'::organisation_role` in their role arrays. Scanning all 17 existing migrations found that `viewer` is never used in any role array. If `viewer` is not in the `organisation_role` enum, the cast fails at runtime.
+
+**Fix:** Removed `'viewer'::organisation_role` from all three policies. Added explanatory comments noting that `viewer` is intentionally omitted and should only be added once its presence in the enum is confirmed.
+
+**Files changed:** `018_development_goals.sql`, `020_goal_links.sql`
+
+---
+
+#### 2. Thread key format in `024_user_thread_state.sql` — CRITICAL
+**Problem:** The original draft used `PRIMARY KEY (user_id, review_id)` and `review_id uuid NOT NULL FK`, assuming thread keys were bare review UUIDs. This was an untested assumption.
+
+**Verification:** Read `components/referee/RefereeCommentsScreen.tsx`. Found:
+```ts
+function threadKey(reviewId: string, tagId: string | null) {
+  return `${reviewId}::${tagId ?? ""}`;
+}
 ```
+Thread keys are composite strings (`{review_id}::{tag_id}`), not bare UUIDs.
 
-If `viewer` is not in the enum, remove it from the goal def and goal link SELECT policies before applying.
+**Fix:** Redesigned `user_thread_state`:
+- PK changed from `(user_id, review_id)` to `(user_id, thread_key)`
+- Added `thread_key text NOT NULL` as the actual primary key component
+- Kept `review_id uuid NOT NULL FK` as a separate column for ON DELETE CASCADE
+- Added `uts_review_idx` index on `review_id` for cascade-path queries
 
-### 2. Thread key format in `RefereeCommentsScreen.tsx`
+**Files changed:** `024_user_thread_state.sql`
 
-`024_user_thread_state.sql` assumes `user_thread_state.review_id` stores bare review UUID strings from the localStorage keys. Before applying, confirm by reading `RefereeCommentsScreen.tsx` and checking how it constructs the key strings for `refcoach_starred_comment_threads_{userId}`.
+---
 
-If the keys are composite (e.g. `review_abc123_thread_xyz`), the `review_id uuid FK` must be replaced with `thread_key text` and the `REFERENCES public.reviews(id)` removed.
+#### 3. Missing `with check` on `rg_update` (018) — Security hardening
+**Problem:** `rg_update` on `referee_goals` had a `using` clause but no `with check`. A referee could change `referee_id` or `organisation_id` on a row they can see.
 
-### 3. `set_updated_at()` trigger function
+**Fix:** Added `with check` clause that mirrors the `using` clause exactly.
 
-Migration `017_groups.sql` defines `public.set_updated_at()`. Verify it is present before running the draft migrations (it is called by the new triggers in 018, 019, 021, 024). If it is not present (e.g. in a fresh dev environment):
+**Files changed:** `018_development_goals.sql`
 
-```sql
-create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
-begin
-  new.updated_at := now();
-  return new;
-end;
-$$;
-```
+---
 
-### 4. Helper functions from `002_rls_policies.sql`
+#### 4. Missing `with check` on `dn_update` (019) — Security hardening
+**Problem:** `dn_update` on `development_notes` had no `with check`. An author could change `organisation_id` or other locked fields on a note they authored.
 
-The draft policies use `public.has_org_role()`, `public.is_org_member()`, and `public.is_super_admin()`. These are defined in `002_rls_policies.sql`. Confirm they exist in the target Supabase instance before running the drafts.
+**Fix:** Added `with check` clause mirroring the `using` clause.
 
-### 5. `development_notes` — welfare note retention
+**Files changed:** `019_development_notes.sql`
 
-`019_development_notes.sql` uses `ON DELETE CASCADE` on `referee_id`. If a referee's account is deleted, all their notes (including `Welfare / Support` type) are also deleted. Confirm this is acceptable with the organisation before applying. If notes must be retained after account deletion, change the FK to `ON DELETE SET NULL` (and make `referee_id` nullable).
+---
+
+#### 5. Missing `with check` on `notif_update` (022) — Security hardening
+**Problem:** `notif_update` had no `with check`. A user could pass the `using` check (their own notification) but change `user_id` to redirect the notification to another user.
+
+**Fix:** Added `with check (user_id = auth.uid())`.
+
+**Files changed:** `022_notifications.sql`
+
+---
+
+### Pre-apply checklist — all items resolved
+
+| # | Item | Resolution |
+|---|---|---|
+| C1 | `organisation_role` enum — does it include `viewer`? | `viewer` not found in any of 17 existing migrations. Removed from all policy arrays. Confirm in prod before adding back. |
+| C2 | Thread key format in `RefereeCommentsScreen.tsx` | Verified: composite `{review_id}::{tag_id}`. Schema redesigned accordingly. |
+| C3 | `set_updated_at()` trigger function exists | Confirmed defined in `017_groups.sql`. All draft migrations depend on 017 running first. |
+| C4 | Helper functions from `002_rls_policies.sql` exist | Confirmed: `has_org_role()`, `is_org_member()`, `is_super_admin()` defined in `002`. `dga_org_id()` added in 018. |
+| C5 | `development_notes` welfare note cascade | `ON DELETE CASCADE` on `referee_id`. If account deleted, notes are removed. Confirm policy with organisation before applying 019. |
 
 ---
 
@@ -125,22 +155,29 @@ The draft policies use `public.has_org_role()`, `public.is_org_member()`, and `p
 
 | Risk | File | Mitigation |
 |---|---|---|
-| `viewer` role not in `organisation_role` enum | `018`, `020` | Run the pg_enum query in §verify-1 before applying |
-| Thread keys are composite strings, not bare UUIDs | `024` | Read `RefereeCommentsScreen.tsx` before applying |
-| Goal def hard-deleted while referee_goals exist | `018` | `ON DELETE RESTRICT` on `referee_goals.goal_id` will block and surface a DB error — good; investigate before force-deleting |
-| `clip_goal_links` TypeScript type mismatch | `020` | `linked_at` and `linked_by` added here; TypeScript type must be updated in Phase 13.3 app work |
+| `viewer` role not confirmed in `organisation_role` enum | `018`, `020` | Currently excluded. Add only after running the pg_enum query below. |
+| Goal def hard-deleted while `referee_goals` exist | `018` | `ON DELETE RESTRICT` blocks hard DELETE and surfaces a DB error — investigate before force-deleting |
+| `clip_goal_links` TypeScript type mismatch | `020` | `linked_at` and `linked_by` added in DB but not in `ClipGoalLink` type; update `lib/types/reviewGoalLinks.ts` during Phase 13.3 app work |
 | `notifications.action_route` stores Screen names | `022` | If Screen union is renamed later, stored routes become stale — document in changelog |
-| Empty `notification_preferences` rows | `022` | No row = all defaults `true`; this is handled in the hook; no pre-population needed |
-| `dga_org_id()` helper SECURITY DEFINER search_path | `018` | Uses `set search_path = ''` (matches `la_org_id()` in 013); correct |
+| Empty `notification_preferences` rows | `022` | No row = all defaults `true`; handled in the hook; no pre-population needed |
+| Welfare notes deleted on account removal | `019` | `ON DELETE CASCADE` on `referee_id`; change to `SET NULL` if retention policy requires keeping notes after account deletion |
+| `thread_key` / `review_id` sync | `024` | Application code must write both columns consistently; `review_id` is derivable from `thread_key` by splitting on `::` |
+
+**Confirming the `organisation_role` enum values:**
+```sql
+SELECT enumlabel FROM pg_enum
+JOIN pg_type ON pg_enum.enumtypid = pg_type.oid
+WHERE pg_type.typname = 'organisation_role'
+ORDER BY enumsortorder;
+```
 
 ---
 
 ## Applying to production: checklist
 
 - [ ] Run all files in a Supabase dev instance first
-- [ ] Verify `organisation_role` enum includes `viewer` (see §verify-1)
-- [ ] Confirm thread key format in `RefereeCommentsScreen.tsx` (see §verify-2)
-- [ ] Confirm welfare note cascade policy with the organisation (see §verify-5)
+- [ ] Confirm `organisation_role` enum values (run pg_enum query above)
+- [ ] Confirm welfare note cascade policy with the organisation (C5)
 - [ ] Run `025_alter_existing_tables.sql` — confirm no downtime impact (additive only)
 - [ ] Run `018` through `024` in numeric order
 - [ ] Verify each table is visible in the Supabase Table Editor with expected columns

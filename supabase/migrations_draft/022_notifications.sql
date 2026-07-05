@@ -1,5 +1,6 @@
 -- ============================================================
 -- Phase 13.3 Draft — Notifications & Notification Preferences
+-- Updated: Phase 13.4 hardening
 --
 -- Tables:
 --   notifications              Persisted notification records per user per org.
@@ -115,7 +116,10 @@ create policy "notif_select" on public.notifications for select using (
 -- Users can mark their own notifications read (updates is_read, read_at).
 -- Column-level restriction (only is_read and read_at may be updated) is
 -- enforced at the application layer, not in this policy.
+-- with check prevents a user from re-assigning a notification to a different user_id.
 create policy "notif_update" on public.notifications for update using (
+  user_id = auth.uid()
+) with check (
   user_id = auth.uid()
 );
 

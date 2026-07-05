@@ -1,5 +1,6 @@
 -- ============================================================
 -- Phase 13.3 Draft — Goal Links
+-- Updated: Phase 13.4 hardening
 --
 -- Tables:
 --   review_goal_links    Links a review session to a development goal for a referee.
@@ -70,7 +71,9 @@ drop policy if exists "rgl_select" on public.review_goal_links;
 drop policy if exists "rgl_insert" on public.review_goal_links;
 drop policy if exists "rgl_delete" on public.review_goal_links;
 
--- All org members can see links (referees need this to view their goal context).
+-- Educators, admins, and referees can see links (referees need this to view their goal context).
+-- viewer role is intentionally omitted: viewers do not participate in the goals workflow.
+-- (No existing migration uses viewer in a role array; add only once enum value is confirmed.)
 create policy "rgl_select" on public.review_goal_links for select using (
   public.has_org_role(organisation_id, array[
     'educator'::organisation_role, 'admin'::organisation_role,
@@ -97,6 +100,7 @@ drop policy if exists "cgl_select" on public.clip_goal_links;
 drop policy if exists "cgl_insert" on public.clip_goal_links;
 drop policy if exists "cgl_delete" on public.clip_goal_links;
 
+-- viewer role intentionally omitted (same reasoning as rgl_select above).
 create policy "cgl_select" on public.clip_goal_links for select using (
   public.has_org_role(organisation_id, array[
     'educator'::organisation_role, 'admin'::organisation_role,

@@ -1,5 +1,6 @@
 -- ============================================================
 -- Phase 13.3 Draft — Development Goals
+-- Updated: Phase 13.4 hardening
 --
 -- Tables:
 --   development_goal_defs               Layer 1: reusable goal templates (soft delete)
@@ -157,14 +158,17 @@ drop policy if exists "dgd_insert" on public.development_goal_defs;
 drop policy if exists "dgd_update" on public.development_goal_defs;
 drop policy if exists "dgd_delete" on public.development_goal_defs;
 
--- All org members can read goal defs (referees need this to view their assigned goals).
+-- All org members except viewers can read goal defs (referees need this to view their assigned goals).
 -- Note: application code must further filter WHERE deleted_at IS NULL for active-only views.
 -- Admins may query all rows including soft-deleted ones for audit purposes.
+-- viewer role is excluded: viewers are restricted to view_only_games content and
+-- do not participate in the development goals workflow.
+-- NOTE: 'viewer' is intentionally omitted — no existing migration uses viewer in a role array.
+-- Confirm viewer exists in the organisation_role enum before adding it here.
 create policy "dgd_select" on public.development_goal_defs for select using (
   public.has_org_role(organisation_id, array[
     'educator'::organisation_role, 'admin'::organisation_role,
-    'super_admin'::organisation_role, 'referee'::organisation_role,
-    'viewer'::organisation_role
+    'super_admin'::organisation_role, 'referee'::organisation_role
   ])
 );
 
@@ -280,8 +284,17 @@ create policy "rg_insert" on public.referee_goals for insert with check (
 
 -- Educators/admins can update any goal in their org.
 -- Referees can update their own rows (status, notes). Column-level restriction
--- is enforced at the application layer; RLS only gates row access here.
+-- (only status and notes may be updated by referees) is enforced at the application layer.
+-- with check mirrors using to prevent row re-assignment to a different org or referee.
 create policy "rg_update" on public.referee_goals for update using (
+  public.has_org_role(organisation_id, array[
+    'educator'::organisation_role, 'admin'::organisation_role, 'super_admin'::organisation_role
+  ])
+  or (
+    referee_id = auth.uid()
+    and public.has_org_role(organisation_id, array['referee'::organisation_role])
+  )
+) with check (
   public.has_org_role(organisation_id, array[
     'educator'::organisation_role, 'admin'::organisation_role, 'super_admin'::organisation_role
   ])

@@ -1,5 +1,6 @@
 -- ============================================================
 -- Phase 13.3 Draft — Development Notes
+-- Updated: Phase 13.4 hardening
 --
 -- Tables:
 --   development_notes    Coaching notes per referee. Visibility enforced by RLS.
@@ -89,7 +90,14 @@ create policy "dn_insert" on public.development_notes for insert with check (
 
 -- Only the original author can edit their own notes.
 -- Admins can update any note in their org (e.g. correcting errors after an educator leaves).
+-- with check mirrors using to prevent org_id re-assignment and to prevent an author
+-- from changing visibility to 'Educator Only' on a note they no longer have staff access to.
 create policy "dn_update" on public.development_notes for update using (
+  created_by = auth.uid()
+  or public.has_org_role(organisation_id, array[
+    'admin'::organisation_role, 'super_admin'::organisation_role
+  ])
+) with check (
   created_by = auth.uid()
   or public.has_org_role(organisation_id, array[
     'admin'::organisation_role, 'super_admin'::organisation_role
