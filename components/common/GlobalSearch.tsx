@@ -286,6 +286,7 @@ export function GlobalSearch({
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search reviews, assignments, members, goals…"
+            aria-label="Search RefCoach"
             style={{
               flex: 1,
               border: "none",

@@ -145,7 +145,8 @@ export function OnboardingPanel({ role, onDismiss, onNavigate, onNavigateDevelop
         </div>
         <button
           onClick={onDismiss}
-          title="Dismiss"
+          title="Dismiss guide"
+          aria-label="Dismiss guide"
           style={{
             background: "none", border: "none", boxShadow: "none",
             padding: "2px 4px", color: "var(--muted)", cursor: "pointer",

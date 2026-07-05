@@ -133,7 +133,7 @@ export function OrgSettingsScreen({
               }}
             >
               <p className="hint" style={{ margin: 0 }}>
-                Logo upload is not yet available. For a full branding experience — including logo URL and colour customisation — visit <strong>Organisation → Branding</strong>.
+                Logo upload is not available in this version. For full branding options — including logo URL and colour customisation — visit <strong>Organisation → Branding</strong>.
               </p>
             </div>
           </label>
