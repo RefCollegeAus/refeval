@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, CheckCircle2, ArrowUpDown } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, CheckCircle2, ArrowUpDown, MessageSquare, Plus } from "lucide-react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
-import type { Assignment, AssignmentStatus } from "@/lib/types/assignments";
+import type { Assignment, AssignmentStatus, ReflectionQuestion } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 import { ASSIGNMENT_STATUSES as ALL_STATUSES, STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE, learningPctColor } from "@/lib/types/assignments";
@@ -15,7 +15,7 @@ interface Props {
   canEdit: boolean;
   canDelete: boolean;
   onBack: () => void;
-  onUpdate: (id: string, data: { title: string; instructions: string | null; dueDate: string | null; required: boolean }) => Promise<void>;
+  onUpdate: (id: string, data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions?: ReflectionQuestion[] }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onAddUsers: (assignmentId: string, userIds: string[]) => Promise<{ added: number; skipped: number }>;
   onRemoveUser: (assignmentUserId: string) => Promise<void>;
@@ -35,18 +35,32 @@ function EditModal({
   onClose,
 }: {
   assignment: Assignment;
-  onSave: (data: { title: string; instructions: string | null; dueDate: string | null; required: boolean }) => Promise<void>;
+  onSave: (data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions: ReflectionQuestion[] }) => Promise<void>;
   onClose: () => void;
 }) {
   const [title, setTitle]         = useState(assignment.title);
   const [instructions, setInstr]  = useState(assignment.instructions || "");
   const [dueDate, setDueDate]     = useState(assignment.dueDate || "");
   const [required, setRequired]   = useState(assignment.required);
+  const [questions, setQuestions] = useState<ReflectionQuestion[]>(assignment.questions ?? []);
   const [saving, setSaving]       = useState(false);
   const [err, setErr]             = useState("");
 
+  function addQuestion() {
+    setQuestions(prev => [...prev, { id: crypto.randomUUID(), text: "" }]);
+  }
+
+  function updateQuestion(id: string, text: string) {
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, text } : q));
+  }
+
+  function removeQuestion(id: string) {
+    setQuestions(prev => prev.filter(q => q.id !== id));
+  }
+
   async function handleSave() {
     if (!title.trim()) { setErr("Title is required."); return; }
+    const cleaned = questions.filter(q => q.text.trim());
     setSaving(true); setErr("");
     try {
       await onSave({
@@ -54,6 +68,7 @@ function EditModal({
         instructions: instructions.trim() || null,
         dueDate: dueDate || null,
         required,
+        questions: cleaned,
       });
       onClose();
     } catch (e: any) {
@@ -64,15 +79,15 @@ function EditModal({
 
   return (
     <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 480 }}>
-        <div className="modal-title">
+      <div className="modal" style={{ maxWidth: 520, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+        <div className="modal-title" style={{ flexShrink: 0 }}>
           <div>
             <p className="eyebrow">Edit Assignment</p>
             <h1 style={{ fontSize: 20, margin: 0 }}>Update details</h1>
           </div>
           <button onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
+        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
           <label>
             Title *
             <input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
@@ -99,9 +114,49 @@ function EditModal({
             />
             <span style={{ fontSize: 13 }}>Required assignment</span>
           </label>
+
+          {/* Reflection questions */}
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>
+                Reflection Questions <span className="hint" style={{ fontWeight: 400 }}>(optional)</span>
+              </div>
+              <button type="button" style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 4 }} onClick={addQuestion}>
+                <Plus size={12} /> Add Question
+              </button>
+            </div>
+            {questions.length === 0 ? (
+              <p className="hint" style={{ fontSize: 12, margin: 0 }}>
+                No reflection questions. Referees will be able to complete the assignment after watching all clips.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {questions.map((q, i) => (
+                  <div key={q.id} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                    <span style={{ fontSize: 12, color: "var(--muted)", paddingTop: 10, minWidth: 18, textAlign: "right" }}>{i + 1}.</span>
+                    <input
+                      value={q.text}
+                      onChange={e => updateQuestion(q.id, e.target.value)}
+                      placeholder={`Question ${i + 1}…`}
+                      style={{ flex: 1, fontSize: 13 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeQuestion(q.id)}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "6px 4px", flexShrink: 0 }}
+                      title="Remove question"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {err && <p className="danger-text">{err}</p>}
         </div>
-        <div className="action-row" style={{ marginTop: 20 }}>
+        <div className="action-row" style={{ flexShrink: 0, marginTop: 20, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
           <button onClick={onClose}>Cancel</button>
           <button className="primary" onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : "Save Changes"}
@@ -228,6 +283,7 @@ export function AssignmentDetailScreen({
   const [deleting, setDeleting]             = useState(false);
   const [confirmDelete, setConfirmDelete]   = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [expandedResponsesId, setExpandedResponsesId] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus]   = useState<{
     auId: string;
     status: AssignmentStatus;
@@ -396,6 +452,23 @@ export function AssignmentDetailScreen({
             <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{assignment.instructions}</p>
           </div>
         )}
+
+        {/* Reflection questions summary */}
+        {assignment.questions.length > 0 && (
+          <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
+            <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+              <MessageSquare size={11} /> Reflection Questions ({assignment.questions.length})
+            </div>
+            <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
+              {assignment.questions.map(q => (
+                <li key={q.id} style={{ fontSize: 13 }}>{q.text}</li>
+              ))}
+            </ol>
+            <div style={{ marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
+              {assignment.assignmentUsers.filter(u => u.reflectionSubmittedAt).length} of {assignment.assignmentUsers.length} submitted
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Users panel */}
@@ -435,6 +508,7 @@ export function AssignmentDetailScreen({
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Name</th>
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Status</th>
                   {totalClips > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, minWidth: 140 }}>Progress</th>}
+                  {assignment.questions.length > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Reflection</th>}
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Assigned</th>
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Completed</th>
                   {canEdit && <th style={{ padding: "8px 10px" }} />}
@@ -451,7 +525,8 @@ export function AssignmentDetailScreen({
                   const clipPct = totalClips > 0 ? Math.round((watchedCount / totalClips) * 100) : 0;
                   const pctColor = learningPctColor(clipPct);
                   return (
-                    <tr key={au.id} style={{ borderBottom: "1px solid var(--border)", opacity: isRemoving ? 0.5 : 1 }}>
+                    <React.Fragment key={au.id}>
+                    <tr style={{ borderBottom: expandedResponsesId === au.id ? "none" : "1px solid var(--border)", opacity: isRemoving ? 0.5 : 1 }}>
                       <td style={{ padding: "10px 10px" }}>
                         <div style={{ fontWeight: 600 }}>{m?.name || "Unknown"}</div>
                         <div style={{ fontSize: 11, color: "var(--muted)" }}>{m?.email || "—"}</div>
@@ -515,6 +590,21 @@ export function AssignmentDetailScreen({
                           </div>
                         </td>
                       )}
+                      {assignment.questions.length > 0 && (
+                        <td style={{ padding: "10px 10px", whiteSpace: "nowrap", fontSize: 12 }}>
+                          {au.reflectionSubmittedAt ? (
+                            <button
+                              style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 4 }}
+                              onClick={() => setExpandedResponsesId(expandedResponsesId === au.id ? null : au.id)}
+                            >
+                              <MessageSquare size={11} />
+                              {expandedResponsesId === au.id ? "Hide" : "View"}
+                            </button>
+                          ) : (
+                            <span style={{ color: "var(--muted)" }}>—</span>
+                          )}
+                        </td>
+                      )}
                       <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12, minWidth: 90 }}>
                         {fmt(au.assignedAt)}
                       </td>
@@ -541,6 +631,31 @@ export function AssignmentDetailScreen({
                         </td>
                       )}
                     </tr>
+                    {/* Expanded reflection responses */}
+                    {expandedResponsesId === au.id && au.reflectionSubmittedAt && au.reflectionResponses && (
+                      <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--panel2)" }}>
+                        <td colSpan={99} style={{ padding: "12px 14px" }}>
+                          <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+                            <MessageSquare size={11} />
+                            Reflection submitted {fmt(au.reflectionSubmittedAt)}
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            {assignment.questions.map((q, qi) => {
+                              const resp = au.reflectionResponses!.find(r => r.questionId === q.id);
+                              return (
+                                <div key={q.id}>
+                                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>{qi + 1}. {q.text}</div>
+                                  <div style={{ fontSize: 13, color: resp?.response ? "var(--text)" : "var(--muted)", whiteSpace: "pre-wrap", paddingLeft: 14 }}>
+                                    {resp?.response || <em>No response</em>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>

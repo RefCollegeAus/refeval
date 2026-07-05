@@ -475,6 +475,8 @@ export type Database = {
           assignment_id: string
           completed_at: string | null
           id: string
+          reflection_responses: Json | null
+          reflection_submitted_at: string | null
           started_at: string | null
           status: string
           user_id: string
@@ -485,6 +487,8 @@ export type Database = {
           assignment_id: string
           completed_at?: string | null
           id?: string
+          reflection_responses?: Json | null
+          reflection_submitted_at?: string | null
           started_at?: string | null
           status?: string
           user_id: string
@@ -495,6 +499,8 @@ export type Database = {
           assignment_id?: string
           completed_at?: string | null
           id?: string
+          reflection_responses?: Json | null
+          reflection_submitted_at?: string | null
           started_at?: string | null
           status?: string
           user_id?: string
@@ -519,6 +525,7 @@ export type Database = {
           instructions: string | null
           organisation_id: string
           playlist_id: string
+          questions: Json
           required: boolean
           title: string
         }
@@ -530,6 +537,7 @@ export type Database = {
           instructions?: string | null
           organisation_id: string
           playlist_id: string
+          questions?: Json
           required?: boolean
           title: string
         }
@@ -541,6 +549,7 @@ export type Database = {
           instructions?: string | null
           organisation_id?: string
           playlist_id?: string
+          questions?: Json
           required?: boolean
           title?: string
         }

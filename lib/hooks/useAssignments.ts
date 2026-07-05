@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import type { Assignment, AssignmentUser, AssignmentStatus, CreateAssignmentInput } from "@/lib/types/assignments";
+import type { Assignment, AssignmentUser, AssignmentStatus, CreateAssignmentInput, ReflectionQuestion, ReflectionResponse } from "@/lib/types/assignments";
 
 function mapAssignmentUser(row: any): AssignmentUser {
   return {
@@ -14,6 +14,8 @@ function mapAssignmentUser(row: any): AssignmentUser {
     startedAt: row.started_at ?? null,
     completedAt: row.completed_at ?? null,
     watchedClipIds: Array.isArray(row.watched_clip_ids) ? (row.watched_clip_ids as string[]) : [],
+    reflectionResponses: Array.isArray(row.reflection_responses) ? (row.reflection_responses as ReflectionResponse[]) : null,
+    reflectionSubmittedAt: row.reflection_submitted_at ?? null,
   };
 }
 
@@ -28,6 +30,7 @@ function mapAssignment(row: any): Assignment {
     dueDate: row.due_date ?? null,
     required: row.required,
     createdAt: row.created_at,
+    questions: Array.isArray(row.questions) ? (row.questions as ReflectionQuestion[]) : [],
     assignmentUsers: Array.isArray(row.learning_assignment_users)
       ? row.learning_assignment_users.map(mapAssignmentUser)
       : [],
@@ -87,6 +90,7 @@ export function useAssignments(orgId: string, currentUserId: string) {
         instructions: input.instructions || null,
         due_date: input.dueDate || null,
         required: input.required,
+        questions: input.questions,
       })
       .select("id")
       .single();
@@ -106,16 +110,18 @@ export function useAssignments(orgId: string, currentUserId: string) {
 
   async function updateAssignment(
     id: string,
-    data: { title: string; instructions: string | null; dueDate: string | null; required: boolean },
+    data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions?: ReflectionQuestion[] },
   ): Promise<void> {
+    const patch: Record<string, unknown> = {
+      title: data.title,
+      instructions: data.instructions || null,
+      due_date: data.dueDate || null,
+      required: data.required,
+    };
+    if (data.questions !== undefined) patch.questions = data.questions;
     const { error: err } = await getSupabaseClient()
       .from("learning_assignments")
-      .update({
-        title: data.title,
-        instructions: data.instructions || null,
-        due_date: data.dueDate || null,
-        required: data.required,
-      })
+      .update(patch)
       .eq("id", id);
     if (err) throw err;
     await load();
@@ -187,6 +193,32 @@ export function useAssignments(orgId: string, currentUserId: string) {
     // A reload would re-fetch all assignments on every clip toggle, which is too expensive.
   }
 
+  async function saveReflectionDraft(
+    assignmentUserId: string,
+    responses: ReflectionResponse[],
+  ): Promise<void> {
+    const { error: err } = await getSupabaseClient()
+      .from("learning_assignment_users")
+      .update({ reflection_responses: responses })
+      .eq("id", assignmentUserId);
+    if (err) throw err;
+  }
+
+  async function submitReflection(
+    assignmentUserId: string,
+    responses: ReflectionResponse[],
+  ): Promise<void> {
+    const { error: err } = await getSupabaseClient()
+      .from("learning_assignment_users")
+      .update({
+        reflection_responses: responses,
+        reflection_submitted_at: new Date().toISOString(),
+      })
+      .eq("id", assignmentUserId);
+    if (err) throw err;
+    await load();
+  }
+
   return {
     assignments,
     myAssignments,
@@ -200,5 +232,7 @@ export function useAssignments(orgId: string, currentUserId: string) {
     removeUserFromAssignment,
     updateAssignmentUserStatus,
     updateWatchedClips,
+    saveReflectionDraft,
+    submitReflection,
   };
 }

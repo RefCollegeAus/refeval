@@ -302,6 +302,8 @@ export default function Home() {
     removeUserFromAssignment,
     updateAssignmentUserStatus,
     updateWatchedClips,
+    saveReflectionDraft,
+    submitReflection,
   } = useAssignments(session?.activeOrganisation?.id ?? "", session?.user.id ?? "");
 
   const {
@@ -1127,10 +1129,17 @@ export default function Home() {
             assignedByName: members.find(m => m.id === learningAssignmentUser.assignment.assignedBy)?.name ?? null,
             instructions: learningAssignmentUser.assignment.instructions,
             dueDate: learningAssignmentUser.assignment.dueDate,
+            questions: learningAssignmentUser.assignment.questions,
             clipsLoading: learningClipsLoading,
             clipsError: learningClipsError || undefined,
             onToggleWatched: async (_itemId, nextIds) => {
               await updateWatchedClips(learningAssignmentUser.assignmentUser.id, nextIds);
+            },
+            onSaveReflectionDraft: async (responses) => {
+              await saveReflectionDraft(learningAssignmentUser.assignmentUser.id, responses);
+            },
+            onSubmitReflection: async (responses) => {
+              await submitReflection(learningAssignmentUser.assignmentUser.id, responses);
             },
             onMarkComplete: async () => {
               await updateAssignmentUserStatus(learningAssignmentUser.assignmentUser.id, "Completed");

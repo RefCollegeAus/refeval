@@ -44,6 +44,16 @@ export const REQUIRED_BADGE_STYLE: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+export type ReflectionQuestion = {
+  id: string;
+  text: string;
+};
+
+export type ReflectionResponse = {
+  questionId: string;
+  response: string;
+};
+
 export type AssignmentUser = {
   id: string;
   assignmentId: string;
@@ -53,6 +63,8 @@ export type AssignmentUser = {
   startedAt: string | null;
   completedAt: string | null;
   watchedClipIds: string[];
+  reflectionResponses: ReflectionResponse[] | null;
+  reflectionSubmittedAt: string | null;
 };
 
 export type Assignment = {
@@ -65,6 +77,7 @@ export type Assignment = {
   dueDate: string | null;
   required: boolean;
   createdAt: string;
+  questions: ReflectionQuestion[];
   assignmentUsers: AssignmentUser[];
 };
 
@@ -75,4 +88,5 @@ export type CreateAssignmentInput = {
   dueDate: string | null;
   required: boolean;
   userIds: string[];
+  questions: ReflectionQuestion[];
 };
