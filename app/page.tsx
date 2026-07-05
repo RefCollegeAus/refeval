@@ -1853,8 +1853,8 @@ export default function Home() {
           refereeName={slot.name}
           activeGoals={refereeGoalViewsForReferee(slot.id).filter(v => v.status === "Active")}
           reviewGoalLinks={reviewGoalLinks.filter(l => l.refereeId === slot.id && l.reviewId === activeReview.id)}
-          onCreateGoalFromReview={(input, reviewId) => {
-            const defId = assignGoal(input, allRefereeIds);
+          onCreateGoalFromReview={async (input, reviewId) => {
+            const defId = await assignGoal(input, allRefereeIds);
             if (defId) createReviewGoalLink({reviewId, goalDefId: defId, refereeId: slot.id, createdGoalFromReview: true});
           }}
           onLinkReviewToGoal={createReviewGoalLink}
