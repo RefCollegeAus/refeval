@@ -1,8 +1,8 @@
 # RefCoach — Supabase Migration SQL Notes
 
-**Phase:** 13.5 complete
+**Phase:** 13.6a complete
 **Date:** July 2026  
-**Status:** All migrations applied to DEV. TypeScript types generated. Build passing.
+**Status:** All migrations applied to DEV. TypeScript types generated. Build passing. DEV seed documented.
 
 ---
 
@@ -58,6 +58,55 @@ DEV is confirmed ready. The schema is stable and matches the design in `supabase
 1. Update the hook to read/write from Supabase (DEV).
 2. Keep the localStorage fallback in place until verified.
 3. Remove localStorage only after DEV hook is confirmed working end-to-end.
+
+---
+
+## Phase 13.6a — DEV login requirements & seed data
+
+**Date:** 5 July 2026
+
+### Login flow (from `lib/hooks/useAuthSession.ts`)
+
+Login requires all four of the following to succeed:
+
+1. **Auth user in Supabase Auth** — `signInWithPassword()` must find the email/password in `auth.users`.
+2. **`profiles` row** — queried immediately after auth. Missing profile does not block login (profile fields fall back to auth user data), but name will show as email address.
+3. **`organisation_members` row** — queried after profile. If zero rows exist, the user is signed out and shown "Your account is not assigned to any organisation yet."
+4. **`organisations` row** — joined from `organisation_members`. Name is shown in the org selector and nav.
+
+**Minimum required for login to work:** auth user + organisation_members row + organisations row (profile is strongly recommended).
+
+### Missing trigger: `handle_new_user`
+
+`001_initial_schema.sql` says profiles are "populated automatically by a Supabase Auth trigger on signup" but **this trigger is not in any migration file** and is not present in DEV. In production, it was created manually in the dashboard.
+
+Without the trigger:
+- Auth users created via invite do get a profile (the invite API route in `app/api/admin/invite/route.ts` manually upserts one).
+- Auth users created via Dashboard → Add user do NOT get a profile row automatically.
+- This means DEV test users need their profile inserted manually (or the trigger must be added first).
+
+**Fix:** Run `supabase/seed/dev_handle_new_user_trigger.sql` in the DEV SQL Editor. This adds the trigger to DEV and documents the production trigger that was missing from migrations.
+
+**Future:** The trigger should be promoted to a proper migration (`026_handle_new_user_trigger.sql`) so it is applied to all environments consistently.
+
+### Seed files
+
+| File | Purpose |
+|---|---|
+| `supabase/seed/dev_seed.sql` | Creates 1 org, 3 profiles, 3 memberships. Requires auth users to be pre-created in Dashboard. |
+| `supabase/seed/dev_handle_new_user_trigger.sql` | Adds the missing auto-profile trigger to DEV. Run this before creating new auth users via invite. |
+
+### Steps to get DEV login working
+
+1. Run `supabase/seed/dev_handle_new_user_trigger.sql` in the DEV SQL Editor (one-time).
+2. In Dashboard → Authentication → Users → Add user ("Create new user"):
+   - `super@refeval.dev` (set a strong test password)
+   - `educator@refeval.dev`
+   - `referee@refeval.dev`
+3. Copy the UUID for each user from the users list.
+4. Open `supabase/seed/dev_seed.sql`, replace the three placeholder UUIDs, and run in SQL Editor.
+5. Verify the count query at the bottom returns `1 / 3 / 3`.
+6. Sign in at `localhost:3000` with any of the three test emails.
 
 ---
 
