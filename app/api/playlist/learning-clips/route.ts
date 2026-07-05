@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
   // 4. Fetch reviews (service role → bypasses RLS)
   const { data: rawReviews, error: revErr } = await admin
     .from("reviews")
-    .select("id, organisation_id, game, educator_name, referee1_id, referee2_id, referee3_id, referee1_name, referee2_name, referee3_name, video_link, video_url, timestamp_offset, game_date, created_at")
+    .select("id, organisation_id, game, educator_name, referee1_id, referee2_id, referee3_id, referee1_name, referee2_name, referee3_name, video_link, timestamp_offset, game_date, created_at")
     .in("id", reviewIds);
 
   if (revErr) {
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
     referee1Name:    r.referee1_name || "",
     referee2Name:    r.referee2_name || "",
     referee3Name:    r.referee3_name || "",
-    videoLink:       r.video_link || r.video_url || "",
+    videoLink:       r.video_link || "",
     timestampOffset: r.timestamp_offset || 0,
     status:          "Completed" as const,
     gameDate:        r.game_date || "",
