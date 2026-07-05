@@ -281,34 +281,81 @@ export function LearningHub({
         {refereeMembers.length > 0 && onNavigateDevelopment && (
           <div>
             <h2 className="lh-section-title">Referee Development</h2>
-            <div className="lh-nav-grid">
-              {refereeMembers.map(m => {
+            <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+              {refereeMembers.map((m, idx) => {
                 const mGoals = allRefereeGoalViews.filter(v => v.refereeId === m.id);
                 const active  = mGoals.filter(v => v.status === "Active").length;
                 const highPri = mGoals.filter(v => v.status === "Active" && v.priority === "High").length;
+                const isLast  = idx === refereeMembers.length - 1;
                 return (
-                  <button
+                  <div
                     key={m.id}
-                    className="lh-nav-card"
-                    onClick={() => onNavigateDevelopment(m.id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 14px",
+                      borderBottom: isLast ? "none" : "1px solid var(--border)",
+                    }}
                   >
-                    <div className="lh-nav-card-icon">
-                      <Users size={22} />
+                    <button
+                      onClick={() => onNavigateDevelopment(m.id)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        boxShadow: "none",
+                        padding: 0,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        minWidth: 0,
+                      }}
+                      title={`View ${m.name}'s development`}
+                    >
+                      <span style={{
+                        width: 30, height: 30, borderRadius: "50%",
+                        background: "var(--panel3)",
+                        border: "1px solid var(--border)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        flexShrink: 0, fontSize: 12, fontWeight: 700,
+                        color: "var(--muted)",
+                      }}>
+                        {(m.name || "?")[0].toUpperCase()}
+                      </span>
+                      <span style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "var(--text)",
+                        textDecoration: "underline",
+                        textDecorationColor: "transparent",
+                        textUnderlineOffset: 2,
+                        transition: "text-decoration-color 0.15s",
+                      }}
+                        onMouseEnter={e => (e.currentTarget.style.textDecorationColor = "var(--muted)")}
+                        onMouseLeave={e => (e.currentTarget.style.textDecorationColor = "transparent")}
+                      >
+                        {m.name || m.email}
+                      </span>
+                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                      {active > 0
+                        ? <span className="hint" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+                            <Target size={11} />
+                            {active} active goal{active !== 1 ? "s" : ""}
+                            {highPri > 0 && <span style={{ color: "#f59e0b", marginLeft: 2 }}>· {highPri} high</span>}
+                          </span>
+                        : <span className="hint" style={{ fontSize: 12 }}>No active goals</span>
+                      }
+                      <button
+                        onClick={() => onNavigateDevelopment(m.id)}
+                        style={{ fontSize: 11, padding: "3px 10px", flexShrink: 0 }}
+                      >
+                        View →
+                      </button>
                     </div>
-                    <div className="lh-nav-card-body">
-                      <div className="lh-nav-card-label">{m.name}</div>
-                      <div className="lh-nav-card-hint">
-                        {active > 0
-                          ? <>
-                              <Target size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
-                              {active} active goal{active !== 1 ? "s" : ""}
-                              {highPri > 0 && <span style={{ color: "#f59e0b" }}> · {highPri} high priority</span>}
-                            </>
-                          : "No active goals"}
-                      </div>
-                    </div>
-                    <ChevronRight size={16} className="lh-nav-chevron" />
-                  </button>
+                  </div>
                 );
               })}
             </div>
