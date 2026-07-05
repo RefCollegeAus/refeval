@@ -17,6 +17,8 @@ export type LearningContext = {
   instructions: string | null;
   dueDate: string | null;
   onMarkComplete: () => Promise<void>;
+  clipsLoading?: boolean;
+  clipsError?: string;
 };
 
 interface Props {
@@ -973,8 +975,23 @@ export function PlaylistDetailScreen({
         </div>
       )}
 
+      {/* Loading state (learning mode only — clips fetched via API) */}
+      {clipRows.length === 0 && learningContext?.clipsLoading && (
+        <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
+          <p style={{ margin: 0 }}>Loading clips…</p>
+        </div>
+      )}
+
+      {/* Error state (learning mode only) */}
+      {clipRows.length === 0 && !learningContext?.clipsLoading && learningContext?.clipsError && (
+        <div className="panel" style={{ padding: "24px", borderLeft: "4px solid rgba(239,68,68,.5)" }}>
+          <p style={{ margin: 0, fontWeight: 700, color: "#fca5a5" }}>Could not load clips</p>
+          <p className="hint" style={{ margin: "6px 0 0" }}>{learningContext.clipsError}</p>
+        </div>
+      )}
+
       {/* Empty state */}
-      {clipRows.length === 0 && (
+      {clipRows.length === 0 && !learningContext?.clipsLoading && !learningContext?.clipsError && (
         <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
           <ListVideo size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
           <p style={{ margin: 0, fontWeight: 700 }}>This playlist is empty</p>

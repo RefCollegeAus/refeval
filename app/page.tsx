@@ -367,6 +367,8 @@ export default function Home() {
   const {
     reviews: learningReviews,
     tags:    learningTags,
+    loading: learningClipsLoading,
+    error:   learningClipsError,
   } = usePlaylistLearningClips(
     learningAssignmentUser ? learningAssignmentUser.assignment.playlistId : null,
     learningAssignmentUser ? learningAssignmentUser.assignmentUser.id     : null,
@@ -1124,6 +1126,8 @@ export default function Home() {
             assignedByName: members.find(m => m.id === learningAssignmentUser.assignment.assignedBy)?.name ?? null,
             instructions: learningAssignmentUser.assignment.instructions,
             dueDate: learningAssignmentUser.assignment.dueDate,
+            clipsLoading: learningClipsLoading,
+            clipsError: learningClipsError || undefined,
             onMarkComplete: async () => {
               await updateAssignmentUserStatus(learningAssignmentUser.assignmentUser.id, "Completed");
               if (session?.activeOrganisation?.id && session.user.id) {
