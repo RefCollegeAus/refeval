@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ListVideo, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Trash2, Edit2, Users, Search, AlertCircle, BookOpen, MessageSquare, AlertTriangle } from "lucide-react";
+import { ListVideo, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Trash2, Edit2, Users, Search, AlertCircle, BookOpen, MessageSquare, AlertTriangle, HelpCircle } from "lucide-react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { Playlist, PlaylistItem } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
-import type { Assignment, AssignmentUser, CreateAssignmentInput, ReflectionQuestion, ReflectionResponse } from "@/lib/types/assignments";
+import type { Assignment, AssignmentUser, CreateAssignmentInput, ReflectionQuestion, ReflectionResponse, QuizQuestion, QuizAnswer } from "@/lib/types/assignments";
 import { STATUS_COLORS, REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
 import type { Group } from "@/lib/types/groups";
 import { ClipPreview, ClipRow, splitCategory, slotName, outcomeClass } from "@/components/common/ClipPreview";
+import QuizEditor from "@/components/learning/QuizEditor";
+import QuizPlayer from "@/components/learning/QuizPlayer";
 
 export type LearningContext = {
   assignmentUser: AssignmentUser;
@@ -17,10 +19,13 @@ export type LearningContext = {
   instructions: string | null;
   dueDate: string | null;
   questions: ReflectionQuestion[];
+  quizQuestions: QuizQuestion[];
   onMarkComplete: () => Promise<void>;
   onToggleWatched: (itemId: string, nextIds: string[]) => Promise<void>;
   onSaveReflectionDraft: (responses: ReflectionResponse[]) => Promise<void>;
   onSubmitReflection: (responses: ReflectionResponse[]) => Promise<void>;
+  onSaveQuizAnswers: (answers: QuizAnswer[]) => Promise<void>;
+  onSubmitQuiz: (answers: QuizAnswer[], score: number, total: number) => Promise<void>;
   clipsLoading?: boolean;
   clipsError?: string;
 };
@@ -308,8 +313,9 @@ function AssignModal({
   const [title, setTitle]         = useState(playlist.title);
   const [instructions, setInst]   = useState("");
   const [dueDate, setDueDate]     = useState("");
-  const [required, setRequired]   = useState(false);
-  const [questions, setQuestions] = useState<ReflectionQuestion[]>([]);
+  const [required, setRequired]         = useState(false);
+  const [questions, setQuestions]       = useState<ReflectionQuestion[]>([]);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
 
   function addQuestion() {
     setQuestions(prev => [...prev, { id: crypto.randomUUID(), text: "", required: false, displayOrder: prev.length }]);
@@ -393,7 +399,7 @@ function AssignModal({
       if (userIds.length === 0) { setErr("No referees selected."); return; }
       setSaving(true);
       try {
-        await onSave({ playlistId: playlist.id, title: title.trim(), instructions: instructions.trim(), dueDate: dueDate || null, required, questions: questions.filter(q => q.text.trim()), userIds });
+        await onSave({ playlistId: playlist.id, title: title.trim(), instructions: instructions.trim(), dueDate: dueDate || null, required, questions: questions.filter(q => q.text.trim()), quizQuestions, userIds });
         onClose();
       } catch (e: any) {
         setErr(e?.message || "Failed to create assignment.");
@@ -512,6 +518,13 @@ function AssignModal({
                       ))}
                     </div>
                   )}
+                </div>
+                {/* Knowledge quiz */}
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                    <HelpCircle size={13} /> Knowledge Quiz <span className="hint" style={{ fontWeight: 400 }}>(optional)</span>
+                  </div>
+                  <QuizEditor questions={quizQuestions} onChange={setQuizQuestions} />
                 </div>
               </>
             )}
@@ -783,6 +796,7 @@ export function PlaylistDetailScreen({
   });
   const [reflectionSaving, setReflectionSaving] = useState(false);
   const [reflectionErr, setReflectionErr] = useState("");
+  const [quizOpen, setQuizOpen] = useState(false);
 
   const refAuId = learningContext?.assignmentUser.id;
   useEffect(() => {
@@ -963,7 +977,9 @@ export function PlaylistDetailScreen({
         const progressPct     = totalClips > 0 ? Math.round((watchedCount / totalClips) * 100) : 100;
         const hasQuestions    = learningContext.questions.length > 0;
         const reflectionDone  = !!learningContext.assignmentUser.reflectionSubmittedAt;
-        const canComplete     = allWatched && (!hasQuestions || reflectionDone);
+        const hasQuiz         = learningContext.quizQuestions.length > 0;
+        const quizDone        = !hasQuiz || !!learningContext.assignmentUser.quizSubmittedAt;
+        const canComplete     = allWatched && (!hasQuestions || reflectionDone) && quizDone;
         return (
           <div
             className="panel"
@@ -1016,22 +1032,40 @@ export function PlaylistDetailScreen({
                         Watch all {totalClips} clips to unlock the Complete button.
                       </p>
                     )}
-                    {/* Reflection prompt — appears once all clips are watched */}
-                    {allWatched && hasQuestions && (
-                      <div style={{ marginTop: 10 }}>
-                        {reflectionDone ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#22c55e" }}>
-                            <CheckCircle2 size={13} />
-                            Reflection submitted — you can now complete this assignment.
-                          </div>
-                        ) : (
-                          <button
-                            style={{ fontSize: 13, padding: "7px 16px", display: "flex", alignItems: "center", gap: 6 }}
-                            onClick={() => setReflectionOpen(true)}
-                          >
-                            <MessageSquare size={13} />
-                            {learningContext.assignmentUser.reflectionResponses ? "Continue Reflection" : "Answer Reflection Questions"}
-                          </button>
+                    {/* Activity prompts — appear once all clips are watched */}
+                    {allWatched && (hasQuestions || hasQuiz) && (
+                      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                        {hasQuestions && (
+                          reflectionDone ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#22c55e" }}>
+                              <CheckCircle2 size={13} />
+                              Reflection submitted.
+                            </div>
+                          ) : (
+                            <button
+                              style={{ fontSize: 13, padding: "7px 16px", display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}
+                              onClick={() => setReflectionOpen(true)}
+                            >
+                              <MessageSquare size={13} />
+                              {learningContext.assignmentUser.reflectionResponses ? "Continue Reflection" : "Answer Reflection Questions"}
+                            </button>
+                          )
+                        )}
+                        {hasQuiz && (!hasQuestions || reflectionDone) && (
+                          quizDone ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#22c55e" }}>
+                              <CheckCircle2 size={13} />
+                              Quiz submitted{learningContext.assignmentUser.quizScore !== null && learningContext.assignmentUser.quizTotal ? ` — ${learningContext.assignmentUser.quizScore}/${learningContext.assignmentUser.quizTotal}` : ""}.
+                            </div>
+                          ) : (
+                            <button
+                              style={{ fontSize: 13, padding: "7px 16px", display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}
+                              onClick={() => setQuizOpen(true)}
+                            >
+                              <HelpCircle size={13} />
+                              {learningContext.assignmentUser.quizAnswers ? "Continue Quiz" : "Take Knowledge Quiz"}
+                            </button>
+                          )
                         )}
                       </div>
                     )}
@@ -1079,6 +1113,8 @@ export function PlaylistDetailScreen({
                         ? `Watch all ${totalClips} clips first`
                         : hasQuestions && !reflectionDone
                         ? "Submit your reflection first"
+                        : hasQuiz && !quizDone
+                        ? "Complete the knowledge quiz first"
                         : "Mark assignment as complete"
                     }
                   >
@@ -1091,6 +1127,9 @@ export function PlaylistDetailScreen({
                   )}
                   {allWatched && hasQuestions && !reflectionDone && (
                     <span style={{ fontSize: 11, color: "var(--muted)" }}>Submit reflection to complete</span>
+                  )}
+                  {allWatched && (!hasQuestions || reflectionDone) && hasQuiz && !quizDone && (
+                    <span style={{ fontSize: 11, color: "var(--muted)" }}>Complete quiz to finish</span>
                   )}
                 </div>
               )}
@@ -1418,6 +1457,19 @@ export function PlaylistDetailScreen({
           </div>
         );
       })()}
+
+      {/* Quiz player (learning mode) */}
+      {learningContext && quizOpen && learningContext.quizQuestions.length > 0 && (
+        <QuizPlayer
+          questions={learningContext.quizQuestions}
+          assignmentUser={learningContext.assignmentUser}
+          onSaveAnswers={learningContext.onSaveQuizAnswers}
+          onSubmit={async (answers, score, total) => {
+            await learningContext.onSubmitQuiz(answers, score, total);
+          }}
+          onClose={() => setQuizOpen(false)}
+        />
+      )}
 
       {confirmDelete && (
         <ConfirmModal

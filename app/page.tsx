@@ -317,6 +317,8 @@ export default function Home() {
     updateWatchedClips,
     saveReflectionDraft,
     submitReflection,
+    saveQuizAnswers,
+    submitQuiz,
   } = useAssignments(session?.activeOrganisation?.id ?? "", session?.user.id ?? "");
 
   const {
@@ -1149,6 +1151,7 @@ export default function Home() {
             instructions: learningAssignmentUser.assignment.instructions,
             dueDate: learningAssignmentUser.assignment.dueDate,
             questions: learningAssignmentUser.assignment.questions,
+            quizQuestions: learningAssignmentUser.assignment.quizQuestions,
             clipsLoading: learningClipsLoading,
             clipsError: learningClipsError || undefined,
             onToggleWatched: async (_itemId, nextIds) => {
@@ -1159,6 +1162,18 @@ export default function Home() {
             },
             onSubmitReflection: async (responses) => {
               await submitReflection(learningAssignmentUser.assignmentUser.id, responses);
+            },
+            onSaveQuizAnswers: async (answers) => {
+              await saveQuizAnswers(learningAssignmentUser.assignmentUser.id, answers);
+            },
+            onSubmitQuiz: async (answers, score, total) => {
+              await submitQuiz(
+                learningAssignmentUser.assignmentUser.id,
+                answers,
+                score,
+                total,
+                learningAssignmentUser.assignmentUser.quizAttemptCount,
+              );
             },
             onMarkComplete: async () => {
               await updateAssignmentUserStatus(learningAssignmentUser.assignmentUser.id, "Completed");

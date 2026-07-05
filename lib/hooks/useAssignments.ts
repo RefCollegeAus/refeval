@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import type { Assignment, AssignmentUser, AssignmentStatus, CreateAssignmentInput, ReflectionQuestion, ReflectionResponse } from "@/lib/types/assignments";
+import type { Assignment, AssignmentUser, AssignmentStatus, CreateAssignmentInput, ReflectionQuestion, ReflectionResponse, QuizQuestion, QuizAnswer } from "@/lib/types/assignments";
 
 function mapAssignmentUser(row: any): AssignmentUser {
   return {
@@ -16,6 +16,11 @@ function mapAssignmentUser(row: any): AssignmentUser {
     watchedClipIds: Array.isArray(row.watched_clip_ids) ? (row.watched_clip_ids as string[]) : [],
     reflectionResponses: Array.isArray(row.reflection_responses) ? (row.reflection_responses as ReflectionResponse[]) : null,
     reflectionSubmittedAt: row.reflection_submitted_at ?? null,
+    quizAnswers: Array.isArray(row.quiz_answers) ? (row.quiz_answers as QuizAnswer[]) : null,
+    quizScore: row.quiz_score ?? null,
+    quizTotal: row.quiz_total ?? null,
+    quizSubmittedAt: row.quiz_submitted_at ?? null,
+    quizAttemptCount: row.quiz_attempt_count ?? 0,
   };
 }
 
@@ -34,6 +39,16 @@ function mapAssignment(row: any): Assignment {
       ? (row.questions as any[]).map((q, i) => ({
           id: q.id,
           text: q.text ?? "",
+          required: q.required ?? false,
+          displayOrder: q.displayOrder ?? i,
+        }))
+      : [],
+    quizQuestions: Array.isArray(row.quiz_questions)
+      ? (row.quiz_questions as any[]).map((q, i) => ({
+          id: q.id,
+          prompt: q.prompt ?? "",
+          answers: Array.isArray(q.answers) ? q.answers : [],
+          correctAnswerIndex: q.correctAnswerIndex ?? 0,
           required: q.required ?? false,
           displayOrder: q.displayOrder ?? i,
         }))
@@ -98,6 +113,7 @@ export function useAssignments(orgId: string, currentUserId: string) {
         due_date: input.dueDate || null,
         required: input.required,
         questions: input.questions,
+        quiz_questions: input.quizQuestions,
       })
       .select("id")
       .single();
@@ -117,7 +133,7 @@ export function useAssignments(orgId: string, currentUserId: string) {
 
   async function updateAssignment(
     id: string,
-    data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions?: ReflectionQuestion[] },
+    data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions?: ReflectionQuestion[]; quizQuestions?: QuizQuestion[] },
   ): Promise<void> {
     const patch: Record<string, unknown> = {
       title: data.title,
@@ -126,10 +142,43 @@ export function useAssignments(orgId: string, currentUserId: string) {
       required: data.required,
     };
     if (data.questions !== undefined) patch.questions = data.questions;
+    if (data.quizQuestions !== undefined) patch.quiz_questions = data.quizQuestions;
     const { error: err } = await getSupabaseClient()
       .from("learning_assignments")
       .update(patch)
       .eq("id", id);
+    if (err) throw err;
+    await load();
+  }
+
+  async function saveQuizAnswers(
+    assignmentUserId: string,
+    answers: QuizAnswer[],
+  ): Promise<void> {
+    const { error: err } = await getSupabaseClient()
+      .from("learning_assignment_users")
+      .update({ quiz_answers: answers })
+      .eq("id", assignmentUserId);
+    if (err) throw err;
+  }
+
+  async function submitQuiz(
+    assignmentUserId: string,
+    answers: QuizAnswer[],
+    score: number,
+    total: number,
+    previousAttemptCount: number,
+  ): Promise<void> {
+    const { error: err } = await getSupabaseClient()
+      .from("learning_assignment_users")
+      .update({
+        quiz_answers: answers,
+        quiz_score: score,
+        quiz_total: total,
+        quiz_submitted_at: new Date().toISOString(),
+        quiz_attempt_count: previousAttemptCount + 1,
+      })
+      .eq("id", assignmentUserId);
     if (err) throw err;
     await load();
   }
@@ -241,5 +290,7 @@ export function useAssignments(orgId: string, currentUserId: string) {
     updateWatchedClips,
     saveReflectionDraft,
     submitReflection,
+    saveQuizAnswers,
+    submitQuiz,
   };
 }

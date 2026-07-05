@@ -478,6 +478,11 @@ export type Database = {
           assignment_id: string
           completed_at: string | null
           id: string
+          quiz_answers: Json | null
+          quiz_attempt_count: number
+          quiz_score: number | null
+          quiz_submitted_at: string | null
+          quiz_total: number | null
           reflection_responses: Json | null
           reflection_submitted_at: string | null
           started_at: string | null
@@ -490,6 +495,11 @@ export type Database = {
           assignment_id: string
           completed_at?: string | null
           id?: string
+          quiz_answers?: Json | null
+          quiz_attempt_count?: number
+          quiz_score?: number | null
+          quiz_submitted_at?: string | null
+          quiz_total?: number | null
           reflection_responses?: Json | null
           reflection_submitted_at?: string | null
           started_at?: string | null
@@ -502,6 +512,11 @@ export type Database = {
           assignment_id?: string
           completed_at?: string | null
           id?: string
+          quiz_answers?: Json | null
+          quiz_attempt_count?: number
+          quiz_score?: number | null
+          quiz_submitted_at?: string | null
+          quiz_total?: number | null
           reflection_responses?: Json | null
           reflection_submitted_at?: string | null
           started_at?: string | null
@@ -529,6 +544,7 @@ export type Database = {
           organisation_id: string
           playlist_id: string
           questions: Json
+          quiz_questions: Json
           required: boolean
           title: string
         }
@@ -541,6 +557,7 @@ export type Database = {
           organisation_id: string
           playlist_id: string
           questions?: Json
+          quiz_questions?: Json
           required?: boolean
           title: string
         }
@@ -553,6 +570,7 @@ export type Database = {
           organisation_id?: string
           playlist_id?: string
           questions?: Json
+          quiz_questions?: Json
           required?: boolean
           title?: string
         }

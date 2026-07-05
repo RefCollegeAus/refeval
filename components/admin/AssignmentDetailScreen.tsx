@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, ChevronUp, CheckCircle2, ArrowUpDown, MessageSquare, Plus } from "lucide-react";
+import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, ChevronUp, CheckCircle2, ArrowUpDown, MessageSquare, Plus, HelpCircle } from "lucide-react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
-import type { Assignment, AssignmentStatus, ReflectionQuestion } from "@/lib/types/assignments";
+import type { Assignment, AssignmentStatus, ReflectionQuestion, QuizQuestion } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 import { ASSIGNMENT_STATUSES as ALL_STATUSES, STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE, learningPctColor } from "@/lib/types/assignments";
+import QuizEditor from "@/components/learning/QuizEditor";
 
 interface Props {
   assignment: Assignment;
@@ -15,7 +16,7 @@ interface Props {
   canEdit: boolean;
   canDelete: boolean;
   onBack: () => void;
-  onUpdate: (id: string, data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions?: ReflectionQuestion[] }) => Promise<void>;
+  onUpdate: (id: string, data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions?: ReflectionQuestion[]; quizQuestions?: QuizQuestion[] }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onAddUsers: (assignmentId: string, userIds: string[]) => Promise<{ added: number; skipped: number }>;
   onRemoveUser: (assignmentUserId: string) => Promise<void>;
@@ -35,16 +36,17 @@ function EditModal({
   onClose,
 }: {
   assignment: Assignment;
-  onSave: (data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions: ReflectionQuestion[] }) => Promise<void>;
+  onSave: (data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions: ReflectionQuestion[]; quizQuestions: QuizQuestion[] }) => Promise<void>;
   onClose: () => void;
 }) {
-  const [title, setTitle]         = useState(assignment.title);
-  const [instructions, setInstr]  = useState(assignment.instructions || "");
-  const [dueDate, setDueDate]     = useState(assignment.dueDate || "");
-  const [required, setRequired]   = useState(assignment.required);
-  const [questions, setQuestions] = useState<ReflectionQuestion[]>(assignment.questions ?? []);
-  const [saving, setSaving]       = useState(false);
-  const [err, setErr]             = useState("");
+  const [title, setTitle]               = useState(assignment.title);
+  const [instructions, setInstr]        = useState(assignment.instructions || "");
+  const [dueDate, setDueDate]           = useState(assignment.dueDate || "");
+  const [required, setRequired]         = useState(assignment.required);
+  const [questions, setQuestions]       = useState<ReflectionQuestion[]>(assignment.questions ?? []);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>(assignment.quizQuestions ?? []);
+  const [saving, setSaving]             = useState(false);
+  const [err, setErr]                   = useState("");
 
   function addQuestion() {
     setQuestions(prev => [...prev, { id: crypto.randomUUID(), text: "", required: false, displayOrder: prev.length }]);
@@ -84,6 +86,7 @@ function EditModal({
         dueDate: dueDate || null,
         required,
         questions: cleaned,
+        quizQuestions,
       });
       onClose();
     } catch (e: any) {
@@ -177,6 +180,14 @@ function EditModal({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Knowledge quiz */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+              <HelpCircle size={13} /> Knowledge Quiz <span className="hint" style={{ fontWeight: 400 }}>(optional)</span>
+            </div>
+            <QuizEditor questions={quizQuestions} onChange={setQuizQuestions} />
           </div>
 
           {err && <p className="danger-text">{err}</p>}
@@ -309,6 +320,7 @@ export function AssignmentDetailScreen({
   const [confirmDelete, setConfirmDelete]   = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [expandedResponsesId, setExpandedResponsesId] = useState<string | null>(null);
+  const [expandedQuizId, setExpandedQuizId] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus]   = useState<{
     auId: string;
     status: AssignmentStatus;
@@ -478,6 +490,24 @@ export function AssignmentDetailScreen({
           </div>
         )}
 
+        {/* Quiz summary */}
+        {assignment.quizQuestions.length > 0 && (
+          <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
+            <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+              <HelpCircle size={11} /> Knowledge Quiz ({assignment.quizQuestions.length} question{assignment.quizQuestions.length !== 1 ? "s" : ""})
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>
+              {assignment.assignmentUsers.filter(u => u.quizSubmittedAt).length} of {assignment.assignmentUsers.length} submitted
+              {(() => {
+                const submitted = assignment.assignmentUsers.filter(u => u.quizScore !== null && u.quizTotal);
+                if (submitted.length === 0) return null;
+                const avg = Math.round(submitted.reduce((s, u) => s + (u.quizScore! / u.quizTotal!) * 100, 0) / submitted.length);
+                return <span style={{ marginLeft: 8, color: learningPctColor(avg), fontWeight: 700 }}>avg {avg}%</span>;
+              })()}
+            </div>
+          </div>
+        )}
+
         {/* Reflection questions summary */}
         {assignment.questions.length > 0 && (
           <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
@@ -534,6 +564,7 @@ export function AssignmentDetailScreen({
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Status</th>
                   {totalClips > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, minWidth: 140 }}>Progress</th>}
                   {assignment.questions.length > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Reflection</th>}
+                  {assignment.quizQuestions.length > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Quiz</th>}
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Assigned</th>
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Completed</th>
                   {canEdit && <th style={{ padding: "8px 10px" }} />}
@@ -630,6 +661,22 @@ export function AssignmentDetailScreen({
                           )}
                         </td>
                       )}
+                      {assignment.quizQuestions.length > 0 && (
+                        <td style={{ padding: "10px 10px", whiteSpace: "nowrap", fontSize: 12 }}>
+                          {au.quizSubmittedAt ? (
+                            <button
+                              style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 4 }}
+                              onClick={() => setExpandedQuizId(expandedQuizId === au.id ? null : au.id)}
+                            >
+                              <HelpCircle size={11} />
+                              {au.quizScore !== null && au.quizTotal ? `${au.quizScore}/${au.quizTotal}` : "View"}
+                              {expandedQuizId === au.id ? " ▲" : " ▼"}
+                            </button>
+                          ) : (
+                            <span style={{ color: "var(--muted)" }}>—</span>
+                          )}
+                        </td>
+                      )}
                       <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12, minWidth: 90 }}>
                         {fmt(au.assignedAt)}
                       </td>
@@ -672,6 +719,59 @@ export function AssignmentDetailScreen({
                                   <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>{qi + 1}. {q.text}</div>
                                   <div style={{ fontSize: 13, color: resp?.response ? "var(--text)" : "var(--muted)", whiteSpace: "pre-wrap", paddingLeft: 14 }}>
                                     {resp?.response || <em>No response</em>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {/* Expanded quiz review */}
+                    {expandedQuizId === au.id && au.quizSubmittedAt && (
+                      <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--panel2)" }}>
+                        <td colSpan={99} style={{ padding: "12px 14px" }}>
+                          <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                            <HelpCircle size={11} />
+                            Quiz submitted {fmt(au.quizSubmittedAt)}
+                            {au.quizAttemptCount > 1 && <span>({au.quizAttemptCount} attempts)</span>}
+                            {au.quizScore !== null && au.quizTotal != null && (
+                              <span style={{ fontWeight: 700, color: learningPctColor(Math.round((au.quizScore / au.quizTotal) * 100)) }}>
+                                {au.quizScore}/{au.quizTotal} ({Math.round((au.quizScore / au.quizTotal) * 100)}%)
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            {assignment.quizQuestions.sort((a, b) => a.displayOrder - b.displayOrder).map((q, qi) => {
+                              const ans = au.quizAnswers?.find(a => a.questionId === q.id);
+                              const sel = ans?.selectedAnswerIndex ?? null;
+                              const correct = sel === q.correctAnswerIndex;
+                              return (
+                                <div key={q.id}>
+                                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                                    {qi + 1}. {q.prompt}
+                                    {sel !== null ? (
+                                      <span style={{ fontSize: 11, color: correct ? "#22c55e" : "#ef4444" }}>{correct ? "✓" : "✗"}</span>
+                                    ) : (
+                                      <span style={{ fontSize: 11, color: "var(--muted)" }}>no answer</span>
+                                    )}
+                                  </div>
+                                  <div style={{ paddingLeft: 14, display: "flex", flexDirection: "column", gap: 3 }}>
+                                    {q.answers.map((a, aIdx) => {
+                                      const isSelected = sel === aIdx;
+                                      const isCorrectAnswer = aIdx === q.correctAnswerIndex;
+                                      return (
+                                        <div key={aIdx} style={{
+                                          fontSize: 12, padding: "3px 8px", borderRadius: 5,
+                                          background: isCorrectAnswer ? "rgba(34,197,94,.1)" : isSelected && !correct ? "rgba(239,68,68,.1)" : "transparent",
+                                          border: `1px solid ${isCorrectAnswer ? "rgba(34,197,94,.3)" : isSelected && !correct ? "rgba(239,68,68,.3)" : "transparent"}`,
+                                          color: isSelected ? "var(--foreground)" : "var(--muted)",
+                                        }}>
+                                          {isSelected ? "→ " : "   "}{a}
+                                          {isCorrectAnswer && <span style={{ color: "#22c55e", marginLeft: 4 }}>✓</span>}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               );

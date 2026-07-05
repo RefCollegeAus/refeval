@@ -44,6 +44,20 @@ export const REQUIRED_BADGE_STYLE: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+export type QuizQuestion = {
+  id: string;
+  prompt: string;
+  answers: string[];
+  correctAnswerIndex: number;
+  required: boolean;
+  displayOrder: number;
+};
+
+export type QuizAnswer = {
+  questionId: string;
+  selectedAnswerIndex: number | null;
+};
+
 export type ReflectionQuestion = {
   id: string;
   text: string;
@@ -67,6 +81,11 @@ export type AssignmentUser = {
   watchedClipIds: string[];
   reflectionResponses: ReflectionResponse[] | null;
   reflectionSubmittedAt: string | null;
+  quizAnswers: QuizAnswer[] | null;
+  quizScore: number | null;
+  quizTotal: number | null;
+  quizSubmittedAt: string | null;
+  quizAttemptCount: number;
 };
 
 export type Assignment = {
@@ -80,6 +99,7 @@ export type Assignment = {
   required: boolean;
   createdAt: string;
   questions: ReflectionQuestion[];
+  quizQuestions: QuizQuestion[];
   assignmentUsers: AssignmentUser[];
 };
 
@@ -91,4 +111,5 @@ export type CreateAssignmentInput = {
   required: boolean;
   userIds: string[];
   questions: ReflectionQuestion[];
+  quizQuestions: QuizQuestion[];
 };
