@@ -1,34 +1,63 @@
 # RefCoach — Supabase Migration SQL Notes
 
-**Phase:** 13.5 blocked
+**Phase:** 13.5 complete
 **Date:** July 2026  
-**Status:** Draft SQL hardened — Phase 13.5 blocked pending DEV Supabase project setup.
+**Status:** All migrations applied to DEV. TypeScript types generated. Build passing.
 
 ---
 
-## Phase 13.5 blocker — DEV Supabase project required
+## Phase 13.5 — DEV migration test result
 
-**Blocked:** 5 July 2026
+**Tested:** 5 July 2026  
+**DEV project:** RefEval - Dev (`eydvhyajgoiaursfhyon.supabase.co`)  
+**Production project:** RefEval (`rydjxihdukoretyqqfue`) — not touched.  
+**CLI version:** 2.109.0 — linked via `supabase link --project-ref eydvhyajgoiaursfhyon`
 
-Phase 13.5 requires a separate DEV Supabase project. The only project currently
-configured in `.env.local` is `rydjxihdukoretyqqfue`, which is **production**.
-Draft migrations must not be applied to production.
+### Base migrations (001–017): applied via `supabase db push`
 
-**Steps required before Phase 13.5 can proceed:**
+All 17 applied successfully. One schema gap was found and fixed during this phase:
 
-1. Create a separate DEV Supabase project at supabase.com/dashboard.
-2. Apply base migrations `001–017` to the DEV project via the SQL editor to establish the base schema (`profiles`, `organisations`, `reviews`, `clips`, etc.).
-3. Add DEV credentials to a separate env file — **not** `.env.local` (which stays pointing at production):
-   ```
-   # .env.local.dev  (or .env.development — do not commit)
-   NEXT_PUBLIC_SUPABASE_URL=https://<dev-ref>.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=<dev-anon-key>
-   SUPABASE_SERVICE_ROLE_KEY=<dev-service-role-key>
-   ```
-4. Ensure the Supabase CLI is available (`brew install supabase/tap/supabase`) and a `SUPABASE_ACCESS_TOKEN` is set for type generation.
-5. Re-run Phase 13.5 once DEV is confirmed active.
+**Fix — `organisation_role` enum not captured in 001:**  
+The `organisation_role` enum type existed in the production database but was never included in any migration file. Migration 002 references it extensively. Added a `DO $$ ... IF NOT EXISTS` block at the top of `002_rls_policies.sql` to create the type, and an `ALTER TABLE organisation_members ALTER COLUMN role TYPE public.organisation_role USING role::public.organisation_role` to align the column type with production. File `supabase/migrations/002_rls_policies.sql` updated.
 
-**Do not apply migrations 018–025 to `rydjxihdukoretyqqfue` (production).**
+### Draft migrations (018–025): applied via `supabase db query --linked --file`
+
+All 8 applied with no errors.
+
+### Verification results
+
+| Check | Result |
+|---|---|
+| All 12 new tables present | ✅ All confirmed |
+| RLS enabled on all 12 new tables | ✅ All `rowsecurity = true` |
+| All policies present | ✅ All 43 policies confirmed |
+| `notifications` has no INSERT policy | ✅ Confirmed (SELECT, UPDATE, DELETE only) |
+| Helper functions | ✅ `is_super_admin`, `is_org_member`, `has_org_role`, `la_org_id`, `grp_org_id`, `dga_org_id`, `set_updated_at` all present |
+| All custom indexes present | ✅ All confirmed (partial indexes, composite indexes, unread index) |
+| Triggers on 5 tables | ✅ `development_goal_defs`, `referee_goals`, `development_notes`, `notification_preferences`, `user_thread_state` |
+| `learning_assignment_users.watched_clip_ids` | ✅ `jsonb`, default `'[]'` |
+| `profiles.onboarding_dismissed` | ✅ `boolean`, default `false` |
+| `user_thread_state` PK | ✅ Composite `(user_id, thread_key)` confirmed |
+| `sent_reminders` UNIQUE constraint | ✅ `(user_id, reminder_key)` |
+
+### TypeScript type generation
+
+Generated via `supabase gen types typescript --linked`.  
+Saved to `lib/supabase/database.types.ts` (1369 lines).  
+All 12 new tables and all SECURITY DEFINER functions appear in the output.
+
+### Build check
+
+`npm run build` — **passed with no errors or type warnings.**
+
+### Readiness for Phase 13.6 (first app-hook migration)
+
+DEV is confirmed ready. The schema is stable and matches the design in `supabase-schema-draft.md`. The generated `database.types.ts` is available for typed Supabase queries.
+
+**Next step:** Phase 13.6 — migrate app hooks one table at a time, starting with the highest-priority tables (`development_goal_defs`, `referee_goals`). Each hook migration should:
+1. Update the hook to read/write from Supabase (DEV).
+2. Keep the localStorage fallback in place until verified.
+3. Remove localStorage only after DEV hook is confirmed working end-to-end.
 
 ---
 

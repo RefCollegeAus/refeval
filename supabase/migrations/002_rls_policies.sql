@@ -15,6 +15,28 @@
 -- ============================================================
 
 -- ============================================================
+-- Step 0: Ensure organisation_role enum type exists
+-- This type was created directly in the original production database and
+-- was not captured in 001_initial_schema.sql. Defined here so this file
+-- is self-contained and safe to apply to a fresh environment.
+-- ============================================================
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'organisation_role') then
+    create type public.organisation_role as enum (
+      'super_admin', 'admin', 'educator', 'referee'
+    );
+  end if;
+end$$;
+
+-- Convert organisation_members.role from text to the enum type.
+-- In the original production database the column was created as organisation_role,
+-- not text. This aligns the DEV schema with production.
+alter table public.organisation_members
+  alter column role type public.organisation_role
+  using role::public.organisation_role;
+
+-- ============================================================
 -- Step 1: Drop existing policies on all affected tables
 -- ============================================================
 do $$
