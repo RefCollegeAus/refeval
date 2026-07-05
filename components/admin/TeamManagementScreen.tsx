@@ -205,7 +205,7 @@ export function TeamManagementScreen({ session, members, permissionMap, permissi
               <p className="eyebrow" style={{ margin: 0 }}>Organisation</p>
               <h1 style={{ margin: 0, fontSize: 22 }}>Team Management</h1>
               <p className="hint" style={{ margin: "2px 0 0" }}>
-                Manage individual permissions for each team member
+                Customise individual permissions for team members, or restore their role defaults.
               </p>
             </div>
           </div>
@@ -217,7 +217,7 @@ export function TeamManagementScreen({ session, members, permissionMap, permissi
           <Shield size={15} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>
             Permissions extend the base role. If a member has no custom permissions set, their role defaults apply.
-            Custom permissions override the role entirely for that member.
+            Custom permissions override the role entirely for that member. To see what each role includes by default, visit <strong>Roles & Permissions</strong> in Organisation Settings.
           </span>
         </div>
 
@@ -246,7 +246,12 @@ export function TeamManagementScreen({ session, members, permissionMap, permissi
 
         {/* Member table */}
         {!permissionsLoading && members.length === 0 && (
-          <p className="hint">No members found in this organisation.</p>
+          <div style={{ padding: "28px 0", textAlign: "center" }}>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No members yet</p>
+            <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
+              Invite your first members via Member Management, then return here to set custom permissions.
+            </p>
+          </div>
         )}
 
         {members.length > 0 && filtered.length === 0 && (

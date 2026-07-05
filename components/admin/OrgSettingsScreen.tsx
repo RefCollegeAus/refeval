@@ -72,6 +72,9 @@ export function OrgSettingsScreen({
           <div>
             <p className="eyebrow">{org.name}</p>
             <h1 style={{ marginBottom: 0 }}>Organisation Settings</h1>
+            <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
+              Update your organisation name, timezone, and brand colour.
+            </p>
           </div>
           <button onClick={onNavigateMembers}>← Member Management</button>
         </div>
@@ -130,7 +133,7 @@ export function OrgSettingsScreen({
               }}
             >
               <p className="hint" style={{ margin: 0 }}>
-                Logo upload requires Supabase Storage, which will be configured in a future update.
+                Logo upload is not yet available. For a full branding experience — including logo URL and colour customisation — visit <strong>Organisation → Branding</strong>.
               </p>
             </div>
           </label>

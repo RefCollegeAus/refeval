@@ -316,14 +316,14 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
   const coveragePct  = members.length > 0 ? Math.round((inGroupCount / members.length) * 100) : 0;
 
   // ── Setup health ──────────────────────────────────────────────────
-  type SetupItem = { label: string; done: boolean; page: OrgPage | null };
+  type SetupItem = { label: string; done: boolean; page: OrgPage | null; actionLabel: string };
   const setupItems: SetupItem[] = [
-    { label: "Contact email",            done: !!settings.profile.contactEmail.trim(),    page: "profile" },
-    { label: "Website",                  done: !!settings.profile.website.trim(),         page: "profile" },
-    { label: "Branding configured",      done: !!(settings.branding.logoUrl || settings.branding.logoText.trim()), page: "branding" },
-    { label: "Members invited",          done: members.length > 0,                        page: null },
-    { label: "Groups created",           done: groups.length > 0,                         page: "groups" },
-    { label: "Notifications configured", done: settings.notifications.notifyReviewAssigned || settings.notifications.notifyAssignmentAssigned, page: "notifications" },
+    { label: "Contact email",            done: !!settings.profile.contactEmail.trim(),    page: "profile",       actionLabel: "Add email" },
+    { label: "Website",                  done: !!settings.profile.website.trim(),         page: "profile",       actionLabel: "Add website" },
+    { label: "Branding configured",      done: !!(settings.branding.logoUrl || settings.branding.logoText.trim()), page: "branding", actionLabel: "Configure" },
+    { label: "Members invited",          done: members.length > 0,                        page: null,            actionLabel: "Invite members" },
+    { label: "Groups created",           done: groups.length > 0,                         page: "groups",        actionLabel: "Create group" },
+    { label: "Notifications configured", done: settings.notifications.notifyReviewAssigned || settings.notifications.notifyAssignmentAssigned, page: "notifications", actionLabel: "Configure" },
   ];
   const setupDone = setupItems.filter(s => s.done).length;
   const setupPct  = Math.round((setupDone / setupItems.length) * 100);
@@ -502,7 +502,7 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
 
           {/* Checklist grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 8 }}>
-            {setupItems.map(({ label, done, page }) => (
+            {setupItems.map(({ label, done, page, actionLabel }) => (
               <div key={label} style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 padding: "9px 12px", borderRadius: 9, gap: 10,
@@ -529,7 +529,7 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
                     style={{ fontSize: 11, padding: "2px 8px", flexShrink: 0 }}
                     onClick={page ? () => setCurrentPage(page) : onNavigateMembers}
                   >
-                    Fix →
+                    {actionLabel} →
                   </button>
                 )}
               </div>
@@ -553,7 +553,7 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
           {members.length === 0 && (
             <div style={{ padding: "24px 0", textAlign: "center" }}>
               <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No members yet</p>
-              <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>Invite users from the Admin Dashboard to populate your organisation.</p>
+              <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>Send your first invitation via Member Management to get your organisation up and running.</p>
             </div>
           )}
           {members.length > 0 && (
@@ -2833,7 +2833,7 @@ function MembersPage({ members, org, onNavigateMembers, setCurrentPage }: PageCt
             <Users size={28} style={{ color: "var(--muted)", margin: "0 auto 10px", display: "block" }} />
             <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No members yet</p>
             <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
-              Go to Admin Dashboard to invite users to your organisation.
+              Use Member Management to send invitations and manage user roles.
             </p>
           </div>
         ) : (

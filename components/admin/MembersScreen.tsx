@@ -18,6 +18,14 @@ const ROLE_LABELS: Record<Role, string> = {
   super_admin: "Super Admin",
 };
 
+const ROLE_DESCRIPTIONS: Record<Role, string> = {
+  super_admin: "Full platform access — all features, settings, and role assignment.",
+  admin:       "Organisation management — invite members, configure settings, and access all tools.",
+  educator:    "Creates reviews, manages learning assignments, and coaches referees.",
+  referee:     "Views their own reviews, completes assigned learning, and tracks development goals.",
+  viewer:      "No default access — permissions can be assigned individually.",
+};
+
 const ROLE_COLOR: Record<Role, string> = {
   referee:     "#30d158",
   educator:    "#6fb8ff",
@@ -259,6 +267,9 @@ export function MembersScreen({
                 <option key={r} value={r}>{ROLE_LABELS[r]}</option>
               ))}
             </select>
+            <span className="hint" style={{ fontSize: 11, marginTop: 4, display: "block" }}>
+              {ROLE_DESCRIPTIONS[inviteRole]}
+            </span>
           </label>
           <div style={{ display: "grid", gap: 8 }}>
             {inviteError && <p className="danger-text" style={{ margin: 0, fontSize: 13 }}>{inviteError}</p>}
@@ -267,6 +278,11 @@ export function MembersScreen({
             </button>
           </div>
         </form>
+        {!isSuperAdmin && (
+          <p className="hint" style={{ margin: "10px 0 0", fontSize: 12 }}>
+            Admin and Super Admin roles can only be assigned by a Super Admin.
+          </p>
+        )}
       </div>
 
       {/* ── Member list ── */}

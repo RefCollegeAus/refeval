@@ -11,11 +11,19 @@ import type { EnrichedMember } from "@/lib/types/members";
 import type { Role, RefEvalSession } from "@/lib/types/auth";
 
 const ROLE_LABELS: Record<Role, string> = {
-  viewer: "Viewer",
-  referee: "Referee",
-  educator: "Educator",
-  admin: "Org Admin",
+  viewer:      "Viewer",
+  referee:     "Referee",
+  educator:    "Educator",
+  admin:       "Org Admin",
   super_admin: "Super Admin",
+};
+
+const ROLE_DESCRIPTIONS: Record<Role, string> = {
+  super_admin: "Full platform access — all features, settings, and role assignment.",
+  admin:       "Organisation management — members, settings, and all tools.",
+  educator:    "Creates reviews, manages learning assignments, and coaches referees.",
+  referee:     "Views own reviews, completes assigned learning, tracks development goals.",
+  viewer:      "No default access — permissions can be assigned individually.",
 };
 
 type Section = "profile" | "security";
@@ -217,15 +225,20 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
                     <span className="hint" style={{ fontSize: 11, marginTop: 4, display: "block" }}>You cannot change your own role.</span>
                   </>
                 ) : (
-                  <select
-                    value={editRole}
-                    onChange={e => setEditRole(e.target.value as Role)}
-                    style={{ width: "auto", padding: "7px 10px", fontSize: 13 }}
-                  >
-                    {assignableRoles.map(r => (
-                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                    ))}
-                  </select>
+                  <>
+                    <select
+                      value={editRole}
+                      onChange={e => setEditRole(e.target.value as Role)}
+                      style={{ width: "auto", padding: "7px 10px", fontSize: 13 }}
+                    >
+                      {assignableRoles.map(r => (
+                        <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                      ))}
+                    </select>
+                    <span className="hint" style={{ fontSize: 11, marginTop: 4, display: "block" }}>
+                      {ROLE_DESCRIPTIONS[editRole]}
+                    </span>
+                  </>
                 )}
               </label>
 
