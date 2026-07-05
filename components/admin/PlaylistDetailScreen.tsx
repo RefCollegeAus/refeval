@@ -17,6 +17,7 @@ export type LearningContext = {
   instructions: string | null;
   dueDate: string | null;
   onMarkComplete: () => Promise<void>;
+  onToggleWatched: (itemId: string, nextIds: string[]) => Promise<void>;
   clipsLoading?: boolean;
   clipsError?: string;
 };
@@ -680,22 +681,28 @@ export function PlaylistDetailScreen({
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState(false);
 
-  // Watched-clip tracking (learning mode only)
-  const watchedKey = learningContext ? `refcoach_watched_clips_${learningContext.assignmentUser.id}` : null;
-  const [watchedItemIds, setWatchedItemIds] = useState<Set<string>>(() => {
-    if (!learningContext) return new Set();
-    try {
-      const raw = localStorage.getItem(`refcoach_watched_clips_${learningContext.assignmentUser.id}`);
-      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
-    } catch { return new Set(); }
-  });
+  // Watched-clip tracking (learning mode only) — persisted to watched_clip_ids on learning_assignment_users
+  const [watchedItemIds, setWatchedItemIds] = useState<Set<string>>(
+    () => new Set(learningContext?.assignmentUser.watchedClipIds ?? []),
+  );
+
+  // Sync if the assignmentUser prop is refreshed from outside (e.g. after status update)
+  const auId = learningContext?.assignmentUser.id;
+  useEffect(() => {
+    setWatchedItemIds(new Set(learningContext?.assignmentUser.watchedClipIds ?? []));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auId]);
 
   function toggleWatched(itemId: string) {
-    if (!watchedKey) return;
+    if (!learningContext) return;
     setWatchedItemIds(prev => {
       const next = new Set(prev);
       next.has(itemId) ? next.delete(itemId) : next.add(itemId);
-      try { localStorage.setItem(watchedKey, JSON.stringify(Array.from(next))); } catch {}
+      const nextArr = Array.from(next);
+      // Fire-and-forget — optimistic local update already applied above
+      learningContext.onToggleWatched(itemId, nextArr).catch(err =>
+        console.error("[PlaylistDetailScreen] toggleWatched error:", err),
+      );
       return next;
     });
   }

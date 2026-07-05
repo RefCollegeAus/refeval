@@ -13,6 +13,7 @@ function mapAssignmentUser(row: any): AssignmentUser {
     assignedAt: row.assigned_at,
     startedAt: row.started_at ?? null,
     completedAt: row.completed_at ?? null,
+    watchedClipIds: Array.isArray(row.watched_clip_ids) ? (row.watched_clip_ids as string[]) : [],
   };
 }
 
@@ -173,6 +174,19 @@ export function useAssignments(orgId: string, currentUserId: string) {
     await load();
   }
 
+  async function updateWatchedClips(
+    assignmentUserId: string,
+    itemIds: string[],
+  ): Promise<void> {
+    const { error: err } = await getSupabaseClient()
+      .from("learning_assignment_users")
+      .update({ watched_clip_ids: itemIds })
+      .eq("id", assignmentUserId);
+    if (err) throw err;
+    // No full reload — the local watched state is managed in PlaylistDetailScreen.
+    // A reload would re-fetch all assignments on every clip toggle, which is too expensive.
+  }
+
   return {
     assignments,
     myAssignments,
@@ -185,5 +199,6 @@ export function useAssignments(orgId: string, currentUserId: string) {
     addUsersToAssignment,
     removeUserFromAssignment,
     updateAssignmentUserStatus,
+    updateWatchedClips,
   };
 }

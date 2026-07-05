@@ -52,6 +52,7 @@ export type AssignmentUser = {
   assignedAt: string;
   startedAt: string | null;
   completedAt: string | null;
+  watchedClipIds: string[];
 };
 
 export type Assignment = {

@@ -301,6 +301,7 @@ export default function Home() {
     addUsersToAssignment,
     removeUserFromAssignment,
     updateAssignmentUserStatus,
+    updateWatchedClips,
   } = useAssignments(session?.activeOrganisation?.id ?? "", session?.user.id ?? "");
 
   const {
@@ -1128,6 +1129,9 @@ export default function Home() {
             dueDate: learningAssignmentUser.assignment.dueDate,
             clipsLoading: learningClipsLoading,
             clipsError: learningClipsError || undefined,
+            onToggleWatched: async (_itemId, nextIds) => {
+              await updateWatchedClips(learningAssignmentUser.assignmentUser.id, nextIds);
+            },
             onMarkComplete: async () => {
               await updateAssignmentUserStatus(learningAssignmentUser.assignmentUser.id, "Completed");
               if (session?.activeOrganisation?.id && session.user.id) {
