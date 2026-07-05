@@ -1,8 +1,34 @@
 # RefCoach — Supabase Migration SQL Notes
 
-**Phase:** 13.4 (hardened — ready for dev instance review)
+**Phase:** 13.5 blocked
 **Date:** July 2026  
-**Status:** Draft SQL hardened — not applied to Supabase.
+**Status:** Draft SQL hardened — Phase 13.5 blocked pending DEV Supabase project setup.
+
+---
+
+## Phase 13.5 blocker — DEV Supabase project required
+
+**Blocked:** 5 July 2026
+
+Phase 13.5 requires a separate DEV Supabase project. The only project currently
+configured in `.env.local` is `rydjxihdukoretyqqfue`, which is **production**.
+Draft migrations must not be applied to production.
+
+**Steps required before Phase 13.5 can proceed:**
+
+1. Create a separate DEV Supabase project at supabase.com/dashboard.
+2. Apply base migrations `001–017` to the DEV project via the SQL editor to establish the base schema (`profiles`, `organisations`, `reviews`, `clips`, etc.).
+3. Add DEV credentials to a separate env file — **not** `.env.local` (which stays pointing at production):
+   ```
+   # .env.local.dev  (or .env.development — do not commit)
+   NEXT_PUBLIC_SUPABASE_URL=https://<dev-ref>.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=<dev-anon-key>
+   SUPABASE_SERVICE_ROLE_KEY=<dev-service-role-key>
+   ```
+4. Ensure the Supabase CLI is available (`brew install supabase/tap/supabase`) and a `SUPABASE_ACCESS_TOKEN` is set for type generation.
+5. Re-run Phase 13.5 once DEV is confirmed active.
+
+**Do not apply migrations 018–025 to `rydjxihdukoretyqqfue` (production).**
 
 ---
 
