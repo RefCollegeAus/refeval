@@ -1229,6 +1229,8 @@ export default function Home() {
           members={members}
           canEdit={canEditAssignments}
           canDelete={canDeleteAssignments}
+          reviews={reviews}
+          tags={tags}
           onBack={() => setScreen("assignments")}
           onUpdate={updateAssignment}
           onDelete={async (id) => { await deleteAssignment(id); setActiveAssignmentId(null); setScreen("assignments"); }}
@@ -1282,6 +1284,8 @@ export default function Home() {
           session={session!}
           members={members}
           groups={groups}
+          reviews={reviews}
+          tags={tags}
           onCreate={async (input) => { await createAssignment(input); }}
           onBack={() => setScreen("assignments")}
         />
@@ -1354,8 +1358,8 @@ export default function Home() {
           assignmentUser={assignmentUser}
           assignedByName={runnerAssignedByName}
           playlist={runnerPlaylist}
-          reviews={learningReviews}
-          tags={learningTags}
+          reviews={reviews}
+          tags={tags}
           clipsLoading={learningClipsLoading}
           clipsError={learningClipsError || ""}
           onToggleWatched={async (_itemId, nextIds) => {

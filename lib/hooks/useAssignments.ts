@@ -56,6 +56,8 @@ function mapAssignment(row: any): Assignment {
           explanation: q.explanation ?? undefined,
           resourceType: q.resourceType ?? null,
           resourceVideoUrl: q.resourceVideoUrl ?? null,
+          resourceReviewId: q.resourceReviewId ?? null,
+          resourceTagId: q.resourceTagId ?? null,
         }))
       : [],
     assignmentUsers: Array.isArray(row.learning_assignment_users)

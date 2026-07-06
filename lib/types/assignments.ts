@@ -53,8 +53,10 @@ export type QuizQuestion = {
   displayOrder: number;
   clipResourceId?: string | null;
   explanation?: string;
-  resourceType?: "video_url" | null;
+  resourceType?: "video_url" | "review_clip" | null;
   resourceVideoUrl?: string | null;
+  resourceReviewId?: string | null;
+  resourceTagId?: string | null;
 };
 
 export type QuizAnswer = {

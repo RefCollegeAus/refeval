@@ -350,6 +350,8 @@ export function LearningAssignmentRunner({
           open={quizOpen}
           canComplete={canComplete}
           isCompleted={isCompleted}
+          reviews={reviews}
+          tags={tags}
           onClose={() => setQuizOpen(false)}
           onSaveAnswers={onSaveQuizAnswers}
           onSubmit={onSubmitQuiz}

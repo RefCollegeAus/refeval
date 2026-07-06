@@ -9,16 +9,19 @@ import type { Group } from "@/lib/types/groups";
 import { RecipientPicker } from "@/components/common/RecipientPicker";
 import type { AssignTab } from "@/components/common/RecipientPicker";
 import QuizEditor from "@/components/learning/QuizEditor";
+import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 
 interface Props {
   session: RefEvalSession;
   members: MemberRecord[];
   groups: Group[];
+  reviews?: ReviewRecord[];
+  tags?: CodedTag[];
   onCreate: (input: CreateAssignmentInput) => Promise<void>;
   onBack: () => void;
 }
 
-export function QuizBuilderScreen({ members, groups, onCreate, onBack }: Props) {
+export function QuizBuilderScreen({ members, groups, reviews = [], tags = [], onCreate, onBack }: Props) {
   const [title, setTitle]               = useState("");
   const [instructions, setInstructions]   = useState("");
   const [dueDate, setDueDate]             = useState("");
@@ -171,7 +174,7 @@ export function QuizBuilderScreen({ members, groups, onCreate, onBack }: Props) 
                 Add questions below. Each question needs a prompt, at least two answers, and a correct answer selected.
               </p>
             )}
-            <QuizEditor questions={quizQuestions} onChange={setQuizQuestions} />
+            <QuizEditor questions={quizQuestions} onChange={setQuizQuestions} reviews={reviews} tags={tags} />
           </div>
         </div>
 

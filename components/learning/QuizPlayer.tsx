@@ -3,7 +3,9 @@
 import { useState, useMemo } from "react";
 import { CheckCircle2, XCircle, Info } from "lucide-react";
 import type { QuizQuestion, QuizAnswer, AssignmentUser } from "@/lib/types/assignments";
+import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
+import { slotName, splitCategory } from "@/components/common/ClipPreview";
 
 interface Props {
   questions: QuizQuestion[];
@@ -11,6 +13,8 @@ interface Props {
   allowRetakes: boolean;
   canComplete: boolean;
   isCompleted: boolean;
+  reviews?: ReviewRecord[];
+  tags?: CodedTag[];
   onSaveAnswers: (answers: QuizAnswer[]) => Promise<void>;
   onSubmit: (answers: QuizAnswer[], score: number, total: number) => Promise<void>;
   onClose: () => void;
@@ -23,7 +27,7 @@ function pctColor(pct: number) {
   return "#ef4444";
 }
 
-export default function QuizPlayer({ questions, assignmentUser, allowRetakes, canComplete, isCompleted, onSaveAnswers, onSubmit, onClose, onComplete }: Props) {
+export default function QuizPlayer({ questions, assignmentUser, allowRetakes, canComplete, isCompleted, reviews = [], tags = [], onSaveAnswers, onSubmit, onClose, onComplete }: Props) {
   const sorted = useMemo(
     () => [...questions].sort((a, b) => a.displayOrder - b.displayOrder),
     [questions],
@@ -80,33 +84,86 @@ export default function QuizPlayer({ questions, assignmentUser, allowRetakes, ca
   const pct = score !== null && total ? Math.round((score / total) * 100) : null;
 
   function renderQuestionVideo(q: QuizQuestion) {
-    if (q.resourceType !== "video_url" || !q.resourceVideoUrl?.trim()) return null;
-    const url = q.resourceVideoUrl.trim();
-    const ytId = getYouTubeId(url);
-    if (ytId) {
+    if (q.resourceType === "video_url") {
+      const url = q.resourceVideoUrl?.trim();
+      if (!url) return null;
+      const ytId = getYouTubeId(url);
+      if (ytId) {
+        return (
+          <div style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", background: "#000", aspectRatio: "16/9" }}>
+            <iframe
+              src={`https://www.youtube.com/embed/${ytId}?rel=0`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+            />
+          </div>
+        );
+      }
+      if (isDirectVideoUrl(url)) {
+        return (
+          <div style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", background: "#000" }}>
+            <video
+              src={url}
+              controls
+              style={{ width: "100%", display: "block", maxHeight: 280 }}
+              onError={e => { (e.currentTarget.parentElement!.style.display = "none"); }}
+            />
+          </div>
+        );
+      }
+      return null;
+    }
+
+    if (q.resourceType === "review_clip") {
+      const review = reviews.find(r => r.id === q.resourceReviewId);
+      const tag = tags.find(t => t.id === q.resourceTagId);
+      if (!review || !tag) return null;
+
+      const refName = slotName(tag.refereeTarget, review);
+      const [catGroup, catSub] = splitCategory(tag.category);
+      const catLabel = catSub ? `${catGroup} — ${catSub}` : catGroup || "";
+      const startSec = Math.max(0, tag.adjustedSeconds - 5);
+      const ytId = getYouTubeId(review.videoLink);
+      const isDirect = !ytId && isDirectVideoUrl(review.videoLink);
+
       return (
-        <div style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", background: "#000", aspectRatio: "16/9" }}>
-          <iframe
-            src={`https://www.youtube.com/embed/${ytId}?rel=0`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            style={{ width: "100%", height: "100%", border: "none", display: "block" }}
-          />
+        <div style={{ marginBottom: 12 }}>
+          {ytId ? (
+            <div style={{ borderRadius: 10, overflow: "hidden", background: "#000", aspectRatio: "16/9" }}>
+              <iframe
+                src={`https://www.youtube.com/embed/${ytId}?start=${Math.floor(startSec)}&rel=0`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+              />
+            </div>
+          ) : isDirect ? (
+            <div style={{ borderRadius: 10, overflow: "hidden", background: "#000" }}>
+              <video
+                src={review.videoLink}
+                controls
+                style={{ width: "100%", display: "block", maxHeight: 280 }}
+                onLoadedMetadata={e => { e.currentTarget.currentTime = startSec; }}
+                onError={e => { (e.currentTarget.parentElement!.style.display = "none"); }}
+              />
+            </div>
+          ) : null}
+          <div style={{
+            marginTop: 6, padding: "7px 10px",
+            background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)",
+            borderRadius: 8, display: "flex", gap: 12, flexWrap: "wrap", fontSize: 11, color: "var(--muted)",
+          }}>
+            <span style={{ fontWeight: 600, color: "var(--text)" }}>{review.game}</span>
+            <span>{tag.adjustedTime}</span>
+            <span>{refName}</span>
+            {catLabel && <span>{catLabel}</span>}
+            {tag.notes && <span style={{ fontStyle: "italic" }}>{tag.notes}</span>}
+          </div>
         </div>
       );
     }
-    if (isDirectVideoUrl(url)) {
-      return (
-        <div style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", background: "#000" }}>
-          <video
-            src={url}
-            controls
-            style={{ width: "100%", display: "block", maxHeight: 280 }}
-            onError={e => { (e.currentTarget.parentElement!.style.display = "none"); }}
-          />
-        </div>
-      );
-    }
+
     return null;
   }
 

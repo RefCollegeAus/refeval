@@ -8,6 +8,7 @@ import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 import { ASSIGNMENT_STATUSES as ALL_STATUSES, STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE, learningPctColor } from "@/lib/types/assignments";
 import QuizEditor from "@/components/learning/QuizEditor";
+import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 
 interface Props {
   assignment: Assignment;
@@ -15,6 +16,8 @@ interface Props {
   members: MemberRecord[];
   canEdit: boolean;
   canDelete: boolean;
+  reviews?: ReviewRecord[];
+  tags?: CodedTag[];
   onBack: () => void;
   onUpdate: (id: string, data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; quizAllowRetakes?: boolean; questions?: ReflectionQuestion[]; quizQuestions?: QuizQuestion[] }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -32,10 +35,14 @@ function fmt(iso: string | null | undefined) {
 
 function EditModal({
   assignment,
+  reviews = [],
+  tags = [],
   onSave,
   onClose,
 }: {
   assignment: Assignment;
+  reviews?: ReviewRecord[];
+  tags?: CodedTag[];
   onSave: (data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; quizAllowRetakes: boolean; questions: ReflectionQuestion[]; quizQuestions: QuizQuestion[] }) => Promise<void>;
   onClose: () => void;
 }) {
@@ -200,7 +207,7 @@ function EditModal({
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
               <HelpCircle size={13} /> Knowledge Quiz <span className="hint" style={{ fontWeight: 400 }}>(optional)</span>
             </div>
-            <QuizEditor questions={quizQuestions} onChange={setQuizQuestions} />
+            <QuizEditor questions={quizQuestions} onChange={setQuizQuestions} reviews={reviews} tags={tags} />
           </div>
 
           {err && <p className="danger-text">{err}</p>}
@@ -323,7 +330,7 @@ function AddUsersPanel({
 // ── Assignment Detail Screen ──────────────────────────────────────────────────
 
 export function AssignmentDetailScreen({
-  assignment, playlist, members, canEdit, canDelete,
+  assignment, playlist, members, canEdit, canDelete, reviews = [], tags = [],
   onBack, onUpdate, onDelete, onAddUsers, onRemoveUser, onUpdateStatus,
 }: Props) {
   const [editOpen, setEditOpen]             = useState(false);
@@ -844,6 +851,8 @@ export function AssignmentDetailScreen({
       {editOpen && (
         <EditModal
           assignment={assignment}
+          reviews={reviews}
+          tags={tags}
           onSave={data => onUpdate(assignment.id, data)}
           onClose={() => setEditOpen(false)}
         />

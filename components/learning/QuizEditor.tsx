@@ -1,12 +1,17 @@
 "use client";
 
-import { useCallback } from "react";
+import { useState, useCallback } from "react";
 function uuidv4() { return crypto.randomUUID(); }
 import type { QuizQuestion } from "@/lib/types/assignments";
+import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
+import { ClipPickerModal } from "@/components/learning/ClipPickerModal";
+import { slotName, splitCategory } from "@/components/common/ClipPreview";
 
 interface Props {
   questions: QuizQuestion[];
   onChange: (questions: QuizQuestion[]) => void;
+  reviews?: ReviewRecord[];
+  tags?: CodedTag[];
 }
 
 const btn: React.CSSProperties = {
@@ -28,7 +33,8 @@ const dangerBtn: React.CSSProperties = {
   color: "#fca5a5",
 };
 
-export default function QuizEditor({ questions, onChange }: Props) {
+export default function QuizEditor({ questions, onChange, reviews = [], tags = [] }: Props) {
+  const [pickerForQuestionId, setPickerForQuestionId] = useState<string | null>(null);
   const sorted = [...questions].sort((a, b) => a.displayOrder - b.displayOrder);
 
   const update = useCallback(
@@ -188,9 +194,11 @@ export default function QuizEditor({ questions, onChange }: Props) {
                   onChange={e => {
                     const val = e.target.value;
                     if (val === "none") {
-                      update(q.id, { resourceType: null, resourceVideoUrl: null });
+                      update(q.id, { resourceType: null, resourceVideoUrl: null, resourceReviewId: null, resourceTagId: null });
                     } else if (val === "video_url") {
-                      update(q.id, { resourceType: "video_url", resourceVideoUrl: q.resourceVideoUrl ?? "" });
+                      update(q.id, { resourceType: "video_url", resourceReviewId: null, resourceTagId: null });
+                    } else if (val === "review_clip") {
+                      update(q.id, { resourceType: "review_clip", resourceVideoUrl: null });
                     }
                   }}
                   style={{
@@ -201,9 +209,10 @@ export default function QuizEditor({ questions, onChange }: Props) {
                 >
                   <option value="none">None</option>
                   <option value="video_url">Video URL</option>
-                  <option value="clip" disabled>Attach Clip (coming soon)</option>
+                  <option value="review_clip">RefCoach Clip</option>
                 </select>
               </div>
+
               {q.resourceType === "video_url" && (
                 <input
                   type="url"
@@ -217,6 +226,44 @@ export default function QuizEditor({ questions, onChange }: Props) {
                   }}
                 />
               )}
+
+              {q.resourceType === "review_clip" && (() => {
+                const review = reviews.find(r => r.id === q.resourceReviewId);
+                const tag = tags.find(t => t.id === q.resourceTagId);
+                if (review && tag) {
+                  const refName = slotName(tag.refereeTarget, review);
+                  const [catGroup, catSub] = splitCategory(tag.category);
+                  const catLabel = catSub ? `${catGroup} — ${catSub}` : catGroup || "";
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(99,102,241,.1)", border: "1px solid rgba(99,102,241,.25)", borderRadius: 7 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {review.game}
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                          {tag.adjustedTime} · {refName}{catLabel ? ` · ${catLabel}` : ""}
+                        </div>
+                      </div>
+                      <button
+                        style={btn}
+                        onClick={() => setPickerForQuestionId(q.id)}
+                      >Change</button>
+                      <button
+                        style={dangerBtn}
+                        onClick={() => update(q.id, { resourceReviewId: null, resourceTagId: null })}
+                      >Remove</button>
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    style={{ ...btn, alignSelf: "flex-start" }}
+                    onClick={() => setPickerForQuestionId(q.id)}
+                  >
+                    Choose Clip…
+                  </button>
+                );
+              })()}
             </div>
 
             <div style={{ marginTop: 10 }}>
@@ -251,6 +298,18 @@ export default function QuizEditor({ questions, onChange }: Props) {
       >
         + Add Question
       </button>
+
+      {pickerForQuestionId && (
+        <ClipPickerModal
+          reviews={reviews}
+          tags={tags}
+          onSelect={(reviewId, tagId) => {
+            update(pickerForQuestionId, { resourceReviewId: reviewId, resourceTagId: tagId });
+            setPickerForQuestionId(null);
+          }}
+          onClose={() => setPickerForQuestionId(null)}
+        />
+      )}
     </div>
   );
 }
