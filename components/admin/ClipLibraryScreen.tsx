@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ListVideo, Search, X, CheckSquare, Square, ChevronLeft, AlertTriangle, BookOpen, Layers } from "lucide-react";
+import { ListVideo, Search, X, CheckSquare, Square, ChevronLeft, AlertTriangle, BookOpen, Library, FileText, LayoutGrid, Users2 } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import { ClipPreview, ClipRow, splitCategory, slotName, outcomeClass } from "@/components/common/ClipPreview";
@@ -20,6 +20,7 @@ interface Props {
   initialTab?: LibraryTab;
   onRemoveFromLearningLibrary?: (tagId: string) => Promise<void>;
   onNavigateToQuizBuilder?: () => void;
+  onNavigateToLearningLibrary?: () => void;
 }
 
 // ── Remove from Learning Library button ───────────────────────────────────────
@@ -115,7 +116,7 @@ function CreatePlaylistModal({ clipCount, onSave, onClose }: CreateModalProps) {
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
-export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview, onCreatePlaylist, onViewPlaylist, canCreatePlaylists = true, initialTab = "all", onRemoveFromLearningLibrary, onNavigateToQuizBuilder }: Props) {
+export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview, onCreatePlaylist, onViewPlaylist, canCreatePlaylists = true, initialTab = "all", onRemoveFromLearningLibrary, onNavigateToQuizBuilder, onNavigateToLearningLibrary }: Props) {
   const orgId = session.activeOrganisation?.id ?? "";
 
   // ── Tab ───────────────────────────────────────────────────────────────────────
@@ -249,6 +250,21 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
   const effectiveSelCount = useMemo(() => Array.from(selected).filter(id => visibleIdSet.has(id)).length, [selected, visibleIdSet]);
   const hiddenSelCount = selected.size - effectiveSelCount;
 
+  // ── Learning stats (only computed in learning mode) ────────────────────────
+  const learningStats = useMemo(() => {
+    if (tab !== "learning") return null;
+    const reviewCount = new Set(allRows.map(r => r.review.id)).size;
+    const categoryCount = new Set(allRows.map(r => r.categoryGroup).filter(Boolean)).size;
+    const withNotesCount = allRows.filter(r => r.tag.notes?.trim()).length;
+    return { total: allRows.length, reviewCount, categoryCount, withNotesCount };
+  }, [allRows, tab]);
+
+  function handleAddToPlaylistFromPreview() {
+    if (!previewClip) return;
+    setSelected(new Set([previewClip.tag.id]));
+    setCreateModalOpen(true);
+  }
+
   return (
     <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
 
@@ -257,21 +273,33 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
         <div className="table-head" style={{ marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {tab === "learning"
-              ? <BookOpen size={20} style={{ color: "#86efac", flexShrink: 0 }} />
+              ? <Library size={20} style={{ color: "#86efac", flexShrink: 0 }} />
               : <ListVideo size={20} style={{ color: "var(--muted)", flexShrink: 0 }} />
             }
             <div>
-              <p className="eyebrow" style={{ margin: 0 }}>Organisation</p>
-              <h1 style={{ margin: 0, fontSize: 22 }}>{tab === "learning" ? "Learning Library" : "Clip Library"}</h1>
+              <p className="eyebrow" style={{ margin: 0 }}>
+                {tab === "learning" ? "Learning Hub" : "Organisation"}
+              </p>
+              <h1 style={{ margin: 0, fontSize: 22 }}>
+                {tab === "learning" ? "Learning Library" : "Clip Library"}
+              </h1>
               <p className="hint" style={{ margin: "2px 0 0" }}>
                 {tab === "learning"
-                  ? `Clips marked for learning · ${allRows.length} total`
+                  ? "Clips marked for learning and education"
                   : `Clips from completed evaluations · ${allRows.length} total`
                 }
               </p>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            {tab === "all" && onNavigateToLearningLibrary && (
+              <button
+                onClick={onNavigateToLearningLibrary}
+                style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "5px 11px", color: "#86efac", border: "1px solid rgba(34,197,94,.3)", background: "rgba(34,197,94,.07)", borderRadius: 7 }}
+              >
+                <Library size={12} /> Learning Library
+              </button>
+            )}
             {canCreatePlaylists && (
               <button
                 className={effectiveSelCount > 0 ? "primary" : ""}
@@ -290,30 +318,23 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
           </div>
         </div>
 
-        {/* Tab toggle */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 14, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
-          {([
-            { key: "all",      label: "All Clips",       icon: <Layers size={13} /> },
-            { key: "learning", label: "Learning Library", icon: <BookOpen size={13} /> },
-          ] as const).map(t => (
-            <button
-              key={t.key}
-              onClick={() => { setTab(t.key); setPreviewIndex(0); setSelected(new Set()); }}
-              style={{
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "7px 14px",
-                background: "none", border: "none",
-                borderBottom: tab === t.key ? "2px solid var(--accent)" : "2px solid transparent",
-                color: tab === t.key ? "var(--text)" : "var(--muted)",
-                fontWeight: tab === t.key ? 700 : 400,
-                fontSize: 13, cursor: "pointer",
-                marginBottom: -1,
-              }}
-            >
-              {t.icon} {t.label}
-            </button>
-          ))}
-        </div>
+        {/* Learning Library stat chips */}
+        {tab === "learning" && learningStats && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            {[
+              { icon: <Library size={13} />, value: learningStats.total, label: `clip${learningStats.total !== 1 ? "s" : ""}` },
+              { icon: <Users2 size={13} />, value: learningStats.reviewCount, label: `review${learningStats.reviewCount !== 1 ? "s" : ""}` },
+              { icon: <LayoutGrid size={13} />, value: learningStats.categoryCount, label: `categor${learningStats.categoryCount !== 1 ? "ies" : "y"}` },
+              { icon: <FileText size={13} />, value: learningStats.withNotesCount, label: "with notes" },
+            ].map((s, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 999, background: "rgba(34,197,94,.07)", border: "1px solid rgba(34,197,94,.2)", fontSize: 12, color: "#86efac" }}>
+                {s.icon}
+                <strong style={{ fontVariantNumeric: "tabular-nums" }}>{s.value}</strong>
+                <span style={{ color: "rgba(134,239,172,.7)" }}>{s.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Filters */}
         <div className="cl-filter-bar">
@@ -505,20 +526,29 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
                 onPrev={() => setPreviewIndex(i => Math.max(0, i - 1))}
                 onNext={() => setPreviewIndex(i => Math.min(visibleRows.length - 1, i + 1))}
                 onOpenReview={onOpenReview}
-                extraActions={previewClip && tab === "learning" && onRemoveFromLearningLibrary ? (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                extraActions={previewClip && tab === "learning" ? (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", width: "100%" }}>
                     {onNavigateToQuizBuilder && (
                       <button
                         onClick={onNavigateToQuizBuilder}
-                        style={{ fontSize: 13, padding: "6px 14px", display: "flex", alignItems: "center", gap: 5 }}
+                        style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, padding: "6px 13px" }}
                       >
                         <BookOpen size={13} /> Use in Quiz
                       </button>
                     )}
-                    <RemoveFromLibraryButton
-                      tagId={previewClip.tag.id}
-                      onRemove={onRemoveFromLearningLibrary}
-                    />
+                    {canCreatePlaylists && (
+                      <button
+                        onClick={handleAddToPlaylistFromPreview}
+                        style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, padding: "6px 13px" }}
+                      >
+                        <ListVideo size={13} /> Add to Playlist
+                      </button>
+                    )}
+                    {onRemoveFromLearningLibrary && (
+                      <div style={{ marginLeft: "auto" }}>
+                        <RemoveFromLibraryButton tagId={previewClip.tag.id} onRemove={onRemoveFromLearningLibrary} />
+                      </div>
+                    )}
                   </div>
                 ) : undefined}
               />

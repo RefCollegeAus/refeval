@@ -1058,6 +1058,7 @@ export default function Home() {
           onViewPlaylist={(id) => { setPlaylistDetailId(id); setScreen("playlist-detail"); }}
           onRemoveFromLearningLibrary={removeFromLearningLibrary}
           onNavigateToQuizBuilder={() => setScreen("quiz-builder")}
+          onNavigateToLearningLibrary={() => setScreen("learning-library")}
         />
       {globalSearchOverlay}</main>
     );

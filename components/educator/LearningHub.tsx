@@ -129,22 +129,27 @@ export function LearningHub({
     screen: Screen;
     show: boolean;
     accent?: boolean;
+    green?: boolean;
+    description?: string;
   };
 
   const navCards: NavCard[] = [
     {
       icon: <Film size={26} />,
       label: "Clip Library",
-      hint: `${tags.length} tagged clip${tags.length !== 1 ? "s" : ""}`,
+      hint: `${tags.length} clip${tags.length !== 1 ? "s" : ""} from completed reviews`,
+      description: "Browse and filter all coded review clips",
       screen: "clip-library",
       show: canViewClipLibrary,
     },
     {
       icon: <Library size={26} />,
       label: "Learning Library",
-      hint: (() => { const n = tags.filter(t => t.isLearningClip).length; return n > 0 ? `${n} learning clip${n !== 1 ? "s" : ""}` : "No learning clips yet"; })(),
+      hint: (() => { const n = tags.filter(t => t.isLearningClip).length; return n > 0 ? `${n} clip${n !== 1 ? "s" : ""} marked for learning` : "No clips marked yet"; })(),
+      description: "Curated clips for education and quiz resources",
       screen: "learning-library",
       show: canViewClipLibrary,
+      green: true,
     },
     {
       icon: <ListChecks size={26} />,
@@ -215,7 +220,7 @@ export function LearningHub({
             </button>
           )}
           {canViewClipLibrary && (
-            <button className="lh-stat-card" onClick={() => setScreen("learning-library")}>
+            <button className="lh-stat-card lh-stat-card--green" onClick={() => setScreen("learning-library")}>
               <Library size={18} className="lh-stat-icon" style={{ color: "#86efac" }} />
               <div className="lh-stat-number" style={{ color: "#86efac" }}>{tags.filter(t => t.isLearningClip).length}</div>
               <div className="lh-stat-label">Learning Clips</div>
@@ -265,13 +270,14 @@ export function LearningHub({
               {visibleCards.map(card => (
                 <button
                   key={card.screen}
-                  className={"lh-nav-card" + (card.accent ? " lh-nav-card--accent" : "")}
+                  className={"lh-nav-card" + (card.accent ? " lh-nav-card--accent" : "") + (card.green ? " lh-nav-card--green" : "")}
                   onClick={() => setScreen(card.screen)}
                 >
                   <div className="lh-nav-card-icon">{card.icon}</div>
                   <div className="lh-nav-card-body">
                     <div className="lh-nav-card-label">{card.label}</div>
-                    <div className="lh-nav-card-hint">{card.hint}</div>
+                    {card.description && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>{card.description}</div>}
+                    <div className="lh-nav-card-hint" style={{ marginTop: card.description ? 3 : undefined }}>{card.hint}</div>
                   </div>
                   <ChevronRight size={16} className="lh-nav-chevron" />
                 </button>
