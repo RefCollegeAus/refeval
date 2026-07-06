@@ -1239,11 +1239,13 @@ export default function Home() {
           assignments={assignments}
           playlists={playlists}
           members={members}
+          groups={groups}
           loading={assignmentsLoading}
           error={assignmentsError}
           canDelete={canDeleteAssignments}
           onView={(id) => { setActiveAssignmentId(id); setScreen("assignment-detail"); }}
           onDelete={deleteAssignment}
+          onCreate={async (input) => { await createAssignment(input); }}
           onBack={() => setScreen(returnToScreen)}
         />
       {globalSearchOverlay}</main>
