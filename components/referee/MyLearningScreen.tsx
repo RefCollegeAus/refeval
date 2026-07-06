@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BookOpen, Calendar, AlertCircle, ChevronLeft, CheckCircle2, ChevronDown, ChevronUp, ListVideo, HelpCircle } from "lucide-react";
+import { BookOpen, Calendar, AlertCircle, ChevronLeft, CheckCircle2, ChevronDown, ChevronUp, ListVideo, HelpCircle, MessageSquare } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { Assignment, AssignmentUser } from "@/lib/types/assignments";
 import { STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
@@ -91,6 +91,62 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
     if (!au) return null;
     const playlist = playlists.find(p => p.id === a.playlistId);
     const assigner = members.find(m => m.id === (a.assignedBy ?? ""));
+    const hasPlaylist   = !!a.playlistId;
+    const hasReflection = a.questions.length > 0;
+    const hasQuiz       = a.quizQuestions.length > 0;
+
+    let typeLabel: string;
+    let typeBg: string;
+    let typeBorder: string;
+    let typeColor: string;
+    if (!hasPlaylist && hasQuiz) {
+      typeLabel = "Quiz";
+      typeBg = "rgba(99,102,241,.15)"; typeBorder = "rgba(99,102,241,.4)"; typeColor = "#a5b4fc";
+    } else if (hasPlaylist && !hasReflection && !hasQuiz) {
+      typeLabel = "Playlist";
+      typeBg = "rgba(59,130,246,.13)"; typeBorder = "rgba(59,130,246,.35)"; typeColor = "#93c5fd";
+    } else if (hasPlaylist && hasReflection && !hasQuiz) {
+      typeLabel = "Playlist + Reflection";
+      typeBg = "rgba(20,184,166,.13)"; typeBorder = "rgba(20,184,166,.35)"; typeColor = "#5eead4";
+    } else if (hasPlaylist && !hasReflection && hasQuiz) {
+      typeLabel = "Playlist + Quiz";
+      typeBg = "rgba(139,92,246,.13)"; typeBorder = "rgba(139,92,246,.35)"; typeColor = "#c4b5fd";
+    } else if (hasPlaylist && hasReflection && hasQuiz) {
+      typeLabel = "Playlist + Reflection + Quiz";
+      typeBg = "rgba(139,92,246,.13)"; typeBorder = "rgba(139,92,246,.35)"; typeColor = "#c4b5fd";
+    } else {
+      typeLabel = "Assignment";
+      typeBg = "rgba(255,255,255,.07)"; typeBorder = "rgba(255,255,255,.15)"; typeColor = "var(--muted)";
+    }
+
+    const summaryParts: React.ReactNode[] = [];
+    if (hasPlaylist) {
+      const clipCount = playlist?.items.length ?? 0;
+      summaryParts.push(
+        <span key="pl" style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <ListVideo size={10} style={{ flexShrink: 0 }} />
+          {clipCount} clip{clipCount !== 1 ? "s" : ""}
+        </span>
+      );
+    }
+    if (hasReflection) {
+      const qCount = a.questions.length;
+      summaryParts.push(
+        <span key="ref" style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <MessageSquare size={10} style={{ flexShrink: 0 }} />
+          {qCount} reflection Q{qCount !== 1 ? "s" : ""}
+        </span>
+      );
+    }
+    if (hasQuiz) {
+      const qCount = a.quizQuestions.length;
+      summaryParts.push(
+        <span key="quiz" style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <HelpCircle size={10} style={{ flexShrink: 0 }} />
+          {qCount} question{qCount !== 1 ? "s" : ""}
+        </span>
+      );
+    }
     const overdue  = isOverdue(a.dueDate) && au.status !== "Completed";
     const dueSoon  = isDueSoon(a.dueDate) && au.status !== "Completed";
     const isCompleted = au.status === "Completed";
@@ -123,17 +179,20 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
             <div style={{ fontWeight: 700, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {a.title}
             </div>
-            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
-              {a.playlistId ? (
-                <>
-                  <ListVideo size={11} style={{ flexShrink: 0 }} />
-                  {playlist?.title ?? "Playlist"} · {playlist?.items.length ?? 0} clip{playlist?.items.length !== 1 ? "s" : ""}
-                </>
-              ) : (
-                <>
-                  <HelpCircle size={11} style={{ flexShrink: 0 }} />
-                  Knowledge Quiz · {a.quizQuestions.length} question{a.quizQuestions.length !== 1 ? "s" : ""}
-                </>
+            <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999,
+                background: typeBg, border: `1px solid ${typeBorder}`, color: typeColor,
+                whiteSpace: "nowrap",
+              }}>
+                {typeLabel}
+              </span>
+              {summaryParts.length > 0 && (
+                <span style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {summaryParts.map((part, i) => (
+                    <span key={i} style={{ display: "flex", alignItems: "center", gap: 3 }}>{part}</span>
+                  ))}
+                </span>
               )}
             </div>
           </div>

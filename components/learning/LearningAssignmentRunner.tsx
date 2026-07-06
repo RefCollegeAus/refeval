@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { ChevronLeft, CheckCircle2, AlertCircle, MessageSquare, HelpCircle } from "lucide-react";
 import type { Assignment, AssignmentUser, ReflectionResponse, QuizAnswer } from "@/lib/types/assignments";
 import { STATUS_COLORS } from "@/lib/types/assignments";
@@ -110,6 +110,17 @@ export function LearningAssignmentRunner({
   const reflectionDone = !!assignmentUser.reflectionSubmittedAt;
   const quizDone       = !hasQuiz || !!assignmentUser.quizSubmittedAt;
   const canComplete    = allWatched && (!hasReflection || reflectionDone) && quizDone;
+
+  // Auto-complete: when quiz submission makes canComplete true, trigger completion without user clicking.
+  // Use a ref so we only fire when quizDone transitions false→true after mount, not on initial render.
+  const wasQuizDone = useRef(quizDone);
+  useEffect(() => {
+    if (quizDone && !wasQuizDone.current && canComplete && !isCompleted) {
+      onMarkComplete().catch(console.error);
+    }
+    wasQuizDone.current = quizDone;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quizDone]);
 
   const isOverdue   = !!assignment.dueDate && !isCompleted && new Date(assignment.dueDate).getTime() < Date.now();
   const progressPct = totalClips > 0 ? Math.round((watchedCount / totalClips) * 100) : 100;
