@@ -29,7 +29,9 @@ export type Screen =
   | "organisation"
   | "referee-development"
   | "referee-comments"
-  | "notifications";
+  | "notifications"
+  | "simulator-builder"
+  | "simulator-runner";
 
 export type RefEvalSession = {
   user: {

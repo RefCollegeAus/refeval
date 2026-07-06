@@ -7,6 +7,9 @@ import { MembersScreen } from "@/components/admin/MembersScreen";
 import { OrgSettingsScreen } from "@/components/admin/OrgSettingsScreen";
 import { UserProfileScreen } from "@/components/admin/UserProfileScreen";
 import { ClipLibraryScreen } from "@/components/admin/ClipLibraryScreen";
+import { SimulatorBuilderScreen } from "@/components/admin/SimulatorBuilderScreen";
+import { SimulatorRunnerScreen } from "@/components/learning/SimulatorRunnerScreen";
+import { useSimulatorSessions } from "@/lib/hooks/useSimulatorSessions";
 import { PlaylistsScreen } from "@/components/admin/PlaylistsScreen";
 import { PlaylistDetailScreen } from "@/components/admin/PlaylistDetailScreen";
 import { LearningAssignmentRunner } from "@/components/learning/LearningAssignmentRunner";
@@ -480,6 +483,19 @@ export default function Home() {
   // Navigation context — tracks where learning sub-screens should return to
   const [returnToScreen, setReturnToScreen] = useState<Screen>("educator");
 
+  // Simulator
+  const {
+    sessions: simulatorSessions,
+    loading: simulatorLoading,
+    createSession: createSimulatorSession,
+    updateSession: updateSimulatorSession,
+    deleteSession: deleteSimulatorSession,
+    createAttempt: createSimulatorAttempt,
+    saveResponse: saveSimulatorResponse,
+    completeAttempt: completeSimulatorAttempt,
+  } = useSimulatorSessions(session);
+  const [simulatorRunnerSessionId, setSimulatorRunnerSessionId] = useState<string | null>(null);
+
   // --- Auth callback error (from ?error= param set by /auth/callback on failure) ---
   const [urlAuthError, setUrlAuthError] = useState("");
   useEffect(() => {
@@ -786,8 +802,16 @@ export default function Home() {
     if (screen === "groups" && session?.activeRole && managementRoles.includes(session.activeRole) && !canViewGroups) {
       setScreen("educator");
     }
+    // Simulator builder: educator/admin/super_admin only
+    if (screen === "simulator-builder" && session?.activeRole && !managementRoles.includes(session.activeRole)) {
+      setScreen(session.activeRole === "viewer" ? "viewer" : "referee");
+    }
+    // Simulator runner: not viewers
+    if (screen === "simulator-runner" && session?.activeRole === "viewer") {
+      setScreen("viewer");
+    }
     // Viewers cannot access educator/referee/reviewer screens
-    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "learning-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "quiz-builder", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation"];
+    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "learning-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "quiz-builder", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation", "simulator-builder", "simulator-runner"];
     if (session?.activeRole === "viewer" && viewerForbidden.includes(screen)) {
       setScreen("viewer");
     }
@@ -1529,7 +1553,7 @@ export default function Home() {
   }
 
   // Learning tool screens that need return-context tracking
-  const learningToolScreens: Screen[] = ["clip-library", "learning-library", "playlists", "assignments", "learning-progress", "groups"];
+  const learningToolScreens: Screen[] = ["clip-library", "learning-library", "playlists", "assignments", "learning-progress", "groups", "simulator-builder", "simulator-runner"];
 
   if (screen === "learning-hub" && session) {
     // Wrap setScreen so navigating to a learning tool records "learning-hub" as the return point
@@ -1547,10 +1571,12 @@ export default function Home() {
           assignments={assignments}
           members={members}
           groupCount={groups.length}
+          simulatorCount={simulatorSessions.length}
           canViewClipLibrary={canViewClipLibrary}
           canAccessPlaylists={canAccessPlaylists}
           canViewAssignments={canViewAssignments}
           canViewGroups={canViewGroups}
+          canAccessSimulator={session?.activeRole !== "viewer"}
           setScreen={navigateFromHub}
           refereeMembers={refereeMembers}
           allRefereeGoalViews={allRefereeGoalViews}
@@ -1596,6 +1622,42 @@ export default function Home() {
           onUpdateGroup={async (id, input) => { await updateGroup(id, input); }}
           onDeleteGroup={async id => { await deleteGroup(id); }}
           onSetGroupMembers={async (groupId, userIds) => { await setGroupMembers(groupId, userIds); }}
+        />
+      {globalSearchOverlay}</main>
+    );
+  }
+
+  if (screen === "simulator-builder" && session) {
+    return (
+      <main>
+        <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
+        <SimulatorBuilderScreen
+          session={session}
+          sessions={simulatorSessions}
+          loading={simulatorLoading}
+          onCreate={createSimulatorSession}
+          onUpdate={updateSimulatorSession}
+          onDelete={deleteSimulatorSession}
+          onBack={() => setScreen(returnToScreen)}
+          onRunSession={(sessionId) => { setSimulatorRunnerSessionId(sessionId); setScreen("simulator-runner"); }}
+        />
+      {globalSearchOverlay}</main>
+    );
+  }
+
+  if (screen === "simulator-runner" && session) {
+    return (
+      <main>
+        <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
+        <SimulatorRunnerScreen
+          session={session}
+          sessions={simulatorSessions}
+          loading={simulatorLoading}
+          onBack={() => setScreen(returnToScreen)}
+          onCreateAttempt={createSimulatorAttempt}
+          onSaveResponse={saveSimulatorResponse}
+          onCompleteAttempt={completeSimulatorAttempt}
+          initialSessionId={simulatorRunnerSessionId}
         />
       {globalSearchOverlay}</main>
     );

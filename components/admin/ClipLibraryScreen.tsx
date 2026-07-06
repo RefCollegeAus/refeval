@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ListVideo, Search, X, CheckSquare, Square, ChevronLeft, AlertTriangle, BookOpen, Library, FileText, LayoutGrid, Users2 } from "lucide-react";
+import { ListVideo, Search, X, CheckSquare, Square, ChevronLeft, AlertTriangle, BookOpen, Library, FileText, LayoutGrid, Users2, ArrowUpDown, Trash2 } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import { ClipPreview, ClipRow, splitCategory, slotName, outcomeClass } from "@/components/common/ClipPreview";
@@ -132,6 +132,11 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
   const [fDateFrom, setFDateFrom] = useState("");
   const [fDateTo, setFDateTo] = useState("");
   const [fText, setFText] = useState("");
+  const [fHasNotes, setFHasNotes] = useState(false);
+
+  // ── Sort ─────────────────────────────────────────────────────────────────────
+  type SortBy = "newest" | "oldest" | "category" | "referee" | "game";
+  const [sortBy, setSortBy] = useState<SortBy>("newest");
 
   // ── Preview, selection, modal ─────────────────────────────────────────────────
   const [previewIndex, setPreviewIndex] = useState<number>(0);
@@ -164,6 +169,19 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
     return rows;
   }, [tags, reviewMap, tab]);
 
+  // ── Apply sort ───────────────────────────────────────────────────────────────
+  const sortedRows = useMemo<ClipRow[]>(() => {
+    const r = [...allRows];
+    switch (sortBy) {
+      case "newest": r.sort((a, b) => b.tag.createdAt.localeCompare(a.tag.createdAt)); break;
+      case "oldest": r.sort((a, b) => a.tag.createdAt.localeCompare(b.tag.createdAt)); break;
+      case "category": r.sort((a, b) => (a.categoryGroup || "").localeCompare(b.categoryGroup || "")); break;
+      case "referee": r.sort((a, b) => (a.refereeName || "").localeCompare(b.refereeName || "")); break;
+      case "game": r.sort((a, b) => (a.review.game || "").localeCompare(b.review.game || "")); break;
+    }
+    return r;
+  }, [allRows, sortBy]);
+
   // ── Option lists ──────────────────────────────────────────────────────────────
   const outcomes = useMemo(() => Array.from(new Set(allRows.map(r => r.tag.outcome).filter(Boolean) as string[])).sort(), [allRows]);
   const catGroups = useMemo(() => Array.from(new Set(allRows.map(r => r.categoryGroup).filter(Boolean))).sort(), [allRows]);
@@ -178,13 +196,14 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
   // ── Apply filters ─────────────────────────────────────────────────────────────
   const visibleRows = useMemo(() => {
     const q = fText.toLowerCase().trim();
-    return allRows.filter(row => {
+    return sortedRows.filter(row => {
       if (fOutcome && row.tag.outcome !== fOutcome) return false;
       if (fCatGroup && row.categoryGroup !== fCatGroup) return false;
       if (fSubtype && row.subtype !== fSubtype) return false;
       if (fReferee && row.refereeName !== fReferee) return false;
       if (fEducator && row.review.educatorName !== fEducator) return false;
       if (fGame && row.review.game !== fGame) return false;
+      if (fHasNotes && !row.tag.notes?.trim()) return false;
       if (fDateFrom) {
         const d = row.review.gameDate || row.review.createdAt.slice(0, 10);
         if (d < fDateFrom) return false;
@@ -202,7 +221,7 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
       }
       return true;
     });
-  }, [allRows, fOutcome, fCatGroup, fSubtype, fReferee, fEducator, fGame, fDateFrom, fDateTo, fText]);
+  }, [sortedRows, fOutcome, fCatGroup, fSubtype, fReferee, fEducator, fGame, fDateFrom, fDateTo, fText, fHasNotes]);
 
   const safePreviewIndex = Math.min(previewIndex, Math.max(0, visibleRows.length - 1));
   const previewClip = visibleRows.length > 0 ? visibleRows[safePreviewIndex] : null;
@@ -231,7 +250,19 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
   function clearFilters() {
     setFOutcome(""); setFCatGroup(""); setFSubtype(""); setFReferee("");
     setFEducator(""); setFGame(""); setFDateFrom(""); setFDateTo(""); setFText("");
+    setFHasNotes(false);
     setPreviewIndex(0);
+  }
+
+  async function handleBulkRemoveFromLibrary() {
+    if (!onRemoveFromLearningLibrary) return;
+    const ids = Array.from(selected).filter(id => visibleIdSet.has(id));
+    if (ids.length === 0) return;
+    if (!confirm(`Remove ${ids.length} clip${ids.length !== 1 ? "s" : ""} from the Learning Library? The original review clips are kept.`)) return;
+    for (const id of ids) {
+      await onRemoveFromLearningLibrary(id);
+    }
+    setSelected(new Set());
   }
 
   async function handleCreatePlaylist(title: string, description: string) {
@@ -245,7 +276,7 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
     onViewPlaylist(newId);
   }
 
-  const activeFilterCount = [fOutcome, fCatGroup, fSubtype, fReferee, fEducator, fGame, fDateFrom, fDateTo, fText].filter(Boolean).length;
+  const activeFilterCount = [fOutcome, fCatGroup, fSubtype, fReferee, fEducator, fGame, fDateFrom, fDateTo, fText].filter(Boolean).length + (fHasNotes ? 1 : 0);
   const visibleIdSet = useMemo(() => new Set(visibleIds), [visibleIds]);
   const effectiveSelCount = useMemo(() => Array.from(selected).filter(id => visibleIdSet.has(id)).length, [selected, visibleIdSet]);
   const hiddenSelCount = selected.size - effectiveSelCount;
@@ -338,14 +369,26 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
 
         {/* Filters */}
         <div className="cl-filter-bar">
-          {/* Search — full width */}
-          <div className="cl-filter-search">
-            <Search size={13} />
-            <input
-              value={fText}
-              onChange={e => setFText(e.target.value)}
-              placeholder="Search notes, game, referee…"
-            />
+          {/* Search + Sort row */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div className="cl-filter-search" style={{ flex: 1 }}>
+              <Search size={13} />
+              <input
+                value={fText}
+                onChange={e => setFText(e.target.value)}
+                placeholder="Search notes, game, referee…"
+              />
+            </div>
+            <label className="cl-field" style={{ flexShrink: 0, minWidth: 160 }}>
+              <span className="cl-field-label" style={{ display: "flex", alignItems: "center", gap: 4 }}><ArrowUpDown size={11} /> Sort</span>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}>
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="category">Category</option>
+                <option value="referee">Referee</option>
+                <option value="game">Game</option>
+              </select>
+            </label>
           </div>
           {/* Field grid — 4 columns × 2 rows */}
           <div className="cl-filter-grid">
@@ -372,7 +415,7 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
               </select>
             </label>
             <label className="cl-field">
-              <span className="cl-field-label">Game</span>
+              <span className="cl-field-label">Game / Review</span>
               <select value={fGame} onChange={e => setFGame(e.target.value)}>
                 <option value="">All games</option>
                 {games.map(g => <option key={g} value={g}>{g}</option>)}
@@ -402,14 +445,18 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
               <input type="date" value={fDateTo} onChange={e => setFDateTo(e.target.value)} />
             </label>
           </div>
-          {/* Clear — below grid, right-aligned */}
-          {activeFilterCount > 0 && (
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          {/* Has Notes + Clear row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)", cursor: "pointer", userSelect: "none" }}>
+              <input type="checkbox" checked={fHasNotes} onChange={e => setFHasNotes(e.target.checked)} style={{ cursor: "pointer" }} />
+              Has notes only
+            </label>
+            {activeFilterCount > 0 && (
               <button style={{ fontSize: 12, padding: "5px 10px", display: "flex", alignItems: "center", gap: 4 }} onClick={clearFilters}>
                 <X size={12} /> Clear ({activeFilterCount})
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Selection bar */}
@@ -433,6 +480,14 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
                   >
                     <ListVideo size={12} /> Create Playlist ({effectiveSelCount})
                   </button>
+                  {tab === "learning" && onRemoveFromLearningLibrary && (
+                    <button
+                      style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 5, border: "1px solid rgba(239,68,68,.35)", background: "rgba(239,68,68,.08)", color: "#fca5a5", borderRadius: 7, cursor: "pointer" }}
+                      onClick={handleBulkRemoveFromLibrary}
+                    >
+                      <Trash2 size={12} /> Remove ({effectiveSelCount})
+                    </button>
+                  )}
                   <button
                     style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 4 }}
                     onClick={() => setSelected(new Set())}
@@ -533,6 +588,11 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
                     <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.refereeName}</div>
                     <div style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.review.game || "Untitled game"}</div>
                     {row.subtype && <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{row.subtype}</div>}
+                    {row.tag.notes?.trim() && (
+                      <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2, fontStyle: "italic", opacity: 0.75 }}>
+                        {row.tag.notes.trim()}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

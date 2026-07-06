@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import {
   Film, ListChecks, BookOpen, BarChart2, GraduationCap,
-  ChevronRight, CheckCircle2, AlertCircle, Users, Target, Library,
+  ChevronRight, CheckCircle2, AlertCircle, Users, Target, Library, Zap,
 } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
 import type { CodedTag } from "@/lib/types/reviews";
@@ -20,10 +20,12 @@ interface Props {
   assignments: Assignment[];
   members: MemberRecord[];
   groupCount: number;
+  simulatorCount?: number;
   canViewClipLibrary: boolean;
   canAccessPlaylists: boolean;
   canViewAssignments: boolean;
   canViewGroups: boolean;
+  canAccessSimulator?: boolean;
   setScreen: (screen: Screen) => void;
   refereeMembers?: MemberRecord[];
   allRefereeGoalViews?: RefereeGoalView[];
@@ -32,7 +34,9 @@ interface Props {
 
 export function LearningHub({
   session, tags, playlists, assignments, members, groupCount,
+  simulatorCount = 0,
   canViewClipLibrary, canAccessPlaylists, canViewAssignments, canViewGroups,
+  canAccessSimulator = false,
   setScreen, refereeMembers = [], allRefereeGoalViews = [], onNavigateDevelopment,
 }: Props) {
 
@@ -186,6 +190,17 @@ export function LearningHub({
       screen: "groups",
       show: canViewGroups,
     },
+    {
+      icon: <Zap size={26} />,
+      label: "Referee Simulator",
+      hint: simulatorCount > 0
+        ? `${simulatorCount} simulation${simulatorCount !== 1 ? "s" : ""} available`
+        : "No simulations yet",
+      description: "Decision-making simulations from real game video",
+      screen: "simulator-runner",
+      show: canAccessSimulator,
+      accent: true,
+    },
   ];
 
   const visibleCards = navCards.filter(c => c.show);
@@ -258,6 +273,13 @@ export function LearningHub({
               <AlertCircle size={18} className="lh-stat-icon" />
               <div className="lh-stat-number">{overdueCount}</div>
               <div className="lh-stat-label">Overdue</div>
+            </button>
+          )}
+          {canAccessSimulator && (
+            <button className="lh-stat-card" onClick={() => setScreen("simulator-runner")}>
+              <Zap size={18} className="lh-stat-icon" style={{ color: "#fbbf24" }} />
+              <div className="lh-stat-number">{simulatorCount}</div>
+              <div className="lh-stat-label">Simulators</div>
             </button>
           )}
         </div>
