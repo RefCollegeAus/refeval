@@ -12,11 +12,13 @@ interface Props {
 const btn: React.CSSProperties = {
   padding: "4px 10px",
   borderRadius: 6,
-  border: "1px solid rgba(255,255,255,.15)",
-  background: "rgba(255,255,255,.06)",
-  color: "var(--foreground)",
+  border: "1px solid rgba(255,255,255,.2)",
+  background: "rgba(255,255,255,.08)",
+  color: "var(--text)",
   fontSize: 12,
   cursor: "pointer",
+  flexShrink: 0,
+  whiteSpace: "nowrap",
 };
 
 const dangerBtn: React.CSSProperties = {
@@ -105,13 +107,16 @@ export default function QuizEditor({ questions, onChange }: Props) {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 20 }}>Q{idx + 1}</span>
             <input
+              type="text"
               value={q.prompt}
               onChange={e => update(q.id, { prompt: e.target.value })}
               placeholder="Question prompt…"
               style={{
                 flex: 1,
-                background: "rgba(255,255,255,.06)",
-                border: "1px solid rgba(255,255,255,.12)",
+                width: "auto",
+                minWidth: 0,
+                background: "rgba(255,255,255,.08)",
+                border: "1px solid rgba(255,255,255,.2)",
                 borderRadius: 6,
                 padding: "6px 10px",
                 color: "var(--text)",
@@ -132,18 +137,21 @@ export default function QuizEditor({ questions, onChange }: Props) {
                   checked={q.correctAnswerIndex === aIdx}
                   onChange={() => update(q.id, { correctAnswerIndex: aIdx })}
                   title="Mark as correct answer"
-                  style={{ accentColor: "#22c55e", cursor: "pointer" }}
+                  style={{ width: "auto", flexShrink: 0, accentColor: "#22c55e", cursor: "pointer" }}
                 />
                 <input
+                  type="text"
                   value={ans}
                   onChange={e => updateAnswer(q.id, aIdx, e.target.value)}
                   placeholder={`Answer ${aIdx + 1}…`}
                   style={{
                     flex: 1,
-                    background: "rgba(255,255,255,.06)",
+                    width: "auto",
+                    minWidth: 0,
+                    background: "rgba(255,255,255,.08)",
                     border: q.correctAnswerIndex === aIdx
-                      ? "1px solid rgba(34,197,94,.4)"
-                      : "1px solid rgba(255,255,255,.10)",
+                      ? "1px solid rgba(34,197,94,.5)"
+                      : "1px solid rgba(255,255,255,.2)",
                     borderRadius: 6,
                     padding: "5px 9px",
                     color: "var(--text)",
