@@ -1282,19 +1282,17 @@ export default function Home() {
           myAssignments={myAssignments}
           playlists={playlists}
           members={members}
-          onOpenPlaylist={async (assignment, assignmentUser) => {
-            // If starting for the first time, update status to Started
-            if (assignmentUser.status === "Assigned") {
-              await updateAssignmentUserStatus(assignmentUser.id, "Started");
-              // Refresh the assignmentUser reference from the updated assignments list
-              const updated = assignments.find(a => a.id === assignment.id);
-              const updatedUser = updated?.assignmentUsers.find(u => u.id === assignmentUser.id) ?? assignmentUser;
-              setLearningAssignmentUser({ assignment, assignmentUser: { ...updatedUser, status: "Started" } });
-            } else {
-              setLearningAssignmentUser({ assignment, assignmentUser });
-            }
+          onOpenPlaylist={(assignment, assignmentUser) => {
+            // Navigate immediately with optimistic status; fire-and-forget the DB update
+            const effectiveUser = assignmentUser.status === "Assigned"
+              ? { ...assignmentUser, status: "Started" as const }
+              : assignmentUser;
+            setLearningAssignmentUser({ assignment, assignmentUser: effectiveUser });
             setPlaylistDetailId(assignment.playlistId);
             setScreen("learning-runner");
+            if (assignmentUser.status === "Assigned") {
+              updateAssignmentUserStatus(assignmentUser.id, "Started").catch(console.error);
+            }
           }}
           onBack={() => setScreen("referee")}
         />

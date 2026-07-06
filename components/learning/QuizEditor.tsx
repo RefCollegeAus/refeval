@@ -114,7 +114,7 @@ export default function QuizEditor({ questions, onChange }: Props) {
                 border: "1px solid rgba(255,255,255,.12)",
                 borderRadius: 6,
                 padding: "6px 10px",
-                color: "var(--foreground)",
+                color: "var(--text)",
                 fontSize: 13,
               }}
             />
@@ -146,7 +146,7 @@ export default function QuizEditor({ questions, onChange }: Props) {
                       : "1px solid rgba(255,255,255,.10)",
                     borderRadius: 6,
                     padding: "5px 9px",
-                    color: "var(--foreground)",
+                    color: "var(--text)",
                     fontSize: 13,
                   }}
                 />
