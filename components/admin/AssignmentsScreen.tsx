@@ -27,7 +27,8 @@ function fmt(iso: string | null | undefined) {
   return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function playlistTitle(playlistId: string, playlists: Playlist[]) {
+function playlistTitle(playlistId: string | null, playlists: Playlist[]) {
+  if (!playlistId) return "—";
   return playlists.find(p => p.id === playlistId)?.title ?? "Unknown playlist";
 }
 

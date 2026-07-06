@@ -86,18 +86,22 @@ export function useAssignments(orgId: string, currentUserId: string) {
   useEffect(() => { load(); }, [load]);
 
   // Assignments where the current user is an assigned learner.
-  // Deduplicated by playlistId — if the same playlist was assigned twice (e.g. via group
-  // and individually), keep only the most recently created one to avoid duplicate cards.
+  // Playlist-backed assignments are deduplicated by playlistId — if the same playlist was
+  // assigned twice (e.g. via group and individually), keep only the most recently created one.
+  // Standalone quiz assignments (playlistId === null) are never deduplicated.
   const myAssignments = useMemo(() => {
     const mine = assignments.filter(a => a.assignmentUsers.some(u => u.userId === currentUserId));
     const seen = new Map<string, typeof mine[number]>();
+    const standalone: typeof mine = [];
     for (const a of mine) {
+      if (!a.playlistId) { standalone.push(a); continue; }
       const existing = seen.get(a.playlistId);
       if (!existing || a.createdAt > existing.createdAt) {
         seen.set(a.playlistId, a);
       }
     }
-    return Array.from(seen.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return [...Array.from(seen.values()), ...standalone]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [assignments, currentUserId]);
 
   async function createAssignment(input: CreateAssignmentInput): Promise<string> {

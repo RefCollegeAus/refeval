@@ -18,6 +18,7 @@ export type LearningContext = {
   assignedByName: string | null;
   instructions: string | null;
   dueDate: string | null;
+  playlistId: string | null;
   questions: ReflectionQuestion[];
   quizQuestions: QuizQuestion[];
   onMarkComplete: () => Promise<void>;
@@ -973,7 +974,8 @@ export function PlaylistDetailScreen({
         const overdueLC       = !!learningContext.dueDate && !isCompleted && new Date(learningContext.dueDate).getTime() < Date.now();
         const totalClips      = clipRows.length;
         const watchedCount    = isCompleted ? totalClips : watchedItemIds.size;
-        const allWatched      = totalClips === 0 || watchedCount >= totalClips;
+        const hasPlaylist     = !!learningContext.playlistId;
+        const allWatched      = !hasPlaylist || totalClips === 0 || watchedCount >= totalClips;
         const progressPct     = totalClips > 0 ? Math.round((watchedCount / totalClips) * 100) : 100;
         const hasQuestions    = learningContext.questions.length > 0;
         const reflectionDone  = !!learningContext.assignmentUser.reflectionSubmittedAt;

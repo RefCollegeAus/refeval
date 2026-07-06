@@ -1164,6 +1164,7 @@ export default function Home() {
             assignedByName: members.find(m => m.id === liveLearningAssignmentUser.assignment.assignedBy)?.name ?? null,
             instructions: liveLearningAssignmentUser.assignment.instructions,
             dueDate: liveLearningAssignmentUser.assignment.dueDate,
+            playlistId: liveLearningAssignmentUser.assignment.playlistId,
             questions: liveLearningAssignmentUser.assignment.questions,
             quizQuestions: liveLearningAssignmentUser.assignment.quizQuestions,
             clipsLoading: learningClipsLoading,

@@ -433,18 +433,22 @@ export function AssignmentDetailScreen({
 
         {/* Meta row */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 14, padding: "12px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
-          <div>
-            <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Playlist</div>
-            <div style={{ fontWeight: 600 }}>{playlist?.title ?? "Unknown playlist"}</div>
-          </div>
+          {assignment.playlistId && (
+            <div>
+              <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Playlist</div>
+              <div style={{ fontWeight: 600 }}>{playlist?.title ?? "Unknown playlist"}</div>
+            </div>
+          )}
           <div>
             <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Due Date</div>
             <div style={{ fontWeight: 600 }}>{fmt(assignment.dueDate)}</div>
           </div>
-          <div>
-            <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Clips</div>
-            <div style={{ fontWeight: 600 }}>{totalClips > 0 ? totalClips : "—"}</div>
-          </div>
+          {assignment.playlistId && (
+            <div>
+              <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Clips</div>
+              <div style={{ fontWeight: 600 }}>{totalClips > 0 ? totalClips : "—"}</div>
+            </div>
+          )}
         </div>
 
         {/* Progress summary */}
@@ -464,8 +468,8 @@ export function AssignmentDetailScreen({
                 </div>
               ))}
             </div>
-            {/* Overall clip progress bar */}
-            {totalClips > 0 && (
+            {/* Overall clip progress bar — only for playlist assignments */}
+            {assignment.playlistId && totalClips > 0 && (
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>
                   <span>Overall clip progress</span>
@@ -532,7 +536,7 @@ export function AssignmentDetailScreen({
           <h2 className="ed-section-title" style={{ margin: 0 }}>Assigned Members</h2>
           {assignment.assignmentUsers.length > 1 && (
             <div style={{ display: "flex", gap: 6, fontSize: 12 }}>
-              {(["status", "progress", "name"] as ProgressSort[]).map(key => (
+              {(["status", "progress", "name"] as ProgressSort[]).filter(key => key !== "progress" || !!assignment.playlistId).map(key => (
                 <button
                   key={key}
                   onClick={() => handleProgressSort(key)}
@@ -562,7 +566,7 @@ export function AssignmentDetailScreen({
                 <tr style={{ borderBottom: "2px solid var(--border)" }}>
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Name</th>
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Status</th>
-                  {totalClips > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, minWidth: 140 }}>Progress</th>}
+                  {assignment.playlistId && totalClips > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, minWidth: 140 }}>Progress</th>}
                   {assignment.questions.length > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Reflection</th>}
                   {assignment.quizQuestions.length > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Quiz</th>}
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Assigned</th>
@@ -633,7 +637,7 @@ export function AssignmentDetailScreen({
                           </span>
                         )}
                       </td>
-                      {totalClips > 0 && (
+                      {assignment.playlistId && totalClips > 0 && (
                         <td style={{ padding: "10px 10px", minWidth: 140 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <div className="lh-progress-bar" style={{ flex: 1 }} aria-hidden="true">

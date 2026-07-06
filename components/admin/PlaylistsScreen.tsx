@@ -61,7 +61,7 @@ export function PlaylistsScreen({
   const assignmentCounts = useMemo(() => {
     const map = new Map<string, number>();
     for (const a of assignments) {
-      map.set(a.playlistId, (map.get(a.playlistId) ?? 0) + 1);
+      if (a.playlistId) map.set(a.playlistId, (map.get(a.playlistId) ?? 0) + 1);
     }
     return map;
   }, [assignments]);
