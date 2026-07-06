@@ -43,6 +43,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
         createdAt: r.created_at || new Date().toISOString(),
         submittedAt: r.submitted_at || undefined,
         officialSummaries: r.official_summaries || undefined,
+        isSimulator: r.is_simulator ?? false,
       }));
       const mappedTags: CodedTag[] = supabaseReviews.flatMap((r: any) =>
         (r.clips || []).map((c: any) => ({

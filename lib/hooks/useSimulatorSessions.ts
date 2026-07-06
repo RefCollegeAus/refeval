@@ -7,18 +7,16 @@ import type {
   SimulatorSession,
   SimulatorSessionWithEvents,
   SimulatorEvent,
-  SimulatorLevel,
 } from "@/lib/types/simulator";
 
 export interface SessionFormData {
   title: string;
   description: string;
   videoUrl: string;
-  level: SimulatorLevel;
 }
 
 export interface EventFormData {
-  tempId: string; // client-side key for list rendering
+  tempId: string;
   timestampSeconds: number;
   windowSeconds: number;
   correctOutcome: string;
@@ -29,7 +27,8 @@ export interface EventFormData {
 
 export interface SaveResponseData {
   attemptId: string;
-  eventId: string;
+  eventId?: string;
+  clipId?: string;
   responseOutcome: string;
   responseCall: string;
   responseTimeSeconds: number | null;
@@ -43,7 +42,8 @@ function mapSession(r: any): SimulatorSession {
     title: r.title || "",
     description: r.description || "",
     videoUrl: r.video_url || "",
-    level: r.level || "beginner",
+    level: r.level ?? undefined,
+    reviewId: r.review_id ?? undefined,
     createdBy: r.created_by,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -91,72 +91,62 @@ export function useSimulatorSessions(session: RefEvalSession | null) {
 
   useEffect(() => { load(); }, [load]);
 
-  async function createSession(formData: SessionFormData, events: EventFormData[]): Promise<string> {
-    const { data, error } = await getSupabaseClient()
+  async function createSession(formData: SessionFormData): Promise<string> {
+    const supabase = getSupabaseClient();
+
+    // Create linked review for coding decisions
+    const { data: reviewData, error: reviewErr } = await supabase
+      .from("reviews")
+      .insert({
+        organisation_id: orgId,
+        educator_id: session!.user.id,
+        educator_name: session!.profile.name,
+        game: formData.title,
+        video_link: formData.videoUrl,
+        status: "in_review",
+        is_simulator: true,
+      })
+      .select()
+      .single();
+    if (reviewErr) { alert(reviewErr.message); throw reviewErr; }
+
+    const { data, error } = await supabase
       .from("simulator_sessions")
       .insert({
         organisation_id: orgId,
         title: formData.title,
         description: formData.description,
         video_url: formData.videoUrl,
-        level: formData.level,
+        review_id: reviewData.id,
         created_by: session!.user.id,
       })
       .select()
       .single();
     if (error) { alert(error.message); throw error; }
-    const sessionId = data.id;
-    if (events.length > 0) {
-      const rows = events.map((e, i) => ({
-        session_id: sessionId,
-        timestamp_seconds: e.timestampSeconds,
-        window_seconds: e.windowSeconds,
-        correct_outcome: e.correctOutcome,
-        correct_call: e.correctCall,
-        category: e.category,
-        notes: e.notes,
-        display_order: i,
-      }));
-      const { error: evErr } = await getSupabaseClient().from("simulator_events").insert(rows);
-      if (evErr) { alert(evErr.message); throw evErr; }
-    }
     await load();
-    return sessionId;
+    return data.id;
   }
 
-  async function updateSession(id: string, formData: SessionFormData, events: EventFormData[]): Promise<void> {
+  async function updateSession(id: string, formData: SessionFormData): Promise<void> {
     const { error } = await getSupabaseClient()
       .from("simulator_sessions")
       .update({
         title: formData.title,
         description: formData.description,
         video_url: formData.videoUrl,
-        level: formData.level,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
     if (error) { alert(error.message); throw error; }
-    // Replace events: delete all then re-insert
-    const { error: delErr } = await getSupabaseClient()
-      .from("simulator_events")
-      .delete()
-      .eq("session_id", id);
-    if (delErr) { alert(delErr.message); throw delErr; }
-    if (events.length > 0) {
-      const rows = events.map((e, i) => ({
-        session_id: id,
-        timestamp_seconds: e.timestampSeconds,
-        window_seconds: e.windowSeconds,
-        correct_outcome: e.correctOutcome,
-        correct_call: e.correctCall,
-        category: e.category,
-        notes: e.notes,
-        display_order: i,
-      }));
-      const { error: evErr } = await getSupabaseClient().from("simulator_events").insert(rows);
-      if (evErr) { alert(evErr.message); throw evErr; }
-    }
     await load();
+  }
+
+  async function publishSimulator(reviewId: string): Promise<void> {
+    const { error } = await getSupabaseClient()
+      .from("reviews")
+      .update({ status: "completed", submitted_at: new Date().toISOString() })
+      .eq("id", reviewId);
+    if (error) { alert(error.message); throw error; }
   }
 
   async function deleteSession(id: string): Promise<void> {
@@ -183,16 +173,18 @@ export function useSimulatorSessions(session: RefEvalSession | null) {
   }
 
   async function saveResponse(resp: SaveResponseData): Promise<void> {
+    const row: Record<string, any> = {
+      attempt_id: resp.attemptId,
+      response_outcome: resp.responseOutcome,
+      response_call: resp.responseCall,
+      response_time_seconds: resp.responseTimeSeconds,
+      is_correct: resp.isCorrect,
+    };
+    if (resp.clipId) row.clip_id = resp.clipId;
+    if (resp.eventId) row.event_id = resp.eventId;
     const { error } = await getSupabaseClient()
       .from("simulator_responses")
-      .insert({
-        attempt_id: resp.attemptId,
-        event_id: resp.eventId,
-        response_outcome: resp.responseOutcome,
-        response_call: resp.responseCall,
-        response_time_seconds: resp.responseTimeSeconds,
-        is_correct: resp.isCorrect,
-      });
+      .insert(row);
     if (error) { console.error("saveResponse error:", error); }
   }
 
@@ -210,6 +202,7 @@ export function useSimulatorSessions(session: RefEvalSession | null) {
     load,
     createSession,
     updateSession,
+    publishSimulator,
     deleteSession,
     createAttempt,
     saveResponse,

@@ -489,6 +489,7 @@ export default function Home() {
     loading: simulatorLoading,
     createSession: createSimulatorSession,
     updateSession: updateSimulatorSession,
+    publishSimulator: publishSimulatorSession,
     deleteSession: deleteSimulatorSession,
     createAttempt: createSimulatorAttempt,
     saveResponse: saveSimulatorResponse,
@@ -1635,11 +1636,18 @@ export default function Home() {
           session={session}
           sessions={simulatorSessions}
           loading={simulatorLoading}
+          reviews={reviews}
+          tags={tags}
           onCreate={createSimulatorSession}
           onUpdate={updateSimulatorSession}
           onDelete={deleteSimulatorSession}
+          onPublish={publishSimulatorSession}
           onBack={() => setScreen(returnToScreen)}
           onRunSession={(sessionId) => { setSimulatorRunnerSessionId(sessionId); setScreen("simulator-runner"); }}
+          onOpenReview={(reviewId) => {
+            const rev = reviews.find(r => r.id === reviewId);
+            if (rev) { setReturnToScreen("simulator-builder"); openReviewForEdit(rev); }
+          }}
         />
       {globalSearchOverlay}</main>
     );
@@ -1653,6 +1661,7 @@ export default function Home() {
           session={session}
           sessions={simulatorSessions}
           loading={simulatorLoading}
+          tags={tags}
           onBack={() => setScreen(returnToScreen)}
           onCreateAttempt={createSimulatorAttempt}
           onSaveResponse={saveSimulatorResponse}

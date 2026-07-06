@@ -32,6 +32,7 @@ export type ReviewRecord = {
   createdAt: string;
   submittedAt?: string;
   officialSummaries?: OfficialSummaries;
+  isSimulator?: boolean;
 };
 
 export type CodedTag = {

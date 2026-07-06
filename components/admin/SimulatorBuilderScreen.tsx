@@ -1,130 +1,22 @@
 "use client";
 
 import { useState, useId } from "react";
-import { Zap, ChevronLeft, Plus, Trash2, Save, Edit2, Play } from "lucide-react";
+import { Zap, ChevronLeft, Plus, Trash2, Save, Play, BookOpen, CheckCircle2 } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
-import {
-  SimulatorSessionWithEvents,
-  SimulatorLevel,
-  SIMULATOR_LEVELS,
-  LEVEL_LABELS,
-  LEVEL_COLORS,
-  SIMULATOR_OUTCOMES,
-  SIMULATOR_CALL_OPTIONS,
-} from "@/lib/types/simulator";
-import type { SessionFormData, EventFormData } from "@/lib/hooks/useSimulatorSessions";
+import type { SimulatorSessionWithEvents } from "@/lib/types/simulator";
+import type { CodedTag, ReviewRecord } from "@/lib/types/reviews";
+import type { SessionFormData } from "@/lib/hooks/useSimulatorSessions";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function parseTimestamp(s: string): number {
-  const clean = s.trim();
-  if (clean.includes(":")) {
-    const [m, sec] = clean.split(":").map(n => parseInt(n) || 0);
-    return m * 60 + sec;
-  }
-  return Math.max(0, parseInt(clean) || 0);
+function clipCountForSession(session: SimulatorSessionWithEvents, tags: CodedTag[]): number {
+  if (!session.reviewId) return session.events.length;
+  return tags.filter(t => t.reviewId === session.reviewId).length;
 }
 
-function fmtTimestamp(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function LevelBadge({ level }: { level: SimulatorLevel }) {
-  const c = LEVEL_COLORS[level];
-  return (
-    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: c.color, background: c.bg, border: `1px solid ${c.border}`, whiteSpace: "nowrap" }}>
-      {LEVEL_LABELS[level]}
-    </span>
-  );
-}
-
-// ── Event row editor ──────────────────────────────────────────────────────────
-
-interface EventRowProps {
-  event: EventFormData;
-  index: number;
-  showCallField: boolean;
-  onChange: (idx: number, patch: Partial<EventFormData>) => void;
-  onDelete: (idx: number) => void;
-}
-
-function EventRow({ event, index, showCallField, onChange, onDelete }: EventRowProps) {
-  const [tsInput, setTsInput] = useState(fmtTimestamp(event.timestampSeconds));
-
-  const callOptions = SIMULATOR_CALL_OPTIONS[event.correctOutcome] ?? [];
-  const hasCallOptions = callOptions.length > 0;
-
-  return (
-    <tr style={{ verticalAlign: "top" }}>
-      <td style={{ padding: "6px 6px 6px 0", width: 72 }}>
-        <input
-          value={tsInput}
-          onChange={e => {
-            setTsInput(e.target.value);
-            onChange(index, { timestampSeconds: parseTimestamp(e.target.value) });
-          }}
-          onBlur={() => setTsInput(fmtTimestamp(event.timestampSeconds))}
-          placeholder="m:ss"
-          style={{ width: "100%", fontFamily: "monospace", fontSize: 13 }}
-        />
-      </td>
-      <td style={{ padding: "6px 4px", width: 60 }}>
-        <input
-          type="number"
-          value={event.windowSeconds}
-          onChange={e => onChange(index, { windowSeconds: Math.max(3, parseInt(e.target.value) || 10) })}
-          min={3}
-          max={60}
-          style={{ width: "100%" }}
-        />
-      </td>
-      <td style={{ padding: "6px 4px" }}>
-        <select
-          value={event.correctOutcome}
-          onChange={e => onChange(index, { correctOutcome: e.target.value, correctCall: "" })}
-          style={{ width: "100%" }}
-        >
-          <option value="">— Select —</option>
-          {SIMULATOR_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
-      </td>
-      {showCallField && (
-        <td style={{ padding: "6px 4px" }}>
-          {hasCallOptions ? (
-            <select
-              value={event.correctCall}
-              onChange={e => onChange(index, { correctCall: e.target.value })}
-              style={{ width: "100%" }}
-            >
-              <option value="">— Select —</option>
-              {callOptions.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          ) : (
-            <span style={{ fontSize: 12, color: "var(--muted)", padding: "6px 4px", display: "block" }}>—</span>
-          )}
-        </td>
-      )}
-      <td style={{ padding: "6px 4px" }}>
-        <input
-          value={event.notes}
-          onChange={e => onChange(index, { notes: e.target.value })}
-          placeholder="Explanation for referees…"
-          style={{ width: "100%", fontSize: 12 }}
-        />
-      </td>
-      <td style={{ padding: "6px 0 6px 4px", width: 36, textAlign: "center" }}>
-        <button
-          onClick={() => onDelete(index)}
-          style={{ padding: "4px 6px", color: "#fca5a5", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 6 }}
-          title="Remove event"
-        >
-          <Trash2 size={12} />
-        </button>
-      </td>
-    </tr>
-  );
+function reviewForSession(session: SimulatorSessionWithEvents, reviews: ReviewRecord[]): ReviewRecord | undefined {
+  if (!session.reviewId) return undefined;
+  return reviews.find(r => r.id === session.reviewId);
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -133,11 +25,15 @@ interface Props {
   session: RefEvalSession;
   sessions: SimulatorSessionWithEvents[];
   loading: boolean;
-  onCreate: (data: SessionFormData, events: EventFormData[]) => Promise<string>;
-  onUpdate: (id: string, data: SessionFormData, events: EventFormData[]) => Promise<void>;
+  reviews: ReviewRecord[];
+  tags: CodedTag[];
+  onCreate: (data: SessionFormData) => Promise<string>;
+  onUpdate: (id: string, data: SessionFormData) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onPublish: (reviewId: string) => Promise<void>;
   onBack: () => void;
   onRunSession: (sessionId: string) => void;
+  onOpenReview: (reviewId: string) => void;
 }
 
 type View = "list" | "edit";
@@ -145,87 +41,43 @@ type View = "list" | "edit";
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function SimulatorBuilderScreen({
-  session, sessions, loading,
-  onCreate, onUpdate, onDelete,
-  onBack, onRunSession,
+  session, sessions, loading, reviews, tags,
+  onCreate, onUpdate, onDelete, onPublish,
+  onBack, onRunSession, onOpenReview,
 }: Props) {
   const uid = useId();
   const [view, setView] = useState<View>("list");
   const [editId, setEditId] = useState<string | null>(null);
+  const [editReviewId, setEditReviewId] = useState<string | null>(null);
 
-  // Form state
   const [fTitle, setFTitle] = useState("");
   const [fDescription, setFDescription] = useState("");
   const [fVideoUrl, setFVideoUrl] = useState("");
-  const [fLevel, setFLevel] = useState<SimulatorLevel>("beginner");
-  const [draftEvents, setDraftEvents] = useState<EventFormData[]>([]);
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [formError, setFormError] = useState("");
-
-  const showCallField = fLevel === "intermediate" || fLevel === "advanced" || fLevel === "elite";
 
   function openNew() {
     setEditId(null);
-    setFTitle(""); setFDescription(""); setFVideoUrl(""); setFLevel("beginner");
-    setDraftEvents([]);
+    setEditReviewId(null);
+    setFTitle(""); setFDescription(""); setFVideoUrl("");
     setFormError("");
     setView("edit");
   }
 
   function openEdit(s: SimulatorSessionWithEvents) {
     setEditId(s.id);
+    setEditReviewId(s.reviewId ?? null);
     setFTitle(s.title);
     setFDescription(s.description);
     setFVideoUrl(s.videoUrl);
-    setFLevel(s.level);
-    setDraftEvents(
-      s.events.map(e => ({
-        tempId: e.id,
-        timestampSeconds: e.timestampSeconds,
-        windowSeconds: e.windowSeconds,
-        correctOutcome: e.correctOutcome,
-        correctCall: e.correctCall,
-        category: e.category,
-        notes: e.notes,
-      }))
-    );
     setFormError("");
     setView("edit");
-  }
-
-  function addEvent() {
-    const maxTs = draftEvents.length > 0
-      ? Math.max(...draftEvents.map(e => e.timestampSeconds)) + 30
-      : 60;
-    setDraftEvents(prev => [...prev, {
-      tempId: `new-${Date.now()}-${Math.random()}`,
-      timestampSeconds: maxTs,
-      windowSeconds: 10,
-      correctOutcome: "",
-      correctCall: "",
-      category: "",
-      notes: "",
-    }]);
-  }
-
-  function updateEventAt(idx: number, patch: Partial<EventFormData>) {
-    setDraftEvents(prev => prev.map((e, i) => i === idx ? { ...e, ...patch } : e));
-  }
-
-  function deleteEventAt(idx: number) {
-    setDraftEvents(prev => prev.filter((_, i) => i !== idx));
-  }
-
-  // Sort events by timestamp before saving
-  function sortedEvents() {
-    return [...draftEvents].sort((a, b) => a.timestampSeconds - b.timestampSeconds);
   }
 
   async function handleSave() {
     if (!fTitle.trim()) { setFormError("Title is required."); return; }
     if (!fVideoUrl.trim()) { setFormError("Video URL is required."); return; }
-    const incomplete = draftEvents.find(e => !e.correctOutcome);
-    if (incomplete) { setFormError("All events must have a correct outcome selected."); return; }
     setSaving(true);
     setFormError("");
     try {
@@ -233,18 +85,35 @@ export function SimulatorBuilderScreen({
         title: fTitle.trim(),
         description: fDescription.trim(),
         videoUrl: fVideoUrl.trim(),
-        level: fLevel,
       };
       if (editId) {
-        await onUpdate(editId, formData, sortedEvents());
+        await onUpdate(editId, formData);
+        setView("list");
       } else {
-        await onCreate(formData, sortedEvents());
+        const newId = await onCreate(formData);
+        // Reload sessions then open edit so educator can code decisions
+        await new Promise(r => setTimeout(r, 300));
+        // Find in updated sessions list (sessions may not have refreshed yet; use reviewId from response)
+        // For now just go back to list — the session will appear
+        setView("list");
+        void newId; // session created; educator can edit it from list
       }
-      setView("list");
     } catch {
       setFormError("Failed to save. Please try again.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePublish() {
+    if (!editReviewId) return;
+    if (!confirm("Publish this simulator? Referees will be able to run it.")) return;
+    setPublishing(true);
+    try {
+      await onPublish(editReviewId);
+      setView("list");
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -298,53 +167,61 @@ export function SimulatorBuilderScreen({
 
         {!loading && sessions.length > 0 && (
           <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-            {sessions.map((s, idx) => (
-              <div
-                key={s.id}
-                style={{
-                  display: "flex", alignItems: "center", gap: 12,
-                  padding: "12px 16px",
-                  borderBottom: idx < sessions.length - 1 ? "1px solid var(--border)" : "none",
-                  flexWrap: "wrap",
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
-                    <span style={{ fontWeight: 700, fontSize: 15 }}>{s.title}</span>
-                    <LevelBadge level={s.level} />
-                    <span className="hint" style={{ fontSize: 12 }}>
-                      {s.events.length} event{s.events.length !== 1 ? "s" : ""}
-                    </span>
+            {sessions.map((s, idx) => {
+              const clipCount = clipCountForSession(s, tags);
+              const linkedReview = reviewForSession(s, reviews);
+              const isPublished = linkedReview?.status === "Completed";
+              return (
+                <div
+                  key={s.id}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    padding: "12px 16px",
+                    borderBottom: idx < sessions.length - 1 ? "1px solid var(--border)" : "none",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{s.title}</span>
+                      {isPublished
+                        ? <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#22c55e", background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.35)" }}>Published</span>
+                        : <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#f59e0b", background: "rgba(245,158,11,.12)", border: "1px solid rgba(245,158,11,.35)" }}>Draft</span>
+                      }
+                      <span className="hint" style={{ fontSize: 12 }}>
+                        {clipCount} decision{clipCount !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    {s.description && (
+                      <p className="hint" style={{ margin: 0, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {s.description}
+                      </p>
+                    )}
                   </div>
-                  {s.description && (
-                    <p className="hint" style={{ margin: 0, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {s.description}
-                    </p>
-                  )}
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button
+                      onClick={() => onRunSession(s.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }}
+                      title="Preview this simulator"
+                    >
+                      <Play size={12} /> Preview
+                    </button>
+                    <button
+                      onClick={() => openEdit(s)}
+                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(s.id, s.title)}
+                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px", color: "#fca5a5", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 7 }}
+                    >
+                      <Trash2 size={12} /> Delete
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <button
-                    onClick={() => onRunSession(s.id)}
-                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }}
-                    title="Preview / Run this simulator"
-                  >
-                    <Play size={12} /> Preview
-                  </button>
-                  <button
-                    onClick={() => openEdit(s)}
-                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }}
-                  >
-                    <Edit2 size={12} /> Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(s.id, s.title)}
-                    style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px", color: "#fca5a5", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 7 }}
-                  >
-                    <Trash2 size={12} /> Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -352,6 +229,11 @@ export function SimulatorBuilderScreen({
   }
 
   // ── Edit / Create view ──────────────────────────────────────────────────────
+
+  const editSession = editId ? sessions.find(s => s.id === editId) : undefined;
+  const linkedReview = editReviewId ? reviews.find(r => r.id === editReviewId) : undefined;
+  const clipCount = editSession ? clipCountForSession(editSession, tags) : 0;
+  const isPublished = linkedReview?.status === "Completed";
 
   return (
     <div style={{ padding: "20px 20px 80px", boxSizing: "border-box" }}>
@@ -395,95 +277,79 @@ export function SimulatorBuilderScreen({
               style={{ width: "100%", boxSizing: "border-box", resize: "vertical" }}
             />
           </label>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12 }}>
-            <label htmlFor={`${uid}-url`}>
-              Video URL *
-              <input
-                id={`${uid}-url`}
-                value={fVideoUrl}
-                onChange={e => setFVideoUrl(e.target.value)}
-                placeholder="YouTube or direct MP4/WebM URL"
-              />
-            </label>
-            <label htmlFor={`${uid}-level`}>
-              Level
-              <select
-                id={`${uid}-level`}
-                value={fLevel}
-                onChange={e => setFLevel(e.target.value as SimulatorLevel)}
+          <label htmlFor={`${uid}-url`}>
+            Video URL *
+            <input
+              id={`${uid}-url`}
+              value={fVideoUrl}
+              onChange={e => setFVideoUrl(e.target.value)}
+              placeholder="YouTube or direct MP4/WebM URL"
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* Decision coding (only when editing a saved session with a linked review) */}
+      {editId && editReviewId && (
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+            <div>
+              <h2 style={{ margin: "0 0 2px", fontSize: 15, fontWeight: 700 }}>Decision Events</h2>
+              <p className="hint" style={{ margin: 0, fontSize: 12 }}>
+                Code decisions through the review wizard — each tagged clip becomes a simulator event.
+              </p>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{
+                fontSize: 13, fontWeight: 700,
+                padding: "4px 12px", borderRadius: 999,
+                background: clipCount > 0 ? "rgba(34,197,94,.12)" : "var(--panel2)",
+                color: clipCount > 0 ? "#22c55e" : "var(--muted)",
+                border: `1px solid ${clipCount > 0 ? "rgba(34,197,94,.35)" : "var(--border)"}`,
+              }}>
+                {clipCount} decision{clipCount !== 1 ? "s" : ""} coded
+              </span>
+              <button
+                className="primary"
+                onClick={() => onOpenReview(editReviewId)}
+                style={{ display: "flex", alignItems: "center", gap: 6 }}
               >
-                {SIMULATOR_LEVELS.map(l => (
-                  <option key={l} value={l}>{LEVEL_LABELS[l]}</option>
-                ))}
-              </select>
-            </label>
+                <BookOpen size={14} /> Code Decisions
+              </button>
+            </div>
           </div>
-          <p className="hint" style={{ margin: 0, fontSize: 12 }}>
-            <strong>Beginner</strong> — referee selects outcome only.{" "}
-            <strong>Intermediate / Advanced</strong> — referee selects outcome + call type.
-          </p>
+
+          {clipCount === 0 && (
+            <div style={{ padding: "12px 14px", background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.2)", borderRadius: 8, fontSize: 13, color: "var(--muted)" }}>
+              No decisions coded yet. Click <strong>Code Decisions</strong> to open the review wizard and tag decision moments in the video.
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
-      {/* Events */}
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>
-            Decision Events
-            <span className="hint" style={{ fontWeight: 400, marginLeft: 8 }}>
-              {draftEvents.length} event{draftEvents.length !== 1 ? "s" : ""}
-            </span>
-          </h2>
-          <button onClick={addEvent} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
-            <Plus size={13} /> Add Event
-          </button>
-        </div>
-
-        {draftEvents.length === 0 && (
-          <p className="hint" style={{ fontSize: 13, margin: 0 }}>
-            No decision events yet. Add at least one event where referees must make a call.
-          </p>
-        )}
-
-        {draftEvents.length > 0 && (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ color: "var(--muted)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  <th style={{ textAlign: "left", padding: "0 6px 8px 0", fontWeight: 700 }}>Time</th>
-                  <th style={{ textAlign: "left", padding: "0 4px 8px", fontWeight: 700 }}>Window (s)</th>
-                  <th style={{ textAlign: "left", padding: "0 4px 8px", fontWeight: 700 }}>Correct Outcome</th>
-                  {showCallField && <th style={{ textAlign: "left", padding: "0 4px 8px", fontWeight: 700 }}>Correct Call</th>}
-                  <th style={{ textAlign: "left", padding: "0 4px 8px", fontWeight: 700 }}>Explanation / Notes</th>
-                  <th style={{ width: 36 }} />
-                </tr>
-              </thead>
-              <tbody>
-                {draftEvents.map((ev, i) => (
-                  <EventRow
-                    key={ev.tempId}
-                    event={ev}
-                    index={i}
-                    showCallField={showCallField}
-                    onChange={updateEventAt}
-                    onDelete={deleteEventAt}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Save */}
+      {/* Save / Publish */}
       {formError && (
         <p className="danger-text" style={{ marginBottom: 10 }}>{formError}</p>
       )}
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <button onClick={() => setView("list")}>Cancel</button>
         <button className="primary" onClick={handleSave} disabled={saving} style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Save size={14} /> {saving ? "Saving…" : editId ? "Save Changes" : "Create Simulator"}
         </button>
+        {editId && editReviewId && !isPublished && clipCount > 0 && (
+          <button
+            onClick={handlePublish}
+            disabled={publishing}
+            style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", color: "#22c55e", background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.35)", borderRadius: 8, padding: "7px 16px" }}
+          >
+            <CheckCircle2 size={14} /> {publishing ? "Publishing…" : "Publish Simulator"}
+          </button>
+        )}
+        {editId && isPublished && (
+          <span style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto", fontSize: 13, color: "#22c55e" }}>
+            <CheckCircle2 size={14} /> Published
+          </span>
+        )}
       </div>
     </div>
   );

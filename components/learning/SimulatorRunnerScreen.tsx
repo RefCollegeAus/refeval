@@ -6,14 +6,21 @@ import {
 } from "lucide-react";
 import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
 import type { RefEvalSession } from "@/lib/types/auth";
+import type { CodedTag } from "@/lib/types/reviews";
 import {
   SimulatorSessionWithEvents,
   SimulatorEvent,
   SimulatorLevel,
   LEVEL_LABELS,
   LEVEL_COLORS,
+  LEVEL_DESCRIPTIONS,
+  SIMULATOR_LEVELS,
   SIMULATOR_OUTCOMES,
   SIMULATOR_CALL_OPTIONS,
+  SIM_CATEGORY_GROUPS,
+  SIM_SPECIFIC_TAGS,
+  SIM_POSITIONS,
+  SIM_COVERAGE,
 } from "@/lib/types/simulator";
 import type { SaveResponseData } from "@/lib/hooks/useSimulatorSessions";
 
@@ -34,17 +41,77 @@ function LevelBadge({ level }: { level: SimulatorLevel }) {
   );
 }
 
-function isBeginnerLevel(level: string) {
-  return level === "beginner" || level === "developing";
+// ── Active event union ────────────────────────────────────────────────────────
+
+type SimActiveEvent =
+  | { kind: "clip"; tag: CodedTag }
+  | { kind: "legacy"; event: SimulatorEvent };
+
+function activeEventId(e: SimActiveEvent) {
+  return e.kind === "clip" ? e.tag.id : e.event.id;
 }
 
-function checkCorrect(event: SimulatorEvent, outcome: string, call: string, level: string): boolean {
+function activeEventTimestamp(e: SimActiveEvent) {
+  return e.kind === "clip" ? e.tag.adjustedSeconds : e.event.timestampSeconds;
+}
+
+function activeEventWindow(e: SimActiveEvent) {
+  return e.kind === "clip" ? 15 : e.event.windowSeconds;
+}
+
+function activeEventNotes(e: SimActiveEvent) {
+  return e.kind === "clip" ? (e.tag.notes || "") : (e.event.notes || "");
+}
+
+function deriveCallFromOutcome(outcome: string): "Call" | "No Call" {
+  return ["Correct Call", "Incorrect No Call"].includes(outcome) ? "Call" : "No Call";
+}
+
+function checkCorrectClip(tag: CodedTag, response: ClipResponse, level: SimulatorLevel): boolean {
+  switch (level) {
+    case "foundation": {
+      const correct = deriveCallFromOutcome(tag.outcome || "");
+      return response.callDecision === correct;
+    }
+    case "developing": {
+      const correctGroup = (tag.category || "").split(" — ")[0];
+      return !!correctGroup && response.categoryGroup === correctGroup;
+    }
+    case "intermediate": {
+      return !!tag.category && response.category === tag.category;
+    }
+    case "advanced": {
+      return (
+        !!tag.category && response.category === tag.category &&
+        !!tag.position && response.position === tag.position
+      );
+    }
+    case "expert": {
+      return (
+        !!tag.category && response.category === tag.category &&
+        !!tag.position && response.position === tag.position &&
+        !!tag.coverage && response.coverage === tag.coverage
+      );
+    }
+    default: return false;
+  }
+}
+
+function checkCorrectLegacy(event: SimulatorEvent, outcome: string, call: string, level: string): boolean {
   if (!event.correctOutcome) return false;
   const outcomeMatch = outcome.toLowerCase() === event.correctOutcome.toLowerCase();
-  if (isBeginnerLevel(level)) return outcomeMatch;
+  if (level === "foundation" || level === "beginner" || level === "developing") return outcomeMatch;
   const callNeeded = (SIMULATOR_CALL_OPTIONS[event.correctOutcome] ?? []).length > 0;
   if (!callNeeded) return outcomeMatch;
   return outcomeMatch && call.toLowerCase() === event.correctCall.toLowerCase();
+}
+
+interface ClipResponse {
+  callDecision?: "Call" | "No Call";
+  categoryGroup?: string;
+  category?: string;
+  position?: string;
+  coverage?: string;
 }
 
 // ── Video player with time-update callback ────────────────────────────────────
@@ -209,6 +276,7 @@ function SimulatorVideoPlayer({
 
 interface PromptResult {
   eventId: string;
+  clipId?: string;
   responseOutcome: string;
   responseCall: string;
   responseTimeSeconds: number;
@@ -216,20 +284,65 @@ interface PromptResult {
 }
 
 interface DecisionPromptProps {
-  event: SimulatorEvent;
-  level: string;
+  activeEvent: SimActiveEvent;
+  level: SimulatorLevel;
   promptStartTime: number;
   onSubmit: (result: PromptResult) => void;
 }
 
-function DecisionPrompt({ event, level, promptStartTime, onSubmit }: DecisionPromptProps) {
-  const [outcome, setOutcome] = useState("");
-  const [call, setCall] = useState("");
-  const [remaining, setRemaining] = useState(Math.ceil(event.windowSeconds));
-  const showCall = !isBeginnerLevel(level);
-  const callOptions = SIMULATOR_CALL_OPTIONS[outcome] ?? [];
-  const needsCall = showCall && callOptions.length > 0;
-  const canSubmit = outcome !== "" && (!needsCall || call !== "");
+function OptionBtn({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        fontSize: 13, padding: "7px 14px", borderRadius: 8,
+        background: selected ? "var(--accent)" : "var(--panel2)",
+        color: selected ? "#000" : "var(--text)",
+        border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
+        fontWeight: selected ? 700 : 400,
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function DecisionPrompt({ activeEvent, level, promptStartTime, onSubmit }: DecisionPromptProps) {
+  const windowSeconds = activeEventWindow(activeEvent);
+  const [remaining, setRemaining] = useState(Math.ceil(windowSeconds));
+
+  // Clip-based state
+  const [callDecision, setCallDecision] = useState<"Call" | "No Call" | "">("");
+  const [categoryGroup, setCategoryGroup] = useState("");
+  const [category, setCategory] = useState("");
+  const [position, setPosition] = useState("");
+  const [coverage, setCoverage] = useState("");
+
+  // Legacy state
+  const [legacyOutcome, setLegacyOutcome] = useState("");
+  const [legacyCall, setLegacyCall] = useState("");
+
+  const isClip = activeEvent.kind === "clip";
+  const ts = activeEventTimestamp(activeEvent);
+  const id = activeEventId(activeEvent);
+
+  const specificTags = categoryGroup ? (SIM_SPECIFIC_TAGS[categoryGroup] ?? []) : [];
+  const legacyCallOptions = SIMULATOR_CALL_OPTIONS[legacyOutcome] ?? [];
+
+  const canSubmit = isClip
+    ? (
+        (level === "foundation" && callDecision !== "") ||
+        (level === "developing" && categoryGroup !== "") ||
+        (level === "intermediate" && category !== "") ||
+        (level === "advanced" && category !== "" && position !== "") ||
+        (level === "expert" && category !== "" && position !== "" && coverage !== "")
+      )
+    : (
+        legacyOutcome !== "" &&
+        (legacyCallOptions.length === 0 || legacyCall !== "" ||
+          level === "foundation" || level === "developing")
+      );
 
   // Countdown timer
   useEffect(() => {
@@ -237,15 +350,8 @@ function DecisionPrompt({ event, level, promptStartTime, onSubmit }: DecisionPro
       setRemaining(r => {
         if (r <= 1) {
           clearInterval(interval);
-          // Auto-submit with empty answers (timed out)
           const elapsed = (performance.now() - promptStartTime) / 1000;
-          onSubmit({
-            eventId: event.id,
-            responseOutcome: "",
-            responseCall: "",
-            responseTimeSeconds: elapsed,
-            isCorrect: false,
-          });
+          onSubmit({ eventId: id, clipId: isClip ? id : undefined, responseOutcome: "", responseCall: "", responseTimeSeconds: elapsed, isCorrect: false });
           return 0;
         }
         return r - 1;
@@ -253,22 +359,38 @@ function DecisionPrompt({ event, level, promptStartTime, onSubmit }: DecisionPro
     }, 1000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event.id]);
+  }, [id]);
 
   function handleSubmit() {
     if (!canSubmit) return;
     const elapsed = (performance.now() - promptStartTime) / 1000;
-    const correct = checkCorrect(event, outcome, call, level);
+    let responseOutcome = "";
+    let responseCall = "";
+    let isCorrect = false;
+
+    if (isClip) {
+      const tag = activeEvent.tag;
+      const resp: ClipResponse = { callDecision: callDecision as any, categoryGroup, category, position, coverage };
+      isCorrect = checkCorrectClip(tag, resp, level);
+      responseOutcome = callDecision || categoryGroup || category || "";
+      responseCall = position || coverage || "";
+    } else {
+      isCorrect = checkCorrectLegacy(activeEvent.event, legacyOutcome, legacyCall, level);
+      responseOutcome = legacyOutcome;
+      responseCall = legacyCall;
+    }
+
     onSubmit({
-      eventId: event.id,
-      responseOutcome: outcome,
-      responseCall: call,
+      eventId: id,
+      clipId: isClip ? id : undefined,
+      responseOutcome,
+      responseCall,
       responseTimeSeconds: Math.round(elapsed * 10) / 10,
-      isCorrect: correct,
+      isCorrect,
     });
   }
 
-  const pct = Math.max(0, remaining / Math.ceil(event.windowSeconds)) * 100;
+  const pct = Math.max(0, remaining / Math.ceil(windowSeconds)) * 100;
   const timerColor = remaining <= 3 ? "#ef4444" : remaining <= 5 ? "#f59e0b" : "#22c55e";
 
   return (
@@ -280,8 +402,9 @@ function DecisionPrompt({ event, level, promptStartTime, onSubmit }: DecisionPro
     }}>
       <div style={{
         background: "var(--panel)", border: "1px solid var(--border)",
-        borderRadius: 14, padding: "24px 28px", maxWidth: 480, width: "100%",
+        borderRadius: 14, padding: "24px 28px", maxWidth: 520, width: "100%",
         boxShadow: "0 24px 60px rgba(0,0,0,.6)",
+        maxHeight: "90vh", overflowY: "auto",
       }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
@@ -294,70 +417,109 @@ function DecisionPrompt({ event, level, promptStartTime, onSubmit }: DecisionPro
 
         {/* Timer bar */}
         <div style={{ height: 4, background: "var(--border)", borderRadius: 2, marginBottom: 20, overflow: "hidden" }}>
-          <div style={{
-            height: "100%", borderRadius: 2,
-            width: `${pct}%`,
-            background: timerColor,
-            transition: "width 1s linear, background 0.3s",
-          }} />
+          <div style={{ height: "100%", borderRadius: 2, width: `${pct}%`, background: timerColor, transition: "width 1s linear, background 0.3s" }} />
         </div>
 
-        <h2 style={{ margin: "0 0 8px", fontSize: 17 }}>
-          What is your call at {fmtTime(event.timestampSeconds)}?
-        </h2>
+        <h2 style={{ margin: "0 0 16px", fontSize: 17 }}>What is your call at {fmtTime(ts)}?</h2>
 
-        {/* Outcome buttons */}
-        <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Select outcome</p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: needsCall ? 20 : 0 }}>
-          {SIMULATOR_OUTCOMES.map(o => (
-            <button
-              key={o}
-              onClick={() => { setOutcome(o); setCall(""); }}
-              style={{
-                fontSize: 13, padding: "7px 14px", borderRadius: 8,
-                background: outcome === o ? "var(--accent)" : "var(--panel2)",
-                color: outcome === o ? "#000" : "var(--text)",
-                border: `1px solid ${outcome === o ? "var(--accent)" : "var(--border)"}`,
-                fontWeight: outcome === o ? 700 : 400,
-                cursor: "pointer",
-              }}
-            >
-              {o}
-            </button>
-          ))}
-        </div>
-
-        {/* Call sub-selection (intermediate+) */}
-        {needsCall && (
+        {/* Clip-based prompts */}
+        {isClip && (
           <>
-            <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Select call type</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-              {callOptions.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setCall(c)}
-                  style={{
-                    fontSize: 13, padding: "7px 14px", borderRadius: 8,
-                    background: call === c ? "var(--accent)" : "var(--panel2)",
-                    color: call === c ? "#000" : "var(--text)",
-                    border: `1px solid ${call === c ? "var(--accent)" : "var(--border)"}`,
-                    fontWeight: call === c ? 700 : 400,
-                    cursor: "pointer",
-                  }}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
+            {level === "foundation" && (
+              <>
+                <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Call or No Call?</p>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <OptionBtn label="Call" selected={callDecision === "Call"} onClick={() => setCallDecision("Call")} />
+                  <OptionBtn label="No Call" selected={callDecision === "No Call"} onClick={() => setCallDecision("No Call")} />
+                </div>
+              </>
+            )}
+
+            {level === "developing" && (
+              <>
+                <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>What category of incident?</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {SIM_CATEGORY_GROUPS.map(g => (
+                    <OptionBtn key={g} label={g} selected={categoryGroup === g} onClick={() => setCategoryGroup(g)} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {(level === "intermediate" || level === "advanced" || level === "expert") && (
+              <>
+                <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Category</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                  {SIM_CATEGORY_GROUPS.map(g => (
+                    <OptionBtn key={g} label={g} selected={categoryGroup === g} onClick={() => { setCategoryGroup(g); setCategory(""); }} />
+                  ))}
+                </div>
+
+                {categoryGroup && (
+                  <>
+                    <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Specific call</p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                      {specificTags.map(t => (
+                        <OptionBtn key={t} label={t} selected={category === `${categoryGroup} — ${t}`} onClick={() => setCategory(`${categoryGroup} — ${t}`)} />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {(level === "advanced" || level === "expert") && category && (
+                  <>
+                    <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Position</p>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                      {SIM_POSITIONS.map(p => (
+                        <OptionBtn key={p} label={p} selected={position === p} onClick={() => setPosition(p)} />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {level === "expert" && position && (
+                  <>
+                    <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Coverage</p>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                      {SIM_COVERAGE.map(c => (
+                        <OptionBtn key={c} label={c} selected={coverage === c} onClick={() => setCoverage(c)} />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </>
         )}
 
-        {/* Submit */}
+        {/* Legacy prompts */}
+        {!isClip && (
+          <>
+            <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Select outcome</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: legacyCallOptions.length > 0 ? 16 : 0 }}>
+              {SIMULATOR_OUTCOMES.map(o => (
+                <OptionBtn key={o} label={o} selected={legacyOutcome === o} onClick={() => { setLegacyOutcome(o); setLegacyCall(""); }} />
+              ))}
+            </div>
+
+            {legacyCallOptions.length > 0 && (
+              <>
+                <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Select call type</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {legacyCallOptions.map(c => (
+                    <OptionBtn key={c} label={c} selected={legacyCall === c} onClick={() => setLegacyCall(c)} />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
         <button
           className="primary"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          style={{ width: "100%", marginTop: needsCall ? 0 : 20, padding: "10px 0", fontSize: 15, fontWeight: 700 }}
+          style={{ width: "100%", marginTop: 20, padding: "10px 0", fontSize: 15, fontWeight: 700 }}
         >
           Submit Decision
         </button>
@@ -369,21 +531,35 @@ function DecisionPrompt({ event, level, promptStartTime, onSubmit }: DecisionPro
 // ── Score screen ──────────────────────────────────────────────────────────────
 
 interface RecordedResponse {
-  event: SimulatorEvent;
+  activeEvent: SimActiveEvent;
   responseOutcome: string;
   responseCall: string;
   responseTimeSeconds: number;
   isCorrect: boolean;
 }
 
+function correctAnswerLabel(ae: SimActiveEvent, level: SimulatorLevel): string {
+  if (ae.kind === "legacy") {
+    const ev = ae.event;
+    return ev.correctOutcome + (ev.correctCall ? ` — ${ev.correctCall}` : "");
+  }
+  const tag = ae.tag;
+  switch (level) {
+    case "foundation": return deriveCallFromOutcome(tag.outcome || "");
+    case "developing": return (tag.category || "").split(" — ")[0] || "—";
+    case "intermediate": return tag.category || "—";
+    case "advanced": return `${tag.category || "—"} · ${tag.position || "—"}`;
+    case "expert": return `${tag.category || "—"} · ${tag.position || "—"} · ${tag.coverage || "—"}`;
+    default: return "—";
+  }
+}
+
 function ScoreScreen({
-  session,
-  responses,
-  onTryAgain,
-  onDone,
+  session, responses, level, onTryAgain, onDone,
 }: {
   session: SimulatorSessionWithEvents;
   responses: RecordedResponse[];
+  level: SimulatorLevel;
   onTryAgain: () => void;
   onDone: () => void;
 }) {
@@ -398,7 +574,6 @@ function ScoreScreen({
 
   return (
     <div style={{ padding: "20px 20px 80px", boxSizing: "border-box", maxWidth: 680, margin: "0 auto" }}>
-      {/* Score summary */}
       <div className="panel" style={{ textAlign: "center", padding: "32px 24px", marginBottom: 16 }}>
         <Zap size={32} style={{ color: "#fbbf24", marginBottom: 10 }} />
         <p className="eyebrow">{session.title}</p>
@@ -416,14 +591,13 @@ function ScoreScreen({
         </div>
       </div>
 
-      {/* Per-event breakdown */}
       <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
           <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Decision Breakdown</h3>
         </div>
         {responses.map((r, i) => (
           <div
-            key={r.event.id}
+            key={activeEventId(r.activeEvent)}
             style={{
               padding: "14px 16px",
               borderBottom: i < responses.length - 1 ? "1px solid var(--border)" : "none",
@@ -439,7 +613,9 @@ function ScoreScreen({
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                  <span style={{ fontWeight: 700, fontSize: 13 }}>Event {i + 1} · {fmtTime(r.event.timestampSeconds)}</span>
+                  <span style={{ fontWeight: 700, fontSize: 13 }}>
+                    Event {i + 1} · {fmtTime(activeEventTimestamp(r.activeEvent))}
+                  </span>
                   {r.responseTimeSeconds > 0 && (
                     <span className="hint" style={{ fontSize: 11 }}>
                       <Clock size={10} style={{ display: "inline", verticalAlign: "middle" }} /> {r.responseTimeSeconds.toFixed(1)}s
@@ -450,21 +626,22 @@ function ScoreScreen({
                   <div>
                     <span className="hint" style={{ fontSize: 11 }}>Your answer</span>
                     <div style={{ fontWeight: 600, color: r.isCorrect ? "#22c55e" : "#fca5a5" }}>
-                      {r.responseOutcome || <em style={{ fontStyle: "italic", color: "var(--muted)" }}>No answer (timed out)</em>}
-                      {r.responseCall ? ` — ${r.responseCall}` : ""}
+                      {r.responseOutcome
+                        ? <>{r.responseOutcome}{r.responseCall ? ` · ${r.responseCall}` : ""}</>
+                        : <em style={{ fontStyle: "italic", color: "var(--muted)" }}>No answer (timed out)</em>
+                      }
                     </div>
                   </div>
                   <div>
                     <span className="hint" style={{ fontSize: 11 }}>Correct answer</span>
                     <div style={{ fontWeight: 600, color: "#22c55e" }}>
-                      {r.event.correctOutcome}
-                      {r.event.correctCall ? ` — ${r.event.correctCall}` : ""}
+                      {correctAnswerLabel(r.activeEvent, level)}
                     </div>
                   </div>
                 </div>
-                {r.event.notes && (
+                {activeEventNotes(r.activeEvent) && (
                   <p className="hint" style={{ margin: "6px 0 0", fontSize: 12, fontStyle: "italic" }}>
-                    {r.event.notes}
+                    {activeEventNotes(r.activeEvent)}
                   </p>
                 )}
               </div>
@@ -482,6 +659,7 @@ interface Props {
   session: RefEvalSession;
   sessions: SimulatorSessionWithEvents[];
   loading: boolean;
+  tags: CodedTag[];
   onBack: () => void;
   onCreateAttempt: (sessionId: string, level: string) => Promise<string>;
   onSaveResponse: (resp: SaveResponseData) => Promise<void>;
@@ -497,7 +675,7 @@ type RunnerView = "picker" | "intro" | "running" | "score";
 const MANAGEMENT_ROLES = ["educator", "admin", "super_admin"];
 
 export function SimulatorRunnerScreen({
-  session, sessions, loading,
+  session, sessions, loading, tags,
   onBack, onCreateAttempt, onSaveResponse, onCompleteAttempt,
   initialSessionId, onNavigateToBuilder,
 }: Props) {
@@ -506,24 +684,39 @@ export function SimulatorRunnerScreen({
   const [selectedSession, setSelectedSession] = useState<SimulatorSessionWithEvents | null>(
     initialSessionId ? (sessions.find(s => s.id === initialSessionId) ?? null) : null
   );
+  const [selectedLevel, setSelectedLevel] = useState<SimulatorLevel>("foundation");
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [firedEventIds, setFiredEventIds] = useState<Set<string>>(new Set());
-  const [promptEvent, setPromptEvent] = useState<SimulatorEvent | null>(null);
+  const [promptEvent, setPromptEvent] = useState<SimActiveEvent | null>(null);
   const [promptStartTime, setPromptStartTime] = useState(0);
   const [responses, setResponses] = useState<RecordedResponse[]>([]);
   const [startingAttempt, setStartingAttempt] = useState(false);
 
   const playerActionsRef = useRef<PlayerActions | null>(null);
-  const nextEventRef = useRef<SimulatorEvent | null>(null);
+  const nextEventRef = useRef<SimActiveEvent | null>(null);
   const promptActiveRef = useRef(false);
+
+  // Derive active events for selected session
+  function getActiveEvents(sess: SimulatorSessionWithEvents): SimActiveEvent[] {
+    if (sess.reviewId) {
+      return tags
+        .filter(t => t.reviewId === sess.reviewId)
+        .sort((a, b) => a.adjustedSeconds - b.adjustedSeconds)
+        .map(t => ({ kind: "clip", tag: t } as SimActiveEvent));
+    }
+    return [...sess.events]
+      .sort((a, b) => a.timestampSeconds - b.timestampSeconds)
+      .map(e => ({ kind: "legacy", event: e } as SimActiveEvent));
+  }
 
   // Keep nextEventRef in sync
   useEffect(() => {
     if (!selectedSession) { nextEventRef.current = null; return; }
-    const sorted = [...selectedSession.events].sort((a, b) => a.timestampSeconds - b.timestampSeconds);
-    const unfired = sorted.filter(e => !firedEventIds.has(e.id));
+    const active = getActiveEvents(selectedSession);
+    const unfired = active.filter(e => !firedEventIds.has(activeEventId(e)));
     nextEventRef.current = unfired[0] ?? null;
-  }, [selectedSession, firedEventIds]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSession, firedEventIds, tags]);
 
   // Keep promptActiveRef in sync
   useEffect(() => {
@@ -532,6 +725,7 @@ export function SimulatorRunnerScreen({
 
   function pickSession(s: SimulatorSessionWithEvents) {
     setSelectedSession(s);
+    setSelectedLevel("foundation");
     setView("intro");
     resetRunnerState();
   }
@@ -547,7 +741,7 @@ export function SimulatorRunnerScreen({
     if (!selectedSession) return;
     setStartingAttempt(true);
     try {
-      const id = await onCreateAttempt(selectedSession.id, selectedSession.level);
+      const id = await onCreateAttempt(selectedSession.id, selectedLevel);
       setAttemptId(id);
       setView("running");
     } finally {
@@ -559,9 +753,10 @@ export function SimulatorRunnerScreen({
     if (promptActiveRef.current) return;
     const next = nextEventRef.current;
     if (!next) return;
-    if (currentTime >= next.timestampSeconds) {
+    if (currentTime >= activeEventTimestamp(next)) {
       playerActionsRef.current?.pause();
-      setFiredEventIds(prev => { const n = new Set(prev); n.add(next!.id); return n; });
+      const eid = activeEventId(next);
+      setFiredEventIds(prev => { const n = new Set(prev); n.add(eid); return n; });
       setPromptEvent(next);
       setPromptStartTime(performance.now());
     }
@@ -570,12 +765,12 @@ export function SimulatorRunnerScreen({
   async function handlePromptSubmit(result: PromptResult) {
     if (!selectedSession || !attemptId) return;
 
-    const event = selectedSession.events.find(e => e.id === result.eventId);
-    if (!event) return;
+    const activeEvents = getActiveEvents(selectedSession);
+    const ae = activeEvents.find(e => activeEventId(e) === result.eventId);
+    if (!ae) return;
 
-    // Record locally
     const recorded: RecordedResponse = {
-      event,
+      activeEvent: ae,
       responseOutcome: result.responseOutcome,
       responseCall: result.responseCall,
       responseTimeSeconds: result.responseTimeSeconds,
@@ -584,21 +779,19 @@ export function SimulatorRunnerScreen({
     const newResponses = [...responses, recorded];
     setResponses(newResponses);
 
-    // Save to DB
     await onSaveResponse({
       attemptId,
-      eventId: result.eventId,
+      eventId: result.clipId ? undefined : result.eventId,
+      clipId: result.clipId,
       responseOutcome: result.responseOutcome,
       responseCall: result.responseCall,
       responseTimeSeconds: result.responseTimeSeconds,
       isCorrect: result.isCorrect,
     });
 
-    // Close prompt
     setPromptEvent(null);
 
-    // All events answered?
-    const totalEvents = selectedSession.events.length;
+    const totalEvents = activeEvents.length;
     if (newResponses.length >= totalEvents) {
       const score = newResponses.filter(r => r.isCorrect).length;
       await onCompleteAttempt(attemptId, score, totalEvents);
@@ -606,9 +799,9 @@ export function SimulatorRunnerScreen({
       return;
     }
 
-    // Seek past the event window and resume
-    const resumeAt = event.timestampSeconds + event.windowSeconds;
-    playerActionsRef.current?.seekTo(resumeAt);
+    const ts = activeEventTimestamp(ae);
+    const win = activeEventWindow(ae);
+    playerActionsRef.current?.seekTo(ts + win);
     setTimeout(() => playerActionsRef.current?.play(), 200);
   }
 
@@ -683,28 +876,30 @@ export function SimulatorRunnerScreen({
 
         {!loading && sessions.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
-            {sessions.map(s => (
-              <div key={s.id} className="panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+            {sessions.map(s => {
+              const eventCount = s.reviewId
+                ? tags.filter(t => t.reviewId === s.reviewId).length
+                : s.events.length;
+              return (
+                <div key={s.id} className="panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>{s.title}</h3>
-                  <LevelBadge level={s.level} />
+                  {s.description && (
+                    <p className="hint" style={{ margin: 0, fontSize: 13 }}>{s.description}</p>
+                  )}
+                  <p className="hint" style={{ margin: 0, fontSize: 12 }}>
+                    <Zap size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
+                    {eventCount} decision event{eventCount !== 1 ? "s" : ""}
+                  </p>
+                  <button
+                    className="primary"
+                    onClick={() => pickSession(s)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: "auto" }}
+                  >
+                    <Play size={13} /> Start Simulation
+                  </button>
                 </div>
-                {s.description && (
-                  <p className="hint" style={{ margin: 0, fontSize: 13 }}>{s.description}</p>
-                )}
-                <p className="hint" style={{ margin: 0, fontSize: 12 }}>
-                  <Zap size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
-                  {s.events.length} decision event{s.events.length !== 1 ? "s" : ""}
-                </p>
-                <button
-                  className="primary"
-                  onClick={() => pickSession(s)}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: "auto" }}
-                >
-                  <Play size={13} /> Start Simulation
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -714,8 +909,9 @@ export function SimulatorRunnerScreen({
   // ── Intro ───────────────────────────────────────────────────────────────────
 
   if (view === "intro" && selectedSession) {
+    const activeEvents = getActiveEvents(selectedSession);
     return (
-      <div style={{ padding: "20px 20px 60px", boxSizing: "border-box", maxWidth: 560, margin: "0 auto" }}>
+      <div style={{ padding: "20px 20px 60px", boxSizing: "border-box", maxWidth: 580, margin: "0 auto" }}>
         <div className="panel">
           <button
             onClick={() => setView("picker")}
@@ -726,10 +922,9 @@ export function SimulatorRunnerScreen({
 
           <div style={{ textAlign: "center", marginBottom: 20 }}>
             <Zap size={36} style={{ color: "#fbbf24", marginBottom: 10 }} />
-            <LevelBadge level={selectedSession.level} />
-            <h1 style={{ margin: "10px 0 6px", fontSize: 22 }}>{selectedSession.title}</h1>
-            <p className="hint" style={{ margin: "0 0 4px" }}>
-              {selectedSession.events.length} decision event{selectedSession.events.length !== 1 ? "s" : ""}
+            <h1 style={{ margin: "0 0 6px", fontSize: 22 }}>{selectedSession.title}</h1>
+            <p className="hint" style={{ margin: 0 }}>
+              {activeEvents.length} decision event{activeEvents.length !== 1 ? "s" : ""}
             </p>
           </div>
 
@@ -739,15 +934,38 @@ export function SimulatorRunnerScreen({
             </div>
           )}
 
+          {/* Level picker */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>Choose your difficulty level</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {SIMULATOR_LEVELS.map(lv => {
+                const c = LEVEL_COLORS[lv];
+                const selected = selectedLevel === lv;
+                return (
+                  <button
+                    key={lv}
+                    onClick={() => setSelectedLevel(lv)}
+                    style={{
+                      textAlign: "left", padding: "10px 14px", borderRadius: 9,
+                      background: selected ? c.bg : "var(--panel2)",
+                      border: `1.5px solid ${selected ? c.border : "var(--border)"}`,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, color: c.color, marginRight: 10 }}>{LEVEL_LABELS[lv]}</span>
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>{LEVEL_DESCRIPTIONS[lv]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div style={{ padding: "14px 16px", background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.25)", borderRadius: 8, marginBottom: 20, fontSize: 13 }}>
             <p style={{ margin: "0 0 6px", fontWeight: 700 }}>How it works</p>
             <ul style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", lineHeight: 1.7 }}>
               <li>Watch the video — it will pause at key decision moments</li>
               <li>Select your call within the time window</li>
-              {isBeginnerLevel(selectedSession.level)
-                ? <li>Beginner mode: choose the correct outcome</li>
-                : <li>Intermediate mode: choose outcome + call type</li>
-              }
+              <li>{LEVEL_DESCRIPTIONS[selectedLevel]}</li>
               <li>See your score and explanations at the end</li>
             </ul>
           </div>
@@ -768,8 +986,9 @@ export function SimulatorRunnerScreen({
   // ── Running ─────────────────────────────────────────────────────────────────
 
   if (view === "running" && selectedSession) {
+    const activeEvents = getActiveEvents(selectedSession);
     const answered = responses.length;
-    const total = selectedSession.events.length;
+    const total = activeEvents.length;
 
     return (
       <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
@@ -778,7 +997,7 @@ export function SimulatorRunnerScreen({
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Zap size={18} style={{ color: "#fbbf24" }} />
             <span style={{ fontWeight: 700 }}>{selectedSession.title}</span>
-            <LevelBadge level={selectedSession.level} />
+            <LevelBadge level={selectedLevel} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span className="hint" style={{ fontSize: 13 }}>
@@ -811,8 +1030,8 @@ export function SimulatorRunnerScreen({
         {/* Decision prompt overlay */}
         {promptEvent && (
           <DecisionPrompt
-            event={promptEvent}
-            level={selectedSession.level}
+            activeEvent={promptEvent}
+            level={selectedLevel}
             promptStartTime={promptStartTime}
             onSubmit={handlePromptSubmit}
           />
@@ -828,6 +1047,7 @@ export function SimulatorRunnerScreen({
       <ScoreScreen
         session={selectedSession}
         responses={responses}
+        level={selectedLevel}
         onTryAgain={handleTryAgain}
         onDone={onBack}
       />

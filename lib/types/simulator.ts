@@ -1,46 +1,67 @@
-export type SimulatorLevel = "beginner" | "developing" | "intermediate" | "advanced" | "elite";
+// ── Level system ──────────────────────────────────────────────────────────────
+
+export type SimulatorLevel = "foundation" | "developing" | "intermediate" | "advanced" | "expert";
 
 export const SIMULATOR_LEVELS: SimulatorLevel[] = [
-  "beginner", "developing", "intermediate", "advanced", "elite",
+  "foundation", "developing", "intermediate", "advanced", "expert",
 ];
 
 export const LEVEL_LABELS: Record<SimulatorLevel, string> = {
-  beginner:     "Beginner",
+  foundation:   "Foundation",
   developing:   "Developing",
   intermediate: "Intermediate",
   advanced:     "Advanced",
-  elite:        "Elite",
+  expert:       "Expert",
 };
 
 export const LEVEL_COLORS: Record<SimulatorLevel, { color: string; bg: string; border: string }> = {
-  beginner:     { color: "#60a5fa", bg: "rgba(96,165,250,.12)",  border: "rgba(96,165,250,.35)"  },
+  foundation:   { color: "#60a5fa", bg: "rgba(96,165,250,.12)",  border: "rgba(96,165,250,.35)"  },
   developing:   { color: "#a78bfa", bg: "rgba(167,139,250,.12)", border: "rgba(167,139,250,.35)" },
   intermediate: { color: "#fbbf24", bg: "rgba(251,191,36,.12)",  border: "rgba(251,191,36,.35)"  },
   advanced:     { color: "#fb923c", bg: "rgba(251,146,60,.12)",  border: "rgba(251,146,60,.35)"  },
-  elite:        { color: "#f87171", bg: "rgba(248,113,113,.12)", border: "rgba(248,113,113,.35)" },
+  expert:       { color: "#f87171", bg: "rgba(248,113,113,.12)", border: "rgba(248,113,113,.35)" },
 };
 
-// Decision outcomes the referee can choose from during a simulation
+export const LEVEL_DESCRIPTIONS: Record<SimulatorLevel, string> = {
+  foundation:   "Call or No Call — identify whether action should be called",
+  developing:   "Category group — identify the type of incident",
+  intermediate: "Specific tag — name the exact call",
+  advanced:     "Specific tag + position of primary official",
+  expert:       "Specific tag + position + coverage area",
+};
+
+// ── Category taxonomy (mirrors page.tsx CATEGORY_GROUPS / SPECIFIC_TAGS) ─────
+
+export const SIM_CATEGORY_GROUPS = ["Foul", "Violation", "Mechanics", "Game Awareness", "Game Administration"];
+
+export const SIM_SPECIFIC_TAGS: Record<string, string[]> = {
+  "Foul":               ["Push","Block","Charge","Hands","Hold","Illegal Screen","Impact","Disruption","Hook","Head Contact","Unsportsmanlike","Technical","Disqualifying","Other"],
+  "Violation":          ["Travel","Out of Bounds","Double Dribble","Carry / Palming","Backcourt","3 Seconds","5 Seconds","8 Seconds","24 Seconds","Kick Ball","Jump Ball","Free Throw","Other"],
+  "Mechanics":          ["Positioning","Coverage","Closed Angle","Rotation","Signals","Communication","Whistle Timing","Process","Other"],
+  "Game Awareness":     ["Player Management","Bench Management","Preventative Officiating","Feel for Game","State of Game","Escalation","End of Quarter","Other"],
+  "Game Administration":["Inbound Location","Game Clock","Shot Clock","Timeout","Substitution","Correctable Error","Other"],
+};
+
+export const SIM_POSITIONS = ["Trail", "Lead", "Centre"];
+export const SIM_COVERAGE  = ["Primary", "Secondary", "Extended"];
+
+// ── Legacy manual-event model (kept for backward compat) ─────────────────────
+
 export const SIMULATOR_OUTCOMES = [
-  "Foul",
-  "No Call",
-  "Violation",
-  "Technical Foul",
-  "Jump Ball",
-  "Out of Bounds",
-  "Other",
+  "Foul", "No Call", "Violation", "Technical Foul", "Jump Ball", "Out of Bounds", "Other",
 ];
 
-// Call sub-options per outcome (for intermediate+)
 export const SIMULATOR_CALL_OPTIONS: Record<string, string[]> = {
-  "Foul":          ["Push", "Block", "Charge", "Hands", "Hold", "Illegal Screen", "Impact", "Other"],
-  "Violation":     ["Travel", "Out of Bounds", "Double Dribble", "Carry / Palming", "3 Seconds", "Backcourt", "24 Seconds", "Other"],
-  "Technical Foul":["Player", "Coach", "Bench"],
-  "No Call":       [],
-  "Jump Ball":     [],
-  "Out of Bounds": [],
-  "Other":         [],
+  "Foul":           ["Push","Block","Charge","Hands","Hold","Illegal Screen","Impact","Other"],
+  "Violation":      ["Travel","Out of Bounds","Double Dribble","Carry / Palming","3 Seconds","Backcourt","24 Seconds","Other"],
+  "Technical Foul": ["Player","Coach","Bench"],
+  "No Call":        [],
+  "Jump Ball":      [],
+  "Out of Bounds":  [],
+  "Other":          [],
 };
+
+// ── Data types ────────────────────────────────────────────────────────────────
 
 export interface SimulatorSession {
   id: string;
@@ -48,7 +69,8 @@ export interface SimulatorSession {
   title: string;
   description: string;
   videoUrl: string;
-  level: SimulatorLevel;
+  level?: SimulatorLevel; // legacy only — new sessions don't set a level at creation
+  reviewId?: string;      // Phase 16.2: linked review used for event coding
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -84,7 +106,8 @@ export interface SimulatorAttempt {
 export interface SimulatorResponse {
   id: string;
   attemptId: string;
-  eventId: string;
+  eventId?: string;
+  clipId?: string;
   responseOutcome: string;
   responseCall: string;
   responseTimeSeconds: number | null;
