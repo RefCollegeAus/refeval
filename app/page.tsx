@@ -1658,6 +1658,7 @@ export default function Home() {
           onSaveResponse={saveSimulatorResponse}
           onCompleteAttempt={completeSimulatorAttempt}
           initialSessionId={simulatorRunnerSessionId}
+          onNavigateToBuilder={() => { setReturnToScreen("learning-hub"); setScreen("simulator-builder"); }}
         />
       {globalSearchOverlay}</main>
     );

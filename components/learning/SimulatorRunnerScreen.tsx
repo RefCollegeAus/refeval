@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Zap, ChevronLeft, CheckCircle2, XCircle, Clock, Play, RotateCcw,
+  Zap, ChevronLeft, CheckCircle2, XCircle, Clock, Play, RotateCcw, Plus,
 } from "lucide-react";
 import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
 import type { RefEvalSession } from "@/lib/types/auth";
@@ -487,17 +487,21 @@ interface Props {
   onSaveResponse: (resp: SaveResponseData) => Promise<void>;
   onCompleteAttempt: (attemptId: string, score: number, total: number) => Promise<void>;
   initialSessionId?: string | null;
+  onNavigateToBuilder?: () => void;
 }
 
 type RunnerView = "picker" | "intro" | "running" | "score";
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+const MANAGEMENT_ROLES = ["educator", "admin", "super_admin"];
+
 export function SimulatorRunnerScreen({
   session, sessions, loading,
   onBack, onCreateAttempt, onSaveResponse, onCompleteAttempt,
-  initialSessionId,
+  initialSessionId, onNavigateToBuilder,
 }: Props) {
+  const canManage = MANAGEMENT_ROLES.includes(session.activeRole ?? "");
   const [view, setView] = useState<RunnerView>(initialSessionId ? "intro" : "picker");
   const [selectedSession, setSelectedSession] = useState<SimulatorSessionWithEvents | null>(
     initialSessionId ? (sessions.find(s => s.id === initialSessionId) ?? null) : null
@@ -628,9 +632,20 @@ export function SimulatorRunnerScreen({
                 <p className="hint" style={{ margin: "2px 0 0" }}>Test your decision-making on real game footage</p>
               </div>
             </div>
-            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <ChevronLeft size={15} /> Back
-            </button>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {canManage && onNavigateToBuilder && (
+                <button
+                  className="primary"
+                  onClick={onNavigateToBuilder}
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <Plus size={14} /> Create Simulator
+                </button>
+              )}
+              <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <ChevronLeft size={15} /> Back
+              </button>
+            </div>
           </div>
         </div>
 
@@ -641,8 +656,28 @@ export function SimulatorRunnerScreen({
         {!loading && sessions.length === 0 && (
           <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
             <Zap size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
-            <p style={{ margin: 0, fontWeight: 700 }}>No simulations available yet</p>
-            <p className="hint" style={{ margin: "6px 0 0" }}>Your educator will create simulations for you to complete.</p>
+            {canManage ? (
+              <>
+                <p style={{ margin: 0, fontWeight: 700 }}>No Referee Simulators yet</p>
+                <p className="hint" style={{ margin: "6px 0 16px" }}>
+                  Create your first simulator to begin building decision-based referee training.
+                </p>
+                {onNavigateToBuilder && (
+                  <button
+                    className="primary"
+                    onClick={onNavigateToBuilder}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                  >
+                    <Plus size={14} /> Create Simulator
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <p style={{ margin: 0, fontWeight: 700 }}>No simulations available yet</p>
+                <p className="hint" style={{ margin: "6px 0 0" }}>Your educator will create simulations for you to complete.</p>
+              </>
+            )}
           </div>
         )}
 
