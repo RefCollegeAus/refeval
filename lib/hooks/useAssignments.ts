@@ -34,6 +34,7 @@ function mapAssignment(row: any): Assignment {
     instructions: row.instructions ?? null,
     dueDate: row.due_date ?? null,
     required: row.required,
+    quizAllowRetakes: row.quiz_allow_retakes ?? true,
     createdAt: row.created_at,
     questions: Array.isArray(row.questions)
       ? (row.questions as any[]).map((q, i) => ({
@@ -51,6 +52,8 @@ function mapAssignment(row: any): Assignment {
           correctAnswerIndex: q.correctAnswerIndex ?? 0,
           required: q.required ?? false,
           displayOrder: q.displayOrder ?? i,
+          clipResourceId: q.clipResourceId ?? null,
+          explanation: q.explanation ?? undefined,
         }))
       : [],
     assignmentUsers: Array.isArray(row.learning_assignment_users)
@@ -116,6 +119,7 @@ export function useAssignments(orgId: string, currentUserId: string) {
         instructions: input.instructions || null,
         due_date: input.dueDate || null,
         required: input.required,
+        quiz_allow_retakes: input.quizAllowRetakes,
         questions: input.questions,
         quiz_questions: input.quizQuestions,
       })
@@ -137,7 +141,7 @@ export function useAssignments(orgId: string, currentUserId: string) {
 
   async function updateAssignment(
     id: string,
-    data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions?: ReflectionQuestion[]; quizQuestions?: QuizQuestion[] },
+    data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; quizAllowRetakes?: boolean; questions?: ReflectionQuestion[]; quizQuestions?: QuizQuestion[] },
   ): Promise<void> {
     const patch: Record<string, unknown> = {
       title: data.title,
@@ -145,6 +149,7 @@ export function useAssignments(orgId: string, currentUserId: string) {
       due_date: data.dueDate || null,
       required: data.required,
     };
+    if (data.quizAllowRetakes !== undefined) patch.quiz_allow_retakes = data.quizAllowRetakes;
     if (data.questions !== undefined) patch.questions = data.questions;
     if (data.quizQuestions !== undefined) patch.quiz_questions = data.quizQuestions;
     const { error: err } = await getSupabaseClient()

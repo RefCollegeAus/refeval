@@ -327,6 +327,7 @@ export function LearningAssignmentRunner({
         <QuizActivity
           questions={assignment.quizQuestions}
           assignmentUser={assignmentUser}
+          allowRetakes={assignment.quizAllowRetakes}
           open={quizOpen}
           onClose={() => setQuizOpen(false)}
           onSaveAnswers={onSaveQuizAnswers}

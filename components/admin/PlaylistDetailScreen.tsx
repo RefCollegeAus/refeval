@@ -222,7 +222,7 @@ function AssignModal({
       if (userIds.length === 0) { setErr("No referees selected."); return; }
       setSaving(true);
       try {
-        await onSave({ playlistId: playlist.id, title: title.trim(), instructions: instructions.trim(), dueDate: dueDate || null, required, questions: questions.filter(q => q.text.trim()), quizQuestions, userIds });
+        await onSave({ playlistId: playlist.id, title: title.trim(), instructions: instructions.trim(), dueDate: dueDate || null, required, quizAllowRetakes: true, questions: questions.filter(q => q.text.trim()), quizQuestions, userIds });
         onClose();
       } catch (e: any) {
         setErr(e?.message || "Failed to create assignment.");

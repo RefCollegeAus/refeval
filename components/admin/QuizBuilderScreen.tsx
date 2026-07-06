@@ -20,9 +20,10 @@ interface Props {
 
 export function QuizBuilderScreen({ members, groups, onCreate, onBack }: Props) {
   const [title, setTitle]               = useState("");
-  const [instructions, setInstructions] = useState("");
-  const [dueDate, setDueDate]           = useState("");
-  const [required, setRequired]         = useState(false);
+  const [instructions, setInstructions]   = useState("");
+  const [dueDate, setDueDate]             = useState("");
+  const [required, setRequired]           = useState(false);
+  const [allowRetakes, setAllowRetakes]   = useState(true);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
 
   const [tab, setTab]             = useState<AssignTab>("users");
@@ -62,6 +63,7 @@ export function QuizBuilderScreen({ members, groups, onCreate, onBack }: Props) 
         instructions: instructions.trim(),
         dueDate: dueDate || null,
         required,
+        quizAllowRetakes: allowRetakes,
         questions: [],
         quizQuestions,
         userIds,
@@ -133,6 +135,20 @@ export function QuizBuilderScreen({ members, groups, onCreate, onBack }: Props) 
                   style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer" }}
                 />
                 <span style={{ fontSize: 13, whiteSpace: "nowrap" }}>Required</span>
+              </label>
+            </div>
+
+            {/* Quiz settings */}
+            <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                <input
+                  type="checkbox"
+                  checked={allowRetakes}
+                  onChange={e => setAllowRetakes(e.target.checked)}
+                  style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer" }}
+                />
+                <span>Allow retakes</span>
+                <span className="hint" style={{ fontSize: 12 }}>(referee can retry after submission)</span>
               </label>
             </div>
           </div>

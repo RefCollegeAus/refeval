@@ -52,6 +52,7 @@ export type QuizQuestion = {
   required: boolean;
   displayOrder: number;
   clipResourceId?: string | null;
+  explanation?: string;
 };
 
 export type QuizAnswer = {
@@ -98,6 +99,7 @@ export type Assignment = {
   instructions: string | null;
   dueDate: string | null;
   required: boolean;
+  quizAllowRetakes: boolean;
   createdAt: string;
   questions: ReflectionQuestion[];
   quizQuestions: QuizQuestion[];
@@ -110,6 +112,7 @@ export type CreateAssignmentInput = {
   instructions: string;
   dueDate: string | null;
   required: boolean;
+  quizAllowRetakes: boolean;
   userIds: string[];
   questions: ReflectionQuestion[];
   quizQuestions: QuizQuestion[];

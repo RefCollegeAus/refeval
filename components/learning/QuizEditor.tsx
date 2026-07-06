@@ -185,6 +185,29 @@ export default function QuizEditor({ questions, onChange }: Props) {
                 Required
               </label>
             </div>
+
+            <div style={{ marginTop: 10 }}>
+              <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 4 }}>
+                Explanation <span style={{ opacity: 0.6 }}>(shown after submission)</span>
+              </label>
+              <textarea
+                value={q.explanation ?? ""}
+                onChange={e => update(q.id, { explanation: e.target.value || undefined })}
+                placeholder="Explain why the correct answer is right…"
+                rows={2}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  background: "rgba(255,255,255,.05)",
+                  border: "1px solid rgba(255,255,255,.15)",
+                  borderRadius: 6,
+                  padding: "6px 9px",
+                  color: "var(--text)",
+                  fontSize: 12,
+                  resize: "vertical",
+                }}
+              />
+            </div>
           </div>
         </div>
       ))}

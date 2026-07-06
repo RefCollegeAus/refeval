@@ -16,7 +16,7 @@ interface Props {
   canEdit: boolean;
   canDelete: boolean;
   onBack: () => void;
-  onUpdate: (id: string, data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions?: ReflectionQuestion[]; quizQuestions?: QuizQuestion[] }) => Promise<void>;
+  onUpdate: (id: string, data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; quizAllowRetakes?: boolean; questions?: ReflectionQuestion[]; quizQuestions?: QuizQuestion[] }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onAddUsers: (assignmentId: string, userIds: string[]) => Promise<{ added: number; skipped: number }>;
   onRemoveUser: (assignmentUserId: string) => Promise<void>;
@@ -36,13 +36,14 @@ function EditModal({
   onClose,
 }: {
   assignment: Assignment;
-  onSave: (data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; questions: ReflectionQuestion[]; quizQuestions: QuizQuestion[] }) => Promise<void>;
+  onSave: (data: { title: string; instructions: string | null; dueDate: string | null; required: boolean; quizAllowRetakes: boolean; questions: ReflectionQuestion[]; quizQuestions: QuizQuestion[] }) => Promise<void>;
   onClose: () => void;
 }) {
   const [title, setTitle]               = useState(assignment.title);
   const [instructions, setInstr]        = useState(assignment.instructions || "");
   const [dueDate, setDueDate]           = useState(assignment.dueDate || "");
   const [required, setRequired]         = useState(assignment.required);
+  const [allowRetakes, setAllowRetakes] = useState(assignment.quizAllowRetakes);
   const [questions, setQuestions]       = useState<ReflectionQuestion[]>(assignment.questions ?? []);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>(assignment.quizQuestions ?? []);
   const [saving, setSaving]             = useState(false);
@@ -85,6 +86,7 @@ function EditModal({
         instructions: instructions.trim() || null,
         dueDate: dueDate || null,
         required,
+        quizAllowRetakes: allowRetakes,
         questions: cleaned,
         quizQuestions,
       });
@@ -132,6 +134,17 @@ function EditModal({
             />
             <span style={{ fontSize: 13 }}>Required assignment</span>
           </label>
+          {assignment.quizQuestions.length > 0 && (
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={allowRetakes}
+                onChange={e => setAllowRetakes(e.target.checked)}
+                style={{ width: 15, height: 15, accentColor: "var(--accent)", cursor: "pointer" }}
+              />
+              <span style={{ fontSize: 13 }}>Allow quiz retakes</span>
+            </label>
+          )}
 
           {/* Reflection questions */}
           <div>
