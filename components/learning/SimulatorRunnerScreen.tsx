@@ -373,7 +373,9 @@ function DecisionPrompt({ activeEvent, level, promptStartTime, onSubmit }: Decis
       const resp: ClipResponse = { callDecision: callDecision as any, categoryGroup, category, position, coverage };
       isCorrect = checkCorrectClip(tag, resp, level);
       responseOutcome = callDecision || categoryGroup || category || "";
-      responseCall = position || coverage || "";
+      responseCall = level === "expert"
+        ? [position, coverage].filter(Boolean).join(" · ")
+        : position || "";
     } else {
       isCorrect = checkCorrectLegacy(activeEvent.event, legacyOutcome, legacyCall, level);
       responseOutcome = legacyOutcome;
@@ -614,7 +616,7 @@ function ScoreScreen({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
                   <span style={{ fontWeight: 700, fontSize: 13 }}>
-                    Event {i + 1} · {fmtTime(activeEventTimestamp(r.activeEvent))}
+                    Decision {i + 1} · {fmtTime(activeEventTimestamp(r.activeEvent))}
                   </span>
                   {r.responseTimeSeconds > 0 && (
                     <span className="hint" style={{ fontSize: 11 }}>
@@ -877,18 +879,25 @@ export function SimulatorRunnerScreen({
         {!loading && sessions.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
             {sessions.map(s => {
-              const eventCount = s.reviewId
+              const decisionCount = s.reviewId
                 ? tags.filter(t => t.reviewId === s.reviewId).length
                 : s.events.length;
               return (
                 <div key={s.id} className="panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>{s.title}</h3>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, lineHeight: 1.3, flex: 1 }}>{s.title}</h3>
+                    {canManage && (
+                      s.reviewId
+                        ? null /* status shown below once we know it */
+                        : <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, color: "#94a3b8", background: "rgba(148,163,184,.12)", border: "1px solid rgba(148,163,184,.25)" }}>Legacy</span>
+                    )}
+                  </div>
                   {s.description && (
                     <p className="hint" style={{ margin: 0, fontSize: 13 }}>{s.description}</p>
                   )}
                   <p className="hint" style={{ margin: 0, fontSize: 12 }}>
                     <Zap size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
-                    {eventCount} decision event{eventCount !== 1 ? "s" : ""}
+                    {decisionCount} decision{decisionCount !== 1 ? "s" : ""}
                   </p>
                   <button
                     className="primary"
@@ -924,7 +933,7 @@ export function SimulatorRunnerScreen({
             <Zap size={36} style={{ color: "#fbbf24", marginBottom: 10 }} />
             <h1 style={{ margin: "0 0 6px", fontSize: 22 }}>{selectedSession.title}</h1>
             <p className="hint" style={{ margin: 0 }}>
-              {activeEvents.length} decision event{activeEvents.length !== 1 ? "s" : ""}
+              {activeEvents.length} decision{activeEvents.length !== 1 ? "s" : ""}
             </p>
           </div>
 

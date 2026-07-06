@@ -1647,7 +1647,7 @@ export default function Home() {
           }}
           onUpdate={updateSimulatorSession}
           onDelete={deleteSimulatorSession}
-          onPublish={publishSimulatorSession}
+          onPublish={async (reviewId) => { await publishSimulatorSession(reviewId); reloadReviews(); }}
           onBack={() => setScreen(returnToScreen)}
           onRunSession={(sessionId) => { setSimulatorRunnerSessionId(sessionId); setScreen("simulator-runner"); }}
           onOpenReview={(reviewId) => {
@@ -1681,12 +1681,20 @@ export default function Home() {
   }
 
   if (screen === "simulator-runner" && session) {
+    const simCanManage = ["educator", "admin", "super_admin"].includes(session.activeRole ?? "");
+    const runnableSimulatorSessions = simCanManage
+      ? simulatorSessions
+      : simulatorSessions.filter(s => {
+          if (!s.reviewId) return s.events.length > 0;
+          const rev = reviews.find(r => r.id === s.reviewId);
+          return rev?.status === "Completed";
+        });
     return (
       <main>
         <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
         <SimulatorRunnerScreen
           session={session}
-          sessions={simulatorSessions}
+          sessions={runnableSimulatorSessions}
           loading={simulatorLoading}
           tags={tags}
           onBack={() => setScreen(returnToScreen)}

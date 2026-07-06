@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useId } from "react";
+import { useState, useEffect, useId } from "react";
 import { Zap, ChevronLeft, Plus, Trash2, Save, Play, BookOpen, CheckCircle2 } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { SimulatorSessionWithEvents } from "@/lib/types/simulator";
@@ -49,6 +49,15 @@ export function SimulatorBuilderScreen({
   const [view, setView] = useState<View>("list");
   const [editId, setEditId] = useState<string | null>(null);
   const [editReviewId, setEditReviewId] = useState<string | null>(null);
+  const [pendingOpenId, setPendingOpenId] = useState<string | null>(null);
+
+  // Auto-open edit view after create once sessions list refreshes
+  useEffect(() => {
+    if (!pendingOpenId) return;
+    const s = sessions.find(sess => sess.id === pendingOpenId);
+    if (s) { setPendingOpenId(null); openEdit(s); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessions, pendingOpenId]);
 
   const [fTitle, setFTitle] = useState("");
   const [fDescription, setFDescription] = useState("");
@@ -91,12 +100,8 @@ export function SimulatorBuilderScreen({
         setView("list");
       } else {
         const newId = await onCreate(formData);
-        // Reload sessions then open edit so educator can code decisions
-        await new Promise(r => setTimeout(r, 300));
-        // Find in updated sessions list (sessions may not have refreshed yet; use reviewId from response)
-        // For now just go back to list — the session will appear
-        setView("list");
-        void newId; // session created; educator can edit it from list
+        setPendingOpenId(newId);
+        setView("list"); // briefly shows list; useEffect auto-opens edit once sessions refresh
       }
     } catch {
       setFormError("Failed to save. Please try again.");
@@ -254,7 +259,7 @@ export function SimulatorBuilderScreen({
 
       {/* Session details */}
       <div className="panel" style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>Session Details</h2>
+        <h2 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>Simulator Details</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <label htmlFor={`${uid}-title`}>
             Title *
@@ -294,9 +299,9 @@ export function SimulatorBuilderScreen({
         <div className="panel" style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
             <div>
-              <h2 style={{ margin: "0 0 2px", fontSize: 15, fontWeight: 700 }}>Decision Events</h2>
+              <h2 style={{ margin: "0 0 2px", fontSize: 15, fontWeight: 700 }}>Coded Decisions</h2>
               <p className="hint" style={{ margin: 0, fontSize: 12 }}>
-                Code decisions through the review wizard — each tagged clip becomes a simulator event.
+                Code decisions through the review wizard — each tagged clip becomes a decision point.
               </p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
