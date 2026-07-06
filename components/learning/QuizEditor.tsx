@@ -168,13 +168,6 @@ export default function QuizEditor({ questions, onChange }: Props) {
             ))}
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 4 }}>
               <button style={btn} onClick={() => addAnswer(q.id)}>+ Answer</button>
-              <button
-                style={{ ...btn, opacity: 0.45, cursor: "not-allowed" }}
-                disabled
-                title="Clip resources — coming soon"
-              >
-                Attach Clip
-              </button>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)", cursor: "pointer" }}>
                 <input
                   type="checkbox"
@@ -184,6 +177,46 @@ export default function QuizEditor({ questions, onChange }: Props) {
                 />
                 Required
               </label>
+            </div>
+
+            {/* Resource section */}
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>Video resource:</span>
+                <select
+                  value={q.resourceType ?? "none"}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === "none") {
+                      update(q.id, { resourceType: null, resourceVideoUrl: null });
+                    } else if (val === "video_url") {
+                      update(q.id, { resourceType: "video_url", resourceVideoUrl: q.resourceVideoUrl ?? "" });
+                    }
+                  }}
+                  style={{
+                    fontSize: 12, padding: "3px 7px", borderRadius: 6,
+                    background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)",
+                    color: "var(--text)", cursor: "pointer", width: "auto",
+                  }}
+                >
+                  <option value="none">None</option>
+                  <option value="video_url">Video URL</option>
+                  <option value="clip" disabled>Attach Clip (coming soon)</option>
+                </select>
+              </div>
+              {q.resourceType === "video_url" && (
+                <input
+                  type="url"
+                  value={q.resourceVideoUrl ?? ""}
+                  onChange={e => update(q.id, { resourceVideoUrl: e.target.value || null })}
+                  placeholder="https://youtube.com/watch?v=… or direct .mp4 URL"
+                  style={{
+                    width: "100%", boxSizing: "border-box",
+                    background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.15)",
+                    borderRadius: 6, padding: "6px 9px", color: "var(--text)", fontSize: 12,
+                  }}
+                />
+              )}
             </div>
 
             <div style={{ marginTop: 10 }}>

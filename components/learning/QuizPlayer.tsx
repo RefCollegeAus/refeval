@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { CheckCircle2, XCircle, Info } from "lucide-react";
 import type { QuizQuestion, QuizAnswer, AssignmentUser } from "@/lib/types/assignments";
+import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
 
 interface Props {
   questions: QuizQuestion[];
@@ -78,6 +79,37 @@ export default function QuizPlayer({ questions, assignmentUser, allowRetakes, ca
 
   const pct = score !== null && total ? Math.round((score / total) * 100) : null;
 
+  function renderQuestionVideo(q: QuizQuestion) {
+    if (q.resourceType !== "video_url" || !q.resourceVideoUrl?.trim()) return null;
+    const url = q.resourceVideoUrl.trim();
+    const ytId = getYouTubeId(url);
+    if (ytId) {
+      return (
+        <div style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", background: "#000", aspectRatio: "16/9" }}>
+          <iframe
+            src={`https://www.youtube.com/embed/${ytId}?rel=0`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+          />
+        </div>
+      );
+    }
+    if (isDirectVideoUrl(url)) {
+      return (
+        <div style={{ marginBottom: 12, borderRadius: 10, overflow: "hidden", background: "#000" }}>
+          <video
+            src={url}
+            controls
+            style={{ width: "100%", display: "block", maxHeight: 280 }}
+            onError={e => { (e.currentTarget.parentElement!.style.display = "none"); }}
+          />
+        </div>
+      );
+    }
+    return null;
+  }
+
   return (
     <div
       style={{
@@ -150,6 +182,9 @@ export default function QuizPlayer({ questions, assignmentUser, allowRetakes, ca
             const isWrong = submitted && sel !== null && !isCorrect;
             return (
               <div key={q.id}>
+                {/* Video resource */}
+                {renderQuestionVideo(q)}
+
                 {/* Question prompt */}
                 <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, display: "flex", gap: 8, alignItems: "flex-start" }}>
                   <span style={{ color: "var(--muted)", minWidth: 22, fontWeight: 400 }}>{idx + 1}.</span>
