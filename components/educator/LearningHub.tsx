@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import {
   Film, ListChecks, BookOpen, BarChart2, GraduationCap,
-  ChevronRight, CheckCircle2, AlertCircle, Users, Target,
+  ChevronRight, CheckCircle2, AlertCircle, Users, Target, Library,
 } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
 import type { CodedTag } from "@/lib/types/reviews";
@@ -140,6 +140,13 @@ export function LearningHub({
       show: canViewClipLibrary,
     },
     {
+      icon: <Library size={26} />,
+      label: "Learning Library",
+      hint: (() => { const n = tags.filter(t => t.isLearningClip).length; return n > 0 ? `${n} learning clip${n !== 1 ? "s" : ""}` : "No learning clips yet"; })(),
+      screen: "learning-library",
+      show: canViewClipLibrary,
+    },
+    {
       icon: <ListChecks size={26} />,
       label: "Playlists",
       hint: playlists.length > 0
@@ -205,6 +212,13 @@ export function LearningHub({
               <Film size={18} className="lh-stat-icon" />
               <div className="lh-stat-number">{tags.length}</div>
               <div className="lh-stat-label">Clips</div>
+            </button>
+          )}
+          {canViewClipLibrary && (
+            <button className="lh-stat-card" onClick={() => setScreen("learning-library")}>
+              <Library size={18} className="lh-stat-icon" style={{ color: "#86efac" }} />
+              <div className="lh-stat-number" style={{ color: "#86efac" }}>{tags.filter(t => t.isLearningClip).length}</div>
+              <div className="lh-stat-label">Learning Clips</div>
             </button>
           )}
           {canAccessPlaylists && (

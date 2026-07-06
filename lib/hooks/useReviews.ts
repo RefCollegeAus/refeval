@@ -195,6 +195,15 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
     if (error) { console.error("Save clip error:", error); alert(error.message); throw error; }
   }
 
+  async function removeFromLearningLibrary(tagId: string) {
+    const { error } = await getSupabaseClient()
+      .from("clips")
+      .update({ is_learning_clip: false })
+      .eq("id", tagId);
+    if (error) { console.error("Remove from learning library error:", error); alert(error.message); throw error; }
+    setTags(items => items.map(t => t.id === tagId ? { ...t, isLearningClip: false } : t));
+  }
+
   async function deleteClip(id: string) {
     const { error } = await getSupabaseClient().from("clips").delete().eq("id", id);
     if (error) { console.error("Delete clip error:", error); alert(error.message); throw error; }
@@ -231,6 +240,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
     deleteReview,
     upsertClip,
     deleteClip,
+    removeFromLearningLibrary,
     clearReviewClips,
     assignedReviewsForReferee,
   };

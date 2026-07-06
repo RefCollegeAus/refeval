@@ -171,6 +171,7 @@ export default function Home() {
     deleteReview,
     upsertClip,
     deleteClip,
+    removeFromLearningLibrary,
     clearReviewClips,
     assignedReviewsForReferee,
   } = useReviews(session, members);
@@ -729,7 +730,7 @@ export default function Home() {
     const managementRoles = ["educator", "admin", "super_admin"];
     // clip-library and playlists list are management-only with no exceptions
     if (
-      (screen === "clip-library" || screen === "playlists") &&
+      (screen === "clip-library" || screen === "learning-library" || screen === "playlists") &&
       session?.activeRole &&
       !managementRoles.includes(session.activeRole)
     ) {
@@ -745,7 +746,7 @@ export default function Home() {
       setScreen(session.activeRole === "viewer" ? "viewer" : "referee");
     }
     // Clip Library + Playlists: permission gate (within management roles)
-    if (screen === "clip-library" && session?.activeRole && managementRoles.includes(session.activeRole) && !canViewClipLibrary) {
+    if ((screen === "clip-library" || screen === "learning-library") && session?.activeRole && managementRoles.includes(session.activeRole) && !canViewClipLibrary) {
       setScreen("educator");
     }
     if ((screen === "playlists" || screen === "playlist-detail") && session?.activeRole && managementRoles.includes(session.activeRole) && !canAccessPlaylists) {
@@ -786,7 +787,7 @@ export default function Home() {
       setScreen("educator");
     }
     // Viewers cannot access educator/referee/reviewer screens
-    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "quiz-builder", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation"];
+    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "learning-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "quiz-builder", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation"];
     if (session?.activeRole === "viewer" && viewerForbidden.includes(screen)) {
       setScreen("viewer");
     }
@@ -1055,6 +1056,44 @@ export default function Home() {
           canCreatePlaylists={canCreatePlaylists}
           onCreatePlaylist={createPlaylist}
           onViewPlaylist={(id) => { setPlaylistDetailId(id); setScreen("playlist-detail"); }}
+          onRemoveFromLearningLibrary={removeFromLearningLibrary}
+          onNavigateToQuizBuilder={() => setScreen("quiz-builder")}
+        />
+      {globalSearchOverlay}</main>
+    );
+  }
+
+  if (screen === "learning-library") {
+    return (
+      <main>
+        <Header
+          session={session}
+          activeScreen={screen}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : returnToScreen)}
+          onAdmin={() => setScreen("database")}
+          onOrganisation={() => setScreen("organisation")}
+          onLearning={() => setScreen("learning-hub")}
+          onProfile={() => setScreen("user-profile")}
+          onNotifications={() => setScreen("notifications")}
+          unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
+          onLogout={logout}
+        />
+        <ClipLibraryScreen
+          session={session!}
+          reviews={reviews}
+          tags={tags}
+          onBack={() => setScreen(returnToScreen)}
+          onOpenReview={(reviewId) => {
+            const r = reviews.find(x => x.id === reviewId);
+            if (r) openReviewForEdit(r);
+          }}
+          canCreatePlaylists={canCreatePlaylists}
+          onCreatePlaylist={createPlaylist}
+          onViewPlaylist={(id) => { setPlaylistDetailId(id); setScreen("playlist-detail"); }}
+          initialTab="learning"
+          onRemoveFromLearningLibrary={removeFromLearningLibrary}
+          onNavigateToQuizBuilder={() => setScreen("quiz-builder")}
         />
       {globalSearchOverlay}</main>
     );
@@ -1487,7 +1526,7 @@ export default function Home() {
   }
 
   // Learning tool screens that need return-context tracking
-  const learningToolScreens: Screen[] = ["clip-library", "playlists", "assignments", "learning-progress", "groups"];
+  const learningToolScreens: Screen[] = ["clip-library", "learning-library", "playlists", "assignments", "learning-progress", "groups"];
 
   if (screen === "learning-hub" && session) {
     // Wrap setScreen so navigating to a learning tool records "learning-hub" as the return point

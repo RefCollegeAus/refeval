@@ -14,6 +14,7 @@ export type Screen =
   | "referee-stats"
   | "viewer"
   | "clip-library"
+  | "learning-library"
   | "playlists"
   | "playlist-detail"
   | "team-management"
