@@ -57,6 +57,7 @@ export type QuizQuestion = {
   resourceVideoUrl?: string | null;
   resourceReviewId?: string | null;
   resourceTagId?: string | null;
+  resourceClipDurationSeconds?: number | null;
 };
 
 export type QuizAnswer = {

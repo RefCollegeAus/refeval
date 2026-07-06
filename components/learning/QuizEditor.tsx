@@ -227,6 +227,27 @@ export default function QuizEditor({ questions, onChange, reviews = [], tags = [
                 />
               )}
 
+              {q.resourceType === "review_clip" && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <label style={{ fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+                    Clip duration
+                    <input
+                      type="number"
+                      min={3}
+                      max={60}
+                      value={q.resourceClipDurationSeconds ?? 10}
+                      onChange={e => update(q.id, { resourceClipDurationSeconds: Math.min(60, Math.max(3, Number(e.target.value) || 10)) })}
+                      style={{
+                        width: 54, padding: "3px 6px", borderRadius: 6, fontSize: 12,
+                        background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)",
+                        color: "var(--text)", textAlign: "center",
+                      }}
+                    />
+                    <span style={{ fontSize: 11, color: "var(--muted)" }}>seconds (3–60)</span>
+                  </label>
+                </div>
+              )}
+
               {q.resourceType === "review_clip" && (() => {
                 const review = reviews.find(r => r.id === q.resourceReviewId);
                 const tag = tags.find(t => t.id === q.resourceTagId);
