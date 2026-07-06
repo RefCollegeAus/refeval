@@ -177,6 +177,7 @@ export default function Home() {
     removeFromLearningLibrary,
     clearReviewClips,
     assignedReviewsForReferee,
+    reloadReviews,
   } = useReviews(session, members);
 
   // --- Navigation wrappers ---
@@ -1638,15 +1639,41 @@ export default function Home() {
           loading={simulatorLoading}
           reviews={reviews}
           tags={tags}
-          onCreate={createSimulatorSession}
+          onCreate={async (formData) => {
+            const id = await createSimulatorSession(formData);
+            // Reload reviews so the newly-created linked review enters the reviews cache
+            reloadReviews();
+            return id;
+          }}
           onUpdate={updateSimulatorSession}
           onDelete={deleteSimulatorSession}
           onPublish={publishSimulatorSession}
           onBack={() => setScreen(returnToScreen)}
           onRunSession={(sessionId) => { setSimulatorRunnerSessionId(sessionId); setScreen("simulator-runner"); }}
           onOpenReview={(reviewId) => {
-            const rev = reviews.find(r => r.id === reviewId);
-            if (rev) { setReturnToScreen("simulator-builder"); openReviewForEdit(rev); }
+            // Try the reviews cache first; fall back to constructing from session data
+            // (the cache may not contain the review yet if it was just created)
+            let rev: ReviewRecord | undefined = reviews.find(r => r.id === reviewId);
+            if (!rev) {
+              const simSession = simulatorSessions.find(s => s.reviewId === reviewId);
+              if (simSession) {
+                rev = {
+                  id: reviewId,
+                  organisationId: session.activeOrganisation?.id ?? "",
+                  game: simSession.title,
+                  educatorId: session.user.id,
+                  educatorName: session.profile.name,
+                  referee1Id: "", referee2Id: "", referee3Id: "",
+                  referee1Name: "", referee2Name: "", referee3Name: "",
+                  videoLink: simSession.videoUrl,
+                  timestampOffset: 0,
+                  status: "In Review",
+                  createdAt: new Date().toISOString(),
+                  isSimulator: true,
+                };
+              }
+            }
+            if (rev) { setReturnToScreen("simulator-builder"); openReviewForEdit(rev, true); }
           }}
         />
       {globalSearchOverlay}</main>

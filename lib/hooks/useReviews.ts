@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getReviewsWithClips } from "@/lib/services/reviews";
 import { formatTime } from "@/lib/utils/time";
@@ -22,56 +22,57 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
 
   const activeReview = reviews.find(r => r.id === activeReviewId);
 
-  useEffect(() => {
-    getReviewsWithClips().then((supabaseReviews: any[]) => {
-      const mappedReviews: ReviewRecord[] = supabaseReviews.map((r: any) => ({
-        id: r.id,
-        organisationId: r.organisation_id || "",
-        game: r.game || "Untitled Review",
-        educatorId: r.educator_id || "",
-        educatorName: r.educator_name || "",
-        referee1Id: r.referee1_id || "",
-        referee2Id: r.referee2_id || "",
-        referee3Id: r.referee3_id || "",
-        referee1Name: r.referee1_name || "",
-        referee2Name: r.referee2_name || "",
-        referee3Name: r.referee3_name || "",
-        videoLink: r.video_link || r.video_url || "",
-        timestampOffset: r.timestamp_offset || 0,
-        status: r.status === "completed" ? "Completed" : "In Review",
-        gameDate: r.game_date || "",
-        createdAt: r.created_at || new Date().toISOString(),
-        submittedAt: r.submitted_at || undefined,
-        officialSummaries: r.official_summaries || undefined,
-        isSimulator: r.is_simulator ?? false,
-      }));
-      const mappedTags: CodedTag[] = supabaseReviews.flatMap((r: any) =>
-        (r.clips || []).map((c: any) => ({
-          id: c.id,
-          reviewId: r.id,
-          organisationId: c.organisation_id || r.organisation_id || "",
-          time: c.time || formatTime(c.timestamp_seconds || c.seconds || 0),
-          seconds: Number(c.seconds ?? c.timestamp_seconds ?? 0),
-          adjustedSeconds: Number(c.adjusted_seconds ?? c.timestamp_seconds ?? c.seconds ?? 0),
-          adjustedTime: c.adjusted_time || formatTime(c.timestamp_seconds || c.seconds || 0),
-          mode: c.mode || "video",
-          refereeTarget: c.referee_target || "All Referees",
-          extraReviewOfficials: c.extra_review_officials || [],
-          clipOfficials: c.clip_officials || [],
-          timestampLink: c.timestamp_link || "",
-          outcome: c.outcome || "",
-          category: c.category || "",
-          position: c.position || "",
-          coverage: c.coverage || "",
-          notes: c.notes || "",
-          isLearningClip: c.is_learning_clip ?? false,
-          createdAt: c.created_at || new Date().toISOString(),
-        }))
-      );
-      setReviews(mappedReviews);
-      setTags(mappedTags);
-    });
+  const reloadReviews = useCallback(async () => {
+    const supabaseReviews = await getReviewsWithClips();
+    const mappedReviews: ReviewRecord[] = supabaseReviews.map((r: any) => ({
+      id: r.id,
+      organisationId: r.organisation_id || "",
+      game: r.game || "Untitled Review",
+      educatorId: r.educator_id || "",
+      educatorName: r.educator_name || "",
+      referee1Id: r.referee1_id || "",
+      referee2Id: r.referee2_id || "",
+      referee3Id: r.referee3_id || "",
+      referee1Name: r.referee1_name || "",
+      referee2Name: r.referee2_name || "",
+      referee3Name: r.referee3_name || "",
+      videoLink: r.video_link || r.video_url || "",
+      timestampOffset: r.timestamp_offset || 0,
+      status: r.status === "completed" ? "Completed" : "In Review",
+      gameDate: r.game_date || "",
+      createdAt: r.created_at || new Date().toISOString(),
+      submittedAt: r.submitted_at || undefined,
+      officialSummaries: r.official_summaries || undefined,
+      isSimulator: r.is_simulator ?? false,
+    }));
+    const mappedTags: CodedTag[] = supabaseReviews.flatMap((r: any) =>
+      (r.clips || []).map((c: any) => ({
+        id: c.id,
+        reviewId: r.id,
+        organisationId: c.organisation_id || r.organisation_id || "",
+        time: c.time || formatTime(c.timestamp_seconds || c.seconds || 0),
+        seconds: Number(c.seconds ?? c.timestamp_seconds ?? 0),
+        adjustedSeconds: Number(c.adjusted_seconds ?? c.timestamp_seconds ?? c.seconds ?? 0),
+        adjustedTime: c.adjusted_time || formatTime(c.timestamp_seconds || c.seconds || 0),
+        mode: c.mode || "video",
+        refereeTarget: c.referee_target || "All Referees",
+        extraReviewOfficials: c.extra_review_officials || [],
+        clipOfficials: c.clip_officials || [],
+        timestampLink: c.timestamp_link || "",
+        outcome: c.outcome || "",
+        category: c.category || "",
+        position: c.position || "",
+        coverage: c.coverage || "",
+        notes: c.notes || "",
+        isLearningClip: c.is_learning_clip ?? false,
+        createdAt: c.created_at || new Date().toISOString(),
+      }))
+    );
+    setReviews(mappedReviews);
+    setTags(mappedTags);
   }, []);
+
+  useEffect(() => { reloadReviews(); }, [reloadReviews]);
 
   function openForEdit(review: ReviewRecord, alreadyCreated = false) {
     if (!alreadyCreated) {
@@ -225,7 +226,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
   }
 
   return {
-    reviews, tags, setTags,
+    reviews, tags, setTags, reloadReviews,
     activeReviewId, setActiveReviewId,
     activeReview,
     reviewGame, setReviewGame,
