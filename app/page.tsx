@@ -12,6 +12,7 @@ import { PlaylistDetailScreen } from "@/components/admin/PlaylistDetailScreen";
 import { LearningAssignmentRunner } from "@/components/learning/LearningAssignmentRunner";
 import { TeamManagementScreen } from "@/components/admin/TeamManagementScreen";
 import { AssignmentsScreen } from "@/components/admin/AssignmentsScreen";
+import { QuizBuilderScreen } from "@/components/admin/QuizBuilderScreen";
 import { AssignmentDetailScreen } from "@/components/admin/AssignmentDetailScreen";
 import { MyLearningScreen } from "@/components/referee/MyLearningScreen";
 import { usePlaylists } from "@/lib/hooks/usePlaylists";
@@ -749,10 +750,10 @@ export default function Home() {
       setScreen("educator");
     }
     // Assignments: educator, admin, super_admin only; permission gate
-    if ((screen === "assignments" || screen === "assignment-detail") && session?.activeRole && !managementRoles.includes(session.activeRole)) {
+    if ((screen === "assignments" || screen === "assignment-detail" || screen === "quiz-builder") && session?.activeRole && !managementRoles.includes(session.activeRole)) {
       setScreen(session.activeRole === "viewer" ? "viewer" : "referee");
     }
-    if ((screen === "assignments" || screen === "assignment-detail") && session?.activeRole && managementRoles.includes(session.activeRole) && !canViewAssignments) {
+    if ((screen === "assignments" || screen === "assignment-detail" || screen === "quiz-builder") && session?.activeRole && managementRoles.includes(session.activeRole) && !canViewAssignments) {
       setScreen("educator");
     }
     // My Learning / Learning Runner: referee/educator only (viewers cannot)
@@ -783,7 +784,7 @@ export default function Home() {
       setScreen("educator");
     }
     // Viewers cannot access educator/referee/reviewer screens
-    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation"];
+    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "quiz-builder", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation"];
     if (session?.activeRole === "viewer" && viewerForbidden.includes(screen)) {
       setScreen("viewer");
     }
@@ -1196,7 +1197,7 @@ export default function Home() {
           canDelete={canDeleteAssignments}
           onView={(id) => { setActiveAssignmentId(id); setScreen("assignment-detail"); }}
           onDelete={deleteAssignment}
-          onCreate={async (input) => { await createAssignment(input); }}
+          onNewQuiz={() => setScreen("quiz-builder")}
           onBack={() => setScreen(returnToScreen)}
         />
       {globalSearchOverlay}</main>
@@ -1256,6 +1257,33 @@ export default function Home() {
               ));
             }
           }}
+        />
+      {globalSearchOverlay}</main>
+    );
+  }
+
+  if (screen === "quiz-builder") {
+    return (
+      <main>
+        <Header
+          session={session}
+          activeScreen={screen}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : returnToScreen)}
+          onAdmin={() => setScreen("database")}
+          onOrganisation={() => setScreen("organisation")}
+          onLearning={() => setScreen("learning-hub")}
+          onProfile={() => setScreen("user-profile")}
+          onNotifications={() => setScreen("notifications")}
+          unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
+          onLogout={logout}
+        />
+        <QuizBuilderScreen
+          session={session!}
+          members={members}
+          groups={groups}
+          onCreate={async (input) => { await createAssignment(input); }}
+          onBack={() => setScreen("assignments")}
         />
       {globalSearchOverlay}</main>
     );

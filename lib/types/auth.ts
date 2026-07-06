@@ -21,6 +21,7 @@ export type Screen =
   | "assignment-detail"
   | "my-learning"
   | "learning-runner"
+  | "quiz-builder"
   | "learning-hub"
   | "learning-progress"
   | "groups"

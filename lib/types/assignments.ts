@@ -51,6 +51,7 @@ export type QuizQuestion = {
   correctAnswerIndex: number;
   required: boolean;
   displayOrder: number;
+  clipResourceId?: string | null;
 };
 
 export type QuizAnswer = {

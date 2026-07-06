@@ -160,6 +160,13 @@ export default function QuizEditor({ questions, onChange }: Props) {
             ))}
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 4 }}>
               <button style={btn} onClick={() => addAnswer(q.id)}>+ Answer</button>
+              <button
+                style={{ ...btn, opacity: 0.45, cursor: "not-allowed" }}
+                disabled
+                title="Clip resources — coming soon"
+              >
+                Attach Clip
+              </button>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)", cursor: "pointer" }}>
                 <input
                   type="checkbox"
