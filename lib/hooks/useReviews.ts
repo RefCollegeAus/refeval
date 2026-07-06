@@ -63,6 +63,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
           position: c.position || "",
           coverage: c.coverage || "",
           notes: c.notes || "",
+          isLearningClip: c.is_learning_clip ?? false,
           createdAt: c.created_at || new Date().toISOString(),
         }))
       );
@@ -187,6 +188,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
       position: tag.position,
       coverage: tag.coverage,
       notes: tag.notes,
+      is_learning_clip: tag.isLearningClip ?? false,
       created_at: tag.createdAt,
     };
     const { error } = await getSupabaseClient().from("clips").upsert(dbClip);

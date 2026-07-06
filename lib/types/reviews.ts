@@ -52,5 +52,6 @@ export type CodedTag = {
   position?: string;
   coverage?: string;
   notes?: string;
+  isLearningClip?: boolean;
   createdAt: string;
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, X, SlidersHorizontal } from "lucide-react";
+import { Search, X } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import { slotName, splitCategory } from "@/components/common/ClipPreview";
 
@@ -13,12 +13,17 @@ interface Props {
 }
 
 const selectStyle: React.CSSProperties = {
-  fontSize: 12, padding: "4px 7px", borderRadius: 6,
-  background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)",
-  color: "var(--text)", cursor: "pointer",
+  fontSize: 13, padding: "6px 8px", borderRadius: 6,
+  background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)",
+  color: "var(--text)", cursor: "pointer", width: "100%",
 };
 
-const OUTCOME_COLOR: Record<string, string> = {};
+const labelStyle: React.CSSProperties = {
+  fontSize: 11, fontWeight: 700, color: "var(--muted)",
+  textTransform: "uppercase", letterSpacing: ".04em",
+  display: "block", marginBottom: 4,
+};
+
 function outcomeColor(o: string) {
   const l = o.toLowerCase();
   if (l.includes("correct") && !l.includes("in")) return "#86efac";
@@ -27,12 +32,13 @@ function outcomeColor(o: string) {
 }
 
 export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
-  const [query,          setQuery]          = useState("");
-  const [filterGame,     setFilterGame]     = useState("");
-  const [filterReferee,  setFilterReferee]  = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
-  const [filterOutcome,  setFilterOutcome]  = useState("");
-  const [filterHasNotes, setFilterHasNotes] = useState(false);
+  const [query,           setQuery]           = useState("");
+  const [filterGame,      setFilterGame]      = useState("");
+  const [filterReferee,   setFilterReferee]   = useState("");
+  const [filterCategory,  setFilterCategory]  = useState("");
+  const [filterOutcome,   setFilterOutcome]   = useState("");
+  const [filterHasNotes,  setFilterHasNotes]  = useState(false);
+  const [filterLearning,  setFilterLearning]  = useState(false);
 
   const reviewMap = useMemo(() => {
     const m = new Map<string, ReviewRecord>();
@@ -74,11 +80,11 @@ export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
     return Array.from(s).sort();
   }, [videoTags]);
 
-  const hasActiveFilter = !!(filterGame || filterReferee || filterCategory || filterOutcome || filterHasNotes || query);
+  const hasActiveFilter = !!(filterGame || filterReferee || filterCategory || filterOutcome || filterHasNotes || filterLearning || query);
 
   function clearAll() {
     setQuery(""); setFilterGame(""); setFilterReferee("");
-    setFilterCategory(""); setFilterOutcome(""); setFilterHasNotes(false);
+    setFilterCategory(""); setFilterOutcome(""); setFilterHasNotes(false); setFilterLearning(false);
   }
 
   const filtered = useMemo(() => {
@@ -93,6 +99,7 @@ export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
       if (filterCategory && catGroup  !== filterCategory) return false;
       if (filterOutcome  && t.outcome !== filterOutcome)  return false;
       if (filterHasNotes && !t.notes?.trim())             return false;
+      if (filterLearning && !t.isLearningClip)            return false;
 
       if (query) {
         const q = query.toLowerCase();
@@ -106,7 +113,7 @@ export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
       }
       return true;
     });
-  }, [videoTags, reviewMap, filterGame, filterReferee, filterCategory, filterOutcome, filterHasNotes, query]);
+  }, [videoTags, reviewMap, filterGame, filterReferee, filterCategory, filterOutcome, filterHasNotes, filterLearning, query]);
 
   return (
     <div
@@ -133,7 +140,7 @@ export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
         </div>
 
         {/* Search + filters */}
-        <div style={{ padding: "10px 18px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ padding: "12px 18px 10px", borderBottom: "1px solid var(--border)", flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
 
           {/* Search row */}
           <div style={{ position: "relative" }}>
@@ -146,7 +153,7 @@ export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
               placeholder="Search game, referee, category or notes…"
               style={{
                 width: "100%", boxSizing: "border-box",
-                padding: "7px 10px 7px 32px",
+                padding: "7px 32px 7px 32px",
                 background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)",
                 borderRadius: 8, color: "var(--text)", fontSize: 13,
               }}
@@ -161,53 +168,63 @@ export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
             )}
           </div>
 
-          {/* Filter row */}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            <SlidersHorizontal size={12} style={{ color: "var(--muted)", flexShrink: 0 }} />
-
-            {gameOptions.length > 0 && (
+          {/* Filter grid: 2-column */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div>
+              <span style={labelStyle}>Game</span>
               <select value={filterGame} onChange={e => setFilterGame(e.target.value)} style={selectStyle}>
                 <option value="">All games</option>
                 {gameOptions.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
-            )}
-
-            {refereeOptions.length > 0 && (
+            </div>
+            <div>
+              <span style={labelStyle}>Referee</span>
               <select value={filterReferee} onChange={e => setFilterReferee(e.target.value)} style={selectStyle}>
                 <option value="">All referees</option>
                 {refereeOptions.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
-            )}
-
-            {categoryOptions.length > 0 && (
+            </div>
+            <div>
+              <span style={labelStyle}>Category</span>
               <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={selectStyle}>
                 <option value="">All categories</option>
                 {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-            )}
-
-            {outcomeOptions.length > 0 && (
+            </div>
+            <div>
+              <span style={labelStyle}>Outcome</span>
               <select value={filterOutcome} onChange={e => setFilterOutcome(e.target.value)} style={selectStyle}>
                 <option value="">All outcomes</option>
                 {outcomeOptions.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
-            )}
+            </div>
+          </div>
 
-            <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap" }}>
+          {/* Checkbox row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--muted)", cursor: "pointer", userSelect: "none" }}>
               <input
                 type="checkbox"
                 checked={filterHasNotes}
                 onChange={e => setFilterHasNotes(e.target.checked)}
-                style={{ accentColor: "var(--accent)" }}
+                style={{ accentColor: "var(--accent)", width: "auto" }}
               />
               Has notes
             </label>
-
+            <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#86efac", cursor: "pointer", userSelect: "none" }}>
+              <input
+                type="checkbox"
+                checked={filterLearning}
+                onChange={e => setFilterLearning(e.target.checked)}
+                style={{ accentColor: "#22c55e", width: "auto" }}
+              />
+              Learning Library only
+            </label>
             {hasActiveFilter && (
               <button
                 onClick={clearAll}
                 style={{
-                  fontSize: 11, padding: "3px 10px", borderRadius: 999,
+                  marginLeft: "auto", fontSize: 11, padding: "3px 10px", borderRadius: 999,
                   background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.25)",
                   color: "#fca5a5", cursor: "pointer", whiteSpace: "nowrap",
                 }}
@@ -255,8 +272,13 @@ export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {r.game}
+                    <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.game}</span>
+                      {t.isLearningClip && (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 999, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.3)", color: "#86efac", flexShrink: 0, whiteSpace: "nowrap" }}>
+                          Learning
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, display: "flex", gap: 10, flexWrap: "wrap" }}>
                       <span>{refName}</span>
