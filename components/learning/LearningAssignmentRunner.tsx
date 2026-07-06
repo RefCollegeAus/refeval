@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ChevronLeft, CheckCircle2, AlertCircle, MessageSquare, HelpCircle } from "lucide-react";
 import type { Assignment, AssignmentUser, ReflectionResponse, QuizAnswer } from "@/lib/types/assignments";
 import { STATUS_COLORS } from "@/lib/types/assignments";
@@ -111,17 +111,6 @@ export function LearningAssignmentRunner({
   const quizDone       = !hasQuiz || !!assignmentUser.quizSubmittedAt;
   const canComplete    = allWatched && (!hasReflection || reflectionDone) && quizDone;
 
-  // Auto-complete: when quiz submission makes canComplete true, trigger completion without user clicking.
-  // Use a ref so we only fire when quizDone transitions false→true after mount, not on initial render.
-  const wasQuizDone = useRef(quizDone);
-  useEffect(() => {
-    if (quizDone && !wasQuizDone.current && canComplete && !isCompleted) {
-      onMarkComplete().catch(console.error);
-    }
-    wasQuizDone.current = quizDone;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quizDone]);
-
   const isOverdue   = !!assignment.dueDate && !isCompleted && new Date(assignment.dueDate).getTime() < Date.now();
   const progressPct = totalClips > 0 ? Math.round((watchedCount / totalClips) * 100) : 100;
 
@@ -217,11 +206,20 @@ export function LearningAssignmentRunner({
                 )}
                 {hasQuiz && (!hasReflection || reflectionDone) && (
                   quizDone ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#22c55e" }}>
-                      <CheckCircle2 size={13} />
-                      Quiz submitted{assignmentUser.quizScore !== null && assignmentUser.quizTotal
-                        ? ` — ${assignmentUser.quizScore}/${assignmentUser.quizTotal}`
-                        : ""}.
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#22c55e" }}>
+                        <CheckCircle2 size={13} />
+                        Quiz submitted{assignmentUser.quizScore !== null && assignmentUser.quizTotal
+                          ? ` — ${assignmentUser.quizScore}/${assignmentUser.quizTotal}`
+                          : ""}.
+                      </div>
+                      <button
+                        style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 5 }}
+                        onClick={() => setQuizOpen(true)}
+                      >
+                        <HelpCircle size={12} />
+                        Review Results
+                      </button>
                     </div>
                   ) : (
                     <button
@@ -239,7 +237,7 @@ export function LearningAssignmentRunner({
 
           {/* Complete / Completed state */}
           {isCompleted ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
               <span style={{ fontSize: 15, color: STATUS_COLORS.Completed, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
                 <CheckCircle2 size={15} /> Completed
               </span>
@@ -247,6 +245,14 @@ export function LearningAssignmentRunner({
                 <span style={{ fontSize: 11, color: "var(--muted)" }}>
                   {new Date(assignmentUser.completedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
                 </span>
+              )}
+              {hasQuiz && (
+                <button
+                  style={{ fontSize: 12, padding: "5px 12px", display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}
+                  onClick={() => setQuizOpen(true)}
+                >
+                  <HelpCircle size={12} /> Review Quiz Results
+                </button>
               )}
             </div>
           ) : confirmComplete ? (
