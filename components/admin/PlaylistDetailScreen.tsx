@@ -1,37 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ListVideo, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Trash2, Edit2, Users, AlertCircle, BookOpen, MessageSquare, AlertTriangle, HelpCircle } from "lucide-react";
+import { ListVideo, ChevronLeft, ChevronUp, ChevronDown, CheckCircle2, Trash2, Edit2, Users, BookOpen, MessageSquare, AlertTriangle, HelpCircle } from "lucide-react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { Playlist, PlaylistItem } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
-import type { Assignment, AssignmentUser, CreateAssignmentInput, ReflectionQuestion, ReflectionResponse, QuizQuestion, QuizAnswer } from "@/lib/types/assignments";
-import { STATUS_COLORS, REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
+import type { Assignment, CreateAssignmentInput, ReflectionQuestion, QuizQuestion } from "@/lib/types/assignments";
+import { REQUIRED_BADGE_STYLE, STATUS_COLORS } from "@/lib/types/assignments";
 import type { Group } from "@/lib/types/groups";
 import { RecipientPicker } from "@/components/common/RecipientPicker";
 import type { AssignTab } from "@/components/common/RecipientPicker";
 import { ClipPreview, ClipRow, splitCategory, slotName, outcomeClass } from "@/components/common/ClipPreview";
 import QuizEditor from "@/components/learning/QuizEditor";
-import QuizPlayer from "@/components/learning/QuizPlayer";
-
-export type LearningContext = {
-  assignmentUser: AssignmentUser;
-  assignedByName: string | null;
-  instructions: string | null;
-  dueDate: string | null;
-  playlistId: string | null;
-  questions: ReflectionQuestion[];
-  quizQuestions: QuizQuestion[];
-  onMarkComplete: () => Promise<void>;
-  onToggleWatched: (itemId: string, nextIds: string[]) => Promise<void>;
-  onSaveReflectionDraft: (responses: ReflectionResponse[]) => Promise<void>;
-  onSubmitReflection: (responses: ReflectionResponse[]) => Promise<void>;
-  onSaveQuizAnswers: (answers: QuizAnswer[]) => Promise<void>;
-  onSubmitQuiz: (answers: QuizAnswer[], score: number, total: number) => Promise<void>;
-  clipsLoading?: boolean;
-  clipsError?: string;
-};
 
 interface Props {
   playlist: Playlist;
@@ -57,8 +38,6 @@ interface Props {
   onViewAssignment?: (assignmentId: string) => void;
   // Per-clip learning note editing
   onUpdateItemNote?: (itemId: string, note: string | null) => Promise<void>;
-  // Referee learning context (read-only view with complete button)
-  learningContext?: LearningContext;
 }
 
 // ── Edit metadata modal ───────────────────────────────────────────────────────
@@ -590,7 +569,6 @@ export function PlaylistDetailScreen({
   onViewAssignment,
   assignments = [],
   onUpdateItemNote,
-  learningContext,
 }: Props) {
   // Local ordered items — sync from playlist prop
   const [localItems, setLocalItems] = useState<PlaylistItem[]>(playlist.items);
@@ -604,52 +582,6 @@ export function PlaylistDetailScreen({
   const [assignedUsersOpen, setAssignedUsersOpen] = useState(false);
   const [assignSuccess, setAssignSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [completing, setCompleting] = useState(false);
-
-  // Watched-clip tracking (learning mode only) — persisted to watched_clip_ids on learning_assignment_users
-  const [watchedItemIds, setWatchedItemIds] = useState<Set<string>>(
-    () => new Set(learningContext?.assignmentUser.watchedClipIds ?? []),
-  );
-
-  // Sync if the assignmentUser prop is refreshed from outside (e.g. after status update)
-  const auId = learningContext?.assignmentUser.id;
-  useEffect(() => {
-    setWatchedItemIds(new Set(learningContext?.assignmentUser.watchedClipIds ?? []));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auId]);
-
-  function toggleWatched(itemId: string) {
-    if (!learningContext) return;
-    setWatchedItemIds(prev => {
-      const next = new Set(prev);
-      next.has(itemId) ? next.delete(itemId) : next.add(itemId);
-      const nextArr = Array.from(next);
-      // Fire-and-forget — optimistic local update already applied above
-      learningContext.onToggleWatched(itemId, nextArr).catch(err =>
-        console.error("[PlaylistDetailScreen] toggleWatched error:", err),
-      );
-      return next;
-    });
-  }
-  // Reflection form state (learning mode only)
-  const [reflectionOpen, setReflectionOpen] = useState(false);
-  const [reflectionDraft, setReflectionDraft] = useState<Record<string, string>>(() => {
-    const saved = learningContext?.assignmentUser.reflectionResponses;
-    if (!saved) return {};
-    return Object.fromEntries(saved.map(r => [r.questionId, r.response]));
-  });
-  const [reflectionSaving, setReflectionSaving] = useState(false);
-  const [reflectionErr, setReflectionErr] = useState("");
-  const [quizOpen, setQuizOpen] = useState(false);
-
-  const refAuId = learningContext?.assignmentUser.id;
-  useEffect(() => {
-    const saved = learningContext?.assignmentUser.reflectionResponses;
-    setReflectionDraft(saved ? Object.fromEntries(saved.map(r => [r.questionId, r.response])) : {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refAuId]);
-
-  const [confirmComplete, setConfirmComplete] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pendingRemoveItem, setPendingRemoveItem] = useState<{ itemId: string; idx: number } | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -763,7 +695,7 @@ export function PlaylistDetailScreen({
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {saving && <span className="hint" style={{ fontSize: 12 }}>Saving…</span>}
-            {!learningContext && assignments.length > 0 && (
+            {assignments.length > 0 && (
               <button
                 style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
                 onClick={() => setAssignedUsersOpen(true)}
@@ -811,178 +743,6 @@ export function PlaylistDetailScreen({
         </div>
       )}
 
-      {/* Learning context banner (referee view) */}
-      {learningContext && (() => {
-        const isCompleted     = learningContext.assignmentUser.status === "Completed";
-        const overdueLC       = !!learningContext.dueDate && !isCompleted && new Date(learningContext.dueDate).getTime() < Date.now();
-        const totalClips      = clipRows.length;
-        const watchedCount    = isCompleted ? totalClips : watchedItemIds.size;
-        const hasPlaylist     = !!learningContext.playlistId;
-        const allWatched      = !hasPlaylist || totalClips === 0 || watchedCount >= totalClips;
-        const progressPct     = totalClips > 0 ? Math.round((watchedCount / totalClips) * 100) : 100;
-        const hasQuestions    = learningContext.questions.length > 0;
-        const reflectionDone  = !!learningContext.assignmentUser.reflectionSubmittedAt;
-        const hasQuiz         = learningContext.quizQuestions.length > 0;
-        const quizDone        = !hasQuiz || !!learningContext.assignmentUser.quizSubmittedAt;
-        const canComplete     = allWatched && (!hasQuestions || reflectionDone) && quizDone;
-        return (
-          <div
-            className="panel"
-            style={{
-              marginBottom: 16,
-              padding: "16px 18px",
-              borderLeft: isCompleted
-                ? "4px solid rgba(34,197,94,.5)"
-                : overdueLC
-                ? "4px solid rgba(239,68,68,.5)"
-                : "4px solid var(--accent)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p className="eyebrow" style={{ margin: "0 0 4px" }}>My Learning</p>
-                {learningContext.instructions && (
-                  <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", whiteSpace: "pre-wrap" }}>
-                    {learningContext.instructions}
-                  </p>
-                )}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 12, color: "var(--muted)", alignItems: "center" }}>
-                  {learningContext.assignedByName && (
-                    <span>Assigned by {learningContext.assignedByName}</span>
-                  )}
-                  {learningContext.dueDate && (
-                    <span style={{ display: "flex", alignItems: "center", gap: 4, color: overdueLC ? "#fca5a5" : "var(--muted)" }}>
-                      {overdueLC && <AlertCircle size={12} />}
-                      Due {new Date(learningContext.dueDate).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
-                      {overdueLC && " — Overdue"}
-                    </span>
-                  )}
-                  <span style={{ fontWeight: 700, color: STATUS_COLORS[learningContext.assignmentUser.status] }}>
-                    {learningContext.assignmentUser.status}
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                {!isCompleted && totalClips > 0 && (
-                  <div style={{ marginTop: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>
-                      <span>{watchedCount} of {totalClips} clips watched</span>
-                      <span style={{ fontWeight: 700, color: allWatched ? "#30d158" : "var(--accent)" }}>{progressPct}%</span>
-                    </div>
-                    <div style={{ height: 6, background: "var(--panel3)", borderRadius: 999, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${progressPct}%`, background: allWatched ? "#30d158" : "var(--accent)", borderRadius: 999, transition: "width .3s" }} />
-                    </div>
-                    {!allWatched && (
-                      <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>
-                        Watch all {totalClips} clips to unlock the Complete button.
-                      </p>
-                    )}
-                    {/* Activity prompts — appear once all clips are watched */}
-                    {allWatched && (hasQuestions || hasQuiz) && (
-                      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                        {hasQuestions && (
-                          reflectionDone ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#22c55e" }}>
-                              <CheckCircle2 size={13} />
-                              Reflection submitted.
-                            </div>
-                          ) : (
-                            <button
-                              style={{ fontSize: 13, padding: "7px 16px", display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}
-                              onClick={() => setReflectionOpen(true)}
-                            >
-                              <MessageSquare size={13} />
-                              {learningContext.assignmentUser.reflectionResponses ? "Continue Reflection" : "Answer Reflection Questions"}
-                            </button>
-                          )
-                        )}
-                        {hasQuiz && (!hasQuestions || reflectionDone) && (
-                          quizDone ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#22c55e" }}>
-                              <CheckCircle2 size={13} />
-                              Quiz submitted{learningContext.assignmentUser.quizScore !== null && learningContext.assignmentUser.quizTotal ? ` — ${learningContext.assignmentUser.quizScore}/${learningContext.assignmentUser.quizTotal}` : ""}.
-                            </div>
-                          ) : (
-                            <button
-                              style={{ fontSize: 13, padding: "7px 16px", display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}
-                              onClick={() => setQuizOpen(true)}
-                            >
-                              <HelpCircle size={13} />
-                              {learningContext.assignmentUser.quizAnswers ? "Continue Quiz" : "Take Knowledge Quiz"}
-                            </button>
-                          )
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Mark Complete / Completed state */}
-              {isCompleted ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-                  <span style={{ fontSize: 15, color: STATUS_COLORS.Completed, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}><CheckCircle2 size={15} /> Completed</span>
-                  {learningContext.assignmentUser.completedAt && (
-                    <span style={{ fontSize: 11, color: "var(--muted)" }}>
-                      {new Date(learningContext.assignmentUser.completedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
-                    </span>
-                  )}
-                </div>
-              ) : confirmComplete ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>Mark this assignment as complete?</span>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button style={{ fontSize: 13, padding: "6px 14px" }} onClick={() => setConfirmComplete(false)}>Cancel</button>
-                    <button
-                      className="primary"
-                      style={{ fontSize: 13, padding: "6px 14px" }}
-                      disabled={completing}
-                      onClick={async () => {
-                        setCompleting(true);
-                        try { await learningContext.onMarkComplete(); } finally { setCompleting(false); setConfirmComplete(false); }
-                      }}
-                    >
-                      {completing ? "Saving…" : "Yes, Mark Complete"}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-                  <button
-                    className="primary"
-                    style={{ fontSize: 14, padding: "9px 20px", whiteSpace: "nowrap", opacity: canComplete ? 1 : 0.45, cursor: canComplete ? "pointer" : "not-allowed" }}
-                    disabled={!canComplete}
-                    onClick={() => canComplete && setConfirmComplete(true)}
-                    title={
-                      !allWatched
-                        ? `Watch all ${totalClips} clips first`
-                        : hasQuestions && !reflectionDone
-                        ? "Submit your reflection first"
-                        : hasQuiz && !quizDone
-                        ? "Complete the knowledge quiz first"
-                        : "Mark assignment as complete"
-                    }
-                  >
-                    <CheckCircle2 size={14} style={{ flexShrink: 0 }} /> Complete Assignment
-                  </button>
-                  {!allWatched && (
-                    <span style={{ fontSize: 11, color: "var(--muted)" }}>
-                      {totalClips - watchedCount} clip{totalClips - watchedCount !== 1 ? "s" : ""} remaining
-                    </span>
-                  )}
-                  {allWatched && hasQuestions && !reflectionDone && (
-                    <span style={{ fontSize: 11, color: "var(--muted)" }}>Submit reflection to complete</span>
-                  )}
-                  {allWatched && (!hasQuestions || reflectionDone) && hasQuiz && !quizDone && (
-                    <span style={{ fontSize: 11, color: "var(--muted)" }}>Complete quiz to finish</span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Assignment success banner */}
       {assignSuccess && (
         <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 8, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.3)", color: STATUS_COLORS.Completed, fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
@@ -990,23 +750,8 @@ export function PlaylistDetailScreen({
         </div>
       )}
 
-      {/* Loading state (learning mode only — clips fetched via API) */}
-      {clipRows.length === 0 && learningContext?.clipsLoading && (
-        <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-          <p style={{ margin: 0 }}>Loading clips…</p>
-        </div>
-      )}
-
-      {/* Error state (learning mode only) */}
-      {clipRows.length === 0 && !learningContext?.clipsLoading && learningContext?.clipsError && (
-        <div className="panel" style={{ padding: "24px", borderLeft: "4px solid rgba(239,68,68,.5)" }}>
-          <p style={{ margin: 0, fontWeight: 700, color: "#fca5a5" }}>Could not load clips</p>
-          <p className="hint" style={{ margin: "6px 0 0" }}>{learningContext.clipsError}</p>
-        </div>
-      )}
-
       {/* Empty state */}
-      {clipRows.length === 0 && !learningContext?.clipsLoading && !learningContext?.clipsError && (
+      {clipRows.length === 0 && (
         <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
           <ListVideo size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
           <p style={{ margin: 0, fontWeight: 700 }}>This playlist is empty</p>
@@ -1028,7 +773,6 @@ export function PlaylistDetailScreen({
 
             {clipRows.map((row, i) => {
               const isPreviewing = i === safePreviewIndex;
-              const isWatched    = learningContext ? watchedItemIds.has(row.itemId) : false;
               return (
                 <div
                   key={row.itemId}
@@ -1038,7 +782,7 @@ export function PlaylistDetailScreen({
                   aria-label={`Clip ${i + 1}: ${row.categoryGroup}${row.subtype ? ` – ${row.subtype}` : ""}`}
                   onClick={() => setPreviewIndex(i)}
                   onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPreviewIndex(i); } }}
-                  style={{ display: "flex", gap: 8, padding: "10px 8px 10px 10px", borderBottom: "1px solid var(--border)", cursor: "pointer", background: isPreviewing ? "var(--panel2)" : isWatched ? "rgba(48,209,88,.04)" : undefined, borderLeft: isPreviewing ? "3px solid var(--accent)" : isWatched ? "3px solid rgba(48,209,88,.4)" : "3px solid transparent" }}
+                  style={{ display: "flex", gap: 8, padding: "10px 8px 10px 10px", borderBottom: "1px solid var(--border)", cursor: "pointer", background: isPreviewing ? "var(--panel2)" : undefined, borderLeft: isPreviewing ? "3px solid var(--accent)" : "3px solid transparent" }}
                 >
                   {/* Reorder controls */}
                   {canEdit && (
@@ -1085,17 +829,6 @@ export function PlaylistDetailScreen({
                     )}
                   </div>
 
-                  {/* Watched tick (learning mode) */}
-                  {learningContext && !learningContext.assignmentUser.completedAt && (
-                    <button
-                      onClick={e => { e.stopPropagation(); toggleWatched(row.itemId); }}
-                      style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", padding: "2px 4px", alignSelf: "center", color: isWatched ? "#30d158" : "var(--muted)" }}
-                      title={isWatched ? "Mark as unwatched" : "Mark as watched"}
-                    >
-                      <CheckCircle2 size={16} fill={isWatched ? "currentColor" : "none"} />
-                    </button>
-                  )}
-
                   {/* Remove */}
                   {canEdit && (
                     <button
@@ -1122,11 +855,11 @@ export function PlaylistDetailScreen({
                 onPrev={() => setPreviewIndex(i => Math.max(0, i - 1))}
                 onNext={() => setPreviewIndex(i => Math.min(clipRows.length - 1, i + 1))}
                 onOpenReview={onOpenReview}
-                learningMode={!!learningContext}
+                learningMode={false}
               />
 
-              {/* Learning note: editable for admins, read-only in learning mode */}
-              {(canEdit && onUpdateItemNote) || (learningContext && previewClip?.creatorNote) ? (
+              {/* Learning note (editable for educators) */}
+              {canEdit && onUpdateItemNote ? (
                 <div style={{ borderTop: "1px solid var(--border)", marginTop: 12, paddingTop: 12 }}>
                   <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     Learning Note
@@ -1160,8 +893,6 @@ export function PlaylistDetailScreen({
                         </div>
                       )}
                     </div>
-                  ) : previewClip?.creatorNote ? (
-                    <p style={{ margin: 0, fontSize: 13, color: "var(--text)", whiteSpace: "pre-wrap" }}>{previewClip.creatorNote}</p>
                   ) : null}
                 </div>
               ) : null}
@@ -1203,116 +934,6 @@ export function PlaylistDetailScreen({
           assignments={assignments}
           onViewAssignment={onViewAssignment}
           onClose={() => setAssignedUsersOpen(false)}
-        />
-      )}
-
-      {/* Reflection modal (learning mode) */}
-      {learningContext && reflectionOpen && learningContext.questions.length > 0 && (() => {
-        const isSubmitted = !!learningContext.assignmentUser.reflectionSubmittedAt;
-        const requiredAnswered = learningContext.questions.filter(q => q.required).every(q => (reflectionDraft[q.id] ?? "").trim().length > 0);
-
-        async function handleSaveDraft() {
-          setReflectionSaving(true); setReflectionErr("");
-          try {
-            await learningContext!.onSaveReflectionDraft(
-              learningContext!.questions.map(q => ({ questionId: q.id, response: reflectionDraft[q.id] ?? "" })),
-            );
-            setReflectionOpen(false);
-          } catch (e: any) {
-            setReflectionErr(e?.message || "Failed to save.");
-          } finally {
-            setReflectionSaving(false);
-          }
-        }
-
-        async function handleSubmit() {
-          if (!requiredAnswered) { setReflectionErr("Please answer all required questions before submitting."); return; }
-          setReflectionSaving(true); setReflectionErr("");
-          try {
-            await learningContext!.onSubmitReflection(
-              learningContext!.questions.map(q => ({ questionId: q.id, response: reflectionDraft[q.id] ?? "" })),
-            );
-            setReflectionOpen(false);
-          } catch (e: any) {
-            setReflectionErr(e?.message || "Failed to submit.");
-          } finally {
-            setReflectionSaving(false);
-          }
-        }
-
-        return (
-          <div className="modal-backdrop">
-            <div className="modal" style={{ maxWidth: 560, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-              <div className="modal-title" style={{ flexShrink: 0 }}>
-                <div>
-                  <p className="eyebrow">Reflection</p>
-                  <h1 style={{ fontSize: 20, margin: 0 }}>Assignment Reflection</h1>
-                  {isSubmitted && (
-                    <p className="hint" style={{ margin: "2px 0 0" }}>
-                      Submitted {new Date(learningContext.assignmentUser.reflectionSubmittedAt!).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
-                    </p>
-                  )}
-                </div>
-                <button onClick={() => { setReflectionErr(""); setReflectionOpen(false); }} aria-label="Close">✕</button>
-              </div>
-
-              <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 18, marginTop: 16 }}>
-                {learningContext.questions.map((q, i) => (
-                  <div key={q.id}>
-                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-                      {i + 1}. {q.text}
-                      {q.required && <span style={{ color: "#fca5a5", marginLeft: 4 }} title="Required">*</span>}
-                    </div>
-                    <textarea
-                      value={reflectionDraft[q.id] ?? ""}
-                      onChange={e => setReflectionDraft(prev => ({ ...prev, [q.id]: e.target.value }))}
-                      rows={4}
-                      readOnly={isSubmitted}
-                      placeholder={isSubmitted ? "" : "Type your response here…"}
-                      style={{ width: "100%", boxSizing: "border-box", fontSize: 13, resize: "vertical", opacity: isSubmitted ? 0.7 : 1 }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {reflectionErr && <p className="danger-text" style={{ margin: "10px 0 0" }}>{reflectionErr}</p>}
-
-              <div className="action-row" style={{ flexShrink: 0, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-                <button onClick={() => { setReflectionErr(""); setReflectionOpen(false); }}>
-                  {isSubmitted ? "Close" : "Cancel"}
-                </button>
-                {!isSubmitted && (
-                  <>
-                    <button onClick={handleSaveDraft} disabled={reflectionSaving} style={{ fontSize: 13 }}>
-                      {reflectionSaving ? "Saving…" : "Save Draft"}
-                    </button>
-                    <button
-                      className="primary"
-                      onClick={handleSubmit}
-                      disabled={reflectionSaving || !requiredAnswered}
-                      style={{ opacity: requiredAnswered ? 1 : 0.6 }}
-                      title={!requiredAnswered ? "Answer all required questions to submit" : undefined}
-                    >
-                      {reflectionSaving ? "Submitting…" : "Submit Reflection"}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Quiz player (learning mode) */}
-      {learningContext && quizOpen && learningContext.quizQuestions.length > 0 && (
-        <QuizPlayer
-          questions={learningContext.quizQuestions}
-          assignmentUser={learningContext.assignmentUser}
-          onSaveAnswers={learningContext.onSaveQuizAnswers}
-          onSubmit={async (answers, score, total) => {
-            await learningContext.onSubmitQuiz(answers, score, total);
-          }}
-          onClose={() => setQuizOpen(false)}
         />
       )}
 

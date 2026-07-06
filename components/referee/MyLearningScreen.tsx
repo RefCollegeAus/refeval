@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BookOpen, Calendar, AlertCircle, ChevronLeft, CheckCircle2, ChevronDown, ChevronUp, ListVideo } from "lucide-react";
+import { BookOpen, Calendar, AlertCircle, ChevronLeft, CheckCircle2, ChevronDown, ChevronUp, ListVideo, HelpCircle } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { Assignment, AssignmentUser } from "@/lib/types/assignments";
 import { STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
@@ -124,8 +124,17 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
               {a.title}
             </div>
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
-              <ListVideo size={11} style={{ flexShrink: 0 }} />
-              {playlist?.title ?? "Playlist"} · {playlist?.items.length ?? 0} clip{playlist?.items.length !== 1 ? "s" : ""}
+              {a.playlistId ? (
+                <>
+                  <ListVideo size={11} style={{ flexShrink: 0 }} />
+                  {playlist?.title ?? "Playlist"} · {playlist?.items.length ?? 0} clip{playlist?.items.length !== 1 ? "s" : ""}
+                </>
+              ) : (
+                <>
+                  <HelpCircle size={11} style={{ flexShrink: 0 }} />
+                  Knowledge Quiz · {a.quizQuestions.length} question{a.quizQuestions.length !== 1 ? "s" : ""}
+                </>
+              )}
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
@@ -212,7 +221,7 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
             style={{ alignSelf: "flex-start", fontSize: 13 }}
             onClick={() => onOpenPlaylist(a, au)}
           >
-            View Playlist
+            {a.playlistId ? "View Playlist" : "View Quiz"}
           </button>
         )}
       </div>
@@ -229,7 +238,7 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
           <div>
             <p className="eyebrow" style={{ margin: 0 }}>Referee Portal</p>
             <h1 style={{ margin: 0, fontSize: 22 }}>My Learning</h1>
-            <p className="hint" style={{ margin: "2px 0 0" }}>Playlists assigned to you by your educators</p>
+            <p className="hint" style={{ margin: "2px 0 0" }}>Assignments from your educators</p>
           </div>
         </div>
         <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -242,7 +251,7 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
         <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
           <BookOpen size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
           <p style={{ margin: 0, fontWeight: 700 }}>No learning assignments yet</p>
-          <p className="hint" style={{ margin: "6px 0 0" }}>Your educators will assign playlists here.</p>
+          <p className="hint" style={{ margin: "6px 0 0" }}>Your educators will assign learning activities here.</p>
         </div>
       )}
 

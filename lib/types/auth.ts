@@ -20,6 +20,7 @@ export type Screen =
   | "assignments"
   | "assignment-detail"
   | "my-learning"
+  | "learning-runner"
   | "learning-hub"
   | "learning-progress"
   | "groups"

@@ -9,6 +9,7 @@ import { UserProfileScreen } from "@/components/admin/UserProfileScreen";
 import { ClipLibraryScreen } from "@/components/admin/ClipLibraryScreen";
 import { PlaylistsScreen } from "@/components/admin/PlaylistsScreen";
 import { PlaylistDetailScreen } from "@/components/admin/PlaylistDetailScreen";
+import { LearningAssignmentRunner } from "@/components/learning/LearningAssignmentRunner";
 import { TeamManagementScreen } from "@/components/admin/TeamManagementScreen";
 import { AssignmentsScreen } from "@/components/admin/AssignmentsScreen";
 import { AssignmentDetailScreen } from "@/components/admin/AssignmentDetailScreen";
@@ -754,9 +755,13 @@ export default function Home() {
     if ((screen === "assignments" || screen === "assignment-detail") && session?.activeRole && managementRoles.includes(session.activeRole) && !canViewAssignments) {
       setScreen("educator");
     }
-    // My Learning: referee/educator only (viewers cannot)
-    if (screen === "my-learning" && session?.activeRole === "viewer") {
+    // My Learning / Learning Runner: referee/educator only (viewers cannot)
+    if ((screen === "my-learning" || screen === "learning-runner") && session?.activeRole === "viewer") {
       setScreen("viewer");
+    }
+    // Learning Runner: requires an active assignment context
+    if (screen === "learning-runner" && !learningAssignmentUser) {
+      setScreen("my-learning");
     }
     // Learning Hub + Progress: educator/admin/super_admin only
     if ((screen === "learning-hub" || screen === "learning-progress") && session?.activeRole && !managementRoles.includes(session.activeRole)) {
@@ -778,7 +783,7 @@ export default function Home() {
       setScreen("educator");
     }
     // Viewers cannot access educator/referee/reviewer screens
-    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "learning-hub", "learning-progress", "groups", "organisation"];
+    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation"];
     if (session?.activeRole === "viewer" && viewerForbidden.includes(screen)) {
       setScreen("viewer");
     }
@@ -1088,8 +1093,7 @@ export default function Home() {
   if (screen === "playlist-detail") {
     const activePlaylist = playlists.find(p => p.id === playlistDetailId);
     if (!activePlaylist) {
-      // Playlist not found — return to appropriate list
-      setScreen(learningAssignmentUser ? "my-learning" : "playlists");
+      setScreen("playlists");
       return null;
     }
     return (
@@ -1109,16 +1113,16 @@ export default function Home() {
         />
         <PlaylistDetailScreen
           playlist={activePlaylist}
-          reviews={learningAssignmentUser ? learningReviews : reviews}
-          tags={learningAssignmentUser ? learningTags    : tags}
+          reviews={reviews}
+          tags={tags}
           onOpenReview={(reviewId) => {
             const r = reviews.find(x => x.id === reviewId);
             if (r) openReviewForEdit(r);
           }}
-          canEdit={canEditPlaylists && !learningAssignmentUser}
-          canDelete={canDeletePlaylists && !learningAssignmentUser}
-          canAssign={canCreateAssignments && !learningAssignmentUser}
-          assignments={!learningAssignmentUser ? assignments.filter(a => a.playlistId === activePlaylist.id) : undefined}
+          canEdit={canEditPlaylists}
+          canDelete={canDeletePlaylists}
+          canAssign={canCreateAssignments}
+          assignments={assignments.filter(a => a.playlistId === activePlaylist.id)}
           members={members}
           groups={groups}
           onCreateAssignment={async (input) => {
@@ -1153,66 +1157,13 @@ export default function Home() {
             setActiveAssignmentId(assignmentId);
             setScreen("assignment-detail");
           }}
-          onUpdateItemNote={canEditPlaylists && !learningAssignmentUser ? updateItemNote : undefined}
+          onUpdateItemNote={canEditPlaylists ? updateItemNote : undefined}
           onUpdateMeta={updatePlaylist}
           onUpdatePositions={updateItemPositions}
           onRemoveItem={removePlaylistItem}
           onDelete={async (id) => { await deletePlaylist(id); setPlaylistDetailId(null); setScreen("playlists"); }}
           onArchive={async (id) => { await archivePlaylist(id); setPlaylistDetailId(null); setScreen("playlists"); }}
-          learningContext={liveLearningAssignmentUser ? {
-            assignmentUser: liveLearningAssignmentUser.assignmentUser,
-            assignedByName: members.find(m => m.id === liveLearningAssignmentUser.assignment.assignedBy)?.name ?? null,
-            instructions: liveLearningAssignmentUser.assignment.instructions,
-            dueDate: liveLearningAssignmentUser.assignment.dueDate,
-            playlistId: liveLearningAssignmentUser.assignment.playlistId,
-            questions: liveLearningAssignmentUser.assignment.questions,
-            quizQuestions: liveLearningAssignmentUser.assignment.quizQuestions,
-            clipsLoading: learningClipsLoading,
-            clipsError: learningClipsError || undefined,
-            onToggleWatched: async (_itemId, nextIds) => {
-              await updateWatchedClips(liveLearningAssignmentUser.assignmentUser.id, nextIds);
-            },
-            onSaveReflectionDraft: async (responses) => {
-              await saveReflectionDraft(liveLearningAssignmentUser.assignmentUser.id, responses);
-            },
-            onSubmitReflection: async (responses) => {
-              await submitReflection(liveLearningAssignmentUser.assignmentUser.id, responses);
-            },
-            onSaveQuizAnswers: async (answers) => {
-              await saveQuizAnswers(liveLearningAssignmentUser.assignmentUser.id, answers);
-            },
-            onSubmitQuiz: async (answers, score, total) => {
-              await submitQuiz(
-                liveLearningAssignmentUser.assignmentUser.id,
-                answers,
-                score,
-                total,
-                liveLearningAssignmentUser.assignmentUser.quizAttemptCount,
-              );
-            },
-            onMarkComplete: async () => {
-              await updateAssignmentUserStatus(liveLearningAssignmentUser.assignmentUser.id, "Completed");
-              if (session?.activeOrganisation?.id && session.user.id) {
-                addNotification(makeAssignmentCompletedDraft(
-                  session.activeOrganisation.id,
-                  session.user.id,
-                  liveLearningAssignmentUser.assignment.title,
-                ));
-              }
-              setLearningAssignmentUser(null);
-              setPlaylistDetailId(null);
-              setScreen("my-learning");
-            },
-          } : undefined}
-          onBack={() => {
-            if (learningAssignmentUser) {
-              setLearningAssignmentUser(null);
-              setPlaylistDetailId(null);
-              setScreen("my-learning");
-            } else {
-              setScreen("playlists");
-            }
-          }}
+          onBack={() => setScreen("playlists")}
         />
       {globalSearchOverlay}</main>
     );
@@ -1343,9 +1294,87 @@ export default function Home() {
               setLearningAssignmentUser({ assignment, assignmentUser });
             }
             setPlaylistDetailId(assignment.playlistId);
-            setScreen("playlist-detail");
+            setScreen("learning-runner");
           }}
           onBack={() => setScreen("referee")}
+        />
+      {globalSearchOverlay}</main>
+    );
+  }
+
+  if (screen === "learning-runner") {
+    // liveLearningAssignmentUser guard handled in navigation useEffect above
+    if (!liveLearningAssignmentUser) return null;
+    const { assignment, assignmentUser } = liveLearningAssignmentUser;
+    const runnerPlaylist = playlists.find(p => p.id === assignment.playlistId) ?? null;
+    const runnerAssignedByName = members.find(m => m.id === assignment.assignedBy)?.name ?? null;
+    return (
+      <main>
+        <Header
+          session={session}
+          activeScreen={screen}
+          onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : returnToScreen)}
+          onAdmin={() => setScreen("database")}
+          onOrganisation={() => setScreen("organisation")}
+          onLearning={() => setScreen("learning-hub")}
+          onProfile={() => setScreen("user-profile")}
+          onNotifications={() => setScreen("notifications")}
+          unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
+          onLogout={logout}
+        />
+        <LearningAssignmentRunner
+          assignment={assignment}
+          assignmentUser={assignmentUser}
+          assignedByName={runnerAssignedByName}
+          playlist={runnerPlaylist}
+          reviews={learningReviews}
+          tags={learningTags}
+          clipsLoading={learningClipsLoading}
+          clipsError={learningClipsError || ""}
+          onToggleWatched={async (_itemId, nextIds) => {
+            await updateWatchedClips(assignmentUser.id, nextIds);
+          }}
+          onSaveReflectionDraft={async (responses) => {
+            await saveReflectionDraft(assignmentUser.id, responses);
+          }}
+          onSubmitReflection={async (responses) => {
+            await submitReflection(assignmentUser.id, responses);
+          }}
+          onSaveQuizAnswers={async (answers) => {
+            await saveQuizAnswers(assignmentUser.id, answers);
+          }}
+          onSubmitQuiz={async (answers, score, total) => {
+            await submitQuiz(
+              assignmentUser.id,
+              answers,
+              score,
+              total,
+              assignmentUser.quizAttemptCount,
+            );
+          }}
+          onMarkComplete={async () => {
+            await updateAssignmentUserStatus(assignmentUser.id, "Completed");
+            if (session?.activeOrganisation?.id && session.user.id) {
+              addNotification(makeAssignmentCompletedDraft(
+                session.activeOrganisation.id,
+                session.user.id,
+                assignment.title,
+              ));
+            }
+            setLearningAssignmentUser(null);
+            setPlaylistDetailId(null);
+            setScreen("my-learning");
+          }}
+          onOpenReview={(reviewId) => {
+            const r = reviews.find(x => x.id === reviewId);
+            if (r) openReviewForEdit(r);
+          }}
+          onBack={() => {
+            setLearningAssignmentUser(null);
+            setPlaylistDetailId(null);
+            setScreen("my-learning");
+          }}
         />
       {globalSearchOverlay}</main>
     );
