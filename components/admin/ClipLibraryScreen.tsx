@@ -295,12 +295,12 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
             {tab === "all" && onNavigateToLearningLibrary && (
               <button
                 onClick={onNavigateToLearningLibrary}
-                style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "5px 11px", color: "#86efac", border: "1px solid rgba(34,197,94,.3)", background: "rgba(34,197,94,.07)", borderRadius: 7 }}
+                style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "5px 11px", color: "#86efac", border: "1px solid rgba(34,197,94,.3)", background: "rgba(34,197,94,.07)", borderRadius: 7, cursor: "pointer" }}
               >
                 <Library size={12} /> Learning Library
               </button>
             )}
-            {canCreatePlaylists && (
+            {canCreatePlaylists && tab === "all" && (
               <button
                 className={effectiveSelCount > 0 ? "primary" : ""}
                 disabled={effectiveSelCount === 0}
@@ -413,15 +413,38 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
         </div>
 
         {/* Selection bar */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, fontSize: 13, color: "var(--muted)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, fontSize: 13, color: "var(--muted)", flexWrap: "wrap", gap: 6 }}>
           <span>
             <strong style={{ color: "var(--text)" }}>{visibleRows.length}</strong> clip{visibleRows.length !== 1 ? "s" : ""} shown
-            {canCreatePlaylists && effectiveSelCount > 0 && <span style={{ marginLeft: 10, color: "var(--accent)", fontWeight: 700 }}>· {effectiveSelCount} selected</span>}
+            {canCreatePlaylists && effectiveSelCount > 0 && (
+              <span style={{ marginLeft: 10, color: "var(--accent)", fontWeight: 700 }}>
+                · {effectiveSelCount} selected
+              </span>
+            )}
           </span>
           {canCreatePlaylists && visibleRows.length > 0 && (
-            <button style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }} onClick={toggleSelectAll}>
-              {allVisibleSelected ? <><CheckSquare size={13} /> Deselect all</> : <><Square size={13} /> Select all visible</>}
-            </button>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {effectiveSelCount > 0 && (
+                <>
+                  <button
+                    className="primary"
+                    style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 5 }}
+                    onClick={() => setCreateModalOpen(true)}
+                  >
+                    <ListVideo size={12} /> Create Playlist ({effectiveSelCount})
+                  </button>
+                  <button
+                    style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 4 }}
+                    onClick={() => setSelected(new Set())}
+                  >
+                    <X size={12} /> Clear
+                  </button>
+                </>
+              )}
+              <button style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }} onClick={toggleSelectAll}>
+                {allVisibleSelected ? <><CheckSquare size={13} /> Deselect all</> : <><Square size={13} /> Select all</>}
+              </button>
+            </div>
           )}
         </div>
         {/* Hidden-selection warning */}

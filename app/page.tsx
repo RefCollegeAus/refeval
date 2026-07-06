@@ -1045,6 +1045,7 @@ export default function Home() {
           onLogout={logout}
         />
         <ClipLibraryScreen
+          key="clip-library"
           session={session!}
           reviews={reviews}
           tags={tags}
@@ -1058,7 +1059,7 @@ export default function Home() {
           onViewPlaylist={(id) => { setPlaylistDetailId(id); setScreen("playlist-detail"); }}
           onRemoveFromLearningLibrary={removeFromLearningLibrary}
           onNavigateToQuizBuilder={() => setScreen("quiz-builder")}
-          onNavigateToLearningLibrary={() => setScreen("learning-library")}
+          onNavigateToLearningLibrary={() => { setReturnToScreen("learning-hub"); setScreen("learning-library"); }}
         />
       {globalSearchOverlay}</main>
     );
@@ -1081,6 +1082,7 @@ export default function Home() {
           onLogout={logout}
         />
         <ClipLibraryScreen
+          key="learning-library"
           session={session!}
           reviews={reviews}
           tags={tags}
