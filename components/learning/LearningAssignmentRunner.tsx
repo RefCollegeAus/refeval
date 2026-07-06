@@ -54,7 +54,9 @@ export function LearningAssignmentRunner({
     () => new Set(assignmentUser.watchedClipIds),
   );
   const [reflectionOpen,  setReflectionOpen]  = useState(false);
-  const [quizOpen,         setQuizOpen]         = useState(false);
+  const [quizOpen,         setQuizOpen]         = useState(
+    () => assignment.quizQuestions.length > 0 && !!assignmentUser.quizSubmittedAt,
+  );
   const [confirmComplete,  setConfirmComplete]  = useState(false);
   const [completing,       setCompleting]       = useState(false);
 
@@ -346,9 +348,12 @@ export function LearningAssignmentRunner({
           assignmentUser={assignmentUser}
           allowRetakes={assignment.quizAllowRetakes}
           open={quizOpen}
+          canComplete={canComplete}
+          isCompleted={isCompleted}
           onClose={() => setQuizOpen(false)}
           onSaveAnswers={onSaveQuizAnswers}
           onSubmit={onSubmitQuiz}
+          onComplete={onMarkComplete}
         />
       )}
     </div>

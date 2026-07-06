@@ -8,9 +8,12 @@ interface Props {
   questions: QuizQuestion[];
   assignmentUser: AssignmentUser;
   allowRetakes: boolean;
+  canComplete: boolean;
+  isCompleted: boolean;
   onSaveAnswers: (answers: QuizAnswer[]) => Promise<void>;
   onSubmit: (answers: QuizAnswer[], score: number, total: number) => Promise<void>;
   onClose: () => void;
+  onComplete: () => Promise<void>;
 }
 
 function pctColor(pct: number) {
@@ -19,7 +22,7 @@ function pctColor(pct: number) {
   return "#ef4444";
 }
 
-export default function QuizPlayer({ questions, assignmentUser, allowRetakes, onSaveAnswers, onSubmit, onClose }: Props) {
+export default function QuizPlayer({ questions, assignmentUser, allowRetakes, canComplete, isCompleted, onSaveAnswers, onSubmit, onClose, onComplete }: Props) {
   const sorted = useMemo(
     () => [...questions].sort((a, b) => a.displayOrder - b.displayOrder),
     [questions],
@@ -281,10 +284,25 @@ export default function QuizPlayer({ questions, assignmentUser, allowRetakes, on
           </div>
         )}
         {submitted && (
-          <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", flexShrink: 0 }}>
-            <button className="primary" style={{ padding: "8px 20px", fontSize: 14 }} onClick={onClose}>
-              Done
-            </button>
+          <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0 }}>
+            {canComplete && !isCompleted ? (
+              <>
+                <button style={{ padding: "8px 16px", fontSize: 14 }} onClick={onClose}>
+                  Back
+                </button>
+                <button
+                  className="primary"
+                  style={{ padding: "8px 20px", fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}
+                  onClick={() => onComplete().catch(console.error)}
+                >
+                  <CheckCircle2 size={14} /> Complete Assignment
+                </button>
+              </>
+            ) : (
+              <button className="primary" style={{ padding: "8px 20px", fontSize: 14 }} onClick={onClose}>
+                Done
+              </button>
+            )}
           </div>
         )}
       </div>
