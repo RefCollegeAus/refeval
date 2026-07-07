@@ -170,65 +170,83 @@ export function SimulatorBuilderScreen({
           </div>
         )}
 
-        {!loading && sessions.length > 0 && (
-          <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-            {sessions.map((s, idx) => {
-              const clipCount = clipCountForSession(s, tags);
-              const linkedReview = reviewForSession(s, reviews);
-              const isPublished = linkedReview?.status === "Completed";
-              return (
-                <div
-                  key={s.id}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    padding: "12px 16px",
-                    borderBottom: idx < sessions.length - 1 ? "1px solid var(--border)" : "none",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
-                      <span style={{ fontWeight: 700, fontSize: 15 }}>{s.title}</span>
-                      {isPublished
-                        ? <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#22c55e", background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.35)" }}>Published</span>
-                        : <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#f59e0b", background: "rgba(245,158,11,.12)", border: "1px solid rgba(245,158,11,.35)" }}>Draft</span>
-                      }
-                      <span className="hint" style={{ fontSize: 12 }}>
-                        {clipCount} decision{clipCount !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                    {s.description && (
-                      <p className="hint" style={{ margin: 0, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {s.description}
-                      </p>
-                    )}
+        {!loading && sessions.length > 0 && (() => {
+          const publishedSessions = sessions.filter(s => reviewForSession(s, reviews)?.status === "Completed");
+          const draftSessions = sessions.filter(s => reviewForSession(s, reviews)?.status !== "Completed");
+
+          function SimRow({ s, isLast }: { s: SimulatorSessionWithEvents; isLast: boolean }) {
+            const clipCount = clipCountForSession(s, tags);
+            const isPublished = reviewForSession(s, reviews)?.status === "Completed";
+            const dateStr = s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "";
+            return (
+              <div
+                style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "12px 16px",
+                  borderBottom: !isLast ? "1px solid var(--border)" : "none",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
+                    <span style={{ fontWeight: 700, fontSize: 15 }}>{s.title}</span>
+                    {isPublished
+                      ? <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#22c55e", background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.35)" }}>Published</span>
+                      : <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#f59e0b", background: "rgba(245,158,11,.12)", border: "1px solid rgba(245,158,11,.35)" }}>Draft</span>
+                    }
+                    <span className="hint" style={{ fontSize: 12 }}>{clipCount} decision{clipCount !== 1 ? "s" : ""}</span>
+                    {dateStr && <span className="hint" style={{ fontSize: 12 }}>· Created {dateStr}</span>}
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                    <button
-                      onClick={() => onRunSession(s.id)}
-                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }}
-                      title="Preview this simulator"
-                    >
-                      <Play size={12} /> Preview
-                    </button>
-                    <button
-                      onClick={() => openEdit(s)}
-                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(s.id, s.title)}
-                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px", color: "#fca5a5", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 7 }}
-                    >
-                      <Trash2 size={12} /> Delete
-                    </button>
-                  </div>
+                  {s.description && (
+                    <p className="hint" style={{ margin: 0, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {s.description}
+                    </p>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => onRunSession(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="Preview this simulator">
+                    <Play size={12} /> Preview
+                  </button>
+                  <button onClick={() => openEdit(s)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }}>
+                    Edit
+                  </button>
+                  <button onClick={() => handleDelete(s.id, s.title)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px", color: "#fca5a5", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 7 }}>
+                    <Trash2 size={12} /> Delete
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <>
+              {publishedSessions.length > 0 && (
+                <div className="panel" style={{ padding: 0, overflow: "hidden", marginBottom: 12 }}>
+                  <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", background: "rgba(34,197,94,.04)" }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", textTransform: "uppercase", letterSpacing: ".07em" }}>
+                      Published — {publishedSessions.length}
+                    </span>
+                  </div>
+                  {publishedSessions.map((s, idx) => (
+                    <SimRow key={s.id} s={s} isLast={idx === publishedSessions.length - 1} />
+                  ))}
+                </div>
+              )}
+              {draftSessions.length > 0 && (
+                <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+                  <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".07em" }}>
+                      Drafts — {draftSessions.length}
+                    </span>
+                  </div>
+                  {draftSessions.map((s, idx) => (
+                    <SimRow key={s.id} s={s} isLast={idx === draftSessions.length - 1} />
+                  ))}
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
     );
   }

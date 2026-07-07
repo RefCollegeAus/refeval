@@ -1689,6 +1689,11 @@ export default function Home() {
           const rev = reviews.find(r => r.id === s.reviewId);
           return rev?.status === "Completed";
         });
+    const publishedSessionIds = new Set(
+      simulatorSessions
+        .filter(s => s.reviewId && reviews.find(r => r.id === s.reviewId)?.status === "Completed")
+        .map(s => s.id)
+    );
     return (
       <main>
         <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
@@ -1697,6 +1702,7 @@ export default function Home() {
           sessions={runnableSimulatorSessions}
           loading={simulatorLoading}
           tags={tags}
+          publishedSessionIds={publishedSessionIds}
           onBack={() => setScreen(returnToScreen)}
           onCreateAttempt={createSimulatorAttempt}
           onSaveResponse={saveSimulatorResponse}

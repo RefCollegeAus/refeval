@@ -662,6 +662,7 @@ interface Props {
   sessions: SimulatorSessionWithEvents[];
   loading: boolean;
   tags: CodedTag[];
+  publishedSessionIds?: Set<string>;
   onBack: () => void;
   onCreateAttempt: (sessionId: string, level: string) => Promise<string>;
   onSaveResponse: (resp: SaveResponseData) => Promise<void>;
@@ -677,7 +678,7 @@ type RunnerView = "picker" | "intro" | "running" | "score";
 const MANAGEMENT_ROLES = ["educator", "admin", "super_admin"];
 
 export function SimulatorRunnerScreen({
-  session, sessions, loading, tags,
+  session, sessions, loading, tags, publishedSessionIds,
   onBack, onCreateAttempt, onSaveResponse, onCompleteAttempt,
   initialSessionId, onNavigateToBuilder,
 }: Props) {
@@ -886,11 +887,13 @@ export function SimulatorRunnerScreen({
                 <div key={s.id} className="panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
                     <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, lineHeight: 1.3, flex: 1 }}>{s.title}</h3>
-                    {canManage && (
-                      s.reviewId
-                        ? null /* status shown below once we know it */
-                        : <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, color: "#94a3b8", background: "rgba(148,163,184,.12)", border: "1px solid rgba(148,163,184,.25)" }}>Legacy</span>
-                    )}
+                    {canManage && (() => {
+                      if (!s.reviewId) return <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, color: "#94a3b8", background: "rgba(148,163,184,.12)", border: "1px solid rgba(148,163,184,.25)" }}>Legacy</span>;
+                      const isPublished = publishedSessionIds?.has(s.id) ?? false;
+                      return isPublished
+                        ? <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, color: "#22c55e", background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.35)" }}>Published</span>
+                        : <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, color: "#f59e0b", background: "rgba(245,158,11,.12)", border: "1px solid rgba(245,158,11,.35)" }}>Draft</span>;
+                    })()}
                   </div>
                   {s.description && (
                     <p className="hint" style={{ margin: 0, fontSize: 13 }}>{s.description}</p>
@@ -919,6 +922,30 @@ export function SimulatorRunnerScreen({
 
   if (view === "intro" && selectedSession) {
     const activeEvents = getActiveEvents(selectedSession);
+
+    if (activeEvents.length === 0) {
+      return (
+        <div style={{ padding: "20px 20px 60px", boxSizing: "border-box", maxWidth: 580, margin: "0 auto" }}>
+          <div className="panel" style={{ textAlign: "center", padding: "48px 24px" }}>
+            <button onClick={() => setView("picker")} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, margin: "0 auto 24px" }}>
+              <ChevronLeft size={14} /> All Simulations
+            </button>
+            <Zap size={36} style={{ color: "#fbbf24", opacity: 0.4, marginBottom: 12 }} />
+            <p style={{ margin: 0, fontWeight: 700, fontSize: 16 }}>{selectedSession.title}</p>
+            <p className="hint" style={{ margin: "8px 0 0" }}>
+              This simulator has no decisions coded yet.
+              {canManage ? " Open it in the Simulator Builder to code decision moments." : " Check back once your educator has finished setting it up."}
+            </p>
+            {canManage && onNavigateToBuilder && (
+              <button className="primary" onClick={onNavigateToBuilder} style={{ marginTop: 18, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                Open Simulator Builder
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div style={{ padding: "20px 20px 60px", boxSizing: "border-box", maxWidth: 580, margin: "0 auto" }}>
         <div className="panel">
