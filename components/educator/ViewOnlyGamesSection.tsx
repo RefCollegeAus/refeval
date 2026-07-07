@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2, Edit2, Eye, PlayCircle } from "lucide-react";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 import type { RefEvalSession, Role } from "@/lib/types/auth";
 import type { ViewOnlyGame, LearningCategory } from "@/lib/types/viewOnlyGames";
 import { LEARNING_CATEGORIES } from "@/lib/types/viewOnlyGames";
@@ -229,6 +230,7 @@ export function ViewOnlyGamesSection({
   const [showModal, setShowModal] = useState(false);
   const [editingGame, setEditingGame] = useState<ViewOnlyGame | null>(null);
   const [openGame, setOpenGame] = useState<ViewOnlyGame | null>(null);
+  const [confirmDeleteGame, setConfirmDeleteGame] = useState<ViewOnlyGame | null>(null);
 
   if (openGame) {
     return (
@@ -240,11 +242,11 @@ export function ViewOnlyGamesSection({
   }
 
   function handleDelete(game: ViewOnlyGame) {
-    if (!confirm(`Delete "${game.title}"? Assigned users will lose access immediately.`)) return;
-    onDelete(game.id);
+    setConfirmDeleteGame(game);
   }
 
   return (
+    <>
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -357,5 +359,17 @@ export function ViewOnlyGamesSection({
         />
       )}
     </div>
+    {confirmDeleteGame && (
+      <ConfirmModal
+        title={`Delete "${confirmDeleteGame.title}"?`}
+        message="Assigned users will lose access immediately."
+        confirmLabel="Delete"
+        busyLabel="Deleting…"
+        busy={false}
+        onCancel={() => setConfirmDeleteGame(null)}
+        onConfirm={() => { onDelete(confirmDeleteGame.id); setConfirmDeleteGame(null); }}
+      />
+    )}
+    </>
   );
 }

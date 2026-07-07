@@ -5,6 +5,7 @@ import { ListVideo, Search, X, CheckSquare, Square, ChevronLeft, AlertTriangle, 
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import { ClipPreview, ClipRow, splitCategory, slotName, outcomeClass } from "@/components/common/ClipPreview";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 
 type LibraryTab = "all" | "learning";
 
@@ -27,12 +28,26 @@ interface Props {
 
 function RemoveFromLibraryButton({ tagId, onRemove }: { tagId: string; onRemove: (id: string) => Promise<void> }) {
   const [removing, setRemoving] = useState(false);
-  async function handle() {
-    if (!confirm("Remove this clip from the Learning Library? The original review clip is kept.")) return;
+  const [confirming, setConfirming] = useState(false);
+  async function doRemove() {
     setRemoving(true);
+    setConfirming(false);
     try { await onRemove(tagId); } finally { setRemoving(false); }
   }
+  function handle() { setConfirming(true); }
   return (
+    <>
+    {confirming && (
+      <ConfirmModal
+        title="Remove from Learning Library?"
+        message="The clip will be removed from the Learning Library. The original review clip is kept."
+        confirmLabel="Remove"
+        busyLabel="Removing…"
+        busy={removing}
+        onCancel={() => setConfirming(false)}
+        onConfirm={doRemove}
+      />
+    )}
     <button
       onClick={handle}
       disabled={removing}
@@ -40,6 +55,7 @@ function RemoveFromLibraryButton({ tagId, onRemove }: { tagId: string; onRemove:
     >
       {removing ? "Removing…" : "Remove from Library"}
     </button>
+    </>
   );
 }
 
@@ -142,6 +158,7 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
   const [previewIndex, setPreviewIndex] = useState<number>(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [confirmBulkRemove, setConfirmBulkRemove] = useState(false);
 
   // ── Build enriched rows ───────────────────────────────────────────────────────
   const reviewMap = useMemo(() => {
@@ -254,15 +271,21 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
     setPreviewIndex(0);
   }
 
-  async function handleBulkRemoveFromLibrary() {
+  async function doBulkRemoveFromLibrary() {
     if (!onRemoveFromLearningLibrary) return;
     const ids = Array.from(selected).filter(id => visibleIdSet.has(id));
-    if (ids.length === 0) return;
-    if (!confirm(`Remove ${ids.length} clip${ids.length !== 1 ? "s" : ""} from the Learning Library? The original review clips are kept.`)) return;
+    setConfirmBulkRemove(false);
     for (const id of ids) {
       await onRemoveFromLearningLibrary(id);
     }
     setSelected(new Set());
+  }
+
+  function handleBulkRemoveFromLibrary() {
+    if (!onRemoveFromLearningLibrary) return;
+    const ids = Array.from(selected).filter(id => visibleIdSet.has(id));
+    if (ids.length === 0) return;
+    setConfirmBulkRemove(true);
   }
 
   async function handleCreatePlaylist(title: string, description: string) {
@@ -646,6 +669,17 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
           clipCount={effectiveSelCount}
           onSave={handleCreatePlaylist}
           onClose={() => setCreateModalOpen(false)}
+        />
+      )}
+      {confirmBulkRemove && (
+        <ConfirmModal
+          title={`Remove ${Array.from(selected).filter(id => visibleIdSet.has(id)).length} clip${Array.from(selected).filter(id => visibleIdSet.has(id)).length !== 1 ? "s" : ""} from Learning Library?`}
+          message="The original review clips are kept."
+          confirmLabel="Remove"
+          busyLabel="Removing…"
+          busy={false}
+          onCancel={() => setConfirmBulkRemove(false)}
+          onConfirm={doBulkRemoveFromLibrary}
         />
       )}
     </div>

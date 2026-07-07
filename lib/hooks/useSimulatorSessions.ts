@@ -9,6 +9,7 @@ import type {
   SimulatorEvent,
   SimulatorAttempt,
 } from "@/lib/types/simulator";
+import { showToast } from "@/lib/toast";
 
 export interface SessionFormData {
   title: string;
@@ -136,7 +137,7 @@ export function useSimulatorSessions(session: RefEvalSession | null) {
       })
       .select()
       .single();
-    if (reviewErr) { alert(reviewErr.message); throw reviewErr; }
+    if (reviewErr) { console.error("createSession review error:", reviewErr); showToast(reviewErr.message, "error"); throw reviewErr; }
 
     const { data, error } = await supabase
       .from("simulator_sessions")
@@ -150,7 +151,7 @@ export function useSimulatorSessions(session: RefEvalSession | null) {
       })
       .select()
       .single();
-    if (error) { alert(error.message); throw error; }
+    if (error) { showToast(error.message, "error"); throw error; }
     await load();
     return data.id;
   }
@@ -165,7 +166,7 @@ export function useSimulatorSessions(session: RefEvalSession | null) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
-    if (error) { alert(error.message); throw error; }
+    if (error) { showToast(error.message, "error"); throw error; }
     await load();
   }
 
@@ -174,7 +175,7 @@ export function useSimulatorSessions(session: RefEvalSession | null) {
       .from("reviews")
       .update({ status: "completed", submitted_at: new Date().toISOString() })
       .eq("id", reviewId);
-    if (error) { alert(error.message); throw error; }
+    if (error) { showToast(error.message, "error"); throw error; }
   }
 
   async function deleteSession(id: string): Promise<void> {
@@ -182,7 +183,7 @@ export function useSimulatorSessions(session: RefEvalSession | null) {
       .from("simulator_sessions")
       .delete()
       .eq("id", id);
-    if (error) { alert(error.message); throw error; }
+    if (error) { showToast(error.message, "error"); throw error; }
     setSessions(prev => prev.filter(s => s.id !== id));
   }
 
@@ -196,7 +197,7 @@ export function useSimulatorSessions(session: RefEvalSession | null) {
       })
       .select()
       .single();
-    if (error) { alert(error.message); throw error; }
+    if (error) { showToast(error.message, "error"); throw error; }
     return data.id;
   }
 

@@ -14,6 +14,7 @@ import type { MemberRecord } from "@/lib/types/members";
 import type { RefereeGoalView } from "@/lib/types/developmentGoals";
 import { fmtRel } from "@/lib/utils/time";
 import { OnboardingPanel } from "@/components/common/OnboardingPanel";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 
 interface Props {
   session: RefEvalSession;
@@ -111,6 +112,8 @@ export function EducatorDashboard({
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "updated" | "referee" | "game">("newest");
   const [kpiFilter, setKpiFilter] = useState<KpiFilter>("all");
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [confirmDeleteReviewId, setConfirmDeleteReviewId] = useState<string | null>(null);
+  const [deletingReview, setDeletingReview] = useState(false);
 
   const portalLabel =
     session.activeRole === "super_admin" ? "Super Admin Portal" :
@@ -470,6 +473,7 @@ export function EducatorDashboard({
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <div className="ed-layout">
 
       {/* ── Main column ── */}
@@ -772,7 +776,7 @@ export function EducatorDashboard({
                             <button
                               className="ed-icon-btn danger"
                               title="Delete review"
-                              onClick={() => deleteReview(review.id)}
+                              onClick={() => setConfirmDeleteReviewId(review.id)}
                             >
                               <Trash2 size={14} />
                             </button>
@@ -859,5 +863,23 @@ export function EducatorDashboard({
 
       </aside>
     </div>
+
+    {confirmDeleteReviewId && (
+      <ConfirmModal
+        title="Delete review?"
+        message="This will permanently delete the review and all its coded clips. This cannot be undone."
+        confirmLabel="Delete"
+        busyLabel="Deleting…"
+        busy={deletingReview}
+        onCancel={() => setConfirmDeleteReviewId(null)}
+        onConfirm={async () => {
+          setDeletingReview(true);
+          await deleteReview(confirmDeleteReviewId);
+          setConfirmDeleteReviewId(null);
+          setDeletingReview(false);
+        }}
+      />
+    )}
+    </>
   );
 }

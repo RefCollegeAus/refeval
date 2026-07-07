@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Shield, User } from "lucide-react";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 import {
   adminUpdateUserProfile,
   adminUpdateUserPassword,
@@ -56,6 +57,7 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [confirmingPassword, setConfirmingPassword] = useState(false);
 
   // ── Profile save ───────────────────────────────────────────────────────────
   async function handleSaveProfile(e: React.FormEvent) {
@@ -116,10 +118,11 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
       setPasswordError("Passwords do not match.");
       return;
     }
-    if (!confirm(`Change password for ${member.name}? They will need to use the new password on their next login.`)) {
-      return;
-    }
+    setConfirmingPassword(true);
+  }
 
+  async function doChangePassword() {
+    setConfirmingPassword(false);
     setPasswordLoading(true);
     const result = await adminUpdateUserPassword({
       userId: member.id,
@@ -143,6 +146,7 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
     : ["viewer", "referee", "educator"];
 
   return (
+    <>
     <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{ maxWidth: 520 }}>
 
@@ -316,5 +320,17 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
 
       </div>
     </div>
+    {confirmingPassword && (
+      <ConfirmModal
+        title={`Change password for ${member.name}?`}
+        message="They will need to use the new password on their next login."
+        confirmLabel="Set Password"
+        busyLabel="Saving…"
+        busy={passwordLoading}
+        onCancel={() => setConfirmingPassword(false)}
+        onConfirm={doChangePassword}
+      />
+    )}
+  </>
   );
 }

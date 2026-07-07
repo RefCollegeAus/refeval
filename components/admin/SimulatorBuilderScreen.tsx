@@ -7,6 +7,7 @@ import type { SimulatorSessionWithEvents, SimulatorAttempt } from "@/lib/types/s
 import type { CodedTag, ReviewRecord } from "@/lib/types/reviews";
 import type { MemberRecord } from "@/lib/types/members";
 import type { SessionFormData } from "@/lib/hooks/useSimulatorSessions";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,9 @@ export function SimulatorBuilderScreen({
   const [fVideoUrl, setFVideoUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [confirmPublishId, setConfirmPublishId] = useState<string | null>(null);
+  const [confirmDeleteSim, setConfirmDeleteSim] = useState<{ id: string; title: string } | null>(null);
+  const [deletingSim, setDeletingSim] = useState(false);
   const [formError, setFormError] = useState("");
 
   function openNew() {
@@ -115,22 +119,61 @@ export function SimulatorBuilderScreen({
     }
   }
 
-  async function handlePublish() {
+  function handlePublish() {
     if (!editReviewId) return;
-    if (!confirm("Publish this simulator? Referees will be able to run it.")) return;
+    setConfirmPublishId(editReviewId);
+  }
+
+  async function confirmPublish(reviewId: string) {
     setPublishing(true);
     try {
-      await onPublish(editReviewId);
+      await onPublish(reviewId);
+      setConfirmPublishId(null);
       setView("list");
     } finally {
       setPublishing(false);
     }
   }
 
-  async function handleDelete(id: string, title: string) {
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
-    await onDelete(id);
+  function handleDelete(id: string, title: string) {
+    setConfirmDeleteSim({ id, title });
   }
+
+  async function confirmDelete(id: string) {
+    setDeletingSim(true);
+    await onDelete(id);
+    setDeletingSim(false);
+    setConfirmDeleteSim(null);
+  }
+
+  // ── Shared confirm modals ────────────────────────────────────────────────────
+
+  const confirmModals = (
+    <>
+      {confirmPublishId && (
+        <ConfirmModal
+          title="Publish simulator?"
+          message="Once published, referees will be able to run this simulation. You can still update its details but decisions cannot be changed."
+          confirmLabel="Publish"
+          busyLabel="Publishing…"
+          busy={publishing}
+          onCancel={() => setConfirmPublishId(null)}
+          onConfirm={() => confirmPublish(confirmPublishId)}
+        />
+      )}
+      {confirmDeleteSim && (
+        <ConfirmModal
+          title={`Delete "${confirmDeleteSim.title}"?`}
+          message="This will permanently delete the simulator session and all attempt records. This cannot be undone."
+          confirmLabel="Delete"
+          busyLabel="Deleting…"
+          busy={deletingSim}
+          onCancel={() => setConfirmDeleteSim(null)}
+          onConfirm={() => confirmDelete(confirmDeleteSim.id)}
+        />
+      )}
+    </>
+  );
 
   // ── List view ───────────────────────────────────────────────────────────────
 
@@ -307,8 +350,9 @@ export function SimulatorBuilderScreen({
             </>
           );
         })()}
+        {confirmModals}
       </div>
-    );
+  );
   }
 
   // ── Edit / Create view ──────────────────────────────────────────────────────
@@ -319,6 +363,7 @@ export function SimulatorBuilderScreen({
   const isPublished = linkedReview?.status === "Completed";
 
   return (
+    <>
     <div style={{ padding: "20px 20px 80px", boxSizing: "border-box" }}>
       <div className="panel" style={{ marginBottom: 16 }}>
         <div className="table-head">
@@ -435,5 +480,7 @@ export function SimulatorBuilderScreen({
         )}
       </div>
     </div>
+    {confirmModals}
+    </>
   );
 }

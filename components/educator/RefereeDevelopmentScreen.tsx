@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 import {
   Plus, CheckCircle, Archive, RotateCcw, Pencil, Trash2,
   ChevronLeft, Users, User, UserCheck, FileText, Lock, Eye,
@@ -607,7 +608,9 @@ function GoalCard({
   onReopen: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   return (
+    <>
     <div className="panel" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -690,11 +693,7 @@ function GoalCard({
           {view.status === "Active" && (
             <button
               style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 5, color: "#ff453a", marginLeft: "auto" }}
-              onClick={() => {
-                if (window.confirm(`Delete goal "${view.title}"? This removes only this referee's copy.`)) {
-                  onDelete(view.id);
-                }
-              }}
+              onClick={() => setConfirmingDelete(true)}
             >
               <Trash2 size={12} /> Delete
             </button>
@@ -702,6 +701,18 @@ function GoalCard({
         </div>
       )}
     </div>
+    {confirmingDelete && (
+      <ConfirmModal
+        title={`Delete goal "${view.title}"?`}
+        message="This removes only this referee's copy."
+        confirmLabel="Delete"
+        busyLabel="Deleting…"
+        busy={false}
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={() => { onDelete(view.id); setConfirmingDelete(false); }}
+      />
+    )}
+    </>
   );
 }
 
@@ -720,7 +731,9 @@ function NoteCard({
   onEdit: (note: DevelopmentNote) => void;
   onDelete: (id: string) => void;
 }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   return (
+    <>
     <div className="panel" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -760,17 +773,25 @@ function NoteCard({
           </button>
           <button
             style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 5, color: "#ff453a", marginLeft: "auto" }}
-            onClick={() => {
-              if (window.confirm(`Delete note "${note.title}"? This cannot be undone.`)) {
-                onDelete(note.id);
-              }
-            }}
+            onClick={() => setConfirmingDelete(true)}
           >
             <Trash2 size={12} /> Delete
           </button>
         </div>
       )}
     </div>
+    {confirmingDelete && (
+      <ConfirmModal
+        title={`Delete note "${note.title}"?`}
+        message="This cannot be undone."
+        confirmLabel="Delete"
+        busyLabel="Deleting…"
+        busy={false}
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={() => { onDelete(note.id); setConfirmingDelete(false); }}
+      />
+    )}
+    </>
   );
 }
 
