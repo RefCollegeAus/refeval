@@ -171,7 +171,7 @@ export function AssignmentsScreen({
               <p className="eyebrow" style={{ margin: 0 }}>Organisation</p>
               <h1 style={{ margin: 0, fontSize: 22 }}>Learning Assignments</h1>
               <p className="hint" style={{ margin: "2px 0 0" }}>
-                Playlists and standalone quizzes assigned to team members
+                Playlists, quizzes, and simulator assignments for team members
               </p>
             </div>
           </div>
@@ -251,7 +251,8 @@ export function AssignmentsScreen({
             <p style={{ margin: 0, fontWeight: 700 }}>No assignments yet</p>
             <p className="hint" style={{ margin: "6px 0 0" }}>
               Open a playlist and click &ldquo;Assign Playlist&rdquo; to create a learning assignment,
-              or use <strong>New Quiz</strong> above to create a standalone knowledge quiz.
+              use <strong>New Quiz</strong> above to create a standalone knowledge quiz,
+              or use <strong>Assign Simulator</strong> to assign a simulator session.
             </p>
           </div>
         )}
@@ -266,7 +267,7 @@ export function AssignmentsScreen({
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--border)" }}>
                   <SortTh col="title"    label="Assignment" />
-                  <SortTh col="playlist" label="Playlist" />
+                  <SortTh col="playlist" label="Content" />
                   <SortTh col="users"    label="Users" right />
                   <SortTh col="pct"      label="Progress" />
                   <SortTh col="due"      label="Due" />

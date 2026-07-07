@@ -292,7 +292,7 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, s
               onClick={() => onOpenSimulator ? onOpenSimulator(a, au) : undefined}
             >
               <Zap size={13} />
-              {isCompleted ? "Replay Simulator" : au.status === "Assigned" ? "Start Simulator" : "Open Simulator"}
+              {isCompleted ? "Replay Simulator" : au.status === "Assigned" ? "Start Simulator" : "Continue Simulator"}
             </button>
             {mySimAttempts.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 12, color: "var(--muted)", borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: 2 }}>
