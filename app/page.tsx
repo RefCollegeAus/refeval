@@ -489,7 +489,6 @@ export default function Home() {
   const {
     sessions: simulatorSessions,
     attempts: simulatorAttempts,
-    currentUserId: simulatorCurrentUserId,
     loading: simulatorLoading,
     createSession: createSimulatorSession,
     updateSession: updateSimulatorSession,

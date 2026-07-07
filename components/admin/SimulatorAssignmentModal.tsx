@@ -54,8 +54,9 @@ export function SimulatorAssignmentModal({ sessions, members, groups, initialSes
   function handleSessionChange(id: string) {
     setSessionId(id);
     const s = sessions.find(s => s.id === id);
-    if (s && !title) setTitle(s.title);
-    else if (s) setTitle(s.title);
+    // Only auto-fill title if it's still the previous session's name (not customised)
+    const prevSession = sessions.find(s => s.id === sessionId);
+    if (s && (!title || title === prevSession?.title)) setTitle(s.title);
   }
 
   async function handleCreate() {
