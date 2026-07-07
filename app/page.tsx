@@ -756,6 +756,14 @@ export default function Home() {
     }
     // Clip Library + Playlists: educator, admin, super_admin only (role gate)
     const managementRoles = ["educator", "admin", "super_admin"];
+    // Educator screen: management only — referees and viewers must not land here
+    if (screen === "educator" && session?.activeRole && !managementRoles.includes(session.activeRole)) {
+      setScreen(session.activeRole === "viewer" ? "viewer" : "referee");
+    }
+    // Comment inbox: educator/admin/super_admin only
+    if (screen === "comment-inbox" && session?.activeRole && !managementRoles.includes(session.activeRole)) {
+      setScreen(session.activeRole === "viewer" ? "viewer" : "referee");
+    }
     // clip-library and playlists list are management-only with no exceptions
     if (
       (screen === "clip-library" || screen === "learning-library" || screen === "playlists") &&
@@ -827,7 +835,7 @@ export default function Home() {
       setScreen("viewer");
     }
     // Viewers cannot access educator/referee/reviewer screens
-    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "learning-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "quiz-builder", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation", "simulator-builder", "simulator-runner", "simulator-analytics"];
+    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "referee-development", "referee-comments", "database", "org-settings", "clip-library", "learning-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "quiz-builder", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation", "simulator-builder", "simulator-runner", "simulator-analytics"];
     if (session?.activeRole === "viewer" && viewerForbidden.includes(screen)) {
       setScreen("viewer");
     }
@@ -2022,7 +2030,7 @@ export default function Home() {
 
   if (screen === "referee-development" && session) {
     const referee = members.find(m => m.id === devGoalRefereeId) ?? null;
-    if (!referee) { setScreen("educator"); return null; }
+    if (!referee) { setScreen(session.activeRole === "referee" ? "referee" : "educator"); return null; }
     const allRefereeIds = refereeMembers.map(m => m.id);
     const goalViews = refereeGoalViewsForReferee(referee.id);
     const refereeNotes = notesForReferee(referee.id);
@@ -2108,7 +2116,7 @@ export default function Home() {
           }}
           onUpdateNote={updateNote}
           onDeleteNote={deleteNote}
-          onBack={() => setScreen("educator")}
+          onBack={() => setScreen(session.activeRole === "referee" ? "referee" : "educator")}
         />
       {globalSearchOverlay}{appToast}</main>
     );
