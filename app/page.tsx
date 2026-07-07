@@ -488,6 +488,8 @@ export default function Home() {
   // Simulator
   const {
     sessions: simulatorSessions,
+    attempts: simulatorAttempts,
+    currentUserId: simulatorCurrentUserId,
     loading: simulatorLoading,
     createSession: createSimulatorSession,
     updateSession: updateSimulatorSession,
@@ -1323,6 +1325,7 @@ export default function Home() {
           assignment={activeAssignment}
           playlist={activeAssignmentPlaylist}
           simulatorSessionTitle={activeAssignmentSimulatorTitle}
+          simulatorAttempts={simulatorAttempts}
           members={members}
           canEdit={canEditAssignments}
           canDelete={canDeleteAssignments}
@@ -1411,6 +1414,7 @@ export default function Home() {
           myAssignments={myAssignments}
           playlists={playlists}
           members={members}
+          simulatorAttempts={simulatorAttempts}
           onOpenSimulator={(assignment, assignmentUser) => {
             if (!assignment.simulatorSessionId) return;
             if (assignmentUser.status === "Assigned") {
@@ -1672,6 +1676,8 @@ export default function Home() {
         <SimulatorBuilderScreen
           session={session}
           sessions={simulatorSessions}
+          attempts={simulatorAttempts}
+          members={members}
           loading={simulatorLoading}
           reviews={reviews}
           tags={tags}

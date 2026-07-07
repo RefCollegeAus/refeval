@@ -9,11 +9,13 @@ import type { MemberRecord } from "@/lib/types/members";
 import { ASSIGNMENT_STATUSES as ALL_STATUSES, STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE, learningPctColor } from "@/lib/types/assignments";
 import QuizEditor from "@/components/learning/QuizEditor";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
+import type { SimulatorAttempt } from "@/lib/types/simulator";
 
 interface Props {
   assignment: Assignment;
   playlist: Playlist | null;
   simulatorSessionTitle?: string | null;
+  simulatorAttempts?: SimulatorAttempt[];
   members: MemberRecord[];
   canEdit: boolean;
   canDelete: boolean;
@@ -331,7 +333,7 @@ function AddUsersPanel({
 // ── Assignment Detail Screen ──────────────────────────────────────────────────
 
 export function AssignmentDetailScreen({
-  assignment, playlist, simulatorSessionTitle, members, canEdit, canDelete, reviews = [], tags = [],
+  assignment, playlist, simulatorSessionTitle, simulatorAttempts = [], members, canEdit, canDelete, reviews = [], tags = [],
   onBack, onUpdate, onDelete, onAddUsers, onRemoveUser, onUpdateStatus,
 }: Props) {
   const [editOpen, setEditOpen]             = useState(false);
@@ -595,6 +597,7 @@ export function AssignmentDetailScreen({
                 <tr style={{ borderBottom: "2px solid var(--border)" }}>
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Name</th>
                   <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Status</th>
+                  {assignment.simulatorSessionId && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Score</th>}
                   {assignment.playlistId && totalClips > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, minWidth: 140 }}>Progress</th>}
                   {assignment.questions.length > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Reflection</th>}
                   {assignment.quizQuestions.length > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Quiz</th>}
@@ -613,6 +616,12 @@ export function AssignmentDetailScreen({
                   const watchedCount = au.watchedClipIds.length;
                   const clipPct = totalClips > 0 ? Math.round((watchedCount / totalClips) * 100) : 0;
                   const pctColor = learningPctColor(clipPct);
+                  const userSimAttempts = assignment.simulatorSessionId
+                    ? simulatorAttempts.filter(a => a.sessionId === assignment.simulatorSessionId && a.userId === au.userId)
+                    : [];
+                  const latestSimAttempt = userSimAttempts[0];
+                  const latestSimPct = latestSimAttempt?.score != null && latestSimAttempt.total
+                    ? Math.round((latestSimAttempt.score / latestSimAttempt.total) * 100) : null;
                   return (
                     <React.Fragment key={au.id}>
                     <tr style={{ borderBottom: expandedResponsesId === au.id ? "none" : "1px solid var(--border)", opacity: isRemoving ? 0.5 : 1 }}>
@@ -666,6 +675,21 @@ export function AssignmentDetailScreen({
                           </span>
                         )}
                       </td>
+                      {assignment.simulatorSessionId && (
+                        <td style={{ padding: "10px 10px", whiteSpace: "nowrap", fontSize: 12 }}>
+                          {latestSimPct !== null ? (
+                            <div>
+                              <span style={{ fontWeight: 700, color: learningPctColor(latestSimPct) }}>{latestSimPct}%</span>
+                              <span style={{ color: "var(--muted)", marginLeft: 6 }}>{latestSimAttempt.score}/{latestSimAttempt.total}</span>
+                              {userSimAttempts.length > 1 && (
+                                <div style={{ fontSize: 11, color: "var(--muted)" }}>{userSimAttempts.length} attempts</div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="hint">—</span>
+                          )}
+                        </td>
+                      )}
                       {assignment.playlistId && totalClips > 0 && (
                         <td style={{ padding: "10px 10px", minWidth: 140 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

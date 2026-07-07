@@ -7,12 +7,14 @@ import type { Assignment, AssignmentUser } from "@/lib/types/assignments";
 import { STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
+import type { SimulatorAttempt } from "@/lib/types/simulator";
 
 interface Props {
   session: RefEvalSession;
   myAssignments: Assignment[];
   playlists: Playlist[];
   members: MemberRecord[];
+  simulatorAttempts?: SimulatorAttempt[];
   onOpenPlaylist: (assignment: Assignment, assignmentUser: AssignmentUser) => void;
   onOpenSimulator?: (assignment: Assignment, assignmentUser: AssignmentUser) => void;
   onBack: () => void;
@@ -45,7 +47,7 @@ function pendingSortKey(a: Assignment): [number, number] {
 
 const INSTRUCTIONS_THRESHOLD = 200;
 
-export function MyLearningScreen({ session, myAssignments, playlists, members, onOpenPlaylist, onOpenSimulator, onBack }: Props) {
+export function MyLearningScreen({ session, myAssignments, playlists, members, simulatorAttempts = [], onOpenPlaylist, onOpenSimulator, onBack }: Props) {
   const userId = session.user.id;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -152,6 +154,17 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
         </span>
       );
     }
+    // Simulator attempt stats for this user
+    const mySimAttempts = hasSimulator && a.simulatorSessionId
+      ? simulatorAttempts.filter(at => at.sessionId === a.simulatorSessionId && at.userId === userId)
+      : [];
+    const scoredSimAttempts = mySimAttempts.filter(at => at.score !== null && at.total && at.total > 0);
+    const latestSimAttempt = mySimAttempts[0]; // sorted desc by completed_at
+    const latestPct = latestSimAttempt?.score != null && latestSimAttempt.total
+      ? Math.round((latestSimAttempt.score / latestSimAttempt.total) * 100) : null;
+    const bestPct = scoredSimAttempts.length > 0
+      ? Math.round(Math.max(...scoredSimAttempts.map(at => (at.score! / at.total!) * 100))) : null;
+
     const overdue  = isOverdue(a.dueDate) && au.status !== "Completed";
     const dueSoon  = isDueSoon(a.dueDate) && au.status !== "Completed";
     const isCompleted = au.status === "Completed";
@@ -272,14 +285,24 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
 
         {/* Action button */}
         {hasSimulator ? (
-          <button
-            className={isCompleted ? undefined : "primary"}
-            style={{ alignSelf: "flex-start", fontSize: 13, display: "flex", alignItems: "center", gap: 5 }}
-            onClick={() => onOpenSimulator ? onOpenSimulator(a, au) : undefined}
-          >
-            <Zap size={13} />
-            {isCompleted ? "Replay Simulator" : au.status === "Assigned" ? "Start Simulator" : "Open Simulator"}
-          </button>
+          <>
+            <button
+              className={isCompleted ? undefined : "primary"}
+              style={{ alignSelf: "flex-start", fontSize: 13, display: "flex", alignItems: "center", gap: 5 }}
+              onClick={() => onOpenSimulator ? onOpenSimulator(a, au) : undefined}
+            >
+              <Zap size={13} />
+              {isCompleted ? "Replay Simulator" : au.status === "Assigned" ? "Start Simulator" : "Open Simulator"}
+            </button>
+            {mySimAttempts.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 12, color: "var(--muted)", borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: 2 }}>
+                <span><strong style={{ color: "var(--text)" }}>{mySimAttempts.length}</strong> attempt{mySimAttempts.length !== 1 ? "s" : ""}</span>
+                {latestPct !== null && <span>Latest <strong style={{ color: "var(--accent)" }}>{latestPct}%</strong></span>}
+                {bestPct !== null && latestPct !== bestPct && <span>Best <strong style={{ color: "#22c55e" }}>{bestPct}%</strong></span>}
+                {latestSimAttempt?.completedAt && <span>Last played {fmt(latestSimAttempt.completedAt)}</span>}
+              </div>
+            )}
+          </>
         ) : (
           <>
             {!isCompleted && (

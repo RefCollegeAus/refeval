@@ -3,8 +3,9 @@
 import { useState, useEffect, useId } from "react";
 import { Zap, ChevronLeft, Plus, Trash2, Save, Play, BookOpen, CheckCircle2 } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
-import type { SimulatorSessionWithEvents } from "@/lib/types/simulator";
+import type { SimulatorSessionWithEvents, SimulatorAttempt } from "@/lib/types/simulator";
 import type { CodedTag, ReviewRecord } from "@/lib/types/reviews";
+import type { MemberRecord } from "@/lib/types/members";
 import type { SessionFormData } from "@/lib/hooks/useSimulatorSessions";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -24,6 +25,8 @@ function reviewForSession(session: SimulatorSessionWithEvents, reviews: ReviewRe
 interface Props {
   session: RefEvalSession;
   sessions: SimulatorSessionWithEvents[];
+  attempts: SimulatorAttempt[];
+  members: MemberRecord[];
   loading: boolean;
   reviews: ReviewRecord[];
   tags: CodedTag[];
@@ -42,7 +45,7 @@ type View = "list" | "edit";
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function SimulatorBuilderScreen({
-  session, sessions, loading, reviews, tags,
+  session, sessions, attempts, members, loading, reviews, tags,
   onCreate, onUpdate, onDelete, onPublish,
   onBack, onRunSession, onOpenReview, onAssignSession,
 }: Props) {
@@ -179,46 +182,79 @@ export function SimulatorBuilderScreen({
             const clipCount = clipCountForSession(s, tags);
             const isPublished = reviewForSession(s, reviews)?.status === "Completed";
             const dateStr = s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "";
+
+            // Attempt stats for this session
+            const sessionAttempts = attempts.filter(a => a.sessionId === s.id);
+            const attemptCount = sessionAttempts.length;
+            const uniqueRefs = new Set(sessionAttempts.map(a => a.userId)).size;
+            const scoredAttempts = sessionAttempts.filter(a => a.score !== null && a.total && a.total > 0);
+            const avgPct = scoredAttempts.length > 0
+              ? Math.round(scoredAttempts.reduce((sum, a) => sum + (a.score! / a.total!) * 100, 0) / scoredAttempts.length)
+              : null;
+            const bestPct = scoredAttempts.length > 0
+              ? Math.round(Math.max(...scoredAttempts.map(a => (a.score! / a.total!) * 100)))
+              : null;
+            const latestAttempt = sessionAttempts[0]; // already sorted desc by completed_at
+            const latestRef = latestAttempt ? members.find(m => m.id === latestAttempt.userId) : null;
+            const fmtDate = (iso: string | null | undefined) => iso
+              ? new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+              : null;
+
             return (
               <div
                 style={{
-                  display: "flex", alignItems: "center", gap: 12,
                   padding: "12px 16px",
                   borderBottom: !isLast ? "1px solid var(--border)" : "none",
-                  flexWrap: "wrap",
                 }}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
-                    <span style={{ fontWeight: 700, fontSize: 15 }}>{s.title}</span>
-                    {isPublished
-                      ? <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#22c55e", background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.35)" }}>Published</span>
-                      : <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#f59e0b", background: "rgba(245,158,11,.12)", border: "1px solid rgba(245,158,11,.35)" }}>Draft</span>
-                    }
-                    <span className="hint" style={{ fontSize: 12 }}>{clipCount} decision{clipCount !== 1 ? "s" : ""}</span>
-                    {dateStr && <span className="hint" style={{ fontSize: 12 }}>· Created {dateStr}</span>}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{s.title}</span>
+                      {isPublished
+                        ? <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#22c55e", background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.35)" }}>Published</span>
+                        : <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#f59e0b", background: "rgba(245,158,11,.12)", border: "1px solid rgba(245,158,11,.35)" }}>Draft</span>
+                      }
+                      <span className="hint" style={{ fontSize: 12 }}>{clipCount} decision{clipCount !== 1 ? "s" : ""}</span>
+                      {dateStr && <span className="hint" style={{ fontSize: 12 }}>· Created {dateStr}</span>}
+                    </div>
+                    {s.description && (
+                      <p className="hint" style={{ margin: "0 0 6px", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {s.description}
+                      </p>
+                    )}
+                    {/* Attempt stats — published sessions only */}
+                    {isPublished && attemptCount > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 6, fontSize: 12, color: "var(--muted)" }}>
+                        <span><strong style={{ color: "var(--text)" }}>{uniqueRefs}</strong> referee{uniqueRefs !== 1 ? "s" : ""}</span>
+                        <span><strong style={{ color: "var(--text)" }}>{attemptCount}</strong> attempt{attemptCount !== 1 ? "s" : ""}</span>
+                        {avgPct !== null && <span>Avg <strong style={{ color: "var(--accent)" }}>{avgPct}%</strong></span>}
+                        {bestPct !== null && <span>Best <strong style={{ color: "#22c55e" }}>{bestPct}%</strong></span>}
+                        {latestAttempt?.completedAt && (
+                          <span>Latest {fmtDate(latestAttempt.completedAt)}{latestRef ? ` · ${latestRef.name || latestRef.email}` : ""}</span>
+                        )}
+                      </div>
+                    )}
+                    {isPublished && attemptCount === 0 && (
+                      <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>No attempts yet</p>
+                    )}
                   </div>
-                  {s.description && (
-                    <p className="hint" style={{ margin: 0, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {s.description}
-                    </p>
-                  )}
-                </div>
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  {isPublished && onAssignSession && (
-                    <button onClick={() => onAssignSession(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="Assign this simulator to referees">
-                      Assign
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    {isPublished && onAssignSession && (
+                      <button onClick={() => onAssignSession(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="Assign this simulator to referees">
+                        Assign
+                      </button>
+                    )}
+                    <button onClick={() => onRunSession(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="Preview this simulator">
+                      <Play size={12} /> Preview
                     </button>
-                  )}
-                  <button onClick={() => onRunSession(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="Preview this simulator">
-                    <Play size={12} /> Preview
-                  </button>
-                  <button onClick={() => openEdit(s)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }}>
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(s.id, s.title)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px", color: "#fca5a5", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 7 }}>
-                    <Trash2 size={12} /> Delete
-                  </button>
+                    <button onClick={() => openEdit(s)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }}>
+                      Edit
+                    </button>
+                    <button onClick={() => handleDelete(s.id, s.title)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px", color: "#fca5a5", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 7 }}>
+                      <Trash2 size={12} /> Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             );

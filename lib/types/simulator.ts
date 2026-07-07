@@ -114,3 +114,13 @@ export interface SimulatorResponse {
   isCorrect: boolean;
   createdAt: string;
 }
+
+// Per-session stats aggregated from all completed attempts for educator view.
+export interface SimulatorSessionStats {
+  sessionId: string;
+  attemptCount: number;
+  uniqueReferees: number;
+  avgPct: number | null;
+  bestPct: number | null;
+  latestCompletedAt: string | null;
+}

@@ -7,6 +7,7 @@ import type {
   SimulatorSession,
   SimulatorSessionWithEvents,
   SimulatorEvent,
+  SimulatorAttempt,
 } from "@/lib/types/simulator";
 
 export interface SessionFormData {
@@ -64,10 +65,37 @@ function mapEvent(e: any, sessionId: string): SimulatorEvent {
   };
 }
 
+function mapAttempt(r: any): SimulatorAttempt {
+  return {
+    id: r.id,
+    sessionId: r.session_id,
+    userId: r.user_id,
+    startedAt: r.started_at,
+    completedAt: r.completed_at ?? null,
+    score: r.score ?? null,
+    total: r.total ?? null,
+    level: r.level ?? "",
+  };
+}
+
 export function useSimulatorSessions(session: RefEvalSession | null) {
   const [sessions, setSessions] = useState<SimulatorSessionWithEvents[]>([]);
+  const [attempts, setAttempts] = useState<SimulatorAttempt[]>([]);
   const [loading, setLoading] = useState(false);
   const orgId = session?.activeOrganisation?.id ?? "";
+  const currentUserId = session?.user?.id ?? "";
+
+  const loadAttempts = useCallback(async (sessionIds: string[]) => {
+    if (sessionIds.length === 0) { setAttempts([]); return; }
+    const { data, error } = await getSupabaseClient()
+      .from("simulator_attempts")
+      .select("*")
+      .in("session_id", sessionIds)
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false });
+    if (error) { console.error("loadAttempts error:", error); return; }
+    setAttempts((data || []).map(mapAttempt));
+  }, []);
 
   const load = useCallback(async () => {
     if (!orgId) return;
@@ -79,15 +107,15 @@ export function useSimulatorSessions(session: RefEvalSession | null) {
       .order("created_at", { ascending: false });
     setLoading(false);
     if (error) { console.error("useSimulatorSessions load error:", error); return; }
-    setSessions(
-      (data || []).map((r: any) => ({
-        ...mapSession(r),
-        events: (r.simulator_events || [])
-          .map((e: any) => mapEvent(e, r.id))
-          .sort((a: SimulatorEvent, b: SimulatorEvent) => a.timestampSeconds - b.timestampSeconds),
-      }))
-    );
-  }, [orgId]);
+    const mapped: SimulatorSessionWithEvents[] = (data || []).map((r: any) => ({
+      ...mapSession(r),
+      events: (r.simulator_events || [])
+        .map((e: any) => mapEvent(e, r.id))
+        .sort((a: SimulatorEvent, b: SimulatorEvent) => a.timestampSeconds - b.timestampSeconds),
+    }));
+    setSessions(mapped);
+    await loadAttempts(mapped.map(s => s.id));
+  }, [orgId, loadAttempts]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -193,11 +221,15 @@ export function useSimulatorSessions(session: RefEvalSession | null) {
       .from("simulator_attempts")
       .update({ completed_at: new Date().toISOString(), score, total })
       .eq("id", attemptId);
-    if (error) { console.error("completeAttempt error:", error); }
+    if (error) { console.error("completeAttempt error:", error); return; }
+    // Refresh attempts so stats update without a full reload
+    await loadAttempts(sessions.map(s => s.id));
   }
 
   return {
     sessions,
+    attempts,
+    currentUserId,
     loading,
     load,
     createSession,
