@@ -117,9 +117,10 @@ export function EducatorDashboard({
     session.activeRole === "admin" ? "Organisation Admin Portal" : "Educator Portal";
 
   const visibleReviews = useMemo(() => {
-    if (session.activeRole === "super_admin") return reviews;
-    if (session.activeRole === "admin") return reviews.filter(r => r.organisationId === session.activeOrganisation?.id);
-    return reviews.filter(r => r.educatorId === session.user.id && r.organisationId === session.activeOrganisation?.id);
+    const nonSim = reviews.filter(r => !r.isSimulator);
+    if (session.activeRole === "super_admin") return nonSim;
+    if (session.activeRole === "admin") return nonSim.filter(r => r.organisationId === session.activeOrganisation?.id);
+    return nonSim.filter(r => r.educatorId === session.user.id && r.organisationId === session.activeOrganisation?.id);
   }, [reviews, session]);
 
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();

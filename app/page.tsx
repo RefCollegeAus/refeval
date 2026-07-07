@@ -419,7 +419,7 @@ export default function Home() {
   const searchableReviews = useMemo(
     () => session?.activeRole === "referee"
       ? assignedReviewsForReferee(session.user.id)
-      : reviews,
+      : reviews.filter(r => !r.isSimulator),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [session?.activeRole, session?.user.id, reviews],
   );
