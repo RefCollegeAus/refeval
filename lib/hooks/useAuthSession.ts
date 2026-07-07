@@ -137,7 +137,7 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
     };
     setSession(s);
     setPendingSession(null);
-    setScreen(membership.role === "referee" ? "referee" : "educator");
+    setScreen(membership.role === "referee" ? "referee" : membership.role === "viewer" ? "viewer" : "educator");
   }
 
   function switchOrganisation(membership: RefEvalSession["memberships"][number]) {
@@ -147,7 +147,7 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
       activeOrganisation: { id: membership.organisationId, name: membership.organisationName },
       activeRole: membership.role,
     });
-    setScreen(membership.role === "referee" ? "referee" : "educator");
+    setScreen(membership.role === "referee" ? "referee" : membership.role === "viewer" ? "viewer" : "educator");
   }
 
   function updateSessionProfile(name: string) {

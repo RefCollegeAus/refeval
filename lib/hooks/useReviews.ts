@@ -222,6 +222,7 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
   function assignedReviewsForReferee(refereeId: string) {
     return reviews.filter(r =>
       r.status === "Completed" &&
+      !r.isSimulator &&
       [r.referee1Id, r.referee2Id, r.referee3Id].includes(refereeId)
     );
   }
