@@ -197,7 +197,7 @@ export function LearningHub({
         ? `${simulatorCount} simulation${simulatorCount !== 1 ? "s" : ""} available`
         : "No simulations yet",
       description: "Decision-making simulations from real game video",
-      screen: "simulator-runner",
+      screen: "simulator-builder",
       show: canAccessSimulator,
       accent: true,
     },
@@ -276,7 +276,7 @@ export function LearningHub({
             </button>
           )}
           {canAccessSimulator && (
-            <button className="lh-stat-card" onClick={() => setScreen("simulator-runner")}>
+            <button className="lh-stat-card" onClick={() => setScreen("simulator-builder")}>
               <Zap size={18} className="lh-stat-icon" style={{ color: "#fbbf24" }} />
               <div className="lh-stat-number">{simulatorCount}</div>
               <div className="lh-stat-label">Simulators</div>

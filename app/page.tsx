@@ -1857,7 +1857,7 @@ export default function Home() {
               <div>
                 <p className="eyebrow">Referee Portal</p>
                 <h1 style={{ margin: "2px 0 0" }}>Welcome, {session?.profile.name}</h1>
-                <p className="hint" style={{ margin: "2px 0 0" }}>Only submitted/completed evaluations appear here.</p>
+                <p className="hint" style={{ margin: "2px 0 0" }}>Only completed evaluations from your educator appear here.</p>
               </div>
             </div>
 
@@ -1932,16 +1932,14 @@ export default function Home() {
                 </div>
               );
             })()}
-            {myAssignments.length > 0 && (
-              <div className="badge-wrap" style={{ marginBottom: 14 }}>
-                <button style={{ whiteSpace: "nowrap", width: "100%" }} onClick={() => setScreen("my-learning")}>📚 My Learning</button>
-                {myAssignments.filter(a => a.assignmentUsers.find(u => u.userId === session?.user.id)?.status !== "Completed").length > 0 && (
-                  <span className="badge-count">
-                    {myAssignments.filter(a => a.assignmentUsers.find(u => u.userId === session?.user.id)?.status !== "Completed").length}
-                  </span>
-                )}
-              </div>
-            )}
+            <div className="badge-wrap" style={{ marginBottom: 14 }}>
+              <button style={{ whiteSpace: "nowrap", width: "100%" }} onClick={() => setScreen("my-learning")}>📚 My Learning</button>
+              {myAssignments.filter(a => a.assignmentUsers.find(u => u.userId === session?.user.id)?.status !== "Completed").length > 0 && (
+                <span className="badge-count">
+                  {myAssignments.filter(a => a.assignmentUsers.find(u => u.userId === session?.user.id)?.status !== "Completed").length}
+                </span>
+              )}
+            </div>
             {session && (() => {
               const myGoals = refereeGoalViewsForReferee(session.user.id);
               return myGoals.length > 0 ? <RefereeGoalsPanel goalViews={myGoals} /> : null;

@@ -733,7 +733,11 @@ export function EducatorDashboard({
               </div>
 
               {filteredReviews.length === 0 ? (
-                <div className="empty-state" style={{ marginTop: 16 }}>No reviews match the current filters.</div>
+                <div className="empty-state" style={{ marginTop: 16 }}>
+                  {visibleReviews.length === 0
+                    ? "No reviews yet. Use New Review in the sidebar to get started."
+                    : "No reviews match the current filters."}
+                </div>
               ) : (
                 <div className="ref-reviews-table" style={{ marginTop: 12 }}>
                   <table className="ed-reviews-table">
@@ -766,8 +770,8 @@ export function EducatorDashboard({
                           <td data-label="Referees">
                             <div className="ed-ref-stack">
                               {review.referee1Name && <span>Crew Chief: {review.referee1Name}</span>}
-                              {review.referee2Name && <span>Referee 1: {review.referee2Name}</span>}
-                              {review.referee3Name && <span>Referee 2: {review.referee3Name}</span>}
+                              {review.referee2Name && <span>Umpire 1: {review.referee2Name}</span>}
+                              {review.referee3Name && <span>Umpire 2: {review.referee3Name}</span>}
                               {!review.referee1Name && !review.referee2Name && !review.referee3Name && "—"}
                             </div>
                           </td>
