@@ -557,11 +557,12 @@ function correctAnswerLabel(ae: SimActiveEvent, level: SimulatorLevel): string {
 }
 
 function ScoreScreen({
-  session, responses, level, onTryAgain, onDone,
+  session, responses, level, assignmentCompleted, onTryAgain, onDone,
 }: {
   session: SimulatorSessionWithEvents;
   responses: RecordedResponse[];
   level: SimulatorLevel;
+  assignmentCompleted?: boolean;
   onTryAgain: () => void;
   onDone: () => void;
 }) {
@@ -585,6 +586,12 @@ function ScoreScreen({
         <div style={{ fontSize: 18, fontWeight: 700, color: grade.color, marginBottom: 8 }}>
           {pct}% — {grade.label}
         </div>
+        {assignmentCompleted && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, margin: "0 0 14px", padding: "8px 16px", background: "rgba(34,197,94,.1)", border: "1px solid rgba(34,197,94,.3)", borderRadius: 8, fontSize: 13, color: "#86efac" }}>
+            <CheckCircle2 size={14} style={{ color: "#22c55e", flexShrink: 0 }} />
+            Assignment marked complete
+          </div>
+        )}
         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
           <button onClick={onTryAgain} style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <RotateCcw size={14} /> Try Again
@@ -667,6 +674,7 @@ interface Props {
   onCreateAttempt: (sessionId: string, level: string) => Promise<string>;
   onSaveResponse: (resp: SaveResponseData) => Promise<void>;
   onCompleteAttempt: (attemptId: string, score: number, total: number) => Promise<void>;
+  onSessionComplete?: (score: number, total: number) => Promise<void>;
   initialSessionId?: string | null;
   onNavigateToBuilder?: () => void;
 }
@@ -679,7 +687,7 @@ const MANAGEMENT_ROLES = ["educator", "admin", "super_admin"];
 
 export function SimulatorRunnerScreen({
   session, sessions, loading, tags, publishedSessionIds,
-  onBack, onCreateAttempt, onSaveResponse, onCompleteAttempt,
+  onBack, onCreateAttempt, onSaveResponse, onCompleteAttempt, onSessionComplete,
   initialSessionId, onNavigateToBuilder,
 }: Props) {
   const canManage = MANAGEMENT_ROLES.includes(session.activeRole ?? "");
@@ -694,6 +702,7 @@ export function SimulatorRunnerScreen({
   const [promptStartTime, setPromptStartTime] = useState(0);
   const [responses, setResponses] = useState<RecordedResponse[]>([]);
   const [startingAttempt, setStartingAttempt] = useState(false);
+  const [assignmentCompletedThisRun, setAssignmentCompletedThisRun] = useState(false);
 
   const playerActionsRef = useRef<PlayerActions | null>(null);
   const nextEventRef = useRef<SimActiveEvent | null>(null);
@@ -798,6 +807,14 @@ export function SimulatorRunnerScreen({
     if (newResponses.length >= totalEvents) {
       const score = newResponses.filter(r => r.isCorrect).length;
       await onCompleteAttempt(attemptId, score, totalEvents);
+      if (onSessionComplete) {
+        try {
+          await onSessionComplete(score, totalEvents);
+          setAssignmentCompletedThisRun(true);
+        } catch (e) {
+          console.error("[SimulatorRunnerScreen] onSessionComplete error:", e);
+        }
+      }
       setView("score");
       return;
     }
@@ -810,6 +827,7 @@ export function SimulatorRunnerScreen({
 
   function handleTryAgain() {
     resetRunnerState();
+    setAssignmentCompletedThisRun(false);
     setView("intro");
   }
 
@@ -1084,6 +1102,7 @@ export function SimulatorRunnerScreen({
         session={selectedSession}
         responses={responses}
         level={selectedLevel}
+        assignmentCompleted={assignmentCompletedThisRun}
         onTryAgain={handleTryAgain}
         onDone={onBack}
       />

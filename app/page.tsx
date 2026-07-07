@@ -498,6 +498,7 @@ export default function Home() {
     completeAttempt: completeSimulatorAttempt,
   } = useSimulatorSessions(session);
   const [simulatorRunnerSessionId, setSimulatorRunnerSessionId] = useState<string | null>(null);
+  const [simulatorRunnerAssignmentUserId, setSimulatorRunnerAssignmentUserId] = useState<string | null>(null);
   const [simulatorAssignModalSessionId, setSimulatorAssignModalSessionId] = useState<string | null>(null);
 
   // --- Auth callback error (from ?error= param set by /auth/callback on failure) ---
@@ -1416,6 +1417,7 @@ export default function Home() {
               updateAssignmentUserStatus(assignmentUser.id, "Started").catch(console.error);
             }
             setSimulatorRunnerSessionId(assignment.simulatorSessionId);
+            setSimulatorRunnerAssignmentUserId(assignmentUser.id);
             setScreen("simulator-runner");
           }}
           onOpenPlaylist={(assignment, assignmentUser) => {
@@ -1741,12 +1743,18 @@ export default function Home() {
           loading={simulatorLoading}
           tags={tags}
           publishedSessionIds={publishedSessionIds}
-          onBack={() => setScreen(returnToScreen)}
+          onBack={() => {
+            setSimulatorRunnerAssignmentUserId(null);
+            setScreen(returnToScreen);
+          }}
           onCreateAttempt={createSimulatorAttempt}
           onSaveResponse={saveSimulatorResponse}
           onCompleteAttempt={completeSimulatorAttempt}
+          onSessionComplete={simulatorRunnerAssignmentUserId ? async () => {
+            await updateAssignmentUserStatus(simulatorRunnerAssignmentUserId, "Completed");
+          } : undefined}
           initialSessionId={simulatorRunnerSessionId}
-          onNavigateToBuilder={() => { setReturnToScreen("learning-hub"); setScreen("simulator-builder"); }}
+          onNavigateToBuilder={() => { setSimulatorRunnerAssignmentUserId(null); setReturnToScreen("learning-hub"); setScreen("simulator-builder"); }}
         />
       {globalSearchOverlay}</main>
     );
