@@ -311,7 +311,9 @@ function AddUsersPanel({
               <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name || m.email}</div>
               <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</div>
             </div>
-            <span className={`role-badge role-${m.role}`} style={{ fontSize: 10, flexShrink: 0 }}>{m.role}</span>
+            <span className={`role-badge role-${m.role}`} style={{ fontSize: 10, flexShrink: 0 }}>
+              {({ viewer: "Viewer", referee: "Referee", educator: "Educator", admin: "Administrator", super_admin: "Super Admin" } as Record<string, string>)[m.role] ?? m.role}
+            </span>
           </label>
         ))}
       </div>

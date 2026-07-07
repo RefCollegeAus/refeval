@@ -32,7 +32,7 @@ const TYPE_LABELS: Record<ResultType, string> = {
 
 const ROLE_LABELS: Record<Role, string> = {
   super_admin: "Super Admin",
-  admin:       "Org Admin",
+  admin:       "Administrator",
   educator:    "Educator",
   referee:     "Referee",
   viewer:      "Viewer",

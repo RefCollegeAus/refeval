@@ -7,6 +7,8 @@ import {
   updateMemberRole, removeMember,
 } from "@/lib/services/memberships";
 import { ManageUserModal } from "@/components/admin/ManageUserModal";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { showToast } from "@/lib/toast";
 import type { EnrichedMember } from "@/lib/types/members";
 import type { Role, RefEvalSession } from "@/lib/types/auth";
 
@@ -14,7 +16,7 @@ const ROLE_LABELS: Record<Role, string> = {
   viewer: "Viewer",
   referee: "Referee",
   educator: "Educator",
-  admin: "Org Admin",
+  admin: "Administrator",
   super_admin: "Super Admin",
 };
 
@@ -65,11 +67,11 @@ export function MembersScreen({
 
   const [members, setMembers] = useState<EnrichedMember[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pageError, setPageError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const [managingMember, setManagingMember] = useState<EnrichedMember | null>(null);
+  const [confirmRemoveMember, setConfirmRemoveMember] = useState<EnrichedMember | null>(null);
+  const [removingMember, setRemovingMember] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
@@ -83,23 +85,17 @@ export function MembersScreen({
 
   async function load() {
     setLoading(true);
-    setPageError("");
     try {
       const data = await getEnrichedMembers(orgId);
       setMembers(data);
     } catch (err: unknown) {
-      setPageError(err instanceof Error ? err.message : "Failed to load members.");
+      showToast(err instanceof Error ? err.message : "Failed to load members.", "error");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => { load(); }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function flash(msg: string) {
-    setSuccessMsg(msg);
-    setTimeout(() => setSuccessMsg(""), 3500);
-  }
 
   function toggleSort(field: SortField) {
     if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -131,7 +127,7 @@ export function MembersScreen({
     setInviteLoading(false);
     if ("error" in result) { setInviteError(result.error); return; }
     setInviteEmail(""); setInviteName(""); setInviteRole("referee");
-    flash(`Invitation sent to ${inviteEmail.trim()}.`);
+    showToast(`Invitation sent to ${inviteEmail.trim()}.`, "success");
     load();
     onRefreshOrgMembers();
   }
@@ -140,29 +136,33 @@ export function MembersScreen({
     setActionLoading(member.id);
     const result = await updateMemberRole({ userId: member.id, organisationId: orgId, role });
     setActionLoading(null);
-    if ("error" in result) { setPageError(result.error); return; }
+    if ("error" in result) { showToast(result.error, "error"); return; }
     setMembers(ms => ms.map(m => m.id === member.id ? { ...m, role } : m));
     onRefreshOrgMembers();
-    flash(`${member.name}'s role updated to ${ROLE_LABELS[role]}.`);
+    showToast(`${member.name}'s role updated to ${ROLE_LABELS[role]}.`, "success");
   }
 
   async function handleResend(member: EnrichedMember) {
     setActionLoading(member.id);
     const result = await resendInvitation({ email: member.email, organisationId: orgId });
     setActionLoading(null);
-    if ("error" in result) { setPageError(result.error); return; }
-    flash(`Invitation resent to ${member.email}.`);
+    if ("error" in result) { showToast(result.error, "error"); return; }
+    showToast(`Invitation resent to ${member.email}.`, "success");
   }
 
-  async function handleRemove(member: EnrichedMember) {
-    if (!confirm(`Remove ${member.name} from this organisation?\n\nThis cannot be undone.`)) return;
-    setActionLoading(member.id);
+  function handleRemove(member: EnrichedMember) {
+    setConfirmRemoveMember(member);
+  }
+
+  async function confirmRemove(member: EnrichedMember) {
+    setRemovingMember(true);
     const result = await removeMember({ userId: member.id, organisationId: orgId });
-    setActionLoading(null);
-    if ("error" in result) { setPageError(result.error); return; }
+    setRemovingMember(false);
+    setConfirmRemoveMember(null);
+    if ("error" in result) { showToast(result.error, "error"); return; }
     setMembers(ms => ms.filter(m => m.id !== member.id));
     onRefreshOrgMembers();
-    flash(`${member.name} has been removed.`);
+    showToast(`${member.name} has been removed.`, "success");
   }
 
   function SortIcon({ field }: { field: SortField }) {
@@ -221,17 +221,6 @@ export function MembersScreen({
             </div>
           ))}
         </div>
-      )}
-
-      {/* ── Banners ── */}
-      {successMsg && <div className="success-banner">{successMsg}</div>}
-      {pageError && (
-        <p className="danger-text" style={{ margin: 0 }}>
-          {pageError}{" "}
-          <button style={{ all: "unset", cursor: "pointer", textDecoration: "underline" }} onClick={() => setPageError("")}>
-            Dismiss
-          </button>
-        </p>
       )}
 
       {/* ── Invite form ── */}
@@ -399,10 +388,7 @@ export function MembersScreen({
                             onChange={e => handleRoleChange(member, e.target.value as Role)}
                             style={{ width: "auto", padding: "5px 8px", fontSize: 13 }}
                           >
-                            {(isSuperAdmin
-                              ? (["referee", "educator", "admin", "super_admin"] as Role[])
-                              : (["referee", "educator"] as Role[])
-                            ).map(r => (
+                            {assignableRoles.map(r => (
                               <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                             ))}
                           </select>
@@ -471,6 +457,18 @@ export function MembersScreen({
           session={session}
           onClose={() => setManagingMember(null)}
           onRefresh={() => { load(); onRefreshOrgMembers(); setManagingMember(null); }}
+        />
+      )}
+
+      {confirmRemoveMember && (
+        <ConfirmModal
+          title={`Remove ${confirmRemoveMember.name}?`}
+          message="This will remove them from the organisation. They will lose access immediately. This cannot be undone."
+          confirmLabel="Remove"
+          busyLabel="Removing…"
+          busy={removingMember}
+          onCancel={() => setConfirmRemoveMember(null)}
+          onConfirm={() => confirmRemove(confirmRemoveMember)}
         />
       )}
     </div>

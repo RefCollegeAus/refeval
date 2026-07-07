@@ -4,7 +4,7 @@ type Membership = RefEvalSession["memberships"][number];
 
 function roleLabel(role: string) {
   if (role === "super_admin") return "Super Admin";
-  if (role === "admin") return "Org Admin";
+  if (role === "admin") return "Administrator";
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 

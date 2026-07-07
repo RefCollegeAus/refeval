@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Shield, User } from "lucide-react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { showToast } from "@/lib/toast";
 import {
   adminUpdateUserProfile,
   adminUpdateUserPassword,
@@ -15,7 +16,7 @@ const ROLE_LABELS: Record<Role, string> = {
   viewer:      "Viewer",
   referee:     "Referee",
   educator:    "Educator",
-  admin:       "Org Admin",
+  admin:       "Administrator",
   super_admin: "Super Admin",
 };
 
@@ -48,29 +49,23 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
   const [editEmail, setEditEmail] = useState(member.email);
   const [editRole, setEditRole] = useState<Role>(member.role);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [profileSuccess, setProfileSuccess] = useState("");
-  const [profileError, setProfileError] = useState("");
 
   // ── Security state ─────────────────────────────────────────────────────────
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState("");
-  const [passwordError, setPasswordError] = useState("");
   const [confirmingPassword, setConfirmingPassword] = useState(false);
 
   // ── Profile save ───────────────────────────────────────────────────────────
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
-    setProfileError("");
-    setProfileSuccess("");
 
     const nameChanged = editName.trim() !== member.name;
     const emailChanged = isSuperAdmin && editEmail.trim() !== member.email;
     const roleChanged = editRole !== member.role;
 
-    if (!editName.trim()) { setProfileError("Name is required."); return; }
-    if (isSuperAdmin && !editEmail.trim()) { setProfileError("Email is required."); return; }
+    if (!editName.trim()) { showToast("Name is required.", "error"); return; }
+    if (isSuperAdmin && !editEmail.trim()) { showToast("Email is required.", "error"); return; }
 
     setProfileLoading(true);
 
@@ -85,7 +80,7 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
       const result = await adminUpdateUserProfile(params);
       if ("error" in result) {
         setProfileLoading(false);
-        setProfileError(result.error);
+        showToast(result.error, "error");
         return;
       }
     }
@@ -94,28 +89,26 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
       const result = await updateMemberRole({ userId: member.id, organisationId: orgId, role: editRole });
       if ("error" in result) {
         setProfileLoading(false);
-        setProfileError(result.error);
+        showToast(result.error, "error");
         return;
       }
     }
 
     setProfileLoading(false);
-    setProfileSuccess("Profile updated successfully.");
+    showToast("Profile updated successfully.", "success");
     onRefresh();
   }
 
   // ── Password save ──────────────────────────────────────────────────────────
   async function handleSavePassword(e: React.FormEvent) {
     e.preventDefault();
-    setPasswordError("");
-    setPasswordSuccess("");
 
     if (newPassword.length < 8) {
-      setPasswordError("Password must be at least 8 characters.");
+      showToast("Password must be at least 8 characters.", "error");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError("Passwords do not match.");
+      showToast("Passwords do not match.", "error");
       return;
     }
     setConfirmingPassword(true);
@@ -132,13 +125,12 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
     setPasswordLoading(false);
 
     if ("error" in result) {
-      setPasswordError(result.error);
+      showToast(result.error, "error");
       return;
     }
 
-    setNewPassword("");
-    setConfirmPassword("");
-    setPasswordSuccess("Password updated successfully.");
+    showToast("Password updated successfully.", "success");
+    onClose();
   }
 
   const assignableRoles: Role[] = isSuperAdmin
@@ -250,12 +242,9 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
                 <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted)" }}>
                   Member since {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString() : "—"} ·
                   Last sign-in {member.lastSignInAt ? new Date(member.lastSignInAt).toLocaleDateString() : "—"} ·
-                  Status <span className={`status-badge status-${member.invitationStatus}`}>{member.invitationStatus}</span>
+                  Status <span className={`status-badge status-${member.invitationStatus}`}>{member.invitationStatus === "pending" ? "Pending" : "Active"}</span>
                 </p>
               </div>
-
-              {profileError && <div className="danger-text">{profileError}</div>}
-              {profileSuccess && <div className="success-banner">{profileSuccess}</div>}
 
               <div className="action-row" style={{ marginTop: 4 }}>
                 <button type="button" onClick={onClose}>Cancel</button>
@@ -304,9 +293,6 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
                   required
                 />
               </label>
-
-              {passwordError && <div className="danger-text">{passwordError}</div>}
-              {passwordSuccess && <div className="success-banner">{passwordSuccess}</div>}
 
               <div className="action-row" style={{ marginTop: 4 }}>
                 <button type="button" onClick={onClose}>Cancel</button>
