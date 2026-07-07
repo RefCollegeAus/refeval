@@ -16,6 +16,7 @@ import { LearningAssignmentRunner } from "@/components/learning/LearningAssignme
 import { TeamManagementScreen } from "@/components/admin/TeamManagementScreen";
 import { AssignmentsScreen } from "@/components/admin/AssignmentsScreen";
 import { SimulatorAssignmentModal } from "@/components/admin/SimulatorAssignmentModal";
+import { SimulatorAnalyticsDashboard } from "@/components/admin/SimulatorAnalyticsDashboard";
 import { QuizBuilderScreen } from "@/components/admin/QuizBuilderScreen";
 import { AssignmentDetailScreen } from "@/components/admin/AssignmentDetailScreen";
 import { MyLearningScreen } from "@/components/referee/MyLearningScreen";
@@ -501,6 +502,7 @@ export default function Home() {
   const [simulatorRunnerSessionId, setSimulatorRunnerSessionId] = useState<string | null>(null);
   const [simulatorRunnerAssignmentUserId, setSimulatorRunnerAssignmentUserId] = useState<string | null>(null);
   const [simulatorAssignModalSessionId, setSimulatorAssignModalSessionId] = useState<string | null>(null);
+  const [simulatorAnalyticsSessionId, setSimulatorAnalyticsSessionId] = useState<string | null>(null);
 
   // --- Auth callback error (from ?error= param set by /auth/callback on failure) ---
   const [urlAuthError, setUrlAuthError] = useState("");
@@ -812,12 +814,16 @@ export default function Home() {
     if (screen === "simulator-builder" && session?.activeRole && !managementRoles.includes(session.activeRole)) {
       setScreen(session.activeRole === "viewer" ? "viewer" : "referee");
     }
+    // Simulator analytics: educator/admin/super_admin only
+    if (screen === "simulator-analytics" && session?.activeRole && !managementRoles.includes(session.activeRole)) {
+      setScreen(session.activeRole === "viewer" ? "viewer" : "referee");
+    }
     // Simulator runner: not viewers
     if (screen === "simulator-runner" && session?.activeRole === "viewer") {
       setScreen("viewer");
     }
     // Viewers cannot access educator/referee/reviewer screens
-    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "learning-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "quiz-builder", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation", "simulator-builder", "simulator-runner"];
+    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "database", "org-settings", "clip-library", "learning-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "quiz-builder", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation", "simulator-builder", "simulator-runner", "simulator-analytics"];
     if (session?.activeRole === "viewer" && viewerForbidden.includes(screen)) {
       setScreen("viewer");
     }
@@ -1594,7 +1600,7 @@ export default function Home() {
   }
 
   // Learning tool screens that need return-context tracking
-  const learningToolScreens: Screen[] = ["clip-library", "learning-library", "playlists", "assignments", "learning-progress", "groups", "simulator-builder", "simulator-runner"];
+  const learningToolScreens: Screen[] = ["clip-library", "learning-library", "playlists", "assignments", "learning-progress", "groups", "simulator-builder", "simulator-runner", "simulator-analytics"];
 
   if (screen === "learning-hub" && session) {
     // Wrap setScreen so navigating to a learning tool records "learning-hub" as the return point
@@ -1720,6 +1726,10 @@ export default function Home() {
             setScreen("assignments");
             setSimulatorAssignModalSessionId(sessionId);
           }}
+          onAnalytics={(sessionId) => {
+            setSimulatorAnalyticsSessionId(sessionId);
+            setScreen("simulator-analytics");
+          }}
         />
       {globalSearchOverlay}</main>
     );
@@ -1760,6 +1770,23 @@ export default function Home() {
           } : undefined}
           initialSessionId={simulatorRunnerSessionId}
           onNavigateToBuilder={() => { setSimulatorRunnerAssignmentUserId(null); setReturnToScreen("learning-hub"); setScreen("simulator-builder"); }}
+        />
+      {globalSearchOverlay}</main>
+    );
+  }
+
+  if (screen === "simulator-analytics" && session) {
+    return (
+      <main>
+        <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
+        <SimulatorAnalyticsDashboard
+          sessions={simulatorSessions}
+          attempts={simulatorAttempts}
+          members={members}
+          reviews={reviews}
+          tags={tags}
+          initialSessionId={simulatorAnalyticsSessionId}
+          onBack={() => setScreen("simulator-builder")}
         />
       {globalSearchOverlay}</main>
     );

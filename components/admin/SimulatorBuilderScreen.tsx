@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useId } from "react";
-import { Zap, ChevronLeft, Plus, Trash2, Save, Play, BookOpen, CheckCircle2 } from "lucide-react";
+import { Zap, ChevronLeft, Plus, Trash2, Save, Play, BookOpen, CheckCircle2, BarChart2 } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { SimulatorSessionWithEvents, SimulatorAttempt } from "@/lib/types/simulator";
 import type { CodedTag, ReviewRecord } from "@/lib/types/reviews";
@@ -38,6 +38,7 @@ interface Props {
   onRunSession: (sessionId: string) => void;
   onOpenReview: (reviewId: string) => void;
   onAssignSession?: (sessionId: string) => void;
+  onAnalytics?: (sessionId: string) => void;
 }
 
 type View = "list" | "edit";
@@ -47,7 +48,7 @@ type View = "list" | "edit";
 export function SimulatorBuilderScreen({
   session, sessions, attempts, members, loading, reviews, tags,
   onCreate, onUpdate, onDelete, onPublish,
-  onBack, onRunSession, onOpenReview, onAssignSession,
+  onBack, onRunSession, onOpenReview, onAssignSession, onAnalytics,
 }: Props) {
   const uid = useId();
   const [view, setView] = useState<View>("list");
@@ -147,6 +148,18 @@ export function SimulatorBuilderScreen({
               </div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
+              {onAnalytics && attempts.length > 0 && (
+                <button
+                  onClick={() => {
+                    const firstPublished = sessions.find(s => reviewForSession(s, reviews)?.status === "Completed");
+                    if (firstPublished) onAnalytics(firstPublished.id);
+                  }}
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
+                  title="View simulator analytics"
+                >
+                  <BarChart2 size={14} /> Analytics
+                </button>
+              )}
               <button className="primary" onClick={openNew} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Plus size={14} /> New Simulator
               </button>
@@ -240,6 +253,11 @@ export function SimulatorBuilderScreen({
                     )}
                   </div>
                   <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    {isPublished && onAnalytics && attemptCount > 0 && (
+                      <button onClick={() => onAnalytics(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="View analytics for this simulator">
+                        <BarChart2 size={12} /> Analytics
+                      </button>
+                    )}
                     {isPublished && onAssignSession && (
                       <button onClick={() => onAssignSession(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="Assign this simulator to referees">
                         Assign
