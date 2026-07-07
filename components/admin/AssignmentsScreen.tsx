@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { BookOpen, Trash2, Eye, Search, ArrowUpDown, ChevronLeft, X, HelpCircle } from "lucide-react";
+import { BookOpen, Trash2, Eye, Search, ArrowUpDown, ChevronLeft, X, HelpCircle, Zap } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { Assignment } from "@/lib/types/assignments";
 import { REQUIRED_BADGE_STYLE, learningPctColor } from "@/lib/types/assignments";
@@ -16,12 +16,14 @@ interface Props {
   playlists: Playlist[];
   members: MemberRecord[];
   groups: Group[];
+  simulatorSessions?: Array<{ id: string; title: string }>;
   loading: boolean;
   error: string;
   canDelete: boolean;
   onView: (id: string) => void;
   onDelete: (id: string) => Promise<void>;
   onNewQuiz: () => void;
+  onNewSimulator?: () => void;
   onBack: () => void;
 }
 
@@ -33,6 +35,11 @@ function fmt(iso: string | null | undefined) {
 function playlistTitle(playlistId: string | null, playlists: Playlist[]) {
   if (!playlistId) return "—";
   return playlists.find(p => p.id === playlistId)?.title ?? "Unknown playlist";
+}
+
+function simulatorTitle(sessionId: string | null, sessions: Array<{ id: string; title: string }>) {
+  if (!sessionId) return "—";
+  return sessions.find(s => s.id === sessionId)?.title ?? "Unknown simulator";
 }
 
 function memberName(userId: string | null, members: MemberRecord[]) {
@@ -55,8 +62,8 @@ type EnrichedAssignment = Assignment & {
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export function AssignmentsScreen({
-  session, assignments, playlists, members, groups, loading, error,
-  canDelete, onView, onDelete, onNewQuiz, onBack,
+  session, assignments, playlists, members, groups, simulatorSessions = [], loading, error,
+  canDelete, onView, onDelete, onNewQuiz, onNewSimulator, onBack,
 }: Props) {
   const [deleting, setDeleting]               = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -83,16 +90,19 @@ export function AssignmentsScreen({
       const allDone   = total > 0 && completed === total;
       const isOverdue = !allDone && !!a.dueDate && a.dueDate < now;
       const sf: StatusFilter = allDone ? "completed" : isOverdue ? "overdue" : "active";
+      const title = a.simulatorSessionId
+        ? simulatorTitle(a.simulatorSessionId, simulatorSessions)
+        : playlistTitle(a.playlistId, playlists);
       return {
         ...a,
-        _playlistTitle: playlistTitle(a.playlistId, playlists),
+        _playlistTitle: title,
         _userCount: total,
         _completed: completed,
         _pct: pct,
         _statusFilter: sf,
       };
     }),
-  [assignments, playlists, now]);
+  [assignments, playlists, simulatorSessions, now]);
 
   const statusCounts = useMemo(() => ({
     all:       enriched.length,
@@ -166,6 +176,14 @@ export function AssignmentsScreen({
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {canCreate && onNewSimulator && simulatorSessions.length > 0 && (
+              <button
+                style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, padding: "7px 14px" }}
+                onClick={onNewSimulator}
+              >
+                <Zap size={13} /> Assign Simulator
+              </button>
+            )}
             {canCreate && (
               <button
                 className="primary"
@@ -271,7 +289,12 @@ export function AssignmentsScreen({
                           {a.required && (
                             <span style={REQUIRED_BADGE_STYLE}>Required</span>
                           )}
-                          {isQuizOnly && (
+                          {a.simulatorSessionId && (
+                            <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(245,158,11,.12)", color: "#fde68a", border: "1px solid rgba(245,158,11,.3)", fontWeight: 700, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
+                              <Zap size={9} /> Simulator
+                            </span>
+                          )}
+                          {isQuizOnly && !a.simulatorSessionId && (
                             <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(99,102,241,.12)", color: "var(--accent)", border: "1px solid rgba(99,102,241,.3)", fontWeight: 700, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
                               <HelpCircle size={9} /> Quiz
                             </span>
@@ -284,7 +307,7 @@ export function AssignmentsScreen({
                         </div>
                       </td>
                       <td style={{ padding: "10px 10px", color: "var(--muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {isQuizOnly
+                        {isQuizOnly && !a.simulatorSessionId
                           ? <span style={{ fontStyle: "italic", color: "var(--muted)", fontSize: 12 }}>Standalone quiz</span>
                           : a._playlistTitle}
                       </td>

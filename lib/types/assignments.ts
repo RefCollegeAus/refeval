@@ -99,6 +99,7 @@ export type Assignment = {
   id: string;
   organisationId: string;
   playlistId: string | null;
+  simulatorSessionId: string | null;
   assignedBy: string | null;
   title: string;
   instructions: string | null;
@@ -113,6 +114,7 @@ export type Assignment = {
 
 export type CreateAssignmentInput = {
   playlistId: string | null;
+  simulatorSessionId: string | null;
   title: string;
   instructions: string;
   dueDate: string | null;

@@ -62,6 +62,7 @@ export function QuizBuilderScreen({ members, groups, reviews = [], tags = [], on
     try {
       await onCreate({
         playlistId: null,
+        simulatorSessionId: null,
         title: title.trim(),
         instructions: instructions.trim(),
         dueDate: dueDate || null,

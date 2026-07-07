@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, ChevronUp, CheckCircle2, ArrowUpDown, MessageSquare, Plus, HelpCircle } from "lucide-react";
+import { BookOpen, UserPlus, Trash2, Edit2, Search, X, ChevronLeft, ChevronDown, ChevronUp, CheckCircle2, ArrowUpDown, MessageSquare, Plus, HelpCircle, Zap } from "lucide-react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import type { Assignment, AssignmentStatus, ReflectionQuestion, QuizQuestion } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
@@ -13,6 +13,7 @@ import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 interface Props {
   assignment: Assignment;
   playlist: Playlist | null;
+  simulatorSessionTitle?: string | null;
   members: MemberRecord[];
   canEdit: boolean;
   canDelete: boolean;
@@ -330,7 +331,7 @@ function AddUsersPanel({
 // ── Assignment Detail Screen ──────────────────────────────────────────────────
 
 export function AssignmentDetailScreen({
-  assignment, playlist, members, canEdit, canDelete, reviews = [], tags = [],
+  assignment, playlist, simulatorSessionTitle, members, canEdit, canDelete, reviews = [], tags = [],
   onBack, onUpdate, onDelete, onAddUsers, onRemoveUser, onUpdateStatus,
 }: Props) {
   const [editOpen, setEditOpen]             = useState(false);
@@ -453,6 +454,14 @@ export function AssignmentDetailScreen({
 
         {/* Meta row */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 14, padding: "12px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
+          {assignment.simulatorSessionId && (
+            <div>
+              <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                <Zap size={10} /> Simulator
+              </div>
+              <div style={{ fontWeight: 600 }}>{simulatorSessionTitle ?? "Unknown simulator"}</div>
+            </div>
+          )}
           {assignment.playlistId && (
             <div>
               <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Playlist</div>

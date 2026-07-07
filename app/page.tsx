@@ -15,6 +15,7 @@ import { PlaylistDetailScreen } from "@/components/admin/PlaylistDetailScreen";
 import { LearningAssignmentRunner } from "@/components/learning/LearningAssignmentRunner";
 import { TeamManagementScreen } from "@/components/admin/TeamManagementScreen";
 import { AssignmentsScreen } from "@/components/admin/AssignmentsScreen";
+import { SimulatorAssignmentModal } from "@/components/admin/SimulatorAssignmentModal";
 import { QuizBuilderScreen } from "@/components/admin/QuizBuilderScreen";
 import { AssignmentDetailScreen } from "@/components/admin/AssignmentDetailScreen";
 import { MyLearningScreen } from "@/components/referee/MyLearningScreen";
@@ -497,6 +498,7 @@ export default function Home() {
     completeAttempt: completeSimulatorAttempt,
   } = useSimulatorSessions(session);
   const [simulatorRunnerSessionId, setSimulatorRunnerSessionId] = useState<string | null>(null);
+  const [simulatorAssignModalSessionId, setSimulatorAssignModalSessionId] = useState<string | null>(null);
 
   // --- Auth callback error (from ?error= param set by /auth/callback on failure) ---
   const [urlAuthError, setUrlAuthError] = useState("");
@@ -1262,14 +1264,34 @@ export default function Home() {
           playlists={playlists}
           members={members}
           groups={groups}
+          simulatorSessions={simulatorSessions.filter(s => {
+            const rev = reviews.find(r => r.id === s.reviewId);
+            return rev?.status === "Completed";
+          }).map(s => ({ id: s.id, title: s.title }))}
           loading={assignmentsLoading}
           error={assignmentsError}
           canDelete={canDeleteAssignments}
           onView={(id) => { setActiveAssignmentId(id); setScreen("assignment-detail"); }}
           onDelete={deleteAssignment}
           onNewQuiz={() => setScreen("quiz-builder")}
+          onNewSimulator={() => setSimulatorAssignModalSessionId("__pick__")}
           onBack={() => setScreen(returnToScreen)}
         />
+        {simulatorAssignModalSessionId !== null && (() => {
+          const publishedSimSessions = simulatorSessions
+            .filter(s => { const rev = reviews.find(r => r.id === s.reviewId); return rev?.status === "Completed"; })
+            .map(s => ({ id: s.id, title: s.title }));
+          return (
+            <SimulatorAssignmentModal
+              sessions={publishedSimSessions}
+              members={members}
+              groups={groups}
+              initialSessionId={simulatorAssignModalSessionId}
+              onCreate={async (input) => { await createAssignment(input); }}
+              onClose={() => setSimulatorAssignModalSessionId(null)}
+            />
+          );
+        })()}
       {globalSearchOverlay}</main>
     );
   }
@@ -1278,6 +1300,9 @@ export default function Home() {
     const activeAssignment = assignments.find(a => a.id === activeAssignmentId);
     if (!activeAssignment) { setScreen("assignments"); return null; }
     const activeAssignmentPlaylist = playlists.find(p => p.id === activeAssignment.playlistId) ?? null;
+    const activeAssignmentSimulatorTitle = activeAssignment.simulatorSessionId
+      ? (simulatorSessions.find(s => s.id === activeAssignment.simulatorSessionId)?.title ?? null)
+      : null;
     return (
       <main>
         <Header
@@ -1296,6 +1321,7 @@ export default function Home() {
         <AssignmentDetailScreen
           assignment={activeAssignment}
           playlist={activeAssignmentPlaylist}
+          simulatorSessionTitle={activeAssignmentSimulatorTitle}
           members={members}
           canEdit={canEditAssignments}
           canDelete={canDeleteAssignments}
@@ -1384,6 +1410,14 @@ export default function Home() {
           myAssignments={myAssignments}
           playlists={playlists}
           members={members}
+          onOpenSimulator={(assignment, assignmentUser) => {
+            if (!assignment.simulatorSessionId) return;
+            if (assignmentUser.status === "Assigned") {
+              updateAssignmentUserStatus(assignmentUser.id, "Started").catch(console.error);
+            }
+            setSimulatorRunnerSessionId(assignment.simulatorSessionId);
+            setScreen("simulator-runner");
+          }}
           onOpenPlaylist={(assignment, assignmentUser) => {
             // Navigate immediately with optimistic status; fire-and-forget the DB update
             const effectiveUser = assignmentUser.status === "Assigned"
@@ -1674,6 +1708,10 @@ export default function Home() {
               }
             }
             if (rev) { setReturnToScreen("simulator-builder"); openReviewForEdit(rev, true); }
+          }}
+          onAssignSession={(sessionId) => {
+            setScreen("assignments");
+            setSimulatorAssignModalSessionId(sessionId);
           }}
         />
       {globalSearchOverlay}</main>

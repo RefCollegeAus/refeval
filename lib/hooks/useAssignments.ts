@@ -29,6 +29,7 @@ function mapAssignment(row: any): Assignment {
     id: row.id,
     organisationId: row.organisation_id,
     playlistId: row.playlist_id,
+    simulatorSessionId: row.simulator_session_id ?? null,
     assignedBy: row.assigned_by ?? null,
     title: row.title,
     instructions: row.instructions ?? null,
@@ -99,16 +100,21 @@ export function useAssignments(orgId: string, currentUserId: string) {
   // Standalone quiz assignments (playlistId === null) are never deduplicated.
   const myAssignments = useMemo(() => {
     const mine = assignments.filter(a => a.assignmentUsers.some(u => u.userId === currentUserId));
-    const seen = new Map<string, typeof mine[number]>();
+    const seenPlaylist = new Map<string, typeof mine[number]>();
+    const seenSimulator = new Map<string, typeof mine[number]>();
     const standalone: typeof mine = [];
     for (const a of mine) {
-      if (!a.playlistId) { standalone.push(a); continue; }
-      const existing = seen.get(a.playlistId);
-      if (!existing || a.createdAt > existing.createdAt) {
-        seen.set(a.playlistId, a);
+      if (a.playlistId) {
+        const existing = seenPlaylist.get(a.playlistId);
+        if (!existing || a.createdAt > existing.createdAt) seenPlaylist.set(a.playlistId, a);
+      } else if (a.simulatorSessionId) {
+        const existing = seenSimulator.get(a.simulatorSessionId);
+        if (!existing || a.createdAt > existing.createdAt) seenSimulator.set(a.simulatorSessionId, a);
+      } else {
+        standalone.push(a);
       }
     }
-    return [...Array.from(seen.values()), ...standalone]
+    return [...Array.from(seenPlaylist.values()), ...Array.from(seenSimulator.values()), ...standalone]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [assignments, currentUserId]);
 
@@ -119,6 +125,7 @@ export function useAssignments(orgId: string, currentUserId: string) {
       .insert({
         organisation_id: orgId,
         playlist_id: input.playlistId,
+        simulator_session_id: input.simulatorSessionId,
         assigned_by: currentUserId || null,
         title: input.title,
         instructions: input.instructions || null,

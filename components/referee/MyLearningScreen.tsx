@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BookOpen, Calendar, AlertCircle, ChevronLeft, CheckCircle2, ChevronDown, ChevronUp, ListVideo, HelpCircle, MessageSquare } from "lucide-react";
+import { BookOpen, Calendar, AlertCircle, ChevronLeft, CheckCircle2, ChevronDown, ChevronUp, ListVideo, HelpCircle, MessageSquare, Zap } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { Assignment, AssignmentUser } from "@/lib/types/assignments";
 import { STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
@@ -14,6 +14,7 @@ interface Props {
   playlists: Playlist[];
   members: MemberRecord[];
   onOpenPlaylist: (assignment: Assignment, assignmentUser: AssignmentUser) => void;
+  onOpenSimulator?: (assignment: Assignment, assignmentUser: AssignmentUser) => void;
   onBack: () => void;
 }
 
@@ -44,7 +45,7 @@ function pendingSortKey(a: Assignment): [number, number] {
 
 const INSTRUCTIONS_THRESHOLD = 200;
 
-export function MyLearningScreen({ session, myAssignments, playlists, members, onOpenPlaylist, onBack }: Props) {
+export function MyLearningScreen({ session, myAssignments, playlists, members, onOpenPlaylist, onOpenSimulator, onBack }: Props) {
   const userId = session.user.id;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -92,6 +93,7 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
     const playlist = playlists.find(p => p.id === a.playlistId);
     const assigner = members.find(m => m.id === (a.assignedBy ?? ""));
     const hasPlaylist   = !!a.playlistId;
+    const hasSimulator  = !!a.simulatorSessionId;
     const hasReflection = a.questions.length > 0;
     const hasQuiz       = a.quizQuestions.length > 0;
 
@@ -99,7 +101,10 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
     let typeBg: string;
     let typeBorder: string;
     let typeColor: string;
-    if (!hasPlaylist && hasQuiz) {
+    if (hasSimulator) {
+      typeLabel = "Simulator";
+      typeBg = "rgba(245,158,11,.13)"; typeBorder = "rgba(245,158,11,.4)"; typeColor = "#fde68a";
+    } else if (!hasPlaylist && hasQuiz) {
       typeLabel = "Quiz";
       typeBg = "rgba(99,102,241,.15)"; typeBorder = "rgba(99,102,241,.4)"; typeColor = "#a5b4fc";
     } else if (hasPlaylist && !hasReflection && !hasQuiz) {
@@ -266,22 +271,35 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, o
         </div>
 
         {/* Action button */}
-        {!isCompleted && (
+        {hasSimulator ? (
           <button
-            className="primary"
-            style={{ alignSelf: "flex-start", fontSize: 13 }}
-            onClick={() => onOpenPlaylist(a, au)}
+            className={isCompleted ? undefined : "primary"}
+            style={{ alignSelf: "flex-start", fontSize: 13, display: "flex", alignItems: "center", gap: 5 }}
+            onClick={() => onOpenSimulator ? onOpenSimulator(a, au) : undefined}
           >
-            {au.status === "Assigned" ? "Start Learning" : "Continue Learning"}
+            <Zap size={13} />
+            {isCompleted ? "Replay Simulator" : au.status === "Assigned" ? "Start Simulator" : "Open Simulator"}
           </button>
-        )}
-        {isCompleted && (
-          <button
-            style={{ alignSelf: "flex-start", fontSize: 13 }}
-            onClick={() => onOpenPlaylist(a, au)}
-          >
-            {a.playlistId ? "View Playlist" : "View Quiz"}
-          </button>
+        ) : (
+          <>
+            {!isCompleted && (
+              <button
+                className="primary"
+                style={{ alignSelf: "flex-start", fontSize: 13 }}
+                onClick={() => onOpenPlaylist(a, au)}
+              >
+                {au.status === "Assigned" ? "Start Learning" : "Continue Learning"}
+              </button>
+            )}
+            {isCompleted && (
+              <button
+                style={{ alignSelf: "flex-start", fontSize: 13 }}
+                onClick={() => onOpenPlaylist(a, au)}
+              >
+                {a.playlistId ? "View Playlist" : "View Quiz"}
+              </button>
+            )}
+          </>
         )}
       </div>
     );

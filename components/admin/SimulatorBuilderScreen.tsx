@@ -34,6 +34,7 @@ interface Props {
   onBack: () => void;
   onRunSession: (sessionId: string) => void;
   onOpenReview: (reviewId: string) => void;
+  onAssignSession?: (sessionId: string) => void;
 }
 
 type View = "list" | "edit";
@@ -43,7 +44,7 @@ type View = "list" | "edit";
 export function SimulatorBuilderScreen({
   session, sessions, loading, reviews, tags,
   onCreate, onUpdate, onDelete, onPublish,
-  onBack, onRunSession, onOpenReview,
+  onBack, onRunSession, onOpenReview, onAssignSession,
 }: Props) {
   const uid = useId();
   const [view, setView] = useState<View>("list");
@@ -204,6 +205,11 @@ export function SimulatorBuilderScreen({
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  {isPublished && onAssignSession && (
+                    <button onClick={() => onAssignSession(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="Assign this simulator to referees">
+                      Assign
+                    </button>
+                  )}
                   <button onClick={() => onRunSession(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="Preview this simulator">
                     <Play size={12} /> Preview
                   </button>
