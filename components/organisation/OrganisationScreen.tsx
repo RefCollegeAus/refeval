@@ -560,7 +560,7 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
             <div style={{ display: "flex", flexDirection: "column", gap: 0, borderRadius: 10, overflow: "hidden", border: "1px solid var(--border)" }}>
               {members.slice(0, 5).map((m, i) => {
                 const roleColor: Record<string, string> = { referee: "#30d158", educator: "#0a84ff", admin: "#ff9f0a", super_admin: "#bf5af2", viewer: "var(--muted)" };
-                const roleLabel: Record<string, string> = { referee: "Referee", educator: "Educator", admin: "Admin", super_admin: "Super Admin", viewer: "Viewer" };
+                const roleLabel: Record<string, string> = { referee: "Referee", educator: "Educator", admin: "Administrator", super_admin: "Super Admin", viewer: "Viewer" };
                 const isLast = i === Math.min(members.length, 5) - 1;
                 return (
                   <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderBottom: isLast ? "none" : "1px solid var(--border)", background: "var(--panel2)" }}>
@@ -2763,7 +2763,7 @@ const ROLE_COLOUR: Record<string, string> = {
 };
 const ROLE_LABEL: Record<string, string> = {
   referee: "Referee", educator: "Educator",
-  admin: "Admin", super_admin: "Super Admin", viewer: "Viewer",
+  admin: "Administrator", super_admin: "Super Admin", viewer: "Viewer",
 };
 
 function MembersPage({ members, org, onNavigateMembers, setCurrentPage }: PageCtx) {
@@ -2993,7 +2993,7 @@ const ROLE_META: {
   },
   {
     role: "admin",
-    label: "Admin",
+    label: "Administrator",
     color: "#ff9f0a",
     tagline: "Manages people, access, and settings",
     description: "Has full control over organisation management: invite members, assign educator and referee roles, configure settings, and access all analytics and tools.",

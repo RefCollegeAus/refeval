@@ -14,7 +14,7 @@ const ROLE_LABELS: Record<Role, string> = {
   viewer: "Viewer",
   referee: "Referee",
   educator: "Educator",
-  admin: "Admin",
+  admin: "Administrator",
   super_admin: "Super Admin",
 };
 

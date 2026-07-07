@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { updateProfileName } from "@/lib/services/memberships";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { showToast } from "@/lib/toast";
 import type { RefEvalSession, Role } from "@/lib/types/auth";
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -26,45 +27,37 @@ export function UserProfileScreen({
 }) {
   const [name, setName] = useState(session.profile.name);
   const [nameSaving, setNameSaving] = useState(false);
-  const [nameError, setNameError] = useState("");
-  const [nameSuccess, setNameSuccess] = useState("");
 
   const [password, setPassword] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
-  const [pwError, setPwError] = useState("");
-  const [pwSuccess, setPwSuccess] = useState("");
 
   async function handleNameSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) { setNameError("Name cannot be empty."); return; }
+    if (!name.trim()) { showToast("Name cannot be empty.", "error"); return; }
     setNameSaving(true);
-    setNameError("");
     const result = await updateProfileName(name.trim());
     setNameSaving(false);
     if ("error" in result) {
-      setNameError(result.error);
+      showToast(result.error, "error");
     } else {
-      setNameSuccess("Name updated.");
-      setTimeout(() => setNameSuccess(""), 3000);
+      showToast("Name updated.", "success");
       onProfileNameSaved(name.trim());
     }
   }
 
   async function handlePasswordSave(e: React.FormEvent) {
     e.preventDefault();
-    setPwError("");
-    if (password.length < 8) { setPwError("Password must be at least 8 characters."); return; }
-    if (password !== confirmPw) { setPwError("Passwords do not match."); return; }
+    if (password.length < 8) { showToast("Password must be at least 8 characters.", "error"); return; }
+    if (password !== confirmPw) { showToast("Passwords do not match.", "error"); return; }
     setPwSaving(true);
     const { error } = await getSupabaseClient().auth.updateUser({ password });
     setPwSaving(false);
     if (error) {
-      setPwError(error.message);
+      showToast(error.message, "error");
     } else {
       setPassword(""); setConfirmPw("");
-      setPwSuccess("Password updated.");
-      setTimeout(() => setPwSuccess(""), 3000);
+      showToast("Password updated.", "success");
     }
   }
 
@@ -91,7 +84,7 @@ export function UserProfileScreen({
                 Name
                 <input
                   value={name}
-                  onChange={e => { setName(e.target.value); setNameError(""); }}
+                  onChange={e => setName(e.target.value)}
                   placeholder="Your display name"
                   required
                 />
@@ -100,8 +93,6 @@ export function UserProfileScreen({
                 Email
                 <input value={session.profile.email} disabled />
               </label>
-              {nameError && <p className="danger-text">{nameError}</p>}
-              {nameSuccess && <div className="success-banner">{nameSuccess}</div>}
               <button type="submit" className="primary" disabled={nameSaving}>
                 {nameSaving ? "Saving…" : "Save Name"}
               </button>
@@ -117,7 +108,7 @@ export function UserProfileScreen({
                 <input
                   type="password"
                   value={password}
-                  onChange={e => { setPassword(e.target.value); setPwError(""); }}
+                  onChange={e => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
                   autoComplete="new-password"
                 />
@@ -127,13 +118,11 @@ export function UserProfileScreen({
                 <input
                   type="password"
                   value={confirmPw}
-                  onChange={e => { setConfirmPw(e.target.value); setPwError(""); }}
+                  onChange={e => setConfirmPw(e.target.value)}
                   placeholder="Repeat new password"
                   autoComplete="new-password"
                 />
               </label>
-              {pwError && <p className="danger-text">{pwError}</p>}
-              {pwSuccess && <div className="success-banner">{pwSuccess}</div>}
               <button type="submit" className="primary" disabled={pwSaving}>
                 {pwSaving ? "Updating…" : "Update Password"}
               </button>

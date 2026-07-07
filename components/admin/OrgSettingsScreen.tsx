@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { updateOrganisation } from "@/lib/services/organisations";
+import { showToast } from "@/lib/toast";
 import type { OrganisationRecord } from "@/lib/types/organisations";
 import type { RefEvalSession } from "@/lib/types/auth";
 
@@ -32,23 +33,18 @@ export function OrgSettingsScreen({
   const [timezone, setTimezone] = useState(org.timezone);
   const [brandColour, setBrandColour] = useState(org.brandColour);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
 
   // Reset form if the org record changes (e.g. on org switch).
   useEffect(() => {
     setName(org.name);
     setTimezone(org.timezone);
     setBrandColour(org.brandColour);
-    setError("");
-    setSuccessMsg("");
   }, [org.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) { setError("Organisation name cannot be empty."); return; }
+    if (!name.trim()) { showToast("Organisation name cannot be empty.", "error"); return; }
     setSaving(true);
-    setError("");
     const result = await updateOrganisation({
       organisationId: org.id,
       name: name.trim(),
@@ -57,10 +53,9 @@ export function OrgSettingsScreen({
     });
     setSaving(false);
     if ("error" in result) {
-      setError(result.error);
+      showToast(result.error, "error");
     } else {
-      setSuccessMsg("Settings saved.");
-      setTimeout(() => setSuccessMsg(""), 3000);
+      showToast("Settings saved.", "success");
       onSaved({ ...org, name: name.trim(), timezone, brandColour });
     }
   }
@@ -79,15 +74,12 @@ export function OrgSettingsScreen({
           <button onClick={onNavigateMembers}>← Member Management</button>
         </div>
 
-        {successMsg && <div className="success-banner" style={{ marginBottom: 14 }}>{successMsg}</div>}
-        {error && <p className="danger-text" style={{ marginBottom: 14 }}>{error}</p>}
-
         <form className="form-stack" style={{ maxWidth: 520 }} onSubmit={handleSave}>
           <label>
             Organisation name
             <input
               value={name}
-              onChange={e => { setName(e.target.value); setError(""); }}
+              onChange={e => setName(e.target.value)}
               placeholder="Organisation name"
               required
             />
