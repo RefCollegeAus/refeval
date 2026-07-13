@@ -556,7 +556,7 @@ export function RefereeGoalsScreen({
             const clipCount = clipGoalLinks.filter(l => l.goalDefId === gv.goalId && l.refereeId === myId).length;
 
             const goalVisibleNotes = visibleEducatorNotes.filter(n => n.linkedGoalId === gv.goalId);
-            const goalSelfNotes    = selfReflectionNotes.filter(n => n.linkedGoalId === gv.goalId || (n.linkedGoalId === null && false));
+            const goalSelfNotes    = selfReflectionNotes.filter(n => n.linkedGoalId === gv.goalId);
 
             const targetOverdue = gv.status === "Active" && isOverdue(gv.targetReviewDate);
             const targetSoon    = gv.status === "Active" && isDueSoon(gv.targetReviewDate);

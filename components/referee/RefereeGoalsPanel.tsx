@@ -23,8 +23,6 @@ export function RefereeGoalsPanel({
   const active    = goalViews.filter(v => v.status === "Active");
   const completed = goalViews.filter(v => v.status === "Completed");
 
-  if (goalViews.length === 0) return null;
-
   return (
     <div className="analytics-card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>

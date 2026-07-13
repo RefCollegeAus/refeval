@@ -1935,7 +1935,7 @@ export default function Home() {
 
           <aside className="panel side-panel">
             <button className="primary" onClick={() => setScreen("referee-stats")} style={{ whiteSpace: "nowrap", width: "100%", marginBottom: 8 }}>📊 My Stats Hub</button>
-            {session && refereeGoalViewsForReferee(session.user.id).filter(gv => gv.status === "Active").length > 0 && (
+            {session?.activeRole === "referee" && (
               <button style={{ whiteSpace: "nowrap", width: "100%", marginBottom: 8 }} onClick={() => setScreen("referee-goals")}>🎯 My Goals</button>
             )}
             {(() => {
