@@ -153,7 +153,7 @@ Complete every item before inviting beta users:
 - [ ] Confirm no service role key is set as a `NEXT_PUBLIC_` variable
 
 ### Supabase configuration
-- [ ] Confirm `handle_new_user` trigger exists on `auth.users` in production (auto-creates `profiles` rows on invite)
+- [x] `handle_new_user` trigger captured in `supabase/migrations/026_handle_new_user_trigger.sql` — apply to production via SQL Editor if not already present (idempotent; safe to run even if trigger exists)
 - [ ] Confirm email templates for invitation emails are configured
 - [x] `organisation_role` enum includes `viewer` role — confirmed via REST probe (Phase 18.6)
 - [x] RLS enabled on all 25 public tables — confirmed and fixed in Phase 18.7 (`migrations_draft/030_enable_rls_reviews_clips.sql`)

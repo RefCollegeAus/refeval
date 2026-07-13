@@ -105,14 +105,17 @@ All other workflow items listed in Parts 2–16.
 
 ## Schema Gap Impact Summary
 
+**Phase 18.6 update:** All gaps below were confirmed resolved — all draft migrations applied to production via Dashboard SQL Editor.
+
 | Migration | Status | Workflows Broken Without It |
 |-----------|--------|-----------------------------|
-| `018_development_goals.sql` | Not in production | All Development Goals screens fail |
-| `025_alter_existing_tables.sql` | Not in production | Clip progress tracking fails; onboarding dismissed not persisted in DB |
-| `026_assignment_reflection_questions.sql` | Not in production | Reflection questions and responses fail |
-| `027_playlist_archive.sql` | Not in production | **All playlist loads fail (Critical)** |
-| `028_quiz_questions.sql` | Not in production | Quiz creation and submission fails |
-| `029_nullable_playlist_id.sql` | Not in production | Standalone quiz assignments fail on create |
+| `018_development_goals.sql` | ✅ Applied (Phase 18.6) | All Development Goals screens fail |
+| `025_alter_existing_tables.sql` | ✅ Applied (Phase 18.6) | Clip progress tracking fails; onboarding dismissed not persisted in DB |
+| `026_assignment_reflection_questions.sql` | ✅ Applied (Phase 18.6) | Reflection questions and responses fail |
+| `027_playlist_archive.sql` | ✅ Applied (Phase 18.6) | **All playlist loads fail (Critical)** |
+| `028_quiz_questions.sql` | ✅ Applied (Phase 18.6) | Quiz creation and submission fails |
+| `029_nullable_playlist_id.sql` | ✅ Applied (Phase 18.6) | Standalone quiz assignments fail on create |
+| `migrations/026_handle_new_user_trigger.sql` | ⚠️ Pending manual apply to production | Trigger already exists in production from manual apply; this migration captures it formally — apply via SQL Editor (idempotent) |
 
 ---
 

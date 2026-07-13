@@ -1,27 +1,16 @@
 -- ============================================================
 -- handle_new_user trigger for DEV
 -- ============================================================
--- FOR DEV ONLY — check whether this already exists in production
--- before applying there.
+-- FOR DEV ONLY — convenience script for resetting the dev environment.
 --
 -- PURPOSE
---   Automatically inserts a row into public.profiles whenever a new
---   user is created in auth.users (via invite, magic link, or password
---   signup). Without this trigger, every new auth user requires a
---   manual profile insert before they can log in.
---
---   Production has this trigger but it was never captured in a migration
---   file. This script adds it to DEV and serves as documentation for the
---   production trigger.
+--   Applies the handle_new_user trigger to the dev Supabase project.
+--   The canonical migration is supabase/migrations/026_handle_new_user_trigger.sql.
+--   This seed script is kept for convenience when rebuilding the dev project.
 --
 -- HOW TO RUN
 --   Paste into Dashboard → SQL Editor (refeval-dev project) and run.
 --   Safe to re-run (uses CREATE OR REPLACE + DROP TRIGGER IF EXISTS).
---
--- NOTE
---   This should eventually be promoted to a proper migration file
---   (e.g. supabase/migrations/026_handle_new_user_trigger.sql) so it
---   is applied to all environments consistently.
 -- ============================================================
 
 create or replace function public.handle_new_user()

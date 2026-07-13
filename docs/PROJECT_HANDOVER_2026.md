@@ -659,7 +659,10 @@ A direct REST audit of production (`rydjxihdukoretyqqfue`) confirmed all draft m
 | `migrations_draft/029_nullable_playlist_id.sql` | ✅ Applied — `playlist_id` IS NULL filter returns 200 |
 | `migrations_draft/018_development_goals.sql` | ✅ Applied — all 4 development goal tables confirmed in production |
 
-**No pending migrations are required for the current feature set.** The migration history table is empty (schema was applied via Dashboard SQL Editor, not `supabase db push`) — this is safe.
+| `migrations/026_handle_new_user_trigger.sql` | ⚠️ **Pending** — trigger already exists in production (applied manually) but was not in a migration file until now. Apply via SQL Editor — idempotent, safe to run even if trigger already exists. |
+| `migrations_draft/030_enable_rls_reviews_clips.sql` | ✅ Applied — Phase 18.7, all 25 public tables have RLS enabled |
+
+**One pending migration requires manual application to production** (`migrations/026_handle_new_user_trigger.sql`). All others are applied. The migration history table is empty (schema was applied via Dashboard SQL Editor, not `supabase db push`) — this is safe.
 
 ---
 
@@ -844,7 +847,8 @@ These are the currently identified schema and feature gaps that must be resolved
 2. ~~Apply migrations to production in order: `025` → `026` → `027` → `028` → `029` → `018`~~ — **Done (already applied to production)**
 3. ~~Remove or gate the sample notification seeding in `lib/hooks/useNotifications.ts`~~ — **Done (Phase 18.5)**
 4. ~~Verify RLS is enabled on `reviews` and `clips` tables~~ — **Done (Phase 18.7)** — `migrations_draft/030_enable_rls_reviews_clips.sql` applied; all 25 public tables now have RLS enabled
-5. Run smoke test on production URL after deploy
+5. Apply `migrations/026_handle_new_user_trigger.sql` to production via SQL Editor — idempotent; ensures trigger is formally applied from the migration file, not just from the historical manual apply
+6. Run smoke test on production URL after deploy
 
 ### Phase 19 — Supabase Data Migration (post-beta)
 
