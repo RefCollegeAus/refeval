@@ -29,6 +29,7 @@ export type Screen =
   | "organisation"
   | "referee-development"
   | "referee-comments"
+  | "referee-goals"
   | "notifications"
   | "simulator-builder"
   | "simulator-runner"

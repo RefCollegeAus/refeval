@@ -103,7 +103,7 @@ export function makeGoalAssignedDraft(
   return draft(orgId, userId, "goal_review_due", "normal",
     "Development Goal Assigned",
     `${educatorName} has assigned you the goal: "${goalTitle}".`,
-    "development_goal", null, "View Goals", "referee-development", educatorName);
+    "development_goal", null, "View Goals", "referee-goals", educatorName);
 }
 
 export function makeGoalUpdatedDraft(
@@ -115,7 +115,7 @@ export function makeGoalUpdatedDraft(
   return draft(orgId, userId, "goal_updated", "low",
     "Development Goal Updated",
     `${educatorName} has updated the goal: "${goalTitle}".`,
-    "development_goal", null, "View Goals", "referee-development", educatorName);
+    "development_goal", null, "View Goals", "referee-goals", educatorName);
 }
 
 export function makeAssignmentDueSoonDraft(
@@ -159,7 +159,7 @@ export function makeGoalReviewDueDraft(
     isOverdue
       ? `Your review for "${goalTitle}" was due on ${targetDate}.`
       : `Your review for "${goalTitle}" is due on ${targetDate}.`,
-    "development_goal", goalId, "View Goals", "referee-development");
+    "development_goal", goalId, "View Goals", "referee-goals");
 }
 
 export function makeNoteAddedDraft(
@@ -171,7 +171,7 @@ export function makeNoteAddedDraft(
   return draft(orgId, userId, "learning_note_added", "normal",
     "Coaching Note Added",
     `${educatorName} added a note: "${noteTitle}".`,
-    "learning_note", null, "View Notes", "referee-development", educatorName);
+    "learning_note", null, "View Notes", "referee-goals", educatorName);
 }
 
 export function createNotification(

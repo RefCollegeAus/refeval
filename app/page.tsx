@@ -44,6 +44,7 @@ import { RefereeDevelopmentScreen } from "@/components/educator/RefereeDevelopme
 import { ReviewDevelopmentPanel } from "@/components/educator/ReviewDevelopmentPanel";
 import { RefereeCommentsScreen } from "@/components/referee/RefereeCommentsScreen";
 import { RefereeGoalsPanel } from "@/components/referee/RefereeGoalsPanel";
+import { RefereeGoalsScreen } from "@/components/referee/RefereeGoalsScreen";
 import { useGroups } from "@/lib/hooks/useGroups";
 import { useDevelopmentGoals } from "@/lib/hooks/useDevelopmentGoals";
 import { useDevelopmentNotes } from "@/lib/hooks/useDevelopmentNotes";
@@ -349,6 +350,7 @@ export default function Home() {
   );
 
   const {
+    goalDefs,
     allRefereeGoalViews,
     assignGoal,
     updateGoalDef,
@@ -378,6 +380,7 @@ export default function Home() {
 
   const {
     reviewGoalLinks,
+    clipGoalLinks,
     createReviewGoalLink,
     removeReviewGoalLink,
     linksForGoal,
@@ -834,8 +837,12 @@ export default function Home() {
     if (screen === "simulator-runner" && session?.activeRole === "viewer") {
       setScreen("viewer");
     }
+    // referee-goals: referees and management only (not viewers)
+    if (screen === "referee-goals" && session?.activeRole === "viewer") {
+      setScreen("viewer");
+    }
     // Viewers cannot access educator/referee/reviewer screens
-    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "referee-development", "referee-comments", "database", "org-settings", "clip-library", "learning-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "quiz-builder", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation", "simulator-builder", "simulator-runner", "simulator-analytics"];
+    const viewerForbidden: Screen[] = ["educator", "referee", "reviewer", "refereeReview", "comment-inbox", "referee-stats", "referee-development", "referee-comments", "referee-goals", "database", "org-settings", "clip-library", "learning-library", "playlists", "playlist-detail", "team-management", "assignments", "assignment-detail", "quiz-builder", "my-learning", "learning-runner", "learning-hub", "learning-progress", "groups", "organisation", "simulator-builder", "simulator-runner", "simulator-analytics"];
     if (session?.activeRole === "viewer" && viewerForbidden.includes(screen)) {
       setScreen("viewer");
     }
@@ -1928,6 +1935,9 @@ export default function Home() {
 
           <aside className="panel side-panel">
             <button className="primary" onClick={() => setScreen("referee-stats")} style={{ whiteSpace: "nowrap", width: "100%", marginBottom: 8 }}>📊 My Stats Hub</button>
+            {session && refereeGoalViewsForReferee(session.user.id).filter(gv => gv.status === "Active").length > 0 && (
+              <button style={{ whiteSpace: "nowrap", width: "100%", marginBottom: 8 }} onClick={() => setScreen("referee-goals")}>🎯 My Goals</button>
+            )}
             {(() => {
               const totalUnreadComments = allMyReviews.reduce((s, r) =>
                 s + Object.entries(counts ?? {}).filter(([k]) => k.startsWith(r.id + "::")).reduce((n, [, c]) => n + c, 0), 0);
@@ -1952,7 +1962,12 @@ export default function Home() {
             </div>
             {session && (() => {
               const myGoals = refereeGoalViewsForReferee(session.user.id);
-              return myGoals.length > 0 ? <RefereeGoalsPanel goalViews={myGoals} /> : null;
+              return myGoals.length > 0 ? (
+                <RefereeGoalsPanel
+                  goalViews={myGoals}
+                  onViewAll={() => setScreen("referee-goals")}
+                />
+              ) : null;
             })()}
             {allMyReviews.length > 0 && (() => {
               // Sidebar summary always shows all-time totals
@@ -2148,6 +2163,45 @@ export default function Home() {
             setActiveReviewId(reviewId);
             setScreen("refereeReview");
           }}
+          onBack={() => setScreen("referee")}
+        />
+      {globalSearchOverlay}{appToast}</main>
+    );
+  }
+
+  if (screen === "referee-goals" && session) {
+    const myGoalViews   = refereeGoalViewsForReferee(session.user.id);
+    const myNotes       = notesForReferee(session.user.id);
+    const myCompletedReviews = assignedReviewsForReferee(session.user.id);
+    const myReviewGoalLinks  = reviewGoalLinks.filter(l => l.refereeId === session.user.id);
+    const myClipGoalLinks    = clipGoalLinks.filter(l => l.refereeId === session.user.id);
+    return (
+      <main>
+        <Header
+          session={session}
+          activeScreen={screen}
+          onHome={() => setScreen("referee")}
+          onAdmin={() => setScreen("database")}
+          onOrganisation={() => setScreen("organisation")}
+          onLearning={() => setScreen("learning-hub")}
+          onProfile={() => setScreen("user-profile")}
+          onNotifications={() => setScreen("notifications")}
+          unreadNotificationCount={visibleUnreadCount}
+          onSearch={() => setShowSearch(true)}
+          onLogout={logout}
+        />
+        <RefereeGoalsScreen
+          session={session}
+          goalViews={myGoalViews}
+          goalDefs={goalDefs}
+          notes={myNotes}
+          completedReviews={myCompletedReviews}
+          reviewGoalLinks={myReviewGoalLinks}
+          clipGoalLinks={myClipGoalLinks}
+          members={members}
+          onCreateNote={createNote}
+          onUpdateNote={(patch, id) => updateNote(id, patch)}
+          onDeleteNote={deleteNote}
           onBack={() => setScreen("referee")}
         />
       {globalSearchOverlay}{appToast}</main>

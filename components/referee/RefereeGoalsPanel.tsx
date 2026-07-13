@@ -13,7 +13,13 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
 
-export function RefereeGoalsPanel({ goalViews }: { goalViews: RefereeGoalView[] }) {
+export function RefereeGoalsPanel({
+  goalViews,
+  onViewAll,
+}: {
+  goalViews: RefereeGoalView[];
+  onViewAll?: () => void;
+}) {
   const active    = goalViews.filter(v => v.status === "Active");
   const completed = goalViews.filter(v => v.status === "Completed");
 
@@ -21,7 +27,12 @@ export function RefereeGoalsPanel({ goalViews }: { goalViews: RefereeGoalView[] 
 
   return (
     <div className="analytics-card">
-      <h3 style={{ margin: "0 0 10px" }}>My Development Goals</h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <h3 style={{ margin: 0 }}>My Development Goals</h3>
+        {onViewAll && (
+          <button onClick={onViewAll} style={{ fontSize: 12, padding: "3px 10px" }}>View all</button>
+        )}
+      </div>
 
       {active.length === 0 && (
         <p className="hint" style={{ margin: 0, fontSize: 13 }}>No active goals right now.</p>
