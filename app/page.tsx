@@ -387,6 +387,9 @@ export default function Home() {
   } = useReviewGoalLinks(session?.activeOrganisation?.id, session?.user.id);
 
   const [devGoalRefereeId, setDevGoalRefereeId] = useState<string | null>(null);
+  const [activeGoalId, setActiveGoalId] = useState<string | null>(null);
+  // Clear deep-link goal selection whenever the user navigates away from the goals screen
+  useEffect(() => { if (screen !== "referee-goals") setActiveGoalId(null); }, [screen]);
 
   const [activeAssignmentId, setActiveAssignmentId] = useState<string | null>(null);
   // Tracks which assignment+user record a referee is viewing in the playlist
@@ -2110,6 +2113,7 @@ export default function Home() {
                 session.user.id,
                 goalTitle,
                 session.profile.name,
+                id,
               ));
             }
           }}
@@ -2202,7 +2206,8 @@ export default function Home() {
           onCreateNote={createNote}
           onUpdateNote={(patch, id) => updateNote(id, patch)}
           onDeleteNote={deleteNote}
-          onBack={() => setScreen("referee")}
+          onBack={() => { setActiveGoalId(null); setScreen("referee"); }}
+          initialGoalId={activeGoalId}
         />
       {globalSearchOverlay}{appToast}</main>
     );
@@ -2231,7 +2236,10 @@ export default function Home() {
           onMarkRead={markRead}
           onMarkAllRead={markAllRead}
           onDelete={removeNotification}
-          onNavigate={(route) => setScreen(route as Screen)}
+          onNavigate={(route, entityId) => {
+            if (route === "referee-goals" && entityId) setActiveGoalId(entityId);
+            setScreen(route as Screen);
+          }}
           onBack={() => setScreen(homeScreen)}
           preferences={notifPrefs}
           onUpdatePreferences={updateNotifPrefs}

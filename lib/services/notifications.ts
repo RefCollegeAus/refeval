@@ -111,11 +111,12 @@ export function makeGoalUpdatedDraft(
   userId: string,
   goalTitle: string,
   educatorName: string,
+  refereeGoalId?: string | null,
 ): Omit<Notification, "id" | "isRead" | "readAt"> {
   return draft(orgId, userId, "goal_updated", "low",
     "Development Goal Updated",
     `${educatorName} has updated the goal: "${goalTitle}".`,
-    "development_goal", null, "View Goals", "referee-goals", educatorName);
+    "development_goal", refereeGoalId ?? null, "View Goals", "referee-goals", educatorName);
 }
 
 export function makeAssignmentDueSoonDraft(

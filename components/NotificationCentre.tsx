@@ -20,7 +20,7 @@ interface Props {
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
   onDelete: (id: string) => void;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: string, entityId?: string | null) => void;
   onBack: () => void;
   preferences: NotificationPreferences | null;
   onUpdatePreferences: (patch: Partial<NotificationPreferences>) => void;
@@ -128,7 +128,7 @@ function NotificationRow({
   notif: Notification;
   onMarkRead: (id: string) => void;
   onDelete: (id: string) => void;
-  onNavigate: (route: string) => void;
+  onNavigate: (route: string, entityId?: string | null) => void;
 }) {
   return (
     <div
@@ -181,7 +181,7 @@ function NotificationRow({
               style={{ fontSize: 11, padding: "2px 8px", display: "flex", alignItems: "center", gap: 4 }}
               onClick={() => {
                 if (!notif.isRead) onMarkRead(notif.id);
-                onNavigate(notif.actionRoute!);
+                onNavigate(notif.actionRoute!, notif.relatedEntityId);
               }}
             >
               <ExternalLink size={11} /> {notif.actionLabel}

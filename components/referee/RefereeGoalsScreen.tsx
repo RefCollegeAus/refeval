@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ChevronLeft, Target, CheckCircle, Archive, ChevronDown, ChevronUp,
   Plus, Pencil, Trash2, Calendar, BookOpen, Link2, FileText, User,
@@ -436,15 +436,33 @@ export interface RefereeGoalsScreenProps {
   onUpdateNote: (patch: Partial<DevelopmentNote>, id: string) => void;
   onDeleteNote: (id: string) => void;
   onBack: () => void;
+  /** referee_goals.id to auto-expand on mount (from notification deep-link) */
+  initialGoalId?: string | null;
 }
 
 export function RefereeGoalsScreen({
   session, goalViews, goalDefs, notes, completedReviews,
   reviewGoalLinks, clipGoalLinks, members,
   onCreateNote, onUpdateNote, onDeleteNote, onBack,
+  initialGoalId,
 }: RefereeGoalsScreenProps) {
   const [tab, setTab]             = useState<TabKey>("active");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Auto-expand the goal specified by a notification deep-link.
+  // Switches to the correct tab (active/completed/archived) and expands the card.
+  // Ignores the id if it doesn't belong to this referee (safety guard).
+  useEffect(() => {
+    if (!initialGoalId) return;
+    const target = goalViews.find(gv => gv.id === initialGoalId);
+    if (!target) return; // not found or doesn't belong to this referee — fall back gracefully
+    const targetTab = target.status === "Completed" ? "completed"
+      : target.status === "Archived" ? "archived" : "active";
+    setTab(targetTab as TabKey);
+    setExpandedId(initialGoalId);
+  // Run once on mount only — intentional; subsequent navigation handled by re-mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [showAddNote, setShowAddNote] = useState(false);
 
   const myId = session.user.id;
