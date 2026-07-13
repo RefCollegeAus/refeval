@@ -56,11 +56,11 @@ RefCoach is functionally complete across all core educator, referee, admin and s
 | 2 | Development goal tables missing | ~~High~~ | ✅ **All 4 tables confirmed present in production** (Phase 18.6) |
 | 3 | Assignment reflection, quiz, and progress columns missing | ~~High~~ | ✅ **All columns confirmed present in production** (Phase 18.6) |
 
-### Remaining action required (Phase 18.6 new finding)
+### Phase 18.7 security fix
 
-| # | Issue | Severity | Fix |
-|---|-------|----------|-----|
-| 1 | `reviews` and `clips` tables return all rows to requests using only the publishable API key (no user session JWT) — RLS may be disabled on these tables | **High** | Verify in Supabase Dashboard → Table Editor → toggle for each table. If disabled, run in SQL Editor: `ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY; ALTER TABLE public.clips ENABLE ROW LEVEL SECURITY;` |
+| # | Issue | Severity | Status |
+|---|-------|----------|--------|
+| 1 | `reviews`, `clips`, and `review_referees` had RLS disabled in production — all rows returned to anon-key requests | ~~High~~ | ✅ **Fixed (Phase 18.7)** — `migrations_draft/030_enable_rls_reviews_clips.sql` applied; anon gets 0 rows; all 25 public tables now have RLS enabled |
 
 ---
 
@@ -156,7 +156,7 @@ Complete every item before inviting beta users:
 - [ ] Confirm `handle_new_user` trigger exists on `auth.users` in production (auto-creates `profiles` rows on invite)
 - [ ] Confirm email templates for invitation emails are configured
 - [x] `organisation_role` enum includes `viewer` role — confirmed via REST probe (Phase 18.6)
-- [ ] **Verify RLS is enabled on `reviews` and `clips` tables** — Phase 18.6 audit found these may have RLS disabled; check Supabase Dashboard → Table Editor and enable if not set
+- [x] RLS enabled on all 25 public tables — confirmed and fixed in Phase 18.7 (`migrations_draft/030_enable_rls_reviews_clips.sql`)
 - [ ] Verify `has_org_role`, `is_org_member`, `is_super_admin`, `set_updated_at` functions exist in the SQL Editor
 
 ### Build and deploy

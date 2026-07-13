@@ -1,7 +1,7 @@
 # RefCoach — Project Handover 2026
 
 **Last updated:** July 2026 (updated Phase 18.6)  
-**Status:** Phase 18.1–18.6 complete — production schema confirmed; verify RLS on reviews/clips before inviting beta users  
+**Status:** Phase 18.1–18.7 complete — production schema confirmed; RLS enabled on all 25 tables; ready for controlled beta  
 **Source of truth:** The Git repository. This document describes the current implementation as read from the codebase. Do not rely on earlier conversations or assumptions.
 
 ---
@@ -814,11 +814,11 @@ These are the currently identified schema and feature gaps that must be resolved
 | `learning_assignments.playlist_id` NOT NULL | ✅ Resolved — nullable confirmed in production |
 | Development goal tables missing | ✅ Resolved — all 4 tables confirmed in production |
 
-**Remaining security item (Phase 18.6 new finding):**
+**Security item (Phase 18.7 — fixed):**
 
-| Issue | Impact | Action |
+| Issue | Impact | Status |
 |---|---|---|
-| `reviews` and `clips` return data to requests using only the publishable API key (no user session) | High — coaching data may be accessible without authentication if RLS is disabled on these tables | Verify RLS status in Supabase Dashboard → Table Editor. If disabled, run `ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY; ALTER TABLE public.clips ENABLE ROW LEVEL SECURITY;` in SQL Editor |
+| `reviews` and `clips` returned all rows to anon-key requests — RLS was disabled on both tables despite correct policies being defined | High — coaching data was accessible without authentication | ✅ **Fixed (Phase 18.7)** — `migrations_draft/030_enable_rls_reviews_clips.sql` applied; anon now gets 0 rows; all 25 public tables have RLS enabled |
 
 ### Feature Limitations
 
@@ -843,8 +843,8 @@ These are the currently identified schema and feature gaps that must be resolved
 1. ~~Run `docs/PRODUCTION_SCHEMA_VERIFICATION.sql` against production to confirm schema state~~ — **Done (Phase 18.6)** — all schema objects confirmed via direct REST audit
 2. ~~Apply migrations to production in order: `025` → `026` → `027` → `028` → `029` → `018`~~ — **Done (already applied to production)**
 3. ~~Remove or gate the sample notification seeding in `lib/hooks/useNotifications.ts`~~ — **Done (Phase 18.5)**
-4. **Verify RLS is enabled on `reviews` and `clips` tables** — open Supabase Dashboard → Table Editor for each table and confirm the RLS toggle is ON. If off, run `ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY; ALTER TABLE public.clips ENABLE ROW LEVEL SECURITY;` in the SQL Editor.
-4. Run smoke test on production URL after deploy
+4. ~~Verify RLS is enabled on `reviews` and `clips` tables~~ — **Done (Phase 18.7)** — `migrations_draft/030_enable_rls_reviews_clips.sql` applied; all 25 public tables now have RLS enabled
+5. Run smoke test on production URL after deploy
 
 ### Phase 19 — Supabase Data Migration (post-beta)
 
