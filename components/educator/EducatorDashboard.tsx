@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import {
   Plus, MessageSquare, Film, ListChecks, BookOpen, Trash2,
-  ChevronDown, ChevronUp, Users, Building2,
+  ChevronDown, ChevronUp, Users, Building2, Play, AlertCircle,
 } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { RefEvalSession } from "@/lib/types/auth";
@@ -111,7 +111,9 @@ export function EducatorDashboard({
   const [filterDateRange, setFilterDateRange] = useState<"all" | "30" | "90">("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "updated" | "referee" | "game">("newest");
   const [kpiFilter, setKpiFilter] = useState<KpiFilter>("all");
-  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(true);
+  const [showCoachingQueue, setShowCoachingQueue] = useState(false);
+  const [showSmartFollowUps, setShowSmartFollowUps] = useState(false);
   const [confirmDeleteReviewId, setConfirmDeleteReviewId] = useState<string | null>(null);
   const [deletingReview, setDeletingReview] = useState(false);
 
@@ -127,9 +129,25 @@ export function EducatorDashboard({
   }, [reviews, session]);
 
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const staleDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
   const inProgressCount = visibleReviews.filter(r => r.status !== "Completed").length;
   const completedCount  = visibleReviews.filter(r => r.status === "Completed").length;
   const thisWeekCount   = visibleReviews.filter(r => r.createdAt >= oneWeekAgo).length;
+
+  // Most recently updated in-progress review
+  const continueReview = useMemo(() =>
+    visibleReviews
+      .filter(r => r.status !== "Completed")
+      .sort((a, b) => (b.submittedAt || b.createdAt).localeCompare(a.submittedAt || a.createdAt))[0] ?? null,
+  [visibleReviews]);
+
+  // In-progress reviews stale >14 days, excluding continueReview to avoid duplication
+  const attentionReviews = useMemo(() =>
+    visibleReviews
+      .filter(r => r.status !== "Completed" && r.createdAt < staleDate && r.id !== continueReview?.id)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .slice(0, 5),
+  [visibleReviews, staleDate, continueReview]);
 
   const allReferees = useMemo(() =>
     Array.from(new Set(
@@ -470,6 +488,10 @@ export function EducatorDashboard({
     return "var(--border)";
   }
 
+  function reviewRefereeLine(r: ReviewRecord) {
+    return [r.referee1Name, r.referee2Name, r.referee3Name].filter(Boolean).join(", ") || "No referees assigned";
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
@@ -501,111 +523,83 @@ export function EducatorDashboard({
           />
         )}
 
-        {/* ── Coaching Queue ── */}
-        <div className="panel">
-          <h2 className="ed-section-title" style={{ marginBottom: 14 }}>Coaching Queue</h2>
-          {coachingQueue.length === 0 ? (
-            <SectionEmptyState
-              title="Your coaching queue is clear."
-              subtitle="No immediate actions needed. Keep up the great work."
-            />
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {coachingQueue.map(item => (
-                <div
-                  key={item.id}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    background: "var(--panel2)",
-                    border: "1px solid var(--border)",
-                    borderLeft: `3px solid ${item.accentColor}`,
-                    borderRadius: 10,
-                    padding: "11px 14px 11px 12px",
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
-                      <span style={{
-                        fontWeight: 700, fontSize: 14, color: "var(--text)",
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      }}>
-                        {item.title}
-                      </span>
-                      <Badge label={item.badgeLabel} color={item.badgeColor} bg={item.badgeBg} />
-                    </div>
-                    {item.referees && (
-                      <p style={{
-                        margin: "0 0 1px", fontSize: 12, color: "var(--text)",
-                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                        fontWeight: 500,
-                      }}>
-                        {item.referees}
-                      </p>
-                    )}
-                    <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-                      {item.detail}{item.dateLabel ? ` · ${item.dateLabel}` : ""}
-                    </p>
-                  </div>
-                  <ActionButton label={item.actionLabel} onClick={item.action} />
+        {/* ── Continue Review ── */}
+        {continueReview && (
+          <div className="panel" style={{ borderLeft: "3px solid var(--accent)", padding: "14px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <Play size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".05em" }}>
+                    Continue Review
+                  </span>
                 </div>
-              ))}
+                <p style={{ margin: "0 0 3px", fontWeight: 700, fontSize: 15, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {continueReview.game || "Untitled Review"}
+                </p>
+                <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
+                  {reviewRefereeLine(continueReview)}
+                  {" · "}
+                  {tags.filter(t => t.reviewId === continueReview.id).length} clip{tags.filter(t => t.reviewId === continueReview.id).length !== 1 ? "s" : ""} tagged
+                  {" · "}
+                  Updated {fmtRel(continueReview.submittedAt || continueReview.createdAt)}
+                </p>
+              </div>
+              <button
+                onClick={() => openReviewForEdit(continueReview)}
+                style={{
+                  flexShrink: 0, fontSize: 13, fontWeight: 700,
+                  padding: "8px 18px", borderRadius: 8,
+                  background: "var(--accent)", border: "none",
+                  color: "var(--bg)", cursor: "pointer", whiteSpace: "nowrap",
+                }}
+              >
+                Continue
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* ── Smart Follow-ups ── */}
-        <div className="panel">
-          <h2 className="ed-section-title" style={{ marginBottom: 14 }}>Smart Follow-ups</h2>
-          {smartFollowUps.length === 0 ? (
-            <SectionEmptyState
-              title="Everything looks up to date."
-              subtitle="No referee development reminders right now."
-            />
-          ) : (
+        {/* ── Reviews Requiring Attention ── */}
+        {attentionReviews.length > 0 && (
+          <div className="panel">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <AlertCircle size={14} style={{ color: "#ef4444", flexShrink: 0 }} />
+              <h2 className="ed-section-title" style={{ marginBottom: 0 }}>Reviews Requiring Attention</h2>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(239,68,68,.13)", color: "#fca5a5" }}>
+                {attentionReviews.length} stale
+              </span>
+            </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {smartFollowUps.map(f => {
-                const bp = followUpBadgeProps(f.priority);
-                const borderColor = followUpBorderColor(f.priority);
+              {attentionReviews.map(r => {
+                const clipCount = tags.filter(t => t.reviewId === r.id).length;
                 return (
-                  <div
-                    key={f.id}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      background: "var(--panel2)",
-                      border: `1px solid ${borderColor}`,
-                      borderRadius: 10,
-                      padding: "11px 14px",
-                    }}
-                  >
+                  <div key={r.id} style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    background: "var(--panel2)", border: "1px solid var(--border)",
+                    borderLeft: "3px solid #ef4444", borderRadius: 10,
+                    padding: "11px 14px 11px 12px",
+                  }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-                        <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text)" }}>
-                          {f.refereeName}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {r.game || "Untitled Review"}
                         </span>
-                        <Badge
-                          label={f.priority}
-                          color={bp.color}
-                          bg={bp.bg}
-                          border={bp.border}
-                          uppercase
-                        />
+                        <Badge label="Stale draft" color="#fca5a5" bg="rgba(239,68,68,.13)" />
                       </div>
-                      <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
-                        {f.title}
-                      </p>
                       <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-                        {f.explanation}
+                        {reviewRefereeLine(r)} · {clipCount} clip{clipCount !== 1 ? "s" : ""} · Started {fmtRel(r.createdAt)}
                       </p>
                     </div>
-                    <ActionButton label={f.actionLabel} onClick={f.action} />
+                    <ActionButton label="Continue" onClick={() => openReviewForEdit(r)} />
                   </div>
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* ── All Reviews (collapsible) ── */}
+        {/* ── All Reviews (collapsible, expanded by default) ── */}
         <div className="panel">
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -634,6 +628,20 @@ export function EducatorDashboard({
 
           {showAllReviews && (
             <>
+              <div style={{ marginBottom: 10 }}>
+                <button
+                  onClick={startNewReview}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    fontSize: 13, fontWeight: 700,
+                    padding: "7px 16px", borderRadius: 8,
+                    background: "var(--accent)", border: "none",
+                    color: "var(--bg)", cursor: "pointer",
+                  }}
+                >
+                  <Plus size={14} /> New Review
+                </button>
+              </div>
               <div className="ed-search-row">
                 <input
                   className="ed-search-input"
@@ -701,34 +709,19 @@ export function EducatorDashboard({
                 </div>
               </div>
 
-              <div className="ed-kpi-grid" style={{ marginTop: 10 }}>
-                <button
-                  className={"ed-kpi-card" + (kpiFilter === "all" && filterStatus === "All" && filterDateRange === "all" ? " ed-kpi-card--active" : "")}
-                  onClick={clearFilters}
-                >
-                  <div className="ed-kpi-number">{visibleReviews.length}</div>
-                  <div className="ed-kpi-label">Total</div>
+              {/* Compact KPI strip */}
+              <div className="lh-compact-stats" style={{ marginTop: 10 }}>
+                <button className="lh-compact-stat" onClick={clearFilters} style={{ cursor: "pointer", background: "none", border: "none", textAlign: "left", fontWeight: kpiFilter === "all" && filterStatus === "All" && filterDateRange === "all" ? 800 : undefined }}>
+                  <strong>{visibleReviews.length}</strong>&nbsp;Total
                 </button>
-                <button
-                  className={"ed-kpi-card ed-kpi-card--warn" + (kpiFilter === "in-review" ? " ed-kpi-card--active" : "")}
-                  onClick={() => toggleKpi("in-review")}
-                >
-                  <div className="ed-kpi-number">{inProgressCount}</div>
-                  <div className="ed-kpi-label">In Review</div>
+                <button className="lh-compact-stat" onClick={() => toggleKpi("in-review")} style={{ cursor: "pointer", background: kpiFilter === "in-review" ? "rgba(245,158,11,.08)" : "none", border: "none", textAlign: "left" }}>
+                  <strong style={{ color: inProgressCount > 0 ? "#fde68a" : undefined }}>{inProgressCount}</strong>&nbsp;In Review
                 </button>
-                <button
-                  className={"ed-kpi-card ed-kpi-card--good" + (kpiFilter === "completed" ? " ed-kpi-card--active" : "")}
-                  onClick={() => toggleKpi("completed")}
-                >
-                  <div className="ed-kpi-number">{completedCount}</div>
-                  <div className="ed-kpi-label">Completed</div>
+                <button className="lh-compact-stat" onClick={() => toggleKpi("completed")} style={{ cursor: "pointer", background: kpiFilter === "completed" ? "rgba(34,197,94,.08)" : "none", border: "none", textAlign: "left" }}>
+                  <strong style={{ color: completedCount > 0 ? "#22c55e" : undefined }}>{completedCount}</strong>&nbsp;Completed
                 </button>
-                <button
-                  className={"ed-kpi-card ed-kpi-card--accent" + (kpiFilter === "this-week" ? " ed-kpi-card--active" : "")}
-                  onClick={() => toggleKpi("this-week")}
-                >
-                  <div className="ed-kpi-number">{thisWeekCount}</div>
-                  <div className="ed-kpi-label">This Week</div>
+                <button className="lh-compact-stat" onClick={() => toggleKpi("this-week")} style={{ cursor: "pointer", background: kpiFilter === "this-week" ? "rgba(99,102,241,.08)" : "none", border: "none", textAlign: "left" }}>
+                  <strong>{thisWeekCount}</strong>&nbsp;This Week
                 </button>
               </div>
 
@@ -794,6 +787,113 @@ export function EducatorDashboard({
             </>
           )}
         </div>
+        {/* ── Coaching Queue (secondary / collapsible) ── */}
+        <div className="panel">
+          <button
+            onClick={() => setShowCoachingQueue(p => !p)}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0,
+              marginBottom: showCoachingQueue ? 14 : 0,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h2 className="ed-section-title" style={{ marginBottom: 0 }}>Coaching Queue</h2>
+              {coachingQueue.length > 0 && !showCoachingQueue && (
+                <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(245,158,11,.15)", color: "#fde68a" }}>
+                  {coachingQueue.length}
+                </span>
+              )}
+            </div>
+            {showCoachingQueue ? <ChevronUp size={15} style={{ color: "var(--muted)" }} /> : <ChevronDown size={15} style={{ color: "var(--muted)" }} />}
+          </button>
+          {showCoachingQueue && (
+            coachingQueue.length === 0 ? (
+              <SectionEmptyState title="Your coaching queue is clear." subtitle="No immediate actions needed. Keep up the great work." />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {coachingQueue.map(item => (
+                  <div key={item.id} style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    background: "var(--panel2)", border: "1px solid var(--border)",
+                    borderLeft: `3px solid ${item.accentColor}`, borderRadius: 10,
+                    padding: "11px 14px 11px 12px",
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {item.title}
+                        </span>
+                        <Badge label={item.badgeLabel} color={item.badgeColor} bg={item.badgeBg} />
+                      </div>
+                      {item.referees && (
+                        <p style={{ margin: "0 0 1px", fontSize: 12, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 500 }}>
+                          {item.referees}
+                        </p>
+                      )}
+                      <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
+                        {item.detail}{item.dateLabel ? ` · ${item.dateLabel}` : ""}
+                      </p>
+                    </div>
+                    <ActionButton label={item.actionLabel} onClick={item.action} />
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
+
+        {/* ── Smart Follow-ups (secondary / collapsible) ── */}
+        <div className="panel">
+          <button
+            onClick={() => setShowSmartFollowUps(p => !p)}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0,
+              marginBottom: showSmartFollowUps ? 14 : 0,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h2 className="ed-section-title" style={{ marginBottom: 0 }}>Smart Follow-ups</h2>
+              {smartFollowUps.length > 0 && !showSmartFollowUps && (
+                <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(142,142,147,.15)", color: "var(--muted)" }}>
+                  {smartFollowUps.length}
+                </span>
+              )}
+            </div>
+            {showSmartFollowUps ? <ChevronUp size={15} style={{ color: "var(--muted)" }} /> : <ChevronDown size={15} style={{ color: "var(--muted)" }} />}
+          </button>
+          {showSmartFollowUps && (
+            smartFollowUps.length === 0 ? (
+              <SectionEmptyState title="Everything looks up to date." subtitle="No referee development reminders right now." />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {smartFollowUps.map(f => {
+                  const bp = followUpBadgeProps(f.priority);
+                  const borderColor = followUpBorderColor(f.priority);
+                  return (
+                    <div key={f.id} style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      background: "var(--panel2)", border: `1px solid ${borderColor}`,
+                      borderRadius: 10, padding: "11px 14px",
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text)" }}>{f.refereeName}</span>
+                          <Badge label={f.priority} color={bp.color} bg={bp.bg} border={bp.border} uppercase />
+                        </div>
+                        <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{f.title}</p>
+                        <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>{f.explanation}</p>
+                      </div>
+                      <ActionButton label={f.actionLabel} onClick={f.action} />
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          )}
+        </div>
+
       </div>
 
       {/* ── Sidebar ── */}
