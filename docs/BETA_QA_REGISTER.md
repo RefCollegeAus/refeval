@@ -35,7 +35,7 @@
 | QA-011 | Medium | All | Onboarding | Persistence | Onboarding dismissed state stored in localStorage — reset if browser data cleared | Clear browser storage | Onboarding stays dismissed | Onboarding re-appears | Identified — Known Limitation (migration 025 adds column but hook not migrated) | — |
 | QA-012 | Low | All | Dashboard | Coaching Queue | Coaching Queue and Smart Follow-ups now collapsed by default in Phase 18.4 — educators who relied on these as primary alerts may not notice count badges | Open educator dashboard | Alerts visible | Collapsed — must expand | Code-verified — intentional Phase 18.4 UX change, count badge visible | — |
 | QA-013 | Low | All | Search | Scope | Global search only searches data already loaded in the current session — does not search server-side | Search for a review before data is fully loaded | All results shown | Partial results possible during initial load | Identified — Known Limitation | — |
-| QA-014 | Low | All | Notifications sample data | Accuracy | `useNotifications.ts` seeds role-specific sample notifications in-memory — these are fictional and present to all users on login | Login as any role | Real notifications only | Sample notifications shown | Identified — will mislead real users; remove or gate behind dev flag before production launch | — |
+| QA-014 | Low | All | Notifications sample data | Accuracy | `useNotifications.ts` seeds role-specific sample notifications in-memory — these are fictional and present to all users on login | Login as any role | Real notifications only | Sample notifications shown | **Fixed** — `buildSampleNotifications` removed; hook initialises with empty list; real users see no notifications on login | `phase-18.5-sample-notif` |
 | QA-015 | Low | super_admin / admin | Security | user-profile + notifications | `user-profile` and `notifications` screens are not in the `viewerForbidden` list — intentional (all users may update their own profile) | Login as viewer, navigate to profile | Profile accessible | Profile accessible | Code-verified — intentional and safe; viewer profile is scoped to their own data | — |
 | QA-016 | Low | All | Logo | Upload | Logo upload UI exists but Supabase Storage bucket is not configured — upload silently fails or shows error | Attempt logo upload | Logo saved | Upload fails | Identified — Known Limitation | — |
 | QA-017 | Low | All | Email | Notifications | Email notification preferences UI exists but no email delivery service is connected | Enable email notifications | Emails delivered | No emails sent | Identified — Known Limitation | — |
@@ -124,7 +124,7 @@ All other workflow items listed in Parts 2–16.
 | Playlists | Supabase | ✅ (if migration 027 applied) | 400 error until migration applied |
 | Assignments | Supabase | ✅ (partial) | Several columns pending migrations |
 | Development Goals | Supabase | ✅ (if migration 018 applied) | Tables missing until migration applied |
-| Notifications | In-memory | ✗ | Lost on reload; sample data only |
+| Notifications | In-memory (session only) | ✗ | Generated during the session only; cleared on reload; no sample data |
 | Development Notes | localStorage | ✗ | Per-browser, lost on clear |
 | Review-Goal Links | localStorage | ✗ | Per-browser, lost on clear |
 | Onboarding Dismissed | localStorage | ✗ | Per-browser, lost on clear |

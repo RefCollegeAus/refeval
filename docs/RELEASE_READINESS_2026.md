@@ -64,7 +64,7 @@ These are documented, non-blocking limitations appropriate to disclose to beta u
 
 | # | Limitation | Impact |
 |---|-----------|--------|
-| 1 | **Notifications are in-memory only** — lost on page reload; fictional sample data shown | Notifications mislead users; mark as "coming soon" before launch |
+| 1 | **Notifications are in-memory (session only)** — generated during the active session; cleared on page reload; no fictional sample data | Users start each session with an empty notification list |
 | 2 | **Development notes are localStorage** — lost on browser clear; not shared across devices | Notes may be lost; warn users before they rely on them |
 | 3 | **Review–goal links are localStorage** — same as notes | Same warning needed |
 | 4 | **Onboarding dismissed state is localStorage** | Low impact — onboarding re-appears after clear |
@@ -72,8 +72,7 @@ These are documented, non-blocking limitations appropriate to disclose to beta u
 | 6 | **Logo upload not functional** — Supabase Storage bucket not configured | Logo upload UI shows but fails silently |
 | 7 | **Global search is client-side only** — only searches loaded data | Searches may be incomplete during initial load |
 | 8 | **No deep linking** — cannot link directly to a review, assignment, or goal | Share links not possible |
-| 9 | **Sample notifications on login** — `useNotifications.ts` seeds fictional data for all users | Remove or gate before production |
-| 10 | **No billing integration** — billing UI is a placeholder | Cannot monetise yet |
+| 9 | **No billing integration** — billing UI is a placeholder | Cannot monetise yet |
 
 ---
 
@@ -160,8 +159,8 @@ Complete every item before inviting beta users:
 - [ ] Navigate as referee — confirm My Learning loads
 - [ ] Logout and confirm session is cleared
 
-### Notifications (pre-launch action required)
-- [ ] Remove or gate the sample notification seeding in `lib/hooks/useNotifications.ts` before production launch — currently all users see fictional notifications on login
+### Notifications
+- [x] Sample notification seeding removed from `lib/hooks/useNotifications.ts` — users start each session with an empty notification list (Phase 18.5)
 
 ---
 

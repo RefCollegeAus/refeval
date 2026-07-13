@@ -425,7 +425,7 @@ app/api/admin/* (server-side, uses SUPABASE_SERVICE_ROLE_KEY)
 
 **Major components:** `components/NotificationCentre.tsx`
 
-**Note:** `useNotifications.ts` generates sample notifications in-memory. A `notifications` table is designed in `docs/supabase-schema-draft.md` but not yet created.
+**Note:** Notifications are in-memory (session only) — generated during the active session and cleared on page reload. Sample/fictional seeding was removed in Phase 18.5. A `notifications` table is designed in `docs/supabase-schema-draft.md` but not yet created.
 
 ---
 
@@ -833,7 +833,7 @@ These are the currently identified schema and feature gaps that must be resolved
 
 1. Run `docs/PRODUCTION_SCHEMA_VERIFICATION.sql` against production to confirm schema state
 2. Apply migrations to production in order: `025` → `026` → `027` → `028` → `029` → `018`
-3. Remove or gate the sample notification seeding in `lib/hooks/useNotifications.ts`
+3. ~~Remove or gate the sample notification seeding in `lib/hooks/useNotifications.ts`~~ — **Done (Phase 18.5)**
 4. Run smoke test on production URL after deploy
 
 ### Phase 19 — Supabase Data Migration (post-beta)

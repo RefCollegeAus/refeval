@@ -261,7 +261,7 @@ export default function Home() {
     markRead,
     markAllRead,
     deleteNotification: removeNotification,
-  } = useNotifications(session?.user.id ?? null, session?.activeOrganisation?.id ?? null, session?.activeRole ?? null);
+  } = useNotifications(session?.user.id ?? null, session?.activeOrganisation?.id ?? null);
 
   const { preferences: notifPrefs, updatePreferences: updateNotifPrefs } =
     useNotificationPreferences(session?.user.id ?? null);
