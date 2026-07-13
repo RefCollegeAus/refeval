@@ -558,6 +558,19 @@ export default function Home() {
   const scaleSeconds = mode === "video" ? (usingYouTubeVideo ? youtubeDuration || Math.max(60, maxTagSeconds) : videoDuration || Math.max(60, maxTagSeconds)) : Math.max(60, timerSeconds, maxTagSeconds);
   const progressPct = Math.min(100, (currentSeconds / scaleSeconds) * 100 || 0);
 
+  // Pre-compute timeline marker data. Must stay above all early returns (Rules of Hooks).
+  const timelineMarkers = useMemo(() =>
+    reviewTags.map(tag => ({
+      id: tag.id,
+      seconds: tag.adjustedSeconds,
+      left: Math.min(100, (tag.adjustedSeconds / Math.max(1, scaleSeconds)) * 100),
+      color: (OUTCOME_COLOR[tag.outcome ?? ""]?.color) ?? "var(--muted)",
+      label: [tag.adjustedTime, slotName(tag.refereeTarget, activeReview), tag.outcome || "No decision", tag.category || ""].filter(Boolean).join(" — "),
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [reviewTags, scaleSeconds, activeReview?.referee1Name, activeReview?.referee2Name, activeReview?.referee3Name],
+  );
+
   // --- YouTube player effect ---
   useEffect(() => {
     if (!usingYouTubeVideo || screen !== "reviewer") return;
@@ -942,19 +955,6 @@ export default function Home() {
       onClose={() => setShowSearch(false)}
     />
   ) : null;
-
-  // Pre-compute timeline marker data — avoids per-render recalculation on large tag sets
-  const timelineMarkers = useMemo(() =>
-    reviewTags.map(tag => ({
-      id: tag.id,
-      seconds: tag.adjustedSeconds,
-      left: Math.min(100, (tag.adjustedSeconds / Math.max(1, scaleSeconds)) * 100),
-      color: (OUTCOME_COLOR[tag.outcome ?? ""]?.color) ?? "var(--muted)",
-      label: `${tag.adjustedTime} — ${slotName(tag.refereeTarget, activeReview)} — ${tag.outcome || tag.category || "Tag"}`,
-    })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [reviewTags, scaleSeconds, activeReview?.referee1Name, activeReview?.referee2Name, activeReview?.referee3Name],
-  );
 
   if (screen === "login")
     return (
