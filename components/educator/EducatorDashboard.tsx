@@ -128,8 +128,9 @@ export function EducatorDashboard({
     return nonSim.filter(r => r.educatorId === session.user.id && r.organisationId === session.activeOrganisation?.id);
   }, [reviews, session]);
 
-  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const staleDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  // Memoized so useMemo deps below aren't invalidated on every render by the millisecond-precision ISO string.
+  const oneWeekAgo = useMemo(() => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), []);
+  const staleDate  = useMemo(() => new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(), []);
   const inProgressCount = visibleReviews.filter(r => r.status !== "Completed").length;
   const completedCount  = visibleReviews.filter(r => r.status === "Completed").length;
   const thisWeekCount   = visibleReviews.filter(r => r.createdAt >= oneWeekAgo).length;

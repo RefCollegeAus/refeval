@@ -1,0 +1,235 @@
+# RefCoach — Release Readiness 2026
+
+**Phase:** 18.5 — End-to-End Beta QA  
+**Date:** July 2026  
+**Status:** See Executive Status below
+
+---
+
+## Executive Status
+
+> **Ready for controlled beta — with known limitations**
+
+RefCoach is functionally complete across all core educator, referee, admin and super_admin workflows. The codebase is TypeScript-clean, builds without errors, and has no runtime JavaScript errors on startup.
+
+**Before inviting beta users, six database migrations must be applied to the production Supabase project.** Without them, Playlists (Critical) and Development Goals, Assignments (High) will fail. All other core workflows — Reviews, Tagging, Analytics, Comments, Members, Groups, Viewer — are ready as-is.
+
+---
+
+## Test Coverage
+
+| Area | Method | Coverage |
+|------|--------|----------|
+| TypeScript compilation | Code | ✅ 0 errors |
+| Production build | Code | ✅ Clean |
+| ESLint | N/A | Not configured — no `.eslintrc` found |
+| Login / auth flow | Browser (partial) | ✅ Login renders; error state works; login itself unable to test (no dev credentials) |
+| Dashboard (educator) | Code | ✅ Reviewed — Phase 18.4 changes verified |
+| Review creation | Code | ✅ Hook and flow verified |
+| Video coding / tagging | Code | ✅ Timeline, clips, outcomes verified |
+| Comments | Code | ✅ Supabase-backed, unread tracking confirmed |
+| Clip Library | Code | ✅ Verified — Phase 18.3 selection fix confirmed |
+| Playlists | Code | ⚠️ Code correct; blocked by migration 027 in production |
+| Assignments | Code | ⚠️ Code correct; several columns pending migrations 025–029 |
+| Development Goals | Code | ⚠️ Code correct; tables pending migration 018 |
+| Simulator | Code | ✅ Tables and hook structure verified |
+| Learning Hub | Code | ✅ Phase 18.3 changes verified |
+| Analytics / Stats Hub | Code | ✅ Client-side aggregation from loaded data |
+| Notifications | Code | ⚠️ In-memory only; sample data seeded — not real events |
+| Org / Members | Code | ✅ API routes verified; role enforcement confirmed |
+| Viewer Portal | Code | ✅ Screen guard and data isolation confirmed |
+| Permission system | Code | ✅ Role defaults + custom overrides confirmed |
+| Security (API routes) | Code | ✅ All routes verify session and role |
+| localStorage features | Code | ⚠️ Notes, links, onboarding — not cross-device |
+| Responsive layout | Unable | Dev credentials unavailable for interactive testing |
+| Mobile QA | Unable | Dev credentials unavailable |
+
+---
+
+## Blocking Issues
+
+These must be resolved before any beta user invitations:
+
+| # | Issue | Severity | Fix |
+|---|-------|----------|-----|
+| 1 | `clip_playlists.archived_at` missing in production | **Critical** | Apply `supabase/migrations_draft/027_playlist_archive.sql` |
+| 2 | Development goal tables missing in production | **High** | Apply `supabase/migrations_draft/018_development_goals.sql` |
+| 3 | Assignment reflection, quiz, and progress columns missing | **High** | Apply migrations 025, 026, 028, 029 (in order) |
+
+---
+
+## Known Limitations
+
+These are documented, non-blocking limitations appropriate to disclose to beta users:
+
+| # | Limitation | Impact |
+|---|-----------|--------|
+| 1 | **Notifications are in-memory only** — lost on page reload; fictional sample data shown | Notifications mislead users; mark as "coming soon" before launch |
+| 2 | **Development notes are localStorage** — lost on browser clear; not shared across devices | Notes may be lost; warn users before they rely on them |
+| 3 | **Review–goal links are localStorage** — same as notes | Same warning needed |
+| 4 | **Onboarding dismissed state is localStorage** | Low impact — onboarding re-appears after clear |
+| 5 | **No email notifications** — email delivery not connected | Assignment due date reminders not sent |
+| 6 | **Logo upload not functional** — Supabase Storage bucket not configured | Logo upload UI shows but fails silently |
+| 7 | **Global search is client-side only** — only searches loaded data | Searches may be incomplete during initial load |
+| 8 | **No deep linking** — cannot link directly to a review, assignment, or goal | Share links not possible |
+| 9 | **Sample notifications on login** — `useNotifications.ts` seeds fictional data for all users | Remove or gate before production |
+| 10 | **No billing integration** — billing UI is a placeholder | Cannot monetise yet |
+
+---
+
+## Production Schema Status
+
+**Production project:** `rydjxihdukoretyqqfue`  
+**Dev project used for QA:** `eydvhyajgoiaursfhyon`
+
+The production schema was not directly queryable during this QA phase. A read-only verification script has been produced at:
+
+`docs/PRODUCTION_SCHEMA_VERIFICATION.sql`
+
+Run this script against the production Supabase project (Dashboard → SQL Editor) before applying any migrations to confirm current state.
+
+### Pending migrations (apply in this order):
+
+```
+supabase/migrations_draft/025_alter_existing_tables.sql
+supabase/migrations_draft/026_assignment_reflection_questions.sql
+supabase/migrations_draft/027_playlist_archive.sql          ← Critical
+supabase/migrations_draft/028_quiz_questions.sql
+supabase/migrations_draft/029_nullable_playlist_id.sql
+supabase/migrations_draft/018_development_goals.sql
+```
+
+All migrations use `ADD COLUMN IF NOT EXISTS` or `CREATE TABLE IF NOT EXISTS` — they are idempotent and safe to re-run.
+
+---
+
+## Security Status
+
+| Check | Result |
+|-------|--------|
+| Service role key exposed to browser | ✅ Not exposed — server API routes only |
+| Admin operations verify caller session | ✅ All `app/api/admin/*` routes check caller |
+| Role escalation prevention | ✅ Only `super_admin` can assign `admin`/`super_admin` roles |
+| Org data isolation | ✅ All queries scoped to `organisation_id` |
+| RLS on production tables | Assumed from migrations — verify with `PRODUCTION_SCHEMA_VERIFICATION.sql` |
+| Viewer screen isolation | ✅ `viewerForbidden` list covers all non-viewer screens |
+| Cross-org data leak | ✅ Not found in code review |
+| Self-role change | ✅ Blocked at API layer (`caller.user.id === userId` check) |
+
+---
+
+## Deployment Checklist
+
+Complete every item before inviting beta users:
+
+### Pre-deployment
+- [ ] Run `docs/PRODUCTION_SCHEMA_VERIFICATION.sql` against production to confirm current schema
+- [ ] Back up production database (Supabase Dashboard → Database → Backups)
+- [ ] Apply pending migrations in order (025 → 026 → 027 → 028 → 029 → 018) to production
+- [ ] Re-run `docs/PRODUCTION_SCHEMA_VERIFICATION.sql` to confirm all columns exist
+
+### Environment variables (Vercel)
+- [ ] `NEXT_PUBLIC_SUPABASE_URL` — production project URL
+- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` — production anon key
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` — production service role key (server-only, not NEXT_PUBLIC_)
+- [ ] Confirm no service role key is set as a `NEXT_PUBLIC_` variable
+
+### Supabase configuration
+- [ ] Confirm `handle_new_user` trigger exists on `auth.users` in production (auto-creates `profiles` rows on invite)
+- [ ] Confirm email templates for invitation emails are configured
+- [ ] Confirm `organisation_role` enum includes `viewer` role (added in migration 023)
+- [ ] Verify RLS is enabled on all tables (use verification script)
+- [ ] Verify `has_org_role`, `is_org_member`, `is_super_admin`, `set_updated_at` functions exist
+
+### Build and deploy
+- [ ] `npx tsc --noEmit` — must pass with 0 errors
+- [ ] `npm run build` — must pass with 0 errors
+- [ ] Deploy to Vercel production project (`refeval`)
+- [ ] Test login on production URL with a real account
+
+### Data hygiene
+- [ ] Confirm no seed/test data exists in production organisation
+- [ ] Remove or disable dev-only seed SQL file from any CI pipelines
+
+### Smoke test on production
+- [ ] Login as super_admin
+- [ ] Navigate to educator dashboard — confirm reviews load
+- [ ] Create a new review — confirm it saves
+- [ ] Navigate to Playlists — confirm list loads (validates migration 027)
+- [ ] Navigate to Development Goals — confirm goals load (validates migration 018)
+- [ ] Navigate as referee — confirm My Learning loads
+- [ ] Logout and confirm session is cleared
+
+### Notifications (pre-launch action required)
+- [ ] Remove or gate the sample notification seeding in `lib/hooks/useNotifications.ts` before production launch — currently all users see fictional notifications on login
+
+---
+
+## Recommended Beta Scope
+
+For a controlled first beta, invite only:
+
+**Phase 1 — Internal only (1–2 weeks)**
+- 1 super_admin account
+- 1–2 educator accounts in a single organisation
+- 1–2 referee accounts in the same organisation
+
+**Recommended modules to test first:**
+- Reviews (create, code, complete)
+- Comments (educator ↔ referee)
+- Analytics (Referee Stats Hub)
+- Members (invite, role change)
+
+**Hold back from Phase 1 beta:**
+- Playlists (apply migration 027 first and test)
+- Assignments (apply all draft migrations first and test)
+- Development Goals (apply migration 018 first and test)
+- Simulator (functional but not yet tested end-to-end with real users)
+- Notifications (fictional data — disable seeding first)
+
+**Phase 2 — Wider beta (after Phase 1 successful)**
+- Playlists, Assignments, Development Goals (after migrations applied and smoke-tested)
+- Additional organisations
+- Referee self-service workflows (My Learning, Goals)
+
+---
+
+## Post-Beta Backlog
+
+### Persistence (High priority for general release)
+- Migrate notifications to Supabase `notifications` table
+- Migrate development notes from localStorage to Supabase
+- Migrate review-goal links to Supabase
+- Migrate onboarding dismissed to `profiles.onboarding_dismissed` (column exists via migration 025)
+
+### UX Polish (Medium)
+- Deep linking / URL-based navigation
+- Mobile-responsive layouts (app is desktop-first)
+- Onboarding improvements for new organisations
+
+### Mobile (Medium)
+- Reviewer / video coder is desktop-only by design
+- Dashboard, stats, and learning views should be mobile-usable
+
+### Accessibility (Medium)
+- Full keyboard navigation audit
+- Screen reader testing
+- WCAG AA compliance review
+
+### Notifications (Medium)
+- Email delivery integration
+- Background reminder engine
+- Push notifications (mobile)
+
+### Analytics (Low)
+- Cross-cohort reporting
+- Trend analysis over time
+
+### Billing (Deferred)
+- Payment integration
+- Organisation subscription management
+
+### Infrastructure (Deferred)
+- Supabase Storage for logo uploads
+- Audit log storage and viewing
+- Certificate generation for assignment completion

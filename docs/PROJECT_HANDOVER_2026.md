@@ -1,7 +1,7 @@
 # RefCoach — Project Handover 2026
 
-**Last updated:** July 2026  
-**Status:** Phase 17 complete — pre-Phase 18  
+**Last updated:** July 2026 (updated Phase 18.5)  
+**Status:** Phase 18.1–18.5 complete — ready for controlled beta pending production migrations  
 **Source of truth:** The Git repository. This document describes the current implementation as read from the codebase. Do not rely on earlier conversations or assumptions.
 
 ---
@@ -744,21 +744,32 @@ New screens must use:
 
 ## 8. Current Development Status
 
-### Complete (Phases 1–17)
+### Phase 18 Summary (Phases 18.1–18.5 complete)
+
+| Phase | Work | Commit |
+|---|---|---|
+| 18.1 | Referee Development Goals UI, goal deep-linking from notifications, navigation fixes | `933384b`, `0045e7f`, `44a49a4` |
+| 18.2 | Review timeline improvements, tagging workflow polish, Rules of Hooks fix | `f6a654d`, `4a307cd` |
+| 18.3 | Learning Hub hierarchy redesign, playlist clip selection persistence | `dcfcdf8` |
+| 18.4 | Dashboard and portal home — reviews as primary, Continue Review, compact KPIs | `297cc35` |
+| 18.5 | Beta QA audit, staleDate useMemo fix, QA register, schema verification SQL, release readiness docs | see below |
+
+### Complete (Phases 1–18)
 
 | Module | Status |
 |---|---|
 | Authentication (login, invite, multi-org) | ✅ Complete |
-| Educator Dashboard | ✅ Complete |
+| Educator Dashboard | ✅ Complete (Phase 18.4: reviews-first hierarchy) |
 | Video Review Coding | ✅ Complete |
-| Clip Library | ✅ Complete |
-| Playlists | ✅ Complete (archived_at migration pending) |
-| Learning Assignments | ✅ Complete (several columns pending in production) |
-| Reflection Questions | ✅ Complete (migration pending) |
-| Quiz Builder and Player | ✅ Complete (migration pending) |
+| Clip Library | ✅ Complete (Phase 18.3: selection persistence fix) |
+| Playlists | ✅ Complete (archived_at migration pending in production) |
+| Learning Assignments | ✅ Complete (several columns pending in production — migrations 025–029) |
+| Reflection Questions | ✅ Complete (migration 026 pending in production) |
+| Quiz Builder and Player | ✅ Complete (migration 028 pending in production) |
 | Simulator (builder, runner, analytics) | ✅ Complete |
-| Development Goals | ✅ Complete (migration pending) |
-| Development Notes | ✅ Complete (localStorage only) |
+| Development Goals | ✅ Complete (Phase 18.1; migration 018 pending in production) |
+| Learning Hub | ✅ Complete (Phase 18.3: learning tools as primary hierarchy) |
+| Development Notes | ✅ Complete (localStorage only — Supabase migration deferred) |
 | Referee Stats Hub | ✅ Complete |
 | Referee Comments | ✅ Complete |
 | Comment Inbox (educator) | ✅ Complete |
@@ -768,14 +779,14 @@ New screens must use:
 | Organisation Settings | ✅ Complete |
 | User Profile / Password | ✅ Complete |
 | Global Search | ✅ Complete |
-| Notifications (UI only) | ✅ UI complete — no persistence |
+| Notifications (UI only) | ✅ UI complete — in-memory, sample data seeded; **remove sample seeding before production** |
 | Permission System | ✅ Complete |
 
 ### Beta / Partial
 
 | Module | Status |
 |---|---|
-| Notifications | Beta — in-memory only, no server persistence |
+| Notifications | Beta — in-memory only, no server persistence; fictional sample data shown on login |
 | Development Notes | Beta — localStorage only, not shared across devices/sessions |
 | Review–Goal Links | Beta — localStorage only |
 | Organisation Settings (extended) | Beta — localStorage only beyond name/timezone/colour |
@@ -818,18 +829,23 @@ These are the currently identified schema and feature gaps that must be resolved
 
 ## 10. Future Roadmap
 
-### Phase 18 — Supabase Schema Promotion
+### Immediate Pre-Beta Actions (required before inviting any beta users)
 
-Apply all pending draft migrations to production. Migrate localStorage features (development notes, review–goal links, organisation settings) to Supabase tables. Activate notifications persistence. This phase has no new UI — it is purely schema and data migration work.
+1. Run `docs/PRODUCTION_SCHEMA_VERIFICATION.sql` against production to confirm schema state
+2. Apply migrations to production in order: `025` → `026` → `027` → `028` → `029` → `018`
+3. Remove or gate the sample notification seeding in `lib/hooks/useNotifications.ts`
+4. Run smoke test on production URL after deploy
 
-Priority order within Phase 18:
-1. Apply `025` → `026` → `027` → `028` → `029` → `018` migrations to production
-2. Migrate development notes from localStorage to Supabase `development_notes` table
-3. Migrate review–goal and clip–goal links to Supabase tables
-4. Implement notifications table and real event triggers
-5. Migrate organisation settings to Supabase `organisation_settings` table
+### Phase 19 — Supabase Data Migration (post-beta)
 
-### Future Phases (Post-18)
+After beta migrations are confirmed working:
+1. Migrate development notes from localStorage to Supabase `development_notes` table (migration_draft/019)
+2. Migrate review–goal and clip–goal links to Supabase (migration_draft/020)
+3. Implement notifications table and real event triggers (migration_draft/022)
+4. Migrate organisation settings to Supabase (migration_draft/021)
+5. Migrate `onboarding_dismissed` to use `profiles.onboarding_dismissed` column (column exists via migration 025)
+
+### Future Phases (Post-19)
 
 - **Email delivery** — integrate an email service for notification delivery and assignment reminders
 - **Deep linking** — URL-based navigation to specific screens and resources
