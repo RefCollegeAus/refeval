@@ -40,8 +40,6 @@ export function LearningHub({
   setScreen, refereeMembers = [], allRefereeGoalViews = [], onNavigateDevelopment,
 }: Props) {
 
-  // ── Derived stats (all memoised) ────────────────────────────────────────────
-
   const now = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const allUsers = useMemo(
@@ -61,33 +59,22 @@ export function LearningHub({
     return { totalUsers: total, completedCount: completed, completionPct: pct, overdueCount: overdue };
   }, [allUsers, assignments, now]);
 
-  // ── Snapshot widget stats ────────────────────────────────────────────────────
-
   const snapshot = useMemo(() => {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
     const activeAssignments = assignments.filter(a =>
       a.assignmentUsers.some(u => u.status !== "Completed"),
     ).length;
-
     const overdueAssignments = assignments.filter(a =>
       !!a.dueDate && a.dueDate < now && a.assignmentUsers.some(u => u.status !== "Completed"),
     ).length;
-
-    // Unique referees who have at least one assignment currently "Started"
     const learningNow = new Set(
       allUsers.filter(u => u.status === "Started").map(u => u.userId),
     ).size;
-
-    // Completions recorded in the last 7 days
     const completedThisWeek = allUsers.filter(
       u => u.status === "Completed" && !!u.completedAt && u.completedAt >= weekAgo,
     ).length;
-
     return { activeAssignments, overdueAssignments, learningNow, completedThisWeek };
   }, [assignments, allUsers, now]);
-
-  // ── Recent activity ──────────────────────────────────────────────────────────
 
   type ActivityItem = {
     icon: "assignment" | "completed" | "playlist" | "overdue";
@@ -98,7 +85,6 @@ export function LearningHub({
 
   const recentActivity = useMemo<ActivityItem[]>(() => {
     const items: ActivityItem[] = [];
-
     assignments.forEach(a => {
       items.push({ icon: "assignment", label: "Assignment created", detail: a.title, ts: a.createdAt });
       a.assignmentUsers.forEach(u => {
@@ -107,11 +93,9 @@ export function LearningHub({
         }
       });
     });
-
     playlists.forEach(p => {
       items.push({ icon: "playlist", label: "Playlist created", detail: p.title, ts: p.createdAt });
     });
-
     return items.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 16);
   }, [assignments, playlists]);
 
@@ -123,8 +107,6 @@ export function LearningHub({
       case "overdue":    return "#ef4444";
     }
   };
-
-  // ── Nav cards ────────────────────────────────────────────────────────────────
 
   type NavCard = {
     icon: React.ReactNode;
@@ -139,7 +121,7 @@ export function LearningHub({
 
   const navCards: NavCard[] = [
     {
-      icon: <Film size={26} />,
+      icon: <Film size={22} />,
       label: "Clip Library",
       hint: `${tags.length} clip${tags.length !== 1 ? "s" : ""} from completed reviews`,
       description: "Browse and filter all coded review clips",
@@ -147,7 +129,7 @@ export function LearningHub({
       show: canViewClipLibrary,
     },
     {
-      icon: <Library size={26} />,
+      icon: <Library size={22} />,
       label: "Learning Library",
       hint: (() => { const n = tags.filter(t => t.isLearningClip).length; return n > 0 ? `${n} clip${n !== 1 ? "s" : ""} marked for learning` : "No clips marked yet"; })(),
       description: "Curated clips for education and quiz resources",
@@ -156,42 +138,46 @@ export function LearningHub({
       green: true,
     },
     {
-      icon: <ListChecks size={26} />,
+      icon: <ListChecks size={22} />,
       label: "Playlists",
       hint: playlists.length > 0
         ? `${playlists.length} playlist${playlists.length !== 1 ? "s" : ""}`
         : "No playlists yet",
+      description: "Curated clip collections for assignment",
       screen: "playlists",
       show: canAccessPlaylists,
     },
     {
-      icon: <BookOpen size={26} />,
+      icon: <BookOpen size={22} />,
       label: "Assignments",
       hint: assignments.length > 0
         ? `${assignments.length} assignment${assignments.length !== 1 ? "s" : ""}`
         : "No assignments yet",
+      description: "Assign playlists and quizzes to referees",
       screen: "assignments",
       show: canViewAssignments,
     },
     {
-      icon: <BarChart2 size={26} />,
+      icon: <BarChart2 size={22} />,
       label: "Learning Progress",
       hint: totalUsers > 0 ? `${completionPct}% completion rate` : "Track referee progress",
+      description: "Completion rates and assignment status",
       screen: "learning-progress",
       show: canViewAssignments,
       accent: true,
     },
     {
-      icon: <Users size={26} />,
+      icon: <Users size={22} />,
       label: "Groups",
       hint: groupCount > 0
         ? `${groupCount} group${groupCount !== 1 ? "s" : ""}`
         : "Organise referees into cohorts",
+      description: "Manage referee cohorts for bulk assignment",
       screen: "groups",
       show: canViewGroups,
     },
     {
-      icon: <Zap size={26} />,
+      icon: <Zap size={22} />,
       label: "Referee Simulator",
       hint: simulatorCount > 0
         ? `${simulatorCount} simulation${simulatorCount !== 1 ? "s" : ""} available`
@@ -204,6 +190,7 @@ export function LearningHub({
   ];
 
   const visibleCards = navCards.filter(c => c.show);
+  const learningClipCount = tags.filter(t => t.isLearningClip).length;
 
   return (
     <div className="lh-layout">
@@ -211,80 +198,36 @@ export function LearningHub({
       {/* ── Main column ── */}
       <div className="lh-main">
 
-        {/* Hero header */}
-        <div className="panel lh-hero">
-          <div className="lh-hero-icon-wrap">
-            <GraduationCap size={40} strokeWidth={1.5} />
+        {/* Compact page header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 10,
+            background: "rgba(165,106,27,.12)", border: "1px solid rgba(165,106,27,.3)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "var(--accent)", flexShrink: 0,
+          }}>
+            <GraduationCap size={18} strokeWidth={1.5} />
           </div>
           <div>
-            <p className="eyebrow">Learning Hub</p>
-            <h1 style={{ marginBottom: 2 }}>Referee Learning</h1>
-            <p className="hint" style={{ margin: 0 }}>
-              {session.activeOrganisation?.name ?? "Your organisation"} · Manage and track referee learning
-            </p>
+            <p className="eyebrow" style={{ margin: 0 }}>Learning Hub</p>
+            <h1 style={{ margin: 0, fontSize: 20 }}>
+              {session.activeOrganisation?.name ?? "Referee Learning"}
+            </h1>
           </div>
         </div>
 
-        {/* Stats row — always renders all cards; placeholders shown when no data */}
-        <div className="lh-stats-row">
-          {canViewClipLibrary && (
-            <button className="lh-stat-card" onClick={() => setScreen("clip-library")}>
-              <Film size={18} className="lh-stat-icon" />
-              <div className="lh-stat-number">{tags.length}</div>
-              <div className="lh-stat-label">Clips</div>
-            </button>
-          )}
-          {canViewClipLibrary && (
-            <button className="lh-stat-card lh-stat-card--green" onClick={() => setScreen("learning-library")}>
-              <Library size={18} className="lh-stat-icon" style={{ color: "#86efac" }} />
-              <div className="lh-stat-number" style={{ color: "#86efac" }}>{tags.filter(t => t.isLearningClip).length}</div>
-              <div className="lh-stat-label">Learning Clips</div>
-            </button>
-          )}
-          {canAccessPlaylists && (
-            <button className="lh-stat-card" onClick={() => setScreen("playlists")}>
-              <ListChecks size={18} className="lh-stat-icon" />
-              <div className="lh-stat-number">{playlists.length}</div>
-              <div className="lh-stat-label">Playlists</div>
-            </button>
-          )}
-          {canViewAssignments && (
-            <button className="lh-stat-card" onClick={() => setScreen("assignments")}>
-              <BookOpen size={18} className="lh-stat-icon" />
-              <div className="lh-stat-number">{assignments.length}</div>
-              <div className="lh-stat-label">Assignments</div>
-            </button>
-          )}
-          {canViewAssignments && (
-            <button
-              className="lh-stat-card lh-stat-card--good"
-              onClick={() => setScreen("learning-progress")}
-            >
-              <CheckCircle2 size={18} className="lh-stat-icon" />
-              <div className="lh-stat-number">{totalUsers > 0 ? `${completionPct}%` : "—"}</div>
-              <div className="lh-stat-label">Completion</div>
-            </button>
-          )}
-          {canViewAssignments && (
-            <button
-              className={"lh-stat-card" + (overdueCount > 0 ? " lh-stat-card--danger" : "")}
-              onClick={() => setScreen("learning-progress")}
-            >
-              <AlertCircle size={18} className="lh-stat-icon" />
-              <div className="lh-stat-number">{overdueCount}</div>
-              <div className="lh-stat-label">Overdue</div>
-            </button>
-          )}
-          {canAccessSimulator && (
-            <button className="lh-stat-card" onClick={() => setScreen("simulator-builder")}>
-              <Zap size={18} className="lh-stat-icon" style={{ color: "#fbbf24" }} />
-              <div className="lh-stat-number">{simulatorCount}</div>
-              <div className="lh-stat-label">Simulators</div>
-            </button>
-          )}
-        </div>
+        {/* Attention: overdue assignments */}
+        {canViewAssignments && snapshot.overdueAssignments > 0 && (
+          <button className="lh-attention-row" onClick={() => setScreen("learning-progress")}>
+            <AlertCircle size={14} style={{ color: "#ef4444", flexShrink: 0 }} />
+            <span>
+              <strong>{snapshot.overdueAssignments}</strong> overdue assignment{snapshot.overdueAssignments !== 1 ? "s" : ""} — some referees are behind on required work
+            </span>
+            <ChevronRight size={13} style={{ marginLeft: "auto", flexShrink: 0, opacity: 0.5 }} />
+          </button>
+        )}
 
-        {/* Nav cards */}
+        {/* PRIMARY: Learning tools nav */}
         {visibleCards.length > 0 && (
           <div>
             <h2 className="lh-section-title">Learning Tools</h2>
@@ -301,7 +244,7 @@ export function LearningHub({
                     {card.description && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>{card.description}</div>}
                     <div className="lh-nav-card-hint" style={{ marginTop: card.description ? 3 : undefined }}>{card.hint}</div>
                   </div>
-                  <ChevronRight size={16} className="lh-nav-chevron" />
+                  <ChevronRight size={15} className="lh-nav-chevron" />
                 </button>
               ))}
             </div>
@@ -316,6 +259,47 @@ export function LearningHub({
             <p className="hint" style={{ fontSize: 13 }}>
               Contact your administrator to enable Clip Library, Playlists or Assignments.
             </p>
+          </div>
+        )}
+
+        {/* SECONDARY: Compact stats strip */}
+        {visibleCards.length > 0 && (
+          <div className="lh-compact-stats">
+            {canViewClipLibrary && (
+              <span className="lh-compact-stat">
+                <Film size={12} /> <strong>{tags.length}</strong> Clips
+              </span>
+            )}
+            {canViewClipLibrary && (
+              <span className="lh-compact-stat lh-compact-stat--green">
+                <Library size={12} /> <strong>{learningClipCount}</strong> Learning clips
+              </span>
+            )}
+            {canAccessPlaylists && (
+              <span className="lh-compact-stat">
+                <ListChecks size={12} /> <strong>{playlists.length}</strong> Playlist{playlists.length !== 1 ? "s" : ""}
+              </span>
+            )}
+            {canViewAssignments && (
+              <span className="lh-compact-stat">
+                <BookOpen size={12} /> <strong>{assignments.length}</strong> Assignment{assignments.length !== 1 ? "s" : ""}
+              </span>
+            )}
+            {canViewAssignments && totalUsers > 0 && (
+              <span className="lh-compact-stat lh-compact-stat--good">
+                <CheckCircle2 size={12} /> <strong>{completionPct}%</strong> Completion
+              </span>
+            )}
+            {canViewAssignments && overdueCount > 0 && (
+              <span className="lh-compact-stat lh-compact-stat--danger">
+                <AlertCircle size={12} /> <strong>{overdueCount}</strong> Overdue
+              </span>
+            )}
+            {canAccessSimulator && (
+              <span className="lh-compact-stat">
+                <Zap size={12} /> <strong>{simulatorCount}</strong> Simulator{simulatorCount !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
         )}
 
@@ -343,37 +327,24 @@ export function LearningHub({
                     <button
                       onClick={() => onNavigateDevelopment(m.id)}
                       style={{
-                        background: "none",
-                        border: "none",
-                        boxShadow: "none",
-                        padding: 0,
-                        cursor: "pointer",
-                        textAlign: "left",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        minWidth: 0,
+                        background: "none", border: "none", boxShadow: "none",
+                        padding: 0, cursor: "pointer", textAlign: "left",
+                        display: "flex", alignItems: "center", gap: 10, minWidth: 0,
                       }}
                       title={`View ${m.name}'s development`}
                     >
                       <span style={{
                         width: 30, height: 30, borderRadius: "50%",
-                        background: "var(--panel3)",
-                        border: "1px solid var(--border)",
+                        background: "var(--panel3)", border: "1px solid var(--border)",
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        flexShrink: 0, fontSize: 12, fontWeight: 700,
-                        color: "var(--muted)",
+                        flexShrink: 0, fontSize: 12, fontWeight: 700, color: "var(--muted)",
                       }}>
                         {(m.name || "?")[0].toUpperCase()}
                       </span>
                       <span style={{
-                        fontSize: 14,
-                        fontWeight: 600,
-                        color: "var(--text)",
-                        textDecoration: "underline",
-                        textDecorationColor: "transparent",
-                        textUnderlineOffset: 2,
-                        transition: "text-decoration-color 0.15s",
+                        fontSize: 14, fontWeight: 600, color: "var(--text)",
+                        textDecoration: "underline", textDecorationColor: "transparent",
+                        textUnderlineOffset: 2, transition: "text-decoration-color 0.15s",
                       }}
                         onMouseEnter={e => (e.currentTarget.style.textDecorationColor = "var(--muted)")}
                         onMouseLeave={e => (e.currentTarget.style.textDecorationColor = "transparent")}
@@ -415,10 +386,7 @@ export function LearningHub({
             <h3 className="ed-section-title" style={{ marginBottom: 12 }}>Learning Snapshot</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
 
-              <button
-                className="lh-snapshot-row"
-                onClick={() => setScreen("assignments")}
-              >
+              <button className="lh-snapshot-row" onClick={() => setScreen("assignments")}>
                 <span className="lh-snapshot-dot" style={{ background: "#3b82f6" }} />
                 <span className="lh-snapshot-label">Active assignments</span>
                 <strong className="lh-snapshot-value">{snapshot.activeAssignments}</strong>
@@ -430,34 +398,22 @@ export function LearningHub({
                 onClick={() => setScreen("learning-progress")}
                 style={snapshot.overdueAssignments > 0 ? { color: "#fca5a5" } : undefined}
               >
-                <span
-                  className="lh-snapshot-dot"
-                  style={{ background: snapshot.overdueAssignments > 0 ? "#ef4444" : "var(--border)" }}
-                />
+                <span className="lh-snapshot-dot" style={{ background: snapshot.overdueAssignments > 0 ? "#ef4444" : "var(--border)" }} />
                 <span className="lh-snapshot-label">Overdue assignments</span>
-                <strong
-                  className="lh-snapshot-value"
-                  style={snapshot.overdueAssignments > 0 ? { color: "#ef4444" } : undefined}
-                >
+                <strong className="lh-snapshot-value" style={snapshot.overdueAssignments > 0 ? { color: "#ef4444" } : undefined}>
                   {snapshot.overdueAssignments}
                 </strong>
                 <ChevronRight size={13} style={{ opacity: 0.4, flexShrink: 0 }} />
               </button>
 
-              <button
-                className="lh-snapshot-row"
-                onClick={() => setScreen("learning-progress")}
-              >
+              <button className="lh-snapshot-row" onClick={() => setScreen("learning-progress")}>
                 <span className="lh-snapshot-dot" style={{ background: "#22c55e" }} />
                 <span className="lh-snapshot-label">Referees learning now</span>
                 <strong className="lh-snapshot-value">{snapshot.learningNow}</strong>
                 <ChevronRight size={13} style={{ opacity: 0.4, flexShrink: 0 }} />
               </button>
 
-              <button
-                className="lh-snapshot-row lh-snapshot-row--last"
-                onClick={() => setScreen("learning-progress")}
-              >
+              <button className="lh-snapshot-row lh-snapshot-row--last" onClick={() => setScreen("learning-progress")}>
                 <span className="lh-snapshot-dot" style={{ background: "#8b5cf6" }} />
                 <span className="lh-snapshot-label">Completed this week</span>
                 <strong className="lh-snapshot-value">{snapshot.completedThisWeek}</strong>

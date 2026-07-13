@@ -289,16 +289,23 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
   }
 
   async function handleCreatePlaylist(title: string, description: string) {
-    // Build clips in the order they appear in visibleRows
-    const clips = visibleRows
+    // Include ALL selected clips regardless of current filter state.
+    // Visible+selected come first (in filtered order), then hidden+selected (in sort order).
+    const visibleSelected = visibleRows
       .filter(row => selected.has(row.tag.id))
       .map(row => ({ reviewId: row.review.id, tagId: row.tag.id }));
+    const visibleTagIds = new Set(visibleSelected.map(c => c.tagId));
+    const hiddenSelected = sortedRows
+      .filter(row => selected.has(row.tag.id) && !visibleTagIds.has(row.tag.id))
+      .map(row => ({ reviewId: row.review.id, tagId: row.tag.id }));
+    const clips = [...visibleSelected, ...hiddenSelected];
     const newId = await onCreatePlaylist(title, description, clips);
     setSelected(new Set());
     setCreateModalOpen(false);
     onViewPlaylist(newId);
   }
 
+  const totalSelCount = selected.size;
   const activeFilterCount = [fOutcome, fCatGroup, fSubtype, fReferee, fEducator, fGame, fDateFrom, fDateTo, fText].filter(Boolean).length + (fHasNotes ? 1 : 0);
   const visibleIdSet = useMemo(() => new Set(visibleIds), [visibleIds]);
   const effectiveSelCount = useMemo(() => Array.from(selected).filter(id => visibleIdSet.has(id)).length, [selected, visibleIdSet]);
@@ -356,14 +363,14 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
             )}
             {canCreatePlaylists && tab === "all" && (
               <button
-                className={effectiveSelCount > 0 ? "primary" : ""}
-                disabled={effectiveSelCount === 0}
+                className={selected.size > 0 ? "primary" : ""}
+                disabled={selected.size === 0}
                 onClick={() => setCreateModalOpen(true)}
-                title={effectiveSelCount === 0 ? "Select clips to create a playlist" : `Create playlist from ${effectiveSelCount} clip${effectiveSelCount !== 1 ? "s" : ""}`}
+                title={selected.size === 0 ? "Select clips to create a playlist" : `Create playlist from ${selected.size} clip${selected.size !== 1 ? "s" : ""}`}
                 style={{ whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}
               >
                 <ListVideo size={14} />
-                Create Playlist{effectiveSelCount > 0 ? ` (${effectiveSelCount})` : ""}
+                Create Playlist{selected.size > 0 ? ` (${selected.size})` : ""}
               </button>
             )}
             <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -486,23 +493,25 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, fontSize: 13, color: "var(--muted)", flexWrap: "wrap", gap: 6 }}>
           <span>
             <strong style={{ color: "var(--text)" }}>{visibleRows.length}</strong> clip{visibleRows.length !== 1 ? "s" : ""} shown
-            {canCreatePlaylists && effectiveSelCount > 0 && (
+            {canCreatePlaylists && selected.size > 0 && (
               <span style={{ marginLeft: 10, color: "var(--accent)", fontWeight: 700 }}>
-                · {effectiveSelCount} selected
+                · {selected.size} selected
               </span>
             )}
           </span>
           {canCreatePlaylists && visibleRows.length > 0 && (
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              {effectiveSelCount > 0 && (
+              {selected.size > 0 && (
                 <>
-                  <button
-                    className="primary"
-                    style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 5 }}
-                    onClick={() => setCreateModalOpen(true)}
-                  >
-                    <ListVideo size={12} /> Create Playlist ({effectiveSelCount})
-                  </button>
+                  {tab === "all" && (
+                    <button
+                      className="primary"
+                      style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 5 }}
+                      onClick={() => setCreateModalOpen(true)}
+                    >
+                      <ListVideo size={12} /> Create Playlist ({selected.size})
+                    </button>
+                  )}
                   {tab === "learning" && onRemoveFromLearningLibrary && (
                     <button
                       style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 5, border: "1px solid rgba(239,68,68,.35)", background: "rgba(239,68,68,.08)", color: "#fca5a5", borderRadius: 7, cursor: "pointer" }}
@@ -514,26 +523,31 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
                   <button
                     style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 4 }}
                     onClick={() => setSelected(new Set())}
+                    title="Clear all selected clips"
                   >
-                    <X size={12} /> Clear
+                    <X size={12} /> Clear all
                   </button>
                 </>
               )}
-              <button style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }} onClick={toggleSelectAll}>
-                {allVisibleSelected ? <><CheckSquare size={13} /> Deselect all</> : <><Square size={13} /> Select all</>}
+              <button
+                style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }}
+                onClick={toggleSelectAll}
+                title={allVisibleSelected ? "Deselect visible clips (hidden selections are kept)" : "Select all visible clips"}
+              >
+                {allVisibleSelected ? <><CheckSquare size={13} /> Deselect visible</> : <><Square size={13} /> Select visible</>}
               </button>
             </div>
           )}
         </div>
-        {/* Hidden-selection warning */}
+        {/* Hidden-selection info — hidden clips are still included in the playlist */}
         {canCreatePlaylists && hiddenSelCount > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, padding: "7px 10px", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.35)", borderRadius: 6, fontSize: 12, color: "var(--text)" }}>
-            <AlertTriangle size={13} style={{ color: "#f59e0b", flexShrink: 0 }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, padding: "7px 10px", background: "rgba(165,106,27,.08)", border: "1px solid rgba(165,106,27,.25)", borderRadius: 6, fontSize: 12, color: "var(--text)" }}>
+            <AlertTriangle size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
             <span>
-              <strong>{hiddenSelCount}</strong> selected clip{hiddenSelCount !== 1 ? "s are" : " is"} hidden by filters and won&apos;t be included in the playlist.{" "}
+              <strong>{hiddenSelCount}</strong> selected clip{hiddenSelCount !== 1 ? "s are" : " is"} hidden by current filters but will still be included in the playlist.{" "}
               <button style={{ padding: 0, background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline" }} onClick={clearFilters}>
                 Clear filters
-              </button>{" "}to include them, or{" "}
+              </button>{" "}to see them, or{" "}
               <button style={{ padding: 0, background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline" }} onClick={() => setSelected(prev => { const n = new Set(prev); Array.from(prev).filter(id => !visibleIdSet.has(id)).forEach(id => n.delete(id)); return n; })}>
                 deselect hidden
               </button>.
@@ -666,7 +680,7 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
       {/* ── Create Playlist Modal ── */}
       {createModalOpen && (
         <CreatePlaylistModal
-          clipCount={effectiveSelCount}
+          clipCount={totalSelCount}
           onSave={handleCreatePlaylist}
           onClose={() => setCreateModalOpen(false)}
         />
