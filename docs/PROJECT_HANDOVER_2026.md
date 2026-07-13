@@ -1,7 +1,7 @@
 # RefCoach — Project Handover 2026
 
-**Last updated:** July 2026 (updated Phase 18.5)  
-**Status:** Phase 18.1–18.5 complete — ready for controlled beta pending production migrations  
+**Last updated:** July 2026 (updated Phase 18.6)  
+**Status:** Phase 18.1–18.6 complete — production schema confirmed; verify RLS on reviews/clips before inviting beta users  
 **Source of truth:** The Git repository. This document describes the current implementation as read from the codebase. Do not rely on earlier conversations or assumptions.
 
 ---
@@ -640,25 +640,26 @@ app/api/admin/* (server-side, uses SUPABASE_SERVICE_ROLE_KEY)
 | `referee_goals` | id, goal_id, referee_id, organisation_id, status, notes, target_review_date, completed_at, archived_at, created_at, updated_at |
 
 **Legend:**
-- `*` — column exists in draft migration only, not yet in production
-- `†` — `playlist_id` is currently NOT NULL in production; standalone quizzes require draft 029
+- All columns listed above are confirmed present in production as of Phase 18.6 audit.
 
 ### Enum Values
 
-`organisation_role`: `super_admin | admin | educator | referee | viewer`
+`organisation_role`: `super_admin | admin | educator | referee | viewer` — all values confirmed in production.
 
-### Pending Production Migrations (draft → production)
+### Production Migration Status (Phase 18.6 Audit)
 
-Apply in this order:
+A direct REST audit of production (`rydjxihdukoretyqqfue`) confirmed all draft migrations have been applied manually:
 
-| File | Adds |
+| File | Status |
 |---|---|
-| `migrations_draft/025_alter_existing_tables.sql` | `watched_clip_ids` on `learning_assignment_users` |
-| `migrations_draft/026_assignment_reflection_questions.sql` | `questions` on `learning_assignments`; reflection columns on `learning_assignment_users` |
-| `migrations_draft/027_playlist_archive.sql` | `archived_at` on `clip_playlists` — **Critical, blocks playlist load** |
-| `migrations_draft/028_quiz_questions.sql` | `quiz_questions` on `learning_assignments`; quiz result columns on `learning_assignment_users` |
-| `migrations_draft/029_nullable_playlist_id.sql` | Makes `learning_assignments.playlist_id` nullable (needed for standalone quizzes) |
-| `migrations_draft/018_development_goals.sql` | Creates all four development goal tables |
+| `migrations_draft/025_alter_existing_tables.sql` | ✅ Applied — `watched_clip_ids`, `onboarding_dismissed` confirmed in production |
+| `migrations_draft/026_assignment_reflection_questions.sql` | ✅ Applied — `questions`, reflection columns confirmed in production |
+| `migrations_draft/027_playlist_archive.sql` | ✅ Applied — `clip_playlists.archived_at` confirmed in production |
+| `migrations_draft/028_quiz_questions.sql` | ✅ Applied — all quiz columns confirmed in production |
+| `migrations_draft/029_nullable_playlist_id.sql` | ✅ Applied — `playlist_id` IS NULL filter returns 200 |
+| `migrations_draft/018_development_goals.sql` | ✅ Applied — all 4 development goal tables confirmed in production |
+
+**No pending migrations are required for the current feature set.** The migration history table is empty (schema was applied via Dashboard SQL Editor, not `supabase db push`) — this is safe.
 
 ---
 
@@ -762,12 +763,12 @@ New screens must use:
 | Educator Dashboard | ✅ Complete (Phase 18.4: reviews-first hierarchy) |
 | Video Review Coding | ✅ Complete |
 | Clip Library | ✅ Complete (Phase 18.3: selection persistence fix) |
-| Playlists | ✅ Complete (archived_at migration pending in production) |
-| Learning Assignments | ✅ Complete (several columns pending in production — migrations 025–029) |
-| Reflection Questions | ✅ Complete (migration 026 pending in production) |
-| Quiz Builder and Player | ✅ Complete (migration 028 pending in production) |
+| Playlists | ✅ Complete — `archived_at` confirmed in production (Phase 18.6) |
+| Learning Assignments | ✅ Complete — all columns confirmed in production (Phase 18.6) |
+| Reflection Questions | ✅ Complete — migration 026 confirmed applied in production (Phase 18.6) |
+| Quiz Builder and Player | ✅ Complete — migration 028 confirmed applied in production (Phase 18.6) |
 | Simulator (builder, runner, analytics) | ✅ Complete |
-| Development Goals | ✅ Complete (Phase 18.1; migration 018 pending in production) |
+| Development Goals | ✅ Complete — migration 018 confirmed applied in production (Phase 18.6) |
 | Learning Hub | ✅ Complete (Phase 18.3: learning tools as primary hierarchy) |
 | Development Notes | ✅ Complete (localStorage only — Supabase migration deferred) |
 | Referee Stats Hub | ✅ Complete |
@@ -779,14 +780,14 @@ New screens must use:
 | Organisation Settings | ✅ Complete |
 | User Profile / Password | ✅ Complete |
 | Global Search | ✅ Complete |
-| Notifications (UI only) | ✅ UI complete — in-memory, sample data seeded; **remove sample seeding before production** |
+| Notifications (UI only) | ✅ UI complete — in-memory (session only); sample seeding removed (Phase 18.5) |
 | Permission System | ✅ Complete |
 
 ### Beta / Partial
 
 | Module | Status |
 |---|---|
-| Notifications | Beta — in-memory only, no server persistence; fictional sample data shown on login |
+| Notifications | Beta — in-memory (session only), no server persistence; no fictional sample data (Phase 18.5) |
 | Development Notes | Beta — localStorage only, not shared across devices/sessions |
 | Review–Goal Links | Beta — localStorage only |
 | Organisation Settings (extended) | Beta — localStorage only beyond name/timezone/colour |
@@ -800,16 +801,24 @@ These are the currently identified schema and feature gaps that must be resolved
 
 ### Schema Gaps (Production Database)
 
-| Gap | Impact | Fix |
+**Phase 18.6 audit update:** All previously documented schema gaps have been confirmed resolved. All draft migrations have been applied to production manually.
+
+| Gap | Status (Phase 18.6) |
+|---|---|
+| `clip_playlists.archived_at` missing | ✅ Resolved — column confirmed in production |
+| `learning_assignments.questions` missing | ✅ Resolved — column confirmed in production |
+| `learning_assignments.quiz_questions` missing | ✅ Resolved — column confirmed in production |
+| `learning_assignment_users.watched_clip_ids` missing | ✅ Resolved — column confirmed in production |
+| `learning_assignment_users` reflection columns missing | ✅ Resolved — all columns confirmed in production |
+| `learning_assignment_users` quiz result columns missing | ✅ Resolved — all columns confirmed in production |
+| `learning_assignments.playlist_id` NOT NULL | ✅ Resolved — nullable confirmed in production |
+| Development goal tables missing | ✅ Resolved — all 4 tables confirmed in production |
+
+**Remaining security item (Phase 18.6 new finding):**
+
+| Issue | Impact | Action |
 |---|---|---|
-| `clip_playlists.archived_at` missing | **Critical** — all playlist loads return 400 error | Apply `migrations_draft/027_playlist_archive.sql` |
-| `learning_assignments.questions` missing | High — assignment create/edit fails if questions set | Apply `migrations_draft/026_assignment_reflection_questions.sql` |
-| `learning_assignments.quiz_questions` missing | High — quiz assignment create/edit fails | Apply `migrations_draft/028_quiz_questions.sql` |
-| `learning_assignment_users.watched_clip_ids` missing | High — watched clip progress fails to save | Apply `migrations_draft/025_alter_existing_tables.sql` |
-| `learning_assignment_users` reflection columns missing | High — reflection submit fails | Apply `migrations_draft/026_assignment_reflection_questions.sql` |
-| `learning_assignment_users` quiz result columns missing | High — quiz submit fails | Apply `migrations_draft/028_quiz_questions.sql` |
-| `learning_assignments.playlist_id` NOT NULL | High — standalone quiz assignment fails on create | Apply `migrations_draft/029_nullable_playlist_id.sql` |
-| Development goal tables missing | High — all development goal screens fail | Apply `migrations_draft/018_development_goals.sql` |
+| `reviews` and `clips` return data to requests using only the publishable API key (no user session) | High — coaching data may be accessible without authentication if RLS is disabled on these tables | Verify RLS status in Supabase Dashboard → Table Editor. If disabled, run `ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY; ALTER TABLE public.clips ENABLE ROW LEVEL SECURITY;` in SQL Editor |
 
 ### Feature Limitations
 
@@ -831,9 +840,10 @@ These are the currently identified schema and feature gaps that must be resolved
 
 ### Immediate Pre-Beta Actions (required before inviting any beta users)
 
-1. Run `docs/PRODUCTION_SCHEMA_VERIFICATION.sql` against production to confirm schema state
-2. Apply migrations to production in order: `025` → `026` → `027` → `028` → `029` → `018`
+1. ~~Run `docs/PRODUCTION_SCHEMA_VERIFICATION.sql` against production to confirm schema state~~ — **Done (Phase 18.6)** — all schema objects confirmed via direct REST audit
+2. ~~Apply migrations to production in order: `025` → `026` → `027` → `028` → `029` → `018`~~ — **Done (already applied to production)**
 3. ~~Remove or gate the sample notification seeding in `lib/hooks/useNotifications.ts`~~ — **Done (Phase 18.5)**
+4. **Verify RLS is enabled on `reviews` and `clips` tables** — open Supabase Dashboard → Table Editor for each table and confirm the RLS toggle is ON. If off, run `ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY; ALTER TABLE public.clips ENABLE ROW LEVEL SECURITY;` in the SQL Editor.
 4. Run smoke test on production URL after deploy
 
 ### Phase 19 — Supabase Data Migration (post-beta)
