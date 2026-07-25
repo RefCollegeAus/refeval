@@ -1514,8 +1514,8 @@ export default function Home() {
           assignmentUser={assignmentUser}
           assignedByName={runnerAssignedByName}
           playlist={runnerPlaylist}
-          reviews={reviews}
-          tags={tags}
+          reviews={learningReviews}
+          tags={learningTags}
           clipsLoading={learningClipsLoading}
           clipsError={learningClipsError || ""}
           onToggleWatched={async (_itemId, nextIds) => {
