@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
   // 5. Fetch clips/tags (service role → bypasses RLS)
   const { data: rawClips, error: clipsErr } = await admin
     .from("clips")
-    .select("id, review_id, organisation_id, time, seconds, timestamp_seconds, adjusted_seconds, adjusted_time, mode, referee_target, outcome, category, position, coverage, created_at")
+    .select("id, review_id, organisation_id, time, seconds, timestamp_seconds, adjusted_seconds, adjusted_time, start_time_seconds, end_time_seconds, mode, referee_target, outcome, category, position, coverage, created_at")
     .in("id", tagIds);
 
   if (clipsErr) {
@@ -121,6 +121,8 @@ export async function GET(request: NextRequest) {
     category:            c.category || "",
     position:            c.position || "",
     coverage:            c.coverage || "",
+    startTimeSeconds:    c.start_time_seconds != null ? Number(c.start_time_seconds) : null,
+    endTimeSeconds:      c.end_time_seconds != null ? Number(c.end_time_seconds) : null,
     notes:               "",    // hidden in learning mode
     createdAt:           c.created_at || new Date().toISOString(),
   }));

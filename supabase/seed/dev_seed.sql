@@ -58,9 +58,9 @@ on conflict (id) do nothing;
 
 insert into public.profiles (id, email, name)
 values
-  ('SUPER_ADMIN_UUID_HERE', 'super@refeval.dev',    'Dev Super Admin'),
-  ('EDUCATOR_UUID_HERE',    'educator@refeval.dev',  'Dev Educator'),
-  ('REFEREE_UUID_HERE',     'referee@refeval.dev',   'Dev Referee')
+  ('40b093cf-4e1e-458a-9820-0625989d7fa2', 'super@refeval.dev',    'Dev Super Admin'),
+  ('cd752e33-c0f8-47cc-bfa4-c2b1ca34df94',    'educator@refeval.dev',  'Dev Educator'),
+  ('5947b2b1-804b-44bd-b1f6-93f817259273',     'referee@refeval.dev',   'Dev Referee')
 on conflict (id) do update set
   email = excluded.email,
   name  = excluded.name;
@@ -72,9 +72,9 @@ on conflict (id) do update set
 
 insert into public.organisation_members (user_id, organisation_id, role)
 values
-  ('SUPER_ADMIN_UUID_HERE', 'aaaaaaaa-0000-0000-0000-000000000001', 'super_admin'),
-  ('EDUCATOR_UUID_HERE',    'aaaaaaaa-0000-0000-0000-000000000001', 'educator'),
-  ('REFEREE_UUID_HERE',     'aaaaaaaa-0000-0000-0000-000000000001', 'referee')
+  ('40b093cf-4e1e-458a-9820-0625989d7fa2', 'aaaaaaaa-0000-0000-0000-000000000001', 'super_admin'),
+  ('cd752e33-c0f8-47cc-bfa4-c2b1ca34df94',    'aaaaaaaa-0000-0000-0000-000000000001', 'educator'),
+  ('5947b2b1-804b-44bd-b1f6-93f817259273',     'aaaaaaaa-0000-0000-0000-000000000001', 'referee')
 on conflict (user_id, organisation_id) do update set
   role = excluded.role;
 

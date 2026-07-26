@@ -33,10 +33,10 @@ function RewatchOverlay({ onRewatch }: { onRewatch: () => void }) {
 
 // ── YouTube clip player ───────────────────────────────────────────────────────
 
-function YoutubeClipPlayer({ ytId, startSeconds, durationSeconds }: {
+function YoutubeClipPlayer({ ytId, startSeconds, endSeconds }: {
   ytId: string;
   startSeconds: number;
-  durationSeconds: number;
+  endSeconds: number;
 }) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const playerRef     = useRef<any>(null);
@@ -96,21 +96,21 @@ function YoutubeClipPlayer({ ytId, startSeconds, durationSeconds }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ytId, startSeconds]);
 
-  // Poll current time every 250 ms; enforce duration limit
+  // Poll current time every 250 ms; enforce end boundary
   useEffect(() => {
     const interval = setInterval(() => {
       if (endedRef.current || !playerRef.current) return;
       const state: number = playerRef.current.getPlayerState?.() ?? -1;
       if (state !== 1) return; // 1 = playing
       const t: number = playerRef.current.getCurrentTime?.() ?? 0;
-      if (t >= startSeconds + durationSeconds) {
+      if (t >= endSeconds) {
         playerRef.current.pauseVideo?.();
         endedRef.current = true;
         setEnded(true);
       }
     }, 250);
     return () => clearInterval(interval);
-  }, [startSeconds, durationSeconds]);
+  }, [endSeconds]);
 
   function handleRewatch() {
     endedRef.current = false;
@@ -129,10 +129,10 @@ function YoutubeClipPlayer({ ytId, startSeconds, durationSeconds }: {
 
 // ── Direct video clip player ──────────────────────────────────────────────────
 
-function DirectClipPlayer({ src, startSeconds, durationSeconds }: {
+function DirectClipPlayer({ src, startSeconds, endSeconds }: {
   src: string;
   startSeconds: number;
-  durationSeconds: number;
+  endSeconds: number;
 }) {
   const videoRef  = useRef<HTMLVideoElement>(null);
   const endedRef  = useRef(false);
@@ -152,7 +152,7 @@ function DirectClipPlayer({ src, startSeconds, durationSeconds }: {
 
   function handleTimeUpdate() {
     if (endedRef.current || !videoRef.current) return;
-    if (videoRef.current.currentTime >= startSeconds + durationSeconds) {
+    if (videoRef.current.currentTime >= endSeconds) {
       videoRef.current.pause();
       endedRef.current = true;
       setEnded(true);
@@ -188,18 +188,22 @@ function DirectClipPlayer({ src, startSeconds, durationSeconds }: {
 interface Props {
   videoLink: string;
   startSeconds: number;
-  durationSeconds: number;
+  /** Absolute video timestamp to stop at (takes priority over durationSeconds) */
+  endSeconds?: number;
+  /** Legacy: duration in seconds from startSeconds. Used when endSeconds is not provided. */
+  durationSeconds?: number;
 }
 
-export function ReviewClipPlayer({ videoLink, startSeconds, durationSeconds }: Props) {
+export function ReviewClipPlayer({ videoLink, startSeconds, endSeconds, durationSeconds }: Props) {
+  const resolvedEnd = endSeconds ?? (startSeconds + (durationSeconds ?? 10));
   const ytId     = getYouTubeId(videoLink);
   const isDirect = !ytId && isDirectVideoUrl(videoLink);
 
   if (ytId) {
-    return <YoutubeClipPlayer ytId={ytId} startSeconds={startSeconds} durationSeconds={durationSeconds} />;
+    return <YoutubeClipPlayer ytId={ytId} startSeconds={startSeconds} endSeconds={resolvedEnd} />;
   }
   if (isDirect) {
-    return <DirectClipPlayer src={videoLink} startSeconds={startSeconds} durationSeconds={durationSeconds} />;
+    return <DirectClipPlayer src={videoLink} startSeconds={startSeconds} endSeconds={resolvedEnd} />;
   }
   return (
     <div style={{ padding: "20px", textAlign: "center", fontSize: 13, color: "var(--muted)", borderRadius: 10, border: "1px solid rgba(255,255,255,.1)" }}>

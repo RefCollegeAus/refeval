@@ -46,7 +46,19 @@ export function useUnreadCounts(session: RefEvalSession | null) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { refresh(); }, [session?.user.id]);
 
+  // Immediately removes a thread's unread entry from local state so the badge
+  // disappears the instant the user opens comments, without waiting for the
+  // background DB refresh that markRead() triggers via onRead.
+  function clearCount(reviewId: string, tagId: string) {
+    const key = `${reviewId}::${tagId}`;
+    setCounts(prev => {
+      if (!prev || !(key in prev)) return prev;
+      const { [key]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }
+
   const totalUnread = Object.values(counts ?? {}).reduce((s, n) => s + n, 0);
 
-  return { counts, refresh, totalUnread };
+  return { counts, refresh, totalUnread, clearCount };
 }

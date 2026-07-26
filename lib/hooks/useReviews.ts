@@ -65,6 +65,8 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
         position: c.position || "",
         coverage: c.coverage || "",
         notes: c.notes || "",
+        startTimeSeconds: c.start_time_seconds != null ? Number(c.start_time_seconds) : null,
+        endTimeSeconds: c.end_time_seconds != null ? Number(c.end_time_seconds) : null,
         isLearningClip: c.is_learning_clip ?? false,
         createdAt: c.created_at || new Date().toISOString(),
       }))
@@ -191,6 +193,8 @@ export function useReviews(session: RefEvalSession | null, members: MemberRecord
       position: tag.position,
       coverage: tag.coverage,
       notes: tag.notes,
+      start_time_seconds: tag.startTimeSeconds ?? null,
+      end_time_seconds: tag.endTimeSeconds ?? null,
       is_learning_clip: tag.isLearningClip ?? false,
       created_at: tag.createdAt,
     };

@@ -163,6 +163,7 @@ export type Database = {
           clip_officials: Json | null
           coverage: string | null
           created_at: string | null
+          end_time_seconds: number | null
           extra_review_officials: Json | null
           id: string
           mode: string | null
@@ -173,6 +174,7 @@ export type Database = {
           referee_target: string | null
           review_id: string
           seconds: number | null
+          start_time_seconds: number | null
           time: string | null
           timestamp_link: string | null
           timestamp_seconds: number | null
@@ -184,6 +186,7 @@ export type Database = {
           clip_officials?: Json | null
           coverage?: string | null
           created_at?: string | null
+          end_time_seconds?: number | null
           extra_review_officials?: Json | null
           id?: string
           mode?: string | null
@@ -194,6 +197,7 @@ export type Database = {
           referee_target?: string | null
           review_id: string
           seconds?: number | null
+          start_time_seconds?: number | null
           time?: string | null
           timestamp_link?: string | null
           timestamp_seconds?: number | null
@@ -205,6 +209,7 @@ export type Database = {
           clip_officials?: Json | null
           coverage?: string | null
           created_at?: string | null
+          end_time_seconds?: number | null
           extra_review_officials?: Json | null
           id?: string
           mode?: string | null
@@ -212,6 +217,7 @@ export type Database = {
           organisation_id?: string | null
           outcome?: string | null
           position?: string | null
+          start_time_seconds?: number | null
           referee_target?: string | null
           review_id?: string
           seconds?: number | null

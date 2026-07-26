@@ -43,6 +43,9 @@ export type CodedTag = {
   seconds: number;
   adjustedSeconds: number;
   adjustedTime: string;
+  /** Canonical clips only: explicit start = max(incident - 10, 0). Null for legacy clips. */
+  startTimeSeconds?: number | null;
+  endTimeSeconds?: number | null;
   mode: Mode;
   refereeTarget: RefSlot;
   extraReviewOfficials: RefSlot[];

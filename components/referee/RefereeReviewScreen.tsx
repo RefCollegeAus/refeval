@@ -8,6 +8,8 @@ import { embedUrl, isDirectVideoUrl } from "@/lib/utils/video";
 import { MessageSquare } from "lucide-react";
 import type { ReviewRecord, CodedTag, RefSlot, OfficialSummary } from "@/lib/types/reviews";
 import type { RefEvalSession } from "@/lib/types/auth";
+import { ReviewClipPlayer } from "@/components/learning/ReviewClipPlayer";
+import { resolveClipBounds } from "@/lib/utils/clipBounds";
 
 import type { UnreadCounts } from "@/lib/hooks/useUnreadCounts";
 
@@ -18,6 +20,7 @@ type Props = {
   session: RefEvalSession | null;
   unreadCounts?: UnreadCounts;
   onRead?: () => void;
+  clearUnread?: (reviewId: string, tagId: string) => void;
   officialSummary?: OfficialSummary | null;
   initialTagId?: string | null;
   onHome: () => void;
@@ -114,6 +117,7 @@ export function RefereeReviewScreen({
   session,
   unreadCounts,
   onRead,
+  clearUnread,
   officialSummary,
   initialTagId,
   onHome,
@@ -136,6 +140,8 @@ export function RefereeReviewScreen({
   const [facetFilters, setFacetFilters] = useState<FacetFilters>(EMPTY_FACETS);
   const [expandedCategoryGroup, setExpandedCategoryGroup] = useState<string | null>(null);
   const [videoError, setVideoError] = useState(false);
+  // When true the primary player shows a bounded ReviewClipPlayer instead of the full embed
+  const [clipViewMode, setClipViewMode] = useState(!!initialTagId);
 
   useEffect(() => { setShowComments(false); }, [selectedIdx]);
   useEffect(() => { setSelectedIdx(0); setShowComments(false); }, [facetFilters]);
@@ -248,6 +254,7 @@ export function RefereeReviewScreen({
     setSeekSeconds(tag.adjustedSeconds);
     setSeekAutoplay(true);
     setVideoError(false);
+    setClipViewMode(true);
   }
 
   // Stats bars: shows compatible counts; selected zero-count values stay visible and removable
@@ -342,42 +349,65 @@ export function RefereeReviewScreen({
             </div>
           )}
 
-          {/* Video player */}
-          <div className="video-placeholder" style={{ margin: 0, aspectRatio: "16 / 9", overflow: "hidden", padding: 0 }}>
-            {currentEmbed ? (
-              isIframe ? (
-                <iframe
-                  className="video-frame"
-                  src={currentEmbed}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : isDirectVideo ? (
-                videoError ? (
-                  <div style={{ padding: 16, color: "var(--muted)", fontSize: 13, display: "flex", flexDirection: "column", gap: 8 }}>
-                    <span>Video could not be loaded.</span>
-                    <a href={review!.videoLink} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>Open source video ↗</a>
-                  </div>
-                ) : (
-                  <video
-                    key={seekSeconds}
-                    controls
-                    src={review!.videoLink + `#t=${Math.floor(seekSeconds)}`}
-                    className="video-frame"
-                    onError={() => setVideoError(true)}
+          {/* Video player — switches between full embed and bounded clip view */}
+          {clipViewMode && selectedTag && review?.videoLink ? (
+            <div>
+              {(() => {
+                const { startTime, endTime } = resolveClipBounds(selectedTag);
+                return (
+                  <ReviewClipPlayer
+                    videoLink={review.videoLink}
+                    startSeconds={startTime}
+                    endSeconds={endTime}
                   />
+                );
+              })()}
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+                <button
+                  style={{ fontSize: 12, padding: "5px 14px", opacity: 0.75 }}
+                  onClick={() => { setClipViewMode(false); setVideoError(false); }}
+                >
+                  ↗ Watch Full Video
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="video-placeholder" style={{ margin: 0, aspectRatio: "16 / 9", overflow: "hidden", padding: 0 }}>
+              {currentEmbed ? (
+                isIframe ? (
+                  <iframe
+                    className="video-frame"
+                    src={currentEmbed}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : isDirectVideo ? (
+                  videoError ? (
+                    <div style={{ padding: 16, color: "var(--muted)", fontSize: 13, display: "flex", flexDirection: "column", gap: 8 }}>
+                      <span>Video could not be loaded.</span>
+                      <a href={review!.videoLink} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>Open source video ↗</a>
+                    </div>
+                  ) : (
+                    <video
+                      key={seekSeconds}
+                      controls
+                      src={review!.videoLink + `#t=${Math.floor(seekSeconds)}`}
+                      className="video-frame"
+                      onError={() => setVideoError(true)}
+                    />
+                  )
+                ) : (
+                  <p className="hint" style={{ padding: 4 }}>
+                    This video link cannot be embedded. Ask your educator to attach a YouTube or direct video link.
+                  </p>
                 )
               ) : (
                 <p className="hint" style={{ padding: 4 }}>
-                  This video link cannot be embedded. Ask your educator to attach a YouTube or direct video link.
+                  No video attached to this review.
                 </p>
-              )
-            ) : (
-              <p className="hint" style={{ padding: 4 }}>
-                No video attached to this review.
-              </p>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Clip navigation + selected clip detail */}
           {total > 0 && (
@@ -670,7 +700,11 @@ export function RefereeReviewScreen({
                             <button
                               className="clip-action-btn"
                               style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                              onClick={() => setShowComments(v => !v)}
+                              onClick={() => {
+                                const willOpen = !showComments;
+                                setShowComments(v => !v);
+                                if (willOpen && review?.id) clearUnread?.(review.id, tag.id);
+                              }}
                             >
                               <MessageSquare size={11} />
                               {showComments ? "Hide comments" : "View comments"}
