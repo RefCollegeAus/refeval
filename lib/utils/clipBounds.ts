@@ -17,7 +17,7 @@ import type { CodedTag } from "@/lib/types/reviews";
 //
 // The canonical pre-roll constant only applies to new clips.
 export const CLIP_PRE_ROLL = 10;
-export const CLIP_DEFAULT_POST_ROLL = 5;
+export const CLIP_DEFAULT_POST_ROLL = 10;
 
 // ── resolveClipBounds ─────────────────────────────────────────────────────────
 
