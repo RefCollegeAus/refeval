@@ -414,6 +414,8 @@ label{display:grid;gap:7px;font-size:13px;font-weight:800;color:var(--muted)} a{
 .sh-filter-chip:hover{border-color:var(--accent)}
 .sh-filter-chip--active{background:rgba(165,106,27,.18)!important;border-color:var(--accent)!important;color:#fde68a}
 .sh-filter-chip--sub{font-size:11px;padding:3px 8px}
+.sh-expand-toggle{background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;padding:0 2px;line-height:1;vertical-align:middle}
+.sh-expand-toggle:hover{color:var(--accent)}
 /* Draggable column divider */
 .sh-divider{width:6px;cursor:col-resize;background:transparent;border-left:2px solid var(--border);transition:border-color .15s;flex-shrink:0;align-self:stretch}
 .sh-divider:hover,.sh-divider:active{border-color:var(--accent)}

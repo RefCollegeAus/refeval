@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Header } from "@/components/Header";
-import { makeAnalytics, percent } from "@/lib/utils/analytics";
+import { makeAnalytics, percent, countBy } from "@/lib/utils/analytics";
 import { embedUrl, isDirectVideoUrl } from "@/lib/utils/video";
 import { normaliseClipTaxonomy } from "@/lib/utils/taxonomyCompatibility";
 import { DateRangeFilter, datePassesFilter, DATE_RANGE_DEFAULT } from "@/components/common/DateRangeFilter";
@@ -30,6 +30,52 @@ type StatsTag = CodedTag & {
 type AnalyticsFilter = { field: string; value: string; label: string };
 /** @deprecated use DateRangeValue */
 type DateRange = "all" | "30" | "90";
+
+type FacetFilters = {
+  outcome: string | null;
+  category: string | null;
+  position: string | null;
+  coverage: string | null;
+};
+const EMPTY_FACETS: FacetFilters = { outcome: null, category: null, position: null, coverage: null };
+
+function norm(s: string | null | undefined): string { return (s ?? "").trim(); }
+function normForMatch(s: string | null | undefined): string { const v = norm(s); return v === "Uncoded" ? "" : v; }
+
+function shMatchesOutcome(tag: StatsTag, filterValue: string): boolean {
+  const tagVal = norm(tag.outcome).toLowerCase();
+  const fVal = normForMatch(filterValue).toLowerCase();
+  if (fVal === "") return tagVal === "";
+  if (fVal === "correct") return tagVal.startsWith("correct");
+  if (fVal === "incorrect") return tagVal.startsWith("incorrect");
+  return tagVal === fVal;
+}
+function shMatchesCategory(tag: StatsTag, filterValue: string): boolean {
+  const tagVal = norm((tag as any)._displayCategoryFull as string || tag.category);
+  const fVal = normForMatch(filterValue);
+  if (fVal === "") return tagVal === "";
+  if (fVal.includes(" — ")) return tagVal === fVal;
+  return tagVal.startsWith(fVal + " — ") || tagVal === fVal;
+}
+function shMatchesPosition(tag: StatsTag, filterValue: string): boolean {
+  const tagVal = norm(tag.position);
+  const fVal = normForMatch(filterValue);
+  if (fVal === "") return tagVal === "";
+  return tagVal === fVal;
+}
+function shMatchesCoverage(tag: StatsTag, filterValue: string): boolean {
+  const tagVal = norm(tag.coverage);
+  const fVal = normForMatch(filterValue);
+  if (fVal === "") return tagVal === "";
+  return tagVal === fVal;
+}
+function shMatchesFacets(tag: StatsTag, filters: FacetFilters, excludedFacet?: keyof FacetFilters): boolean {
+  const outcomeMatches = excludedFacet === "outcome" || filters.outcome === null || shMatchesOutcome(tag, filters.outcome);
+  const categoryMatches = excludedFacet === "category" || filters.category === null || shMatchesCategory(tag, filters.category);
+  const positionMatches = excludedFacet === "position" || filters.position === null || shMatchesPosition(tag, filters.position);
+  const coverageMatches = excludedFacet === "coverage" || filters.coverage === null || shMatchesCoverage(tag, filters.coverage);
+  return outcomeMatches && categoryMatches && positionMatches && coverageMatches;
+}
 
 function slotForUser(userId: string, review?: ReviewRecord): RefSlot {
   if (!review) return "All Referees";
@@ -156,7 +202,8 @@ function AccuracyTrend({
 // ── Main component ───────────────────────────────────────────────────────────
 export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onProfile, onLogout }: Props) {
   const [dateFilter, setDateFilter] = useState<DateRangeValue>(DATE_RANGE_DEFAULT);
-  const [analyticsFilter, setAnalyticsFilter] = useState<AnalyticsFilter | null>(null);
+  const [facetFilters, setFacetFilters] = useState<FacetFilters>(EMPTY_FACETS);
+  const [expandedCategoryGroup, setExpandedCategoryGroup] = useState<string | null>(null);
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const [seekSeconds, setSeekSeconds] = useState(0);
   const [videoError, setVideoError] = useState(false);
@@ -228,26 +275,59 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
     return m;
   }, [allMyTags]);
 
-  const analytics = useMemo(() => makeAnalytics(allMyTags), [allMyTags]);
+  const hasAnyFacetFilter =
+    facetFilters.outcome !== null ||
+    facetFilters.category !== null ||
+    facetFilters.position !== null ||
+    facetFilters.coverage !== null;
 
+  // Per-facet compatible pools: each excludes its own facet so dynamic options narrow correctly
+  const outcomeCompatibleClips = useMemo(
+    () => allMyTags.filter(t => shMatchesFacets(t, facetFilters, "outcome")),
+    [allMyTags, facetFilters],
+  );
+  const categoryCompatibleClips = useMemo(
+    () => allMyTags.filter(t => shMatchesFacets(t, facetFilters, "category")),
+    [allMyTags, facetFilters],
+  );
+  const positionCompatibleClips = useMemo(
+    () => allMyTags.filter(t => shMatchesFacets(t, facetFilters, "position")),
+    [allMyTags, facetFilters],
+  );
+  const coverageCompatibleClips = useMemo(
+    () => allMyTags.filter(t => shMatchesFacets(t, facetFilters, "coverage")),
+    [allMyTags, facetFilters],
+  );
+
+  // filteredTags: the canonical dataset — all four facets active
+  const filteredTags = useMemo(
+    (): StatsTag[] => allMyTags.filter(t => shMatchesFacets(t, facetFilters)),
+    [allMyTags, facetFilters],
+  );
+
+  // Analytics derives from the filtered dataset so all summary tiles reflect active facets
+  const analytics = useMemo(() => makeAnalytics(filteredTags), [filteredTags]);
+
+  // Outcome section counts come from compatible pool (excludes own facet)
+  const outcomeCompatibleAnalytics = useMemo(() => makeAnalytics(outcomeCompatibleClips), [outcomeCompatibleClips]);
+
+  // Category group counts from compatible pool
   const groupedCategoryCounts = useMemo((): [string, number][] => {
     const counts: Record<string, number> = {};
-    for (const t of allMyTags) {
-      // Use display category from compatibility layer; fall back to "Uncoded"
+    for (const t of categoryCompatibleClips) {
       const group = (t as any)._displayCategory || "Uncoded";
       counts[group] = (counts[group] || 0) + 1;
     }
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  }, [allMyTags]);
+  }, [categoryCompatibleClips]);
 
-  const activeGroupForSub: string | null =
-    analyticsFilter?.field === "category-group" ? analyticsFilter.value :
-    analyticsFilter?.field === "category-specific" ? analyticsFilter.value.split(" — ")[0] : null;
+  // Expansion of category sub-tags is independent of the category filter
+  const activeGroupForSub: string | null = expandedCategoryGroup;
 
   const categorySubCounts = useMemo((): [string, string, number][] => {
     if (!activeGroupForSub) return [];
     const counts: Record<string, number> = {};
-    for (const t of allMyTags) {
+    for (const t of categoryCompatibleClips) {
       const cat = (t as any)._displayCategory as string | null;
       const spec = (t as any)._displaySpecificTag as string | null;
       if (cat === activeGroupForSub && spec) {
@@ -255,60 +335,55 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
       }
     }
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([s, c]) => [s, `${activeGroupForSub} — ${s}`, c]);
-  }, [activeGroupForSub, allMyTags]);
+  }, [activeGroupForSub, categoryCompatibleClips]);
 
-  const filteredTags = useMemo((): StatsTag[] => {
-    if (!analyticsFilter) return allMyTags;
-    const { field, value } = analyticsFilter;
-    return allMyTags.filter(t => {
-      if (field === "outcome-group") return (t.outcome || "").startsWith(value);
-      if (field === "outcome") return t.outcome === value;
-      // Category filters use display values from compatibility layer
-      if (field === "category-group") return (t as any)._displayCategory === value;
-      if (field === "category-specific") {
-        const [grp, spec] = value.split(" — ");
-        return (t as any)._displayCategory === grp && (t as any)._displaySpecificTag === spec;
-      }
-      if (field === "position") return t.position === value;
-      if (field === "coverage") return t.coverage === value;
-      return true;
-    });
-  }, [analyticsFilter, allMyTags]);
+  // Position and coverage section counts from their compatible pools
+  const positionSectionCounts = useMemo(() => countBy(positionCompatibleClips, "position"), [positionCompatibleClips]);
+  const coverageSectionCounts = useMemo(() => countBy(coverageCompatibleClips, "coverage"), [coverageCompatibleClips]);
 
   const selectedClip = filteredTags.find(t => t.id === selectedClipId) ?? allMyTags.find(t => t.id === selectedClipId) ?? null;
 
   function selectClip(tag: StatsTag) { setSelectedClipId(tag.id); setSeekSeconds(tag.adjustedSeconds); setVideoError(false); setVideoLoading(true); }
-  function toggleFilter(field: string, value: string, label: string) {
-    setAnalyticsFilter(f => f?.field === field && f.value === value ? null : { field, value, label });
+
+  function isFacetActive(collection: keyof FacetFilters, value: string) { return facetFilters[collection] === value; }
+  function toggleFacet(collection: keyof FacetFilters, value: string) {
+    setFacetFilters(prev => ({ ...prev, [collection]: prev[collection] === value ? null : value }));
     setSelectedClipId(null);
   }
-
-  function clickableBars(counts: [string, number][], field: string) {
-    const max = Math.max(...counts.map(([, c]) => c), 1);
-    return counts.map(([name, count]) => {
-      const isActive = analyticsFilter?.field === field && analyticsFilter.value === name;
-      return (
-        <div key={name} className={"metric-row clickable" + (isActive ? " analytics-active" : "")}
-          role="button" tabIndex={0}
-          onClick={() => toggleFilter(field, name, name)}
-          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter(field, name, name); } }}
-          title={isActive ? "Clear filter" : `Filter: ${name}`}
-        >
-          <span>{name}</span>
-          <div className="mini-bar"><div className="mini-bar-fill" style={{ width: `${Math.round((count / max) * 100)}%` }} /></div>
-          <strong>{count}</strong>
-        </div>
-      );
-    });
+  function clearFacet(collection: keyof FacetFilters) {
+    setFacetFilters(prev => ({ ...prev, [collection]: null }));
+    setSelectedClipId(null);
+  }
+  function clearAllFacets() {
+    setFacetFilters({ ...EMPTY_FACETS });
+    setSelectedClipId(null);
+  }
+  function toggleCategoryExpansion(group: string) {
+    setExpandedCategoryGroup(prev => prev === group ? null : group);
   }
 
+  const COLLECTION_LABELS: Record<keyof FacetFilters, string> = { outcome: "Outcome", category: "Category", position: "Position", coverage: "Coverage" };
+  const activeChips: { collection: keyof FacetFilters; value: string; label: string }[] = [];
+  for (const collection of Object.keys(facetFilters) as (keyof FacetFilters)[]) {
+    const value = facetFilters[collection];
+    if (value !== null) {
+      const label = `${COLLECTION_LABELS[collection]}: ${value.includes(" — ") ? value.split(" — ")[1] : value}`;
+      activeChips.push({ collection, value, label });
+    }
+  }
+
+
+
+  // Summary tiles derive from filteredTags (the fully-faceted dataset)
   const denom = analytics.correctCalls + analytics.correctNoCalls + analytics.incorrectCalls + analytics.incorrectNoCalls;
   const accuracyPct = denom ? Math.round(((analytics.correctCalls + analytics.correctNoCalls) / denom) * 100) : null;
 
+  // Outcome section bars use the outcome-compatible pool (excludes own facet), so clicking other
+  // facets narrows these options without erasing the current Outcome selection
   const outcomeSlices: DonutSlice[] = [
-    { label: "Correct", count: analytics.correctCalls + analytics.correctNoCalls, color: "#22c55e", field: "outcome-group", value: "Correct" },
-    { label: "Incorrect", count: analytics.incorrectCalls + analytics.incorrectNoCalls, color: "#ef4444", field: "outcome-group", value: "Incorrect" },
-    { label: "Review", count: analytics.reviews, color: "#f59e0b", field: "outcome", value: "Review" },
+    { label: "Correct", count: outcomeCompatibleAnalytics.correctCalls + outcomeCompatibleAnalytics.correctNoCalls, color: "#22c55e", field: "outcome-group", value: "Correct" },
+    { label: "Incorrect", count: outcomeCompatibleAnalytics.incorrectCalls + outcomeCompatibleAnalytics.incorrectNoCalls, color: "#ef4444", field: "outcome-group", value: "Incorrect" },
+    { label: "Review", count: outcomeCompatibleAnalytics.reviews, color: "#f59e0b", field: "outcome", value: "Review" },
   ];
 
   const currentEmbed = selectedClip?.reviewVideoLink
@@ -340,7 +415,7 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
       <div style={{ padding: "0 16px" }}>
         <DateRangeFilter
           value={dateFilter}
-          onChange={v => { setDateFilter(v); setAnalyticsFilter(null); }}
+          onChange={v => { setDateFilter(v); setFacetFilters({ ...EMPTY_FACETS }); setExpandedCategoryGroup(null); }}
           totalCount={myReviews.length}
           filteredCount={dateFilteredReviews.length}
         />
@@ -357,7 +432,7 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
           <div className="sh-snap-lbl">Reviews</div>
         </div>
         <div className="sh-snap-card">
-          <div className="sh-snap-num">{allMyTags.length}</div>
+          <div className="sh-snap-num">{filteredTags.length}{hasAnyFacetFilter ? <span style={{ fontSize: 11, fontWeight: 400, color: "var(--muted)" }}> /{allMyTags.length}</span> : null}</div>
           <div className="sh-snap-lbl">Clips</div>
         </div>
         <div className="sh-snap-card sh-snap-card--good">
@@ -382,34 +457,36 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
           {/* ── Left: filter panel + clip list ── */}
           <div className="sh-filter-col">
 
-            {/* Active filter */}
-            {analyticsFilter ? (
-              <div className="sh-active-filters">
-                <p className="sh-filter-group-hdr" style={{ margin: 0 }}>Active Filters</p>
-                <div className="sh-active-chip">
-                  <span>✓ {analyticsFilter.label}</span>
-                  <button className="sh-active-chip-remove"
-                    onClick={() => { setAnalyticsFilter(null); setSelectedClipId(null); }}>×</button>
+            {/* Selected Filters — compact chip row, only when at least one filter is active */}
+            {hasAnyFacetFilter ? (
+              <div className="selected-filters" style={{ marginBottom: 8 }}>
+                <div className="facet-active-chips">
+                  {activeChips.map(chip => (
+                    <button key={chip.collection + chip.value} className="filter-chip"
+                      onClick={() => clearFacet(chip.collection)} title={`Remove: ${chip.label}`}>
+                      {chip.label} ×
+                    </button>
+                  ))}
+                  <button className="facet-clear-all" onClick={clearAllFacets}>Clear all ×</button>
                 </div>
-                <button className="sh-clear-all"
-                  onClick={() => { setAnalyticsFilter(null); setSelectedClipId(null); }}>Clear All</button>
               </div>
             ) : (
               <p className="hint" style={{ fontSize: 11, margin: "0 0 4px" }}>Click any bar below to filter clips.</p>
             )}
 
-            {/* Outcome bars */}
+            {/* Outcome bars — counts from compatible pool (excludes own facet) */}
             <div className="sh-filter-group">
               <p className="sh-filter-group-hdr">Outcome</p>
               {(() => {
-                const maxVal = Math.max(...outcomeSlices.map(s => s.count), 1);
-                return outcomeSlices.filter(s => s.count > 0).map(s => {
-                  const isActive = analyticsFilter?.field === s.field && analyticsFilter.value === s.value;
+                const displaySlices = outcomeSlices.filter(s => s.count > 0 || isFacetActive("outcome", s.value));
+                const maxVal = Math.max(...displaySlices.map(s => s.count), 1);
+                return displaySlices.map(s => {
+                  const isActive = isFacetActive("outcome", s.value);
                   return (
                     <div key={s.label} className={"sh-bar-row" + (isActive ? " sh-bar-row--active" : "")}
                       role="button" tabIndex={0}
-                      onClick={() => toggleFilter(s.field, s.value, s.label)}
-                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter(s.field, s.value, s.label); } }}>
+                      onClick={() => toggleFacet("outcome", s.value)}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("outcome", s.value); } }}>
                       <div className="sh-bar-header">
                         <span className="sh-bar-label">
                           <span className="sh-bar-dot" style={{ background: s.color }} />{s.label}
@@ -417,7 +494,7 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
                         <span className="sh-bar-count">{s.count}</span>
                       </div>
                       <div className="sh-bar-track">
-                        <div className="sh-bar-fill" style={{ width: `${Math.round((s.count / maxVal) * 100)}%`, background: s.color }} />
+                        <div className="sh-bar-fill" style={{ width: s.count > 0 ? `${Math.round((s.count / maxVal) * 100)}%` : "0%", background: s.color }} />
                       </div>
                     </div>
                   );
@@ -425,87 +502,162 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
               })()}
             </div>
 
-            {/* Category bars */}
-            {groupedCategoryCounts.length > 0 && (
-              <div className="sh-filter-group">
-                <p className="sh-filter-group-hdr">Category</p>
-                {(() => {
-                  const maxVal = Math.max(...groupedCategoryCounts.map(([, c]) => c), 1);
-                  return groupedCategoryCounts.map(([group, count]) => {
+            {/* Category bars — counts from compatible pool (excludes own facet) */}
+            {(() => {
+              const selectedCat = facetFilters.category;
+              const selectedGroup = selectedCat
+                ? (selectedCat.includes(" — ") ? selectedCat.split(" — ")[0] : selectedCat)
+                : null;
+              const displayGroups: [string, number][] =
+                selectedGroup && !groupedCategoryCounts.some(([g]) => g === selectedGroup)
+                  ? [...groupedCategoryCounts, [selectedGroup, 0]]
+                  : groupedCategoryCounts;
+              if (displayGroups.length === 0) return null;
+              const maxVal = Math.max(...displayGroups.map(([, c]) => c), 1);
+              return (
+                <div className="sh-filter-group">
+                  <p className="sh-filter-group-hdr">Category</p>
+                  {displayGroups.map(([group, count]) => {
                     const isGroupActive =
-                      (analyticsFilter?.field === "category-group" && analyticsFilter.value === group) ||
-                      (analyticsFilter?.field === "category-specific" && analyticsFilter.value.startsWith(group + " — "));
+                      facetFilters.category !== null && (
+                        facetFilters.category === group ||
+                        facetFilters.category.startsWith(group + " — ")
+                      );
+                    const hasSubCounts = categoryCompatibleClips.some(
+                      t => (t as any)._displayCategory === group && (t as any)._displaySpecificTag
+                    );
                     return (
                       <div key={group} className={"sh-bar-row" + (isGroupActive ? " sh-bar-row--active" : "")}
                         role="button" tabIndex={0}
-                        onClick={() => toggleFilter("category-group", group, `${group} clips`)}
-                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("category-group", group, `${group} clips`); } }}>
+                        onClick={() => { toggleFacet("category", group); setExpandedCategoryGroup(group); }}
+                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("category", group); setExpandedCategoryGroup(group); } }}>
                         <div className="sh-bar-header">
-                          <span className="sh-bar-label">{group}</span>
+                          <span className="sh-bar-label">
+                            {group}
+                            {hasSubCounts && (
+                              <button
+                                className="sh-expand-toggle"
+                                onClick={e => { e.stopPropagation(); toggleCategoryExpansion(group); }}
+                                title={expandedCategoryGroup === group ? `Collapse ${group}` : `Expand ${group}`}
+                                aria-label={expandedCategoryGroup === group ? `Collapse ${group}` : `Expand ${group}`}
+                              >
+                                {expandedCategoryGroup === group ? " ▾" : " ▸"}
+                              </button>
+                            )}
+                          </span>
                           <span className="sh-bar-count">{count}</span>
                         </div>
                         <div className="sh-bar-track">
-                          <div className="sh-bar-fill" style={{ width: `${Math.round((count / maxVal) * 100)}%` }} />
+                          <div className="sh-bar-fill" style={{ width: count > 0 ? `${Math.round((count / maxVal) * 100)}%` : "0%" }} />
                         </div>
                       </div>
                     );
-                  });
-                })()}
-              </div>
-            )}
-
-            {/* Specific tags (after category click) */}
-            {categorySubCounts.length > 0 && (
-              <div className="sh-filter-group sh-filter-group--sub">
-                <p className="sh-filter-group-hdr">
-                  Specific Tags&nbsp;<span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— {activeGroupForSub}</span>
-                </p>
-                <div className="sh-subtag-chips">
-                  {categorySubCounts.map(([specific, fullVal, count]) => {
-                    const isActive = analyticsFilter?.field === "category-specific" && analyticsFilter.value === fullVal;
-                    return (
-                      <button key={fullVal}
-                        className={"sh-filter-chip sh-filter-chip--sub" + (isActive ? " sh-filter-chip--active" : "")}
-                        onClick={() => toggleFilter("category-specific", fullVal, `${activeGroupForSub} → ${specific}`)}>
-                        {specific} <strong>{count}</strong>
-                      </button>
-                    );
                   })}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
-            {/* Coverage bars */}
-            {analytics.coverageCounts.length > 0 && (
-              <div className="sh-filter-group">
-                <p className="sh-filter-group-hdr">Coverage</p>
-                {(() => {
-                  const maxVal = Math.max(...analytics.coverageCounts.map(([, c]) => c), 1);
-                  return analytics.coverageCounts.map(([name, count]) => {
-                    const isActive = analyticsFilter?.field === "coverage" && analyticsFilter.value === name;
+            {/* Specific tags — shown when a group is expanded (expansion independent from filter) */}
+            {activeGroupForSub !== null && (() => {
+              const isSpecificSelected =
+                facetFilters.category?.includes(" — ") &&
+                facetFilters.category.startsWith(activeGroupForSub + " — ");
+              const allSubs: [string, string, number][] =
+                isSpecificSelected && !categorySubCounts.some(([, fv]) => fv === facetFilters.category)
+                  ? [...categorySubCounts, [facetFilters.category!.split(" — ")[1], facetFilters.category!, 0]]
+                  : categorySubCounts;
+              if (allSubs.length === 0) return null;
+              return (
+                <div className="sh-filter-group sh-filter-group--sub">
+                  <p className="sh-filter-group-hdr">
+                    Specific Tags&nbsp;<span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— {activeGroupForSub}</span>
+                  </p>
+                  <div className="sh-subtag-chips">
+                    {allSubs.map(([specific, fullVal, count]) => {
+                      const isActive = isFacetActive("category", fullVal);
+                      return (
+                        <button key={fullVal}
+                          className={"sh-filter-chip sh-filter-chip--sub" + (isActive ? " sh-filter-chip--active" : "")}
+                          onClick={() => toggleFacet("category", fullVal)}>
+                          {specific} <strong>{count}</strong>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Position bars — counts from compatible pool */}
+            {(() => {
+              const selectedPos = facetFilters.position;
+              const displayCounts: [string, number][] =
+                selectedPos && !positionSectionCounts.some(([v]) => v === selectedPos)
+                  ? [...positionSectionCounts, [selectedPos, 0]]
+                  : positionSectionCounts;
+              if (displayCounts.length === 0) return null;
+              const maxVal = Math.max(...displayCounts.map(([, c]) => c), 1);
+              return (
+                <div className="sh-filter-group">
+                  <p className="sh-filter-group-hdr">Position</p>
+                  {displayCounts.map(([name, count]) => {
+                    const isActive = isFacetActive("position", name);
                     return (
                       <div key={name} className={"sh-bar-row" + (isActive ? " sh-bar-row--active" : "")}
                         role="button" tabIndex={0}
-                        onClick={() => toggleFilter("coverage", name, name)}
-                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("coverage", name, name); } }}>
+                        onClick={() => toggleFacet("position", name)}
+                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("position", name); } }}>
                         <div className="sh-bar-header">
                           <span className="sh-bar-label">{name}</span>
                           <span className="sh-bar-count">{count}</span>
                         </div>
                         <div className="sh-bar-track">
-                          <div className="sh-bar-fill" style={{ width: `${Math.round((count / maxVal) * 100)}%` }} />
+                          <div className="sh-bar-fill" style={{ width: count > 0 ? `${Math.round((count / maxVal) * 100)}%` : "0%" }} />
                         </div>
                       </div>
                     );
-                  });
-                })()}
-              </div>
-            )}
+                  })}
+                </div>
+              );
+            })()}
+
+            {/* Coverage bars — counts from compatible pool */}
+            {(() => {
+              const selectedCov = facetFilters.coverage;
+              const displayCounts: [string, number][] =
+                selectedCov && !coverageSectionCounts.some(([v]) => v === selectedCov)
+                  ? [...coverageSectionCounts, [selectedCov, 0]]
+                  : coverageSectionCounts;
+              if (displayCounts.length === 0) return null;
+              const maxVal = Math.max(...displayCounts.map(([, c]) => c), 1);
+              return (
+                <div className="sh-filter-group">
+                  <p className="sh-filter-group-hdr">Coverage</p>
+                  {displayCounts.map(([name, count]) => {
+                    const isActive = isFacetActive("coverage", name);
+                    return (
+                      <div key={name} className={"sh-bar-row" + (isActive ? " sh-bar-row--active" : "")}
+                        role="button" tabIndex={0}
+                        onClick={() => toggleFacet("coverage", name)}
+                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("coverage", name); } }}>
+                        <div className="sh-bar-header">
+                          <span className="sh-bar-label">{name}</span>
+                          <span className="sh-bar-count">{count}</span>
+                        </div>
+                        <div className="sh-bar-track">
+                          <div className="sh-bar-fill" style={{ width: count > 0 ? `${Math.round((count / maxVal) * 100)}%` : "0%" }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             {/* Clip list */}
             <div style={{ flex: 1 }}>
               <p className="rv-sidebar-heading" style={{ margin: "8px 0 6px" }}>
-                Clips ({filteredTags.length}{analyticsFilter ? ` of ${allMyTags.length}` : ""})
+                Clips ({filteredTags.length}{hasAnyFacetFilter ? ` of ${allMyTags.length}` : ""})
               </p>
               {filteredTags.length === 0 ? (
                 <div className="empty-state" style={{ margin: 0, padding: "16px 0" }}>No clips match this filter.</div>
