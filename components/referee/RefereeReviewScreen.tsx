@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { ReviewComments } from "@/components/ReviewComments";
 import { makeAnalytics } from "@/lib/utils/analytics";
@@ -48,6 +48,57 @@ function outcomeClass(outcome?: string | null): string {
   return "review";
 }
 
+type FacetFilters = {
+  outcome: string | null;
+  category: string | null;
+  position: string | null;
+  coverage: string | null;
+};
+
+function norm(s: string | null | undefined): string {
+  return (s ?? "").trim();
+}
+
+// "Uncoded" is the display label used by countBy() for empty-string fields.
+// Matching must map it back to "" so clips with no value are correctly found.
+function normForMatch(s: string | null | undefined): string {
+  const v = norm(s);
+  return v === "Uncoded" ? "" : v;
+}
+
+function clipMatchesOutcome(tag: CodedTag, filterValue: string): boolean {
+  const tagVal = norm(tag.outcome).toLowerCase();
+  const fVal = normForMatch(filterValue).toLowerCase();
+  if (fVal === "") return tagVal === "";           // "Uncoded" filter → empty outcome
+  if (fVal === "correct") return tagVal.startsWith("correct");
+  if (fVal === "incorrect") return tagVal.startsWith("incorrect");
+  return tagVal === fVal;
+}
+
+function clipMatchesCategory(tag: CodedTag, filterValue: string): boolean {
+  const tagVal = norm(tag.category);
+  const fVal = normForMatch(filterValue);
+  if (fVal === "") return tagVal === "";           // "Uncoded" filter → empty category
+  if (fVal.includes(" — ")) return tagVal === fVal;   // specific: exact match
+  return tagVal.startsWith(fVal + " — ") || tagVal === fVal; // group or bare name
+}
+
+function clipMatchesPosition(tag: CodedTag, filterValue: string): boolean {
+  const tagVal = norm(tag.position);
+  const fVal = normForMatch(filterValue);
+  if (fVal === "") return tagVal === "";           // "Uncoded" filter → empty position
+  return tagVal === fVal;
+}
+
+function clipMatchesCoverage(tag: CodedTag, filterValue: string): boolean {
+  const tagVal = norm(tag.coverage);
+  const fVal = normForMatch(filterValue);
+  if (fVal === "") return tagVal === "";           // "Uncoded" filter → empty coverage
+  return tagVal === fVal;
+}
+
+const EMPTY_FACETS: FacetFilters = { outcome: null, category: null, position: null, coverage: null };
+
 export function RefereeReviewScreen({
   review,
   visibleTags,
@@ -74,21 +125,24 @@ export function RefereeReviewScreen({
   });
   const [seekAutoplay, setSeekAutoplay] = useState(!!initialTagId);
   const [showComments, setShowComments] = useState(false);
-
-  // Analytics filter: clicking a breakdown row filters the visible clip list
-  type AnalyticsFilter = { field: string; value: string; label: string };
-  const [analyticsFilter, setAnalyticsFilter] = useState<AnalyticsFilter | null>(null);
+  const [facetFilters, setFacetFilters] = useState<FacetFilters>(EMPTY_FACETS);
+  const [expandedCategoryGroup, setExpandedCategoryGroup] = useState<string | null>(null);
   const [videoError, setVideoError] = useState(false);
 
-  // Reset comments when clip changes or filter changes
   useEffect(() => { setShowComments(false); }, [selectedIdx]);
-  useEffect(() => { setSelectedIdx(0); setShowComments(false); }, [analyticsFilter]);
+  useEffect(() => { setSelectedIdx(0); setShowComments(false); }, [facetFilters]);
+
+  const hasAnyFilter =
+    facetFilters.outcome !== null ||
+    facetFilters.category !== null ||
+    facetFilters.position !== null ||
+    facetFilters.coverage !== null;
 
   // Analytics always computed from full tag list so all breakdown options remain visible
   const analytics = makeAnalytics(visibleTags);
 
-  // Group "Foul — Push" → "Foul" for referee-facing category display
-  const groupedCategoryCounts: [string, number][] = (() => {
+  // Group "Foul — Push" → "Foul" for category group bars
+  const groupedCategoryCounts: [string, number][] = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const tag of visibleTags) {
       const cat = tag.category || "";
@@ -97,42 +151,67 @@ export function RefereeReviewScreen({
       counts[group] = (counts[group] || 0) + 1;
     }
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  })();
+  }, [visibleTags]);
 
-  // Derive the active category group for sub-filter (works for both category-group and category-specific filters)
-  const activeGroupForSub: string | null =
-    analyticsFilter?.field === "category-group" ? analyticsFilter.value :
-    analyticsFilter?.field === "category-specific" ? analyticsFilter.value.split(" — ")[0] : null;
-
-  // Specific tags present in visibleTags for the active group — drives the drill-down row
-  const categorySubCounts: [string, string, number][] = (() => {
-    if (!activeGroupForSub) return [];
-    const counts: Record<string, number> = {};
+  // Full sub-counts map: group → [(specificLabel, fullCategoryValue, count)]
+  const allCategorySubCounts = useMemo(() => {
+    const result: Record<string, [string, string, number][]> = {};
     for (const tag of visibleTags) {
       const cat = tag.category || "";
-      if (cat.startsWith(activeGroupForSub + " — ")) {
-        const specific = cat.slice(activeGroupForSub.length + 3);
-        if (specific) counts[specific] = (counts[specific] || 0) + 1;
+      const sep = cat.indexOf(" — ");
+      if (sep !== -1) {
+        const group = cat.slice(0, sep);
+        const specific = cat.slice(sep + 3);
+        if (!result[group]) result[group] = [];
+        const existing = result[group].find(([s]) => s === specific);
+        if (existing) existing[2]++;
+        else result[group].push([specific, cat, 1]);
       }
     }
-    // [label, fullCategoryValue, count]
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([s, c]) => [s, `${activeGroupForSub} — ${s}`, c]);
-  })();
+    for (const entries of Object.values(result)) entries.sort((a, b) => b[2] - a[2]);
+    return result;
+  }, [visibleTags]);
 
-  // Clip list filtered by active analytics selection
-  const filteredTags = analyticsFilter
-    ? visibleTags.filter(tag => {
-        const { field, value } = analyticsFilter;
-        if (field === "outcome-group") return (tag.outcome || "").startsWith(value);
-        if (field === "outcome") return tag.outcome === value;
-        if (field === "category") return tag.category === value;
-        if (field === "category-group") return (tag.category || "").startsWith(value + " — ");
-        if (field === "category-specific") return tag.category === value;
-        if (field === "position") return tag.position === value;
-        if (field === "coverage") return tag.coverage === value;
-        return true;
-      })
-    : visibleTags;
+  function isFacetActive(collection: keyof FacetFilters, value: string) {
+    return facetFilters[collection] === value;
+  }
+
+  function toggleFacet(collection: keyof FacetFilters, value: string) {
+    setFacetFilters(prev => ({
+      ...prev,
+      [collection]: prev[collection] === value ? null : value,
+    }));
+  }
+
+  function clearFacet(collection: keyof FacetFilters) {
+    setFacetFilters(prev => ({ ...prev, [collection]: null }));
+  }
+
+  function clearAllFacets() {
+    setFacetFilters(EMPTY_FACETS);
+  }
+
+  function toggleCategoryExpansion(group: string) {
+    setExpandedCategoryGroup(prev => prev === group ? null : group);
+  }
+
+  function tagMatchesFacets(tag: CodedTag): boolean {
+    const outcomeMatches =
+      facetFilters.outcome === null ||
+      clipMatchesOutcome(tag, facetFilters.outcome);
+    const categoryMatches =
+      facetFilters.category === null ||
+      clipMatchesCategory(tag, facetFilters.category);
+    const positionMatches =
+      facetFilters.position === null ||
+      clipMatchesPosition(tag, facetFilters.position);
+    const coverageMatches =
+      facetFilters.coverage === null ||
+      clipMatchesCoverage(tag, facetFilters.coverage);
+    return outcomeMatches && categoryMatches && positionMatches && coverageMatches;
+  }
+
+  const filteredTags = hasAnyFilter ? visibleTags.filter(tagMatchesFacets) : visibleTags;
 
   const total = filteredTags.length;
   const selectedTag = total > 0 ? filteredTags[selectedIdx] ?? null : null;
@@ -152,22 +231,19 @@ export function RefereeReviewScreen({
     setVideoError(false);
   }
 
-  function toggleFilter(field: string, value: string, label: string) {
-    setAnalyticsFilter(f => f?.field === field && f.value === value ? null : { field, value, label });
-  }
-
-  function bars(counts: [string, number][], field: string) {
+  // Stats bars: collection key drives both isFacetActive and toggleFacet
+  function bars(counts: [string, number][], collection: keyof FacetFilters) {
     const max = Math.max(...counts.map(([, c]) => c), 1);
     return counts.map(([name, count]) => {
-      const isActive = analyticsFilter?.field === field && analyticsFilter.value === name;
+      const isActive = isFacetActive(collection, name);
       return (
         <div
           key={name}
           className={"metric-row clickable" + (isActive ? " analytics-active" : "")}
           role="button"
           tabIndex={0}
-          onClick={() => toggleFilter(field, name, name)}
-          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter(field, name, name); } }}
+          onClick={() => toggleFacet(collection, name)}
+          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet(collection, name); } }}
           title={isActive ? "Click to clear filter" : `Filter clips: ${name}`}
         >
           <span>{name}</span>
@@ -178,6 +254,17 @@ export function RefereeReviewScreen({
         </div>
       );
     });
+  }
+
+  // Build the chips list for the active-filters summary banner
+  const activeChips: { collection: keyof FacetFilters; value: string; label: string }[] = [];
+  const COLLECTION_LABELS: Record<keyof FacetFilters, string> = { outcome: "Outcome", category: "Category", position: "Position", coverage: "Coverage" };
+  for (const collection of Object.keys(facetFilters) as (keyof FacetFilters)[]) {
+    const value = facetFilters[collection];
+    if (value !== null) {
+      const label = `${COLLECTION_LABELS[collection]}: ${value.includes(" — ") ? value.split(" — ")[1] : value}`;
+      activeChips.push({ collection, value, label });
+    }
   }
 
   return (
@@ -328,27 +415,19 @@ export function RefereeReviewScreen({
           {visibleTags.length === 0 && (
             <div className="empty-state">No clips have been tagged for this review yet.</div>
           )}
-          {visibleTags.length > 0 && total === 0 && analyticsFilter && (
-            <div className="empty-state">No clips match this filter. <button style={{ fontSize: 13 }} onClick={() => setAnalyticsFilter(null)}>Clear</button></div>
+          {visibleTags.length > 0 && total === 0 && hasAnyFilter && (
+            <div className="empty-state">
+              No clips match the selected filters.{" "}
+              <button style={{ fontSize: 13 }} onClick={clearAllFacets}>Clear filters</button>
+            </div>
           )}
 
-          {/* Performance summary */}
+          {/* ── Analytics & Filter section ── */}
           {visibleTags.length > 0 && (
             <>
-              {analyticsFilter ? (
-                <div className="analytics-filter-banner">
-                  <span>Showing: <strong>{analyticsFilter.label}</strong> · {total} of {visibleTags.length} clips</span>
-                  <button style={{ marginLeft: "auto", fontSize: 12, padding: "2px 8px" }} onClick={() => setAnalyticsFilter(null)}>
-                    Clear filter ×
-                  </button>
-                </div>
-              ) : (
-                <p className="hint" style={{ fontSize: 12, margin: 0 }}>
-                  💡 Click any statistic or bar below to filter clips.
-                </p>
-              )}
+              {/* Performance summary tiles */}
               <div className="analytics-card">
-                <h3>Performance Summary {analyticsFilter ? <span className="hint" style={{ fontWeight: 400, fontSize: 12 }}>(full review)</span> : null}</h3>
+                <h3>Performance Summary</h3>
                 <div className="metric-grid" style={{ marginTop: 8 }}>
                   <div className="metric-tile">
                     <div className="number">{analytics.total}</div>
@@ -359,45 +438,198 @@ export function RefereeReviewScreen({
                     <div className="hint">Accuracy</div>
                   </div>
                   <div
-                    className={"metric-tile clickable" + (analyticsFilter?.field === "outcome-group" && analyticsFilter.value === "Correct" ? " analytics-active" : "")}
+                    className={"metric-tile clickable" + (isFacetActive("outcome", "Correct") ? " analytics-active" : "")}
                     role="button"
                     tabIndex={0}
                     title="Filter to correct decisions"
-                    onClick={() => toggleFilter("outcome-group", "Correct", "Correct decisions")}
-                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("outcome-group", "Correct", "Correct decisions"); } }}
+                    onClick={() => toggleFacet("outcome", "Correct")}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("outcome", "Correct"); } }}
                   >
                     <div className="number">{analytics.correctCalls + analytics.correctNoCalls}</div>
                     <div className="hint">Correct ↗</div>
                   </div>
                   <div
-                    className={"metric-tile clickable" + (analyticsFilter?.field === "outcome-group" && analyticsFilter.value === "Incorrect" ? " analytics-active" : "")}
+                    className={"metric-tile clickable" + (isFacetActive("outcome", "Incorrect") ? " analytics-active" : "")}
                     role="button"
                     tabIndex={0}
                     title="Filter to incorrect decisions"
-                    onClick={() => toggleFilter("outcome-group", "Incorrect", "Incorrect decisions")}
-                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("outcome-group", "Incorrect", "Incorrect decisions"); } }}
+                    onClick={() => toggleFacet("outcome", "Incorrect")}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("outcome", "Incorrect"); } }}
                   >
                     <div className="number">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div>
                     <div className="hint">Incorrect ↗</div>
                   </div>
                 </div>
               </div>
+
+              {/* Faceted filter panel */}
+              <div className="facet-panel">
+                <div className="facet-panel-header">
+                  <span className="facet-panel-title">Filter Clips</span>
+                  <span className="facet-panel-count">
+                    {hasAnyFilter ? `${total} of ${visibleTags.length}` : `${visibleTags.length}`} clips
+                  </span>
+                  {hasAnyFilter && (
+                    <button className="facet-clear-all" onClick={clearAllFacets}>Clear all ×</button>
+                  )}
+                </div>
+
+                {/* Active filter chips */}
+                {activeChips.length > 0 && (
+                  <div className="facet-active-chips">
+                    {activeChips.map(chip => (
+                      <button
+                        key={chip.collection + chip.value}
+                        className="filter-chip"
+                        onClick={() => toggleFacet(chip.collection, chip.value)}
+                        title={`Remove: ${chip.label}`}
+                      >
+                        {chip.label} ×
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="facet-sections">
+                  {/* Outcome */}
+                  <div className="facet-section">
+                    <div className="facet-section-head">
+                      <span>Outcome</span>
+                      {facetFilters.outcome !== null && (
+                        <button className="facet-section-clear" onClick={() => clearFacet("outcome")}>clear ×</button>
+                      )}
+                    </div>
+                    <div className="facet-pills">
+                      {analytics.outcomeCounts.map(([val, count]) => (
+                        <button
+                          key={val}
+                          className={"facet-pill" + (isFacetActive("outcome", val) ? " active" : "")}
+                          onClick={() => toggleFacet("outcome", val)}
+                        >
+                          {val} <span className="facet-pill-count">{count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Category */}
+                  <div className="facet-section">
+                    <div className="facet-section-head">
+                      <span>Category</span>
+                      {facetFilters.category !== null && (
+                        <button className="facet-section-clear" onClick={() => clearFacet("category")}>clear ×</button>
+                      )}
+                    </div>
+                    <div className="facet-pills">
+                      {groupedCategoryCounts.map(([group, count]) => (
+                        <span key={group} className="facet-pill-group">
+                          <button
+                            className={"facet-pill" + (isFacetActive("category", group) ? " active" : "")}
+                            onClick={() => { toggleFacet("category", group); setExpandedCategoryGroup(group); }}
+                            title={isFacetActive("category", group) ? "Click to clear filter" : `Filter clips: ${group}`}
+                          >
+                            {group} <span className="facet-pill-count">{count}</span>
+                          </button>
+                          {allCategorySubCounts[group]?.length > 0 && (
+                            <button
+                              className={"facet-expand-toggle" + (expandedCategoryGroup === group ? " expanded" : "")}
+                              onClick={() => toggleCategoryExpansion(group)}
+                              title={expandedCategoryGroup === group ? `Collapse ${group}` : `Expand ${group} subcategories`}
+                              aria-label={expandedCategoryGroup === group ? `Collapse ${group}` : `Expand ${group} subcategories`}
+                            >
+                              {expandedCategoryGroup === group ? "▾" : "▸"}
+                            </button>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                    {/* Sub-pills: shown when a group is selected (or a specific within a group) */}
+                    {expandedCategoryGroup !== null && (() => {
+                      const subs = allCategorySubCounts[expandedCategoryGroup];
+                      if (!subs || subs.length === 0) return null;
+                      return (
+                        <div key={expandedCategoryGroup} className="facet-subpills">
+                          <span className="facet-subpills-label">↳ {expandedCategoryGroup}:</span>
+                          {subs.map(([specific, fullVal, count]) => (
+                            <button
+                              key={fullVal}
+                              className={"facet-pill facet-pill--sub" + (isFacetActive("category", fullVal) ? " active" : "")}
+                              onClick={() => toggleFacet("category", fullVal)}
+                            >
+                              {specific} <span className="facet-pill-count">{count}</span>
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Position */}
+                  <div className="facet-section">
+                    <div className="facet-section-head">
+                      <span>Position</span>
+                      {facetFilters.position !== null && (
+                        <button className="facet-section-clear" onClick={() => clearFacet("position")}>clear ×</button>
+                      )}
+                    </div>
+                    <div className="facet-pills">
+                      {analytics.positionCounts.map(([val, count]) => (
+                        <button
+                          key={val}
+                          className={"facet-pill" + (isFacetActive("position", val) ? " active" : "")}
+                          onClick={() => toggleFacet("position", val)}
+                        >
+                          {val} <span className="facet-pill-count">{count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Coverage */}
+                  <div className="facet-section">
+                    <div className="facet-section-head">
+                      <span>Coverage</span>
+                      {facetFilters.coverage !== null && (
+                        <button className="facet-section-clear" onClick={() => clearFacet("coverage")}>clear ×</button>
+                      )}
+                    </div>
+                    <div className="facet-pills">
+                      {analytics.coverageCounts.map(([val, count]) => (
+                        <button
+                          key={val}
+                          className={"facet-pill" + (isFacetActive("coverage", val) ? " active" : "")}
+                          onClick={() => toggleFacet("coverage", val)}
+                        >
+                          {val} <span className="facet-pill-count">{count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Statistics breakdowns (reference only — clicks also set filters) */}
               <div className="rv-stats-breakdowns">
-                <div className="analytics-card"><h3>Outcome <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>{bars(analytics.outcomeCounts, "outcome")}</div>
+                <div className="analytics-card">
+                  <h3>Outcome <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>
+                  {bars(analytics.outcomeCounts, "outcome")}
+                </div>
                 <div className="analytics-card">
                   <h3>Category <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>
                   {(() => {
                     const maxG = Math.max(...groupedCategoryCounts.map(([, c]) => c), 1);
                     return groupedCategoryCounts.map(([group, count]) => {
                       const isGroupActive =
-                        (analyticsFilter?.field === "category-group" && analyticsFilter.value === group) ||
-                        (analyticsFilter?.field === "category-specific" && analyticsFilter.value.startsWith(group + " — "));
+                        facetFilters.category !== null && (
+                          facetFilters.category === group ||
+                          facetFilters.category.startsWith(group + " — ")
+                        );
                       return (
                         <div key={group} className={"metric-row clickable" + (isGroupActive ? " analytics-active" : "")}
                           role="button" tabIndex={0}
-                          onClick={() => toggleFilter("category-group", group, `${group} clips`)}
-                          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("category-group", group, `${group} clips`); } }}
-                          title={isGroupActive && analyticsFilter?.field === "category-group" ? "Click to clear filter" : `Filter clips: ${group}`}
+                          onClick={() => { toggleFacet("category", group); setExpandedCategoryGroup(group); }}
+                          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("category", group); setExpandedCategoryGroup(group); } }}
+                          title={isGroupActive && isFacetActive("category", group) ? "Click to clear filter" : `Filter clips: ${group}`}
                         >
                           <span>{group}</span>
                           <div className="mini-bar"><div className="mini-bar-fill" style={{ width: `${Math.round((count / maxG) * 100)}%` }} /></div>
@@ -406,20 +638,25 @@ export function RefereeReviewScreen({
                       );
                     });
                   })()}
-                  {categorySubCounts.length > 0 && (
-                    <div style={{ marginTop: 10 }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: ".04em" }}>
-                        {activeGroupForSub} — specific tags
-                      </p>
-                      {(() => {
-                        const maxS = Math.max(...categorySubCounts.map(([,, c]) => c), 1);
-                        return categorySubCounts.map(([specific, fullVal, count]) => {
-                          const isSubActive = analyticsFilter?.field === "category-specific" && analyticsFilter.value === fullVal;
+                  {/* Sub-count drill-down: shown when a category group is selected */}
+                  {expandedCategoryGroup !== null && (() => {
+                    const subs = allCategorySubCounts[expandedCategoryGroup];
+                    if (!subs || subs.length === 0) return null;
+                    const maxS = Math.max(...subs.map(([,, c]) => c), 1);
+                    return (
+                      <>
+                        <div style={{ marginTop: 10 }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                            {expandedCategoryGroup} — specific tags
+                          </p>
+                        </div>
+                        {subs.map(([specific, fullVal, count]) => {
+                          const isSubActive = isFacetActive("category", fullVal);
                           return (
                             <div key={fullVal} className={"metric-row clickable" + (isSubActive ? " analytics-active" : "")}
                               role="button" tabIndex={0}
-                              onClick={() => toggleFilter("category-specific", fullVal, `${activeGroupForSub} → ${specific}`)}
-                              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFilter("category-specific", fullVal, `${activeGroupForSub} → ${specific}`); } }}
+                              onClick={() => toggleFacet("category", fullVal)}
+                              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("category", fullVal); } }}
                               title={isSubActive ? "Click to clear filter" : `Filter clips: ${fullVal}`}
                             >
                               <span style={{ paddingLeft: 8, fontSize: 13 }}>↳ {specific}</span>
@@ -427,13 +664,19 @@ export function RefereeReviewScreen({
                               <strong>{count}</strong>
                             </div>
                           );
-                        });
-                      })()}
-                    </div>
-                  )}
+                        })}
+                      </>
+                    );
+                  })()}
                 </div>
-                <div className="analytics-card"><h3>Position <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>{bars(analytics.positionCounts, "position")}</div>
-                <div className="analytics-card"><h3>Coverage <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>{bars(analytics.coverageCounts, "coverage")}</div>
+                <div className="analytics-card">
+                  <h3>Position <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>
+                  {bars(analytics.positionCounts, "position")}
+                </div>
+                <div className="analytics-card">
+                  <h3>Coverage <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>
+                  {bars(analytics.coverageCounts, "coverage")}
+                </div>
               </div>
             </>
           )}
@@ -443,8 +686,8 @@ export function RefereeReviewScreen({
         {/* ── Sidebar: clip list ── */}
         <aside className="rv-sidebar">
           <p className="rv-sidebar-heading">
-            Clips ({total}{analyticsFilter ? ` of ${visibleTags.length}` : ""})
-            {analyticsFilter && <button style={{ fontSize: 11, marginLeft: 6, padding: "1px 6px" }} onClick={() => setAnalyticsFilter(null)}>✕ clear</button>}
+            Clips ({total}{hasAnyFilter ? ` of ${visibleTags.length}` : ""})
+            {hasAnyFilter && <button style={{ fontSize: 11, marginLeft: 6, padding: "1px 6px" }} onClick={clearAllFacets}>✕ clear</button>}
           </p>
           {total === 0 ? (
             <p className="hint">No clips available.</p>
