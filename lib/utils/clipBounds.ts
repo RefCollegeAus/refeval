@@ -7,7 +7,7 @@ import type { CodedTag } from "@/lib/types/reviews";
 //   start_time_seconds = max(incident - PRE_ROLL, 0)  — saved explicitly
 //   end_time_seconds   = educator-selected end, or null → defaults to incident + POST_ROLL
 //
-// Default clip: incident=40, start=30, end=45, duration=15 s
+// Default clip: incident=40, start=35, end=45, duration=10 s
 //
 // Legacy clips (start_time_seconds IS NULL) — two forms existed:
 //   mode="video":     adjusted_seconds = incident time, historical viewers applied -5
@@ -16,8 +16,8 @@ import type { CodedTag } from "@/lib/types/reviews";
 //                     adjusted_seconds as the clip start directly (no further pre-roll).
 //
 // The canonical pre-roll constant only applies to new clips.
-export const CLIP_PRE_ROLL = 10;
-export const CLIP_DEFAULT_POST_ROLL = 10;
+export const CLIP_PRE_ROLL = 5;
+export const CLIP_DEFAULT_POST_ROLL = 5;
 
 // ── resolveClipBounds ─────────────────────────────────────────────────────────
 

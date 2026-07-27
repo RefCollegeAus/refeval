@@ -78,7 +78,7 @@ import { formatTime, makeTimestampLink } from "@/lib/utils/time";
 import { makeAnalytics } from "@/lib/utils/analytics";
 import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
 import { ClipEditorPanel, computeInitialViewport } from "@/components/reviewer/ClipEditorPanel";
-import { resolveClipBounds, formatClipTime, CLIP_DEFAULT_POST_ROLL } from "@/lib/utils/clipBounds";
+import { resolveClipBounds, formatClipTime, CLIP_PRE_ROLL, CLIP_DEFAULT_POST_ROLL } from "@/lib/utils/clipBounds";
 import { useUnreadCounts } from "@/lib/hooks/useUnreadCounts";
 import type { Screen } from "@/lib/types/auth";
 import type { ReviewRecord, CodedTag, Mode, RefSlot, OfficialSummaries, OfficialSummary } from "@/lib/types/reviews";
@@ -698,7 +698,7 @@ export default function Home() {
     const current = getCurrentCodingSeconds();
     const wasPlaying = pauseActiveVideo();
     const incidentSec = Math.max(0, current + Number(activeReview?.timestampOffset || 0));
-    const defaultStart = Math.max(0, incidentSec - 10);
+    const defaultStart = Math.max(0, incidentSec - CLIP_PRE_ROLL);
     const defaultEnd = incidentSec + CLIP_DEFAULT_POST_ROLL;
     const dur = Math.max(videoDuration || 0, youtubeDuration || 0);
     const vp = computeInitialViewport(incidentSec, defaultStart, defaultEnd, dur);
