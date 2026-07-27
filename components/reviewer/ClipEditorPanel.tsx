@@ -477,7 +477,7 @@ function HtmlClipEditor({
       <div
         ref={trackRef}
         {...trackHandlers}
-        style={{ position: "relative", height: 90, marginBottom: 6, userSelect: "none", cursor: "col-resize", touchAction: "none" }}
+        style={{ position: "relative", height: 110, marginBottom: 20, userSelect: "none", cursor: "col-resize", touchAction: "none" }}
       >
         {/* Track background */}
         <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 20, transform: "translateY(-50%)", background: "rgba(255,255,255,.12)", borderRadius: 10, pointerEvents: "none" }} />
@@ -485,8 +485,13 @@ function HtmlClipEditor({
         <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%`, height: 20, transform: "translateY(-50%)", background: "var(--accent)", opacity: 0.7, borderRadius: 10, pointerEvents: "none" }} />
         {/* Playhead */}
         <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 3, background: "rgba(255,255,255,.8)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 2 }} />
-        {/* Incident diamond — visual only, no pointer events */}
-        <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 14, height: 14, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "2px solid rgba(255,255,255,.7)", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Tagged incident" />
+        {/* Incident — RCA logo */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/rca-logo.png" alt="Incident" title="Tagged incident" style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 22, height: 22, objectFit: "contain", transform: "translate(-50%,-50%)", pointerEvents: "none", zIndex: 2, filter: "drop-shadow(0 1px 4px rgba(0,0,0,.8))" }} />
+        {/* Start label — top of container */}
+        <span style={{ position: "absolute", top: 4, left: `${startPct}%`, transform: "translateX(-50%)", textAlign: "center", fontSize: 11, lineHeight: 1.3, color: "var(--muted)", whiteSpace: "nowrap", pointerEvents: "none", userSelect: "none" }}>
+          Start<br /><strong style={{ color: "var(--text)", fontWeight: 600 }}>{formatClipTime(draftStart)}</strong>
+        </span>
         {/* Start handle — wide hit area + slim visual bar */}
         <div
           onPointerDown={startHandleDown}
@@ -531,18 +536,13 @@ function HtmlClipEditor({
             transition: "background 0.1s ease, box-shadow 0.1s ease",
           }} />
         </div>
-      </div>
-
-      {/* ── Marker labels ── */}
-      <div style={{ display: "flex", fontSize: 11, color: "var(--muted)", marginBottom: 20, userSelect: "none", position: "relative", height: 30 }}>
-        <span style={{ position: "absolute", left: `${startPct}%`, transform: "translateX(-50%)", textAlign: "center", lineHeight: 1.3, whiteSpace: "nowrap" }}>
-          ● Start<br />{formatClipTime(draftStart)}
+        {/* Incident label — bottom of container */}
+        <span style={{ position: "absolute", bottom: 4, left: `${incidentPct}%`, transform: "translateX(-50%)", textAlign: "center", fontSize: 11, lineHeight: 1.3, color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap", pointerEvents: "none", userSelect: "none" }}>
+          {formatClipTime(incidentSec)}
         </span>
-        <span style={{ position: "absolute", left: `${incidentPct}%`, transform: "translateX(-50%)", textAlign: "center", lineHeight: 1.3, whiteSpace: "nowrap", color: "var(--accent)", fontWeight: 700 }}>
-          ◆<br />{formatClipTime(incidentSec)}
-        </span>
-        <span style={{ position: "absolute", left: `${endPct}%`, transform: "translateX(-50%)", textAlign: "center", lineHeight: 1.3, whiteSpace: "nowrap" }}>
-          ◇ End<br />{formatClipTime(draftEnd)}
+        {/* End label — bottom of container */}
+        <span style={{ position: "absolute", bottom: 4, left: `${endPct}%`, transform: "translateX(-50%)", textAlign: "center", fontSize: 11, lineHeight: 1.3, color: "var(--muted)", whiteSpace: "nowrap", pointerEvents: "none", userSelect: "none" }}>
+          End<br /><strong style={{ color: "var(--text)", fontWeight: 600 }}>{formatClipTime(draftEnd)}</strong>
         </span>
       </div>
 
@@ -792,13 +792,18 @@ function YtClipEditor({
       <div
         ref={trackRef}
         {...trackHandlers}
-        style={{ position: "relative", height: 90, marginBottom: 6, userSelect: "none", cursor: "col-resize", touchAction: "none" }}
+        style={{ position: "relative", height: 110, marginBottom: 20, userSelect: "none", cursor: "col-resize", touchAction: "none" }}
       >
         <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 20, transform: "translateY(-50%)", background: "rgba(255,255,255,.12)", borderRadius: 10, pointerEvents: "none" }} />
         <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%`, height: 20, transform: "translateY(-50%)", background: "var(--accent)", opacity: 0.7, borderRadius: 10, pointerEvents: "none" }} />
         <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 3, background: "rgba(255,255,255,.8)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 2 }} />
-        {/* Incident diamond — visual only */}
-        <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 14, height: 14, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "2px solid rgba(255,255,255,.7)", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Tagged incident" />
+        {/* Incident — RCA logo */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/rca-logo.png" alt="Incident" title="Tagged incident" style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 22, height: 22, objectFit: "contain", transform: "translate(-50%,-50%)", pointerEvents: "none", zIndex: 2, filter: "drop-shadow(0 1px 4px rgba(0,0,0,.8))" }} />
+        {/* Start label — top of container */}
+        <span style={{ position: "absolute", top: 4, left: `${startPct}%`, transform: "translateX(-50%)", textAlign: "center", fontSize: 11, lineHeight: 1.3, color: "var(--muted)", whiteSpace: "nowrap", pointerEvents: "none", userSelect: "none" }}>
+          Start<br /><strong style={{ color: "var(--text)", fontWeight: 600 }}>{formatClipTime(draftStart)}</strong>
+        </span>
         {/* Start handle — wide hit area + slim visual bar */}
         <div
           onPointerDown={startHandleDown}
@@ -843,13 +848,14 @@ function YtClipEditor({
             transition: "background 0.1s ease, box-shadow 0.1s ease",
           }} />
         </div>
-      </div>
-
-      {/* ── Marker labels ── */}
-      <div style={{ position: "relative", height: 30, fontSize: 11, color: "var(--muted)", marginBottom: 20, userSelect: "none" }}>
-        <span style={{ position: "absolute", left: `${startPct}%`, transform: "translateX(-50%)", textAlign: "center", lineHeight: 1.3, whiteSpace: "nowrap" }}>● Start<br />{formatClipTime(draftStart)}</span>
-        <span style={{ position: "absolute", left: `${incidentPct}%`, transform: "translateX(-50%)", textAlign: "center", lineHeight: 1.3, whiteSpace: "nowrap", color: "var(--accent)", fontWeight: 700 }}>◆<br />{formatClipTime(incidentSec)}</span>
-        <span style={{ position: "absolute", left: `${endPct}%`, transform: "translateX(-50%)", textAlign: "center", lineHeight: 1.3, whiteSpace: "nowrap" }}>◇ End<br />{formatClipTime(draftEnd)}</span>
+        {/* Incident label — bottom of container */}
+        <span style={{ position: "absolute", bottom: 4, left: `${incidentPct}%`, transform: "translateX(-50%)", textAlign: "center", fontSize: 11, lineHeight: 1.3, color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap", pointerEvents: "none", userSelect: "none" }}>
+          {formatClipTime(incidentSec)}
+        </span>
+        {/* End label — bottom of container */}
+        <span style={{ position: "absolute", bottom: 4, left: `${endPct}%`, transform: "translateX(-50%)", textAlign: "center", fontSize: 11, lineHeight: 1.3, color: "var(--muted)", whiteSpace: "nowrap", pointerEvents: "none", userSelect: "none" }}>
+          End<br /><strong style={{ color: "var(--text)", fontWeight: 600 }}>{formatClipTime(draftEnd)}</strong>
+        </span>
       </div>
 
       {/* ── Preview / Rewatch ── */}
