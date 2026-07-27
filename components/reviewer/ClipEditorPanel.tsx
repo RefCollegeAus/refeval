@@ -487,7 +487,7 @@ function HtmlClipEditor({
         <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 3, background: "rgba(255,255,255,.8)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 2 }} />
         {/* Incident — RCA logo */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/rca-logo.png" alt="Incident" title="Tagged incident" style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 22, height: 22, objectFit: "contain", transform: "translate(-50%,-50%)", pointerEvents: "none", zIndex: 2, filter: "drop-shadow(0 1px 4px rgba(0,0,0,.8))" }} />
+        <img src="/rca-logo.png" alt="Incident" title="Tagged incident" style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 33, height: 33, objectFit: "contain", transform: "translate(-50%,-50%)", pointerEvents: "none", zIndex: 2, filter: "drop-shadow(0 1px 4px rgba(0,0,0,.8))" }} />
         {/* Start label — top of container */}
         <span style={{ position: "absolute", top: 4, left: `${startPct}%`, transform: "translateX(-50%)", textAlign: "center", fontSize: 11, lineHeight: 1.3, color: "var(--muted)", whiteSpace: "nowrap", pointerEvents: "none", userSelect: "none" }}>
           Start<br /><strong style={{ color: "var(--text)", fontWeight: 600 }}>{formatClipTime(draftStart)}</strong>
@@ -799,7 +799,7 @@ function YtClipEditor({
         <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 3, background: "rgba(255,255,255,.8)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 2 }} />
         {/* Incident — RCA logo */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/rca-logo.png" alt="Incident" title="Tagged incident" style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 22, height: 22, objectFit: "contain", transform: "translate(-50%,-50%)", pointerEvents: "none", zIndex: 2, filter: "drop-shadow(0 1px 4px rgba(0,0,0,.8))" }} />
+        <img src="/rca-logo.png" alt="Incident" title="Tagged incident" style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 33, height: 33, objectFit: "contain", transform: "translate(-50%,-50%)", pointerEvents: "none", zIndex: 2, filter: "drop-shadow(0 1px 4px rgba(0,0,0,.8))" }} />
         {/* Start label — top of container */}
         <span style={{ position: "absolute", top: 4, left: `${startPct}%`, transform: "translateX(-50%)", textAlign: "center", fontSize: 11, lineHeight: 1.3, color: "var(--muted)", whiteSpace: "nowrap", pointerEvents: "none", userSelect: "none" }}>
           Start<br /><strong style={{ color: "var(--text)", fontWeight: 600 }}>{formatClipTime(draftStart)}</strong>
