@@ -75,6 +75,18 @@ function pct(value: number, vpStart: number, vpEnd: number): number {
 
 // ── Shared timeline drag hook ─────────────────────────────────────────────────
 
+interface TimelineDragResult {
+  trackRef: React.RefObject<HTMLDivElement>;
+  trackHandlers: {
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
+    onPointerUp: () => void;
+  };
+  startHandleDown: (e: React.PointerEvent<HTMLDivElement>) => void;
+  endHandleDown: (e: React.PointerEvent<HTMLDivElement>) => void;
+  activeHandle: "start" | "end" | null;
+}
+
 function useTimelineDrag(
   vpStart: number,
   vpEnd: number,
@@ -84,13 +96,10 @@ function useTimelineDrag(
   onSeek: (t: number) => void,
   onClearError: () => void,
   maybeExpandViewport: (t: number) => void,
-): [React.RefObject<HTMLDivElement>, {
-  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onPointerUp: () => void;
-}] {
+): TimelineDragResult {
   const trackRef = useRef<HTMLDivElement>(null!);
   const draggingRef = useRef<"start" | "end" | null>(null);
+  const [activeHandle, setActiveHandle] = useState<"start" | "end" | null>(null);
 
   function getTrackTime(clientX: number): number {
     const track = trackRef.current;
@@ -100,16 +109,37 @@ function useTimelineDrag(
     return vpStart + fraction * (vpEnd - vpStart);
   }
 
+  // Called by handle hit-area divs — captures pointer on the track so move/up
+  // events always flow to the track container regardless of where the cursor goes.
+  function startHandleDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.stopPropagation();
+    trackRef.current?.setPointerCapture(e.pointerId);
+    draggingRef.current = "start";
+    setActiveHandle("start");
+    onClearError();
+  }
+
+  function endHandleDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.stopPropagation();
+    trackRef.current?.setPointerCapture(e.pointerId);
+    draggingRef.current = "end";
+    setActiveHandle("end");
+    onClearError();
+  }
+
+  // Fallback: track background click away from handles sets start/end by zone
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     e.currentTarget.setPointerCapture(e.pointerId);
     const t = getTrackTime(e.clientX);
     if (t < incidentSec) {
       draggingRef.current = "start";
+      setActiveHandle("start");
       const val = Math.max(vpStart, Math.min(t, incidentSec - 0.1));
       onStartChange(val);
       onSeek(val);
     } else {
       draggingRef.current = "end";
+      setActiveHandle("end");
       const val = Math.min(vpEnd, Math.max(t, incidentSec + 0.1));
       onEndChange(val);
       onSeek(val);
@@ -136,9 +166,16 @@ function useTimelineDrag(
 
   function onPointerUp() {
     draggingRef.current = null;
+    setActiveHandle(null);
   }
 
-  return [trackRef, { onPointerDown, onPointerMove, onPointerUp }];
+  return {
+    trackRef,
+    trackHandlers: { onPointerDown, onPointerMove, onPointerUp },
+    startHandleDown,
+    endHandleDown,
+    activeHandle,
+  };
 }
 
 // ── Shared playback controls bar (above video) ────────────────────────────────
@@ -390,7 +427,7 @@ function HtmlClipEditor({
     onVpChange({ start: newStart, end: newEnd });
   }
 
-  const [trackRef, dragHandlers] = useTimelineDrag(
+  const { trackRef, trackHandlers, startHandleDown, endHandleDown, activeHandle } = useTimelineDrag(
     vpStart, vpEnd, incidentSec,
     (s) => { cancelPreview(); onStartChange(s); },
     (e) => { cancelPreview(); onEndChange(e); },
@@ -402,6 +439,7 @@ function HtmlClipEditor({
   const endPct = pct(draftEnd, vpStart, vpEnd);
   const currentPct = pct(currentTime, vpStart, vpEnd);
   const clipDuration = Math.max(0, draftEnd - draftStart).toFixed(1);
+  const isDragging = activeHandle !== null;
 
   return (
     <div>
@@ -438,7 +476,7 @@ function HtmlClipEditor({
       {/* ── Timeline ── */}
       <div
         ref={trackRef}
-        {...dragHandlers}
+        {...trackHandlers}
         style={{ position: "relative", height: 90, marginBottom: 6, userSelect: "none", cursor: "col-resize", touchAction: "none" }}
       >
         {/* Track background */}
@@ -447,12 +485,52 @@ function HtmlClipEditor({
         <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%`, height: 20, transform: "translateY(-50%)", background: "var(--accent)", opacity: 0.7, borderRadius: 10, pointerEvents: "none" }} />
         {/* Playhead */}
         <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 3, background: "rgba(255,255,255,.8)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 2 }} />
-        {/* Start handle — vertical bar */}
-        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: 6, height: 28, transform: "translate(-50%,-50%)", background: "#fff", borderRadius: 3, pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Clip start" />
-        {/* Incident diamond */}
+        {/* Incident diamond — visual only, no pointer events */}
         <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 14, height: 14, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "2px solid rgba(255,255,255,.7)", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Tagged incident" />
-        {/* End handle — vertical bar */}
-        <div style={{ position: "absolute", top: "50%", left: `${endPct}%`, width: 6, height: 28, transform: "translate(-50%,-50%)", background: "rgba(255,255,255,.92)", borderRadius: 3, pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Clip end" />
+        {/* Start handle — wide hit area + slim visual bar */}
+        <div
+          onPointerDown={startHandleDown}
+          style={{
+            position: "absolute", top: "50%", left: `${startPct}%`,
+            width: 28, height: 44, transform: "translate(-50%,-50%)",
+            cursor: "ew-resize", zIndex: 3,
+            transition: isDragging ? "none" : "left 0.12s ease",
+          }}
+          title="Clip start"
+        >
+          <div style={{
+            position: "absolute", top: "50%", left: "50%",
+            width: 6, height: 28, transform: "translate(-50%,-50%)",
+            background: activeHandle === "start" ? "#fff" : "rgba(255,255,255,.82)",
+            borderRadius: 3, pointerEvents: "none",
+            boxShadow: activeHandle === "start"
+              ? "0 0 0 3px rgba(255,255,255,.2), 0 2px 10px rgba(0,0,0,.8)"
+              : "0 1px 5px rgba(0,0,0,.7)",
+            transition: "background 0.1s ease, box-shadow 0.1s ease",
+          }} />
+        </div>
+        {/* End handle — wide hit area + slim visual bar */}
+        <div
+          onPointerDown={endHandleDown}
+          style={{
+            position: "absolute", top: "50%", left: `${endPct}%`,
+            width: 28, height: 44, transform: "translate(-50%,-50%)",
+            cursor: "ew-resize", zIndex: 3,
+            transition: isDragging ? "none" : "left 0.12s ease",
+          }}
+          title="Clip end"
+        >
+          <div style={{
+            position: "absolute", top: "50%", left: "50%",
+            width: 6, height: 28, transform: "translate(-50%,-50%)",
+            background: activeHandle === "end" ? "#fff" : "rgba(255,255,255,.82)",
+            borderRadius: 3, pointerEvents: "none",
+            boxShadow: activeHandle === "end"
+              ? "0 0 0 3px rgba(255,255,255,.2), 0 2px 10px rgba(0,0,0,.8)"
+              : "0 1px 5px rgba(0,0,0,.7)",
+            transition: "background 0.1s ease, box-shadow 0.1s ease",
+          }} />
+        </div>
       </div>
 
       {/* ── Marker labels ── */}
@@ -674,7 +752,7 @@ function YtClipEditor({
     onVpChange({ start: newStart, end: newEnd });
   }
 
-  const [trackRef, dragHandlers] = useTimelineDrag(
+  const { trackRef, trackHandlers, startHandleDown, endHandleDown, activeHandle } = useTimelineDrag(
     vpStart, vpEnd, incidentSec,
     (s) => { cancelPreviewInternal(); onStartChange(s); },
     (e) => { cancelPreviewInternal(); onEndChange(e); },
@@ -686,6 +764,7 @@ function YtClipEditor({
   const endPct = pct(draftEnd, vpStart, vpEnd);
   const currentPct = pct(currentTime, vpStart, vpEnd);
   const clipDuration = Math.max(0, draftEnd - draftStart).toFixed(1);
+  const isDragging = activeHandle !== null;
 
   return (
     <div>
@@ -712,15 +791,58 @@ function YtClipEditor({
       {/* ── Timeline ── */}
       <div
         ref={trackRef}
-        {...dragHandlers}
+        {...trackHandlers}
         style={{ position: "relative", height: 90, marginBottom: 6, userSelect: "none", cursor: "col-resize", touchAction: "none" }}
       >
         <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 20, transform: "translateY(-50%)", background: "rgba(255,255,255,.12)", borderRadius: 10, pointerEvents: "none" }} />
         <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%`, height: 20, transform: "translateY(-50%)", background: "var(--accent)", opacity: 0.7, borderRadius: 10, pointerEvents: "none" }} />
         <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 3, background: "rgba(255,255,255,.8)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 2 }} />
-        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: 6, height: 28, transform: "translate(-50%,-50%)", background: "#fff", borderRadius: 3, pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Clip start" />
+        {/* Incident diamond — visual only */}
         <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 14, height: 14, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "2px solid rgba(255,255,255,.7)", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Tagged incident" />
-        <div style={{ position: "absolute", top: "50%", left: `${endPct}%`, width: 6, height: 28, transform: "translate(-50%,-50%)", background: "rgba(255,255,255,.92)", borderRadius: 3, pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Clip end" />
+        {/* Start handle — wide hit area + slim visual bar */}
+        <div
+          onPointerDown={startHandleDown}
+          style={{
+            position: "absolute", top: "50%", left: `${startPct}%`,
+            width: 28, height: 44, transform: "translate(-50%,-50%)",
+            cursor: "ew-resize", zIndex: 3,
+            transition: isDragging ? "none" : "left 0.12s ease",
+          }}
+          title="Clip start"
+        >
+          <div style={{
+            position: "absolute", top: "50%", left: "50%",
+            width: 6, height: 28, transform: "translate(-50%,-50%)",
+            background: activeHandle === "start" ? "#fff" : "rgba(255,255,255,.82)",
+            borderRadius: 3, pointerEvents: "none",
+            boxShadow: activeHandle === "start"
+              ? "0 0 0 3px rgba(255,255,255,.2), 0 2px 10px rgba(0,0,0,.8)"
+              : "0 1px 5px rgba(0,0,0,.7)",
+            transition: "background 0.1s ease, box-shadow 0.1s ease",
+          }} />
+        </div>
+        {/* End handle — wide hit area + slim visual bar */}
+        <div
+          onPointerDown={endHandleDown}
+          style={{
+            position: "absolute", top: "50%", left: `${endPct}%`,
+            width: 28, height: 44, transform: "translate(-50%,-50%)",
+            cursor: "ew-resize", zIndex: 3,
+            transition: isDragging ? "none" : "left 0.12s ease",
+          }}
+          title="Clip end"
+        >
+          <div style={{
+            position: "absolute", top: "50%", left: "50%",
+            width: 6, height: 28, transform: "translate(-50%,-50%)",
+            background: activeHandle === "end" ? "#fff" : "rgba(255,255,255,.82)",
+            borderRadius: 3, pointerEvents: "none",
+            boxShadow: activeHandle === "end"
+              ? "0 0 0 3px rgba(255,255,255,.2), 0 2px 10px rgba(0,0,0,.8)"
+              : "0 1px 5px rgba(0,0,0,.7)",
+            transition: "background 0.1s ease, box-shadow 0.1s ease",
+          }} />
+        </div>
       </div>
 
       {/* ── Marker labels ── */}
