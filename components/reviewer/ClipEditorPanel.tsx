@@ -141,6 +141,60 @@ function useTimelineDrag(
   return [trackRef, { onPointerDown, onPointerMove, onPointerUp }];
 }
 
+// ── Shared playback controls bar (above video) ────────────────────────────────
+
+function PlaybackBar({
+  currentTime,
+  durationSec,
+  isPlaying,
+  onSeekBack,
+  onSeekForward,
+  onTogglePlay,
+}: {
+  currentTime: number;
+  durationSec: number;
+  isPlaying: boolean;
+  onSeekBack: () => void;
+  onSeekForward: () => void;
+  onTogglePlay: () => void;
+}) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      marginBottom: 6, padding: "4px 0",
+    }}>
+      <button
+        type="button"
+        onClick={onSeekBack}
+        style={{ fontSize: 12, padding: "5px 12px", minWidth: 44 }}
+        aria-label="Rewind 5 seconds"
+      >−5s</button>
+      <button
+        type="button"
+        onClick={onTogglePlay}
+        style={{ padding: "6px 16px", fontWeight: 700, minWidth: 52 }}
+        aria-label={isPlaying ? "Pause" : "Play"}
+      >
+        {isPlaying ? <Pause size={15} /> : <Play size={15} />}
+      </button>
+      <button
+        type="button"
+        onClick={onSeekForward}
+        style={{ fontSize: 12, padding: "5px 12px", minWidth: 44 }}
+        aria-label="Forward 5 seconds"
+      >+5s</button>
+      <span style={{
+        marginLeft: "auto", fontSize: 12,
+        fontVariantNumeric: "tabular-nums",
+        color: "var(--muted)",
+      }}>
+        <strong style={{ color: "var(--text)" }}>{formatClipTime(currentTime)}</strong>
+        {durationSec > 0 && <> / {formatClipTime(durationSec)}</>}
+      </span>
+    </div>
+  );
+}
+
 // ── Extend button ─────────────────────────────────────────────────────────────
 
 function ExtendButton({
@@ -152,23 +206,11 @@ function ExtendButton({
     <button
       type="button"
       onClick={() => onExtend(extendViewport({ start: vpStart, end: vpEnd }, durationSec))}
-      style={{ fontSize: 12, padding: "5px 12px" }}
+      style={{ fontSize: 12, padding: "5px 14px" }}
       aria-label="Extend selectable range by 1 minute"
     >
       Extend Range +1 min
     </button>
-  );
-}
-
-// ── Section divider ───────────────────────────────────────────────────────────
-
-function SectionLabel({ label }: { label: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "10px 0 6px" }}>
-      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.1)" }} />
-      <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 700, whiteSpace: "nowrap" }}>{label}</span>
-      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.1)" }} />
-    </div>
   );
 }
 
@@ -296,6 +338,7 @@ function HtmlClipEditor({
     if (v) v.play().catch(() => {});
   }
 
+  // Retained for logic completeness; not surfaced in UI
   function adjustStart(delta: number) {
     cancelPreview();
     const next = Math.max(0, Math.min(draftStart + delta, incidentSec - 0.1));
@@ -336,6 +379,9 @@ function HtmlClipEditor({
     maybeExpandViewport(val);
   }
 
+  // suppress lint — kept for potential future use, not currently called from UI
+  void adjustStart; void adjustEnd; void setStartToCurrent; void setEndToCurrent;
+
   function maybeExpandViewport(t: number) {
     if (t >= vpStart && t <= vpEnd) return;
     const margin = 5;
@@ -359,8 +405,18 @@ function HtmlClipEditor({
 
   return (
     <div>
+      {/* ── Playback controls (above video) ── */}
+      <PlaybackBar
+        currentTime={currentTime}
+        durationSec={durationSec}
+        isPlaying={isPlaying}
+        onSeekBack={() => seek(currentTime - 5)}
+        onSeekForward={() => seek(currentTime + 5)}
+        onTogglePlay={togglePlay}
+      />
+
       {/* ── Embedded video ── */}
-      <div style={{ position: "relative", background: "#000", borderRadius: 10, overflow: "hidden", aspectRatio: "16/9", marginBottom: 8 }}>
+      <div style={{ position: "relative", background: "#000", borderRadius: 10, overflow: "hidden", aspectRatio: "16/9", marginBottom: 16 }}>
         <video
           ref={videoRef}
           src={src}
@@ -379,34 +435,28 @@ function HtmlClipEditor({
         )}
       </div>
 
-      {/* ── Current time / duration ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>
-        <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--text)", fontWeight: 700 }}>{formatClipTime(currentTime)}</span>
-        <span>{durationSec > 0 ? formatClipTime(durationSec) : "—"}</span>
-      </div>
-
       {/* ── Timeline ── */}
       <div
         ref={trackRef}
         {...dragHandlers}
-        style={{ position: "relative", height: 48, marginBottom: 4, userSelect: "none", cursor: "col-resize", touchAction: "none" }}
+        style={{ position: "relative", height: 90, marginBottom: 6, userSelect: "none", cursor: "col-resize", touchAction: "none" }}
       >
         {/* Track background */}
-        <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 10, transform: "translateY(-50%)", background: "rgba(255,255,255,.12)", borderRadius: 5, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 20, transform: "translateY(-50%)", background: "rgba(255,255,255,.12)", borderRadius: 10, pointerEvents: "none" }} />
         {/* Selected clip highlight */}
-        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%`, height: 10, transform: "translateY(-50%)", background: "var(--accent)", opacity: 0.65, borderRadius: 5, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%`, height: 20, transform: "translateY(-50%)", background: "var(--accent)", opacity: 0.7, borderRadius: 10, pointerEvents: "none" }} />
         {/* Playhead */}
-        <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 2, background: "rgba(255,255,255,.75)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 1 }} />
+        <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 3, background: "rgba(255,255,255,.8)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 2 }} />
         {/* Start handle */}
-        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: 16, height: 16, transform: "translate(-50%,-50%)", background: "#fff", border: "2px solid rgba(255,255,255,.5)", borderRadius: "50%", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 4px rgba(0,0,0,.5)" }} title="Clip start" />
+        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: 26, height: 26, transform: "translate(-50%,-50%)", background: "#fff", border: "3px solid rgba(255,255,255,.4)", borderRadius: "50%", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Clip start" />
         {/* Incident diamond */}
-        <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 12, height: 12, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "2px solid rgba(255,255,255,.6)", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 4px rgba(0,0,0,.5)" }} title="Tagged incident" />
+        <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 16, height: 16, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "3px solid rgba(255,255,255,.6)", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Tagged incident" />
         {/* End handle */}
-        <div style={{ position: "absolute", top: "50%", left: `${endPct}%`, width: 16, height: 16, transform: "translate(-50%,-50%) rotate(45deg)", background: "rgba(255,255,255,.9)", border: "2px solid rgba(255,255,255,.5)", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 4px rgba(0,0,0,.5)" }} title="Clip end" />
+        <div style={{ position: "absolute", top: "50%", left: `${endPct}%`, width: 26, height: 26, transform: "translate(-50%,-50%) rotate(45deg)", background: "rgba(255,255,255,.92)", border: "3px solid rgba(255,255,255,.4)", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Clip end" />
       </div>
 
       {/* ── Marker labels ── */}
-      <div style={{ display: "flex", fontSize: 10, color: "var(--muted)", marginBottom: 8, userSelect: "none", position: "relative", height: 28 }}>
+      <div style={{ display: "flex", fontSize: 11, color: "var(--muted)", marginBottom: 20, userSelect: "none", position: "relative", height: 30 }}>
         <span style={{ position: "absolute", left: `${startPct}%`, transform: "translateX(-50%)", textAlign: "center", lineHeight: 1.3, whiteSpace: "nowrap" }}>
           ● Start<br />{formatClipTime(draftStart)}
         </span>
@@ -418,55 +468,26 @@ function HtmlClipEditor({
         </span>
       </div>
 
-      {/* ── Search range hint ── */}
-      <p style={{ fontSize: 11, color: "var(--muted)", margin: "0 0 4px" }}>
-        Search range: {formatClipTime(vpStart)}–{formatClipTime(vpEnd)} &nbsp;·&nbsp; Clip duration: {clipDuration}s
-      </p>
-
-      {/* ── Playback controls ── */}
-      <SectionLabel label="Playback" />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 8 }}>
-        <button type="button" onClick={() => seek(currentTime - 5)} style={{ fontSize: 12, padding: "5px 10px" }} aria-label="Rewind 5 seconds">−5s</button>
-        <button type="button" onClick={() => seek(currentTime - 1)} style={{ fontSize: 12, padding: "5px 10px" }} aria-label="Rewind 1 second">−1s</button>
-        <button type="button" onClick={togglePlay} style={{ padding: "6px 14px", fontWeight: 700 }} aria-label={isPlaying ? "Pause" : "Play"}>
-          {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-        </button>
-        <button type="button" onClick={() => seek(currentTime + 1)} style={{ fontSize: 12, padding: "5px 10px" }} aria-label="Forward 1 second">+1s</button>
-        <button type="button" onClick={() => seek(currentTime + 5)} style={{ fontSize: 12, padding: "5px 10px" }} aria-label="Forward 5 seconds">+5s</button>
-      </div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 4, flexWrap: "wrap", justifyContent: "center" }}>
-        <button type="button" onClick={startPreview} disabled={isPreviewing} style={{ fontSize: 12, padding: "5px 12px" }} aria-label="Preview clip">
+      {/* ── Preview / Rewatch ── */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, justifyContent: "center" }}>
+        <button type="button" onClick={startPreview} disabled={isPreviewing} style={{ fontSize: 13, padding: "7px 20px", fontWeight: 600 }} aria-label="Preview clip">
           {isPreviewing ? "Previewing…" : "Preview Clip"}
         </button>
-        <button type="button" onClick={rewatchClip} style={{ fontSize: 12, padding: "5px 12px" }} aria-label="Rewatch clip from start">
-          <RotateCcw size={12} style={{ marginRight: 4 }} />Rewatch
+        <button type="button" onClick={rewatchClip} style={{ fontSize: 13, padding: "7px 20px", fontWeight: 600 }} aria-label="Rewatch clip from start">
+          <RotateCcw size={13} style={{ marginRight: 5 }} />Rewatch
         </button>
+      </div>
+
+      {/* ── Selectable range / Extend ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <p style={{ fontSize: 11, color: "var(--muted)", margin: 0 }}>
+          Selectable range: {formatClipTime(vpStart)}–{formatClipTime(vpEnd)} &nbsp;·&nbsp; Clip: {clipDuration}s
+        </p>
         <ExtendButton vpStart={vpStart} vpEnd={vpEnd} durationSec={durationSec} onExtend={onVpChange} />
       </div>
 
-      {/* ── Clip boundary controls ── */}
-      <SectionLabel label="Clip Boundaries" />
-      <div style={{ display: "flex", gap: 6, marginBottom: 8, justifyContent: "center" }}>
-        <button type="button" onClick={setStartToCurrent} style={{ fontSize: 11, padding: "4px 10px" }} aria-label="Set clip start to current time">Set Start to Current Time</button>
-        <button type="button" onClick={setEndToCurrent} style={{ fontSize: 11, padding: "4px 10px" }} aria-label="Set clip end to current time">Set End to Current Time</button>
-      </div>
-      <div style={{ display: "flex", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 11, color: "var(--muted)", minWidth: 34 }}>Start:</span>
-          {[[-1, "−1s"], [-0.1, "−0.1s"], [0.1, "+0.1s"], [1, "+1s"]].map(([d, label]) => (
-            <button key={label as string} type="button" onClick={() => adjustStart(d as number)} style={{ fontSize: 11, padding: "3px 7px" }} aria-label={`Move start ${label}`}>{label as string}</button>
-          ))}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 11, color: "var(--muted)", minWidth: 34 }}>End:</span>
-          {[[-1, "−1s"], [-0.1, "−0.1s"], [0.1, "+0.1s"], [1, "+1s"]].map(([d, label]) => (
-            <button key={label as string} type="button" onClick={() => adjustEnd(d as number)} style={{ fontSize: 11, padding: "3px 7px" }} aria-label={`Move end ${label}`}>{label as string}</button>
-          ))}
-        </div>
-      </div>
-
       {/* ── Validation error ── */}
-      {codingError && <p className="danger-text" style={{ margin: "4px 0 0", fontSize: 12 }}>{codingError}</p>}
+      {codingError && <p className="danger-text" style={{ margin: "12px 0 0", fontSize: 12 }}>{codingError}</p>}
     </div>
   );
 }
@@ -602,6 +623,7 @@ function YtClipEditor({
     setTimeout(() => playerRef.current?.playVideo?.(), 200);
   }
 
+  // Retained for logic completeness; not currently surfaced in UI
   function adjustStart(delta: number) {
     cancelPreviewInternal();
     const next = Math.max(0, Math.min(draftStart + delta, incidentSec - 0.1));
@@ -642,6 +664,8 @@ function YtClipEditor({
     maybeExpandViewport(val);
   }
 
+  void adjustStart; void adjustEnd; void setStartToCurrent; void setEndToCurrent;
+
   function maybeExpandViewport(t: number) {
     if (t >= vpStart && t <= vpEnd) return;
     const margin = 5;
@@ -665,8 +689,18 @@ function YtClipEditor({
 
   return (
     <div>
+      {/* ── Playback controls (above video) ── */}
+      <PlaybackBar
+        currentTime={currentTime}
+        durationSec={durationSec}
+        isPlaying={isPlaying}
+        onSeekBack={() => seek(currentTime - 5)}
+        onSeekForward={() => seek(currentTime + 5)}
+        onTogglePlay={togglePlay}
+      />
+
       {/* ── Embedded YT player ── */}
-      <div style={{ position: "relative", background: "#000", borderRadius: 10, overflow: "hidden", aspectRatio: "16/9", marginBottom: 8 }}>
+      <div style={{ position: "relative", background: "#000", borderRadius: 10, overflow: "hidden", aspectRatio: "16/9", marginBottom: 16 }}>
         <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
         {isPreviewing && (
           <div style={{ position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)", background: "rgba(0,0,0,.65)", color: "#fff", borderRadius: 99, padding: "3px 10px", fontSize: 11, fontWeight: 700, pointerEvents: "none" }}>
@@ -675,80 +709,46 @@ function YtClipEditor({
         )}
       </div>
 
-      {/* ── Current time / duration ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>
-        <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--text)", fontWeight: 700 }}>{formatClipTime(currentTime)}</span>
-        <span>{durationSec > 0 ? formatClipTime(durationSec) : "—"}</span>
-      </div>
-
       {/* ── Timeline ── */}
       <div
         ref={trackRef}
         {...dragHandlers}
-        style={{ position: "relative", height: 48, marginBottom: 4, userSelect: "none", cursor: "col-resize", touchAction: "none" }}
+        style={{ position: "relative", height: 90, marginBottom: 6, userSelect: "none", cursor: "col-resize", touchAction: "none" }}
       >
-        <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 10, transform: "translateY(-50%)", background: "rgba(255,255,255,.12)", borderRadius: 5, pointerEvents: "none" }} />
-        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%`, height: 10, transform: "translateY(-50%)", background: "var(--accent)", opacity: 0.65, borderRadius: 5, pointerEvents: "none" }} />
-        <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 2, background: "rgba(255,255,255,.75)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 1 }} />
-        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: 16, height: 16, transform: "translate(-50%,-50%)", background: "#fff", border: "2px solid rgba(255,255,255,.5)", borderRadius: "50%", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 4px rgba(0,0,0,.5)" }} title="Clip start" />
-        <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 12, height: 12, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "2px solid rgba(255,255,255,.6)", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 4px rgba(0,0,0,.5)" }} title="Tagged incident" />
-        <div style={{ position: "absolute", top: "50%", left: `${endPct}%`, width: 16, height: 16, transform: "translate(-50%,-50%) rotate(45deg)", background: "rgba(255,255,255,.9)", border: "2px solid rgba(255,255,255,.5)", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 4px rgba(0,0,0,.5)" }} title="Clip end" />
+        <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 20, transform: "translateY(-50%)", background: "rgba(255,255,255,.12)", borderRadius: 10, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%`, height: 20, transform: "translateY(-50%)", background: "var(--accent)", opacity: 0.7, borderRadius: 10, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 3, background: "rgba(255,255,255,.8)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 2 }} />
+        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: 26, height: 26, transform: "translate(-50%,-50%)", background: "#fff", border: "3px solid rgba(255,255,255,.4)", borderRadius: "50%", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Clip start" />
+        <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 16, height: 16, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "3px solid rgba(255,255,255,.6)", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Tagged incident" />
+        <div style={{ position: "absolute", top: "50%", left: `${endPct}%`, width: 26, height: 26, transform: "translate(-50%,-50%) rotate(45deg)", background: "rgba(255,255,255,.92)", border: "3px solid rgba(255,255,255,.4)", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Clip end" />
       </div>
 
       {/* ── Marker labels ── */}
-      <div style={{ position: "relative", height: 28, fontSize: 10, color: "var(--muted)", marginBottom: 8, userSelect: "none" }}>
+      <div style={{ position: "relative", height: 30, fontSize: 11, color: "var(--muted)", marginBottom: 20, userSelect: "none" }}>
         <span style={{ position: "absolute", left: `${startPct}%`, transform: "translateX(-50%)", textAlign: "center", lineHeight: 1.3, whiteSpace: "nowrap" }}>● Start<br />{formatClipTime(draftStart)}</span>
         <span style={{ position: "absolute", left: `${incidentPct}%`, transform: "translateX(-50%)", textAlign: "center", lineHeight: 1.3, whiteSpace: "nowrap", color: "var(--accent)", fontWeight: 700 }}>◆<br />{formatClipTime(incidentSec)}</span>
         <span style={{ position: "absolute", left: `${endPct}%`, transform: "translateX(-50%)", textAlign: "center", lineHeight: 1.3, whiteSpace: "nowrap" }}>◇ End<br />{formatClipTime(draftEnd)}</span>
       </div>
 
-      <p style={{ fontSize: 11, color: "var(--muted)", margin: "0 0 4px" }}>
-        Search range: {formatClipTime(vpStart)}–{formatClipTime(vpEnd)} &nbsp;·&nbsp; Clip duration: {clipDuration}s
-      </p>
-
-      {/* ── Playback controls ── */}
-      <SectionLabel label="Playback" />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 8 }}>
-        <button type="button" onClick={() => seek(currentTime - 5)} style={{ fontSize: 12, padding: "5px 10px" }} aria-label="Rewind 5 seconds">−5s</button>
-        <button type="button" onClick={() => seek(currentTime - 1)} style={{ fontSize: 12, padding: "5px 10px" }} aria-label="Rewind 1 second">−1s</button>
-        <button type="button" onClick={togglePlay} style={{ padding: "6px 14px", fontWeight: 700 }} aria-label={isPlaying ? "Pause" : "Play"}>
-          {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-        </button>
-        <button type="button" onClick={() => seek(currentTime + 1)} style={{ fontSize: 12, padding: "5px 10px" }} aria-label="Forward 1 second">+1s</button>
-        <button type="button" onClick={() => seek(currentTime + 5)} style={{ fontSize: 12, padding: "5px 10px" }} aria-label="Forward 5 seconds">+5s</button>
-      </div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 4, flexWrap: "wrap", justifyContent: "center" }}>
-        <button type="button" onClick={startPreview} disabled={isPreviewing} style={{ fontSize: 12, padding: "5px 12px" }}>
+      {/* ── Preview / Rewatch ── */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, justifyContent: "center" }}>
+        <button type="button" onClick={startPreview} disabled={isPreviewing} style={{ fontSize: 13, padding: "7px 20px", fontWeight: 600 }}>
           {isPreviewing ? "Previewing…" : "Preview Clip"}
         </button>
-        <button type="button" onClick={rewatchClip} style={{ fontSize: 12, padding: "5px 12px" }}>
-          <RotateCcw size={12} style={{ marginRight: 4 }} />Rewatch
+        <button type="button" onClick={rewatchClip} style={{ fontSize: 13, padding: "7px 20px", fontWeight: 600 }}>
+          <RotateCcw size={13} style={{ marginRight: 5 }} />Rewatch
         </button>
+      </div>
+
+      {/* ── Selectable range / Extend ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <p style={{ fontSize: 11, color: "var(--muted)", margin: 0 }}>
+          Selectable range: {formatClipTime(vpStart)}–{formatClipTime(vpEnd)} &nbsp;·&nbsp; Clip: {clipDuration}s
+        </p>
         <ExtendButton vpStart={vpStart} vpEnd={vpEnd} durationSec={durationSec} onExtend={onVpChange} />
       </div>
 
-      {/* ── Clip boundary controls ── */}
-      <SectionLabel label="Clip Boundaries" />
-      <div style={{ display: "flex", gap: 6, marginBottom: 8, justifyContent: "center" }}>
-        <button type="button" onClick={setStartToCurrent} style={{ fontSize: 11, padding: "4px 10px" }}>Set Start to Current Time</button>
-        <button type="button" onClick={setEndToCurrent} style={{ fontSize: 11, padding: "4px 10px" }}>Set End to Current Time</button>
-      </div>
-      <div style={{ display: "flex", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 11, color: "var(--muted)", minWidth: 34 }}>Start:</span>
-          {[[-1, "−1s"], [-0.1, "−0.1s"], [0.1, "+0.1s"], [1, "+1s"]].map(([d, label]) => (
-            <button key={label as string} type="button" onClick={() => adjustStart(d as number)} style={{ fontSize: 11, padding: "3px 7px" }}>{label as string}</button>
-          ))}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 11, color: "var(--muted)", minWidth: 34 }}>End:</span>
-          {[[-1, "−1s"], [-0.1, "−0.1s"], [0.1, "+0.1s"], [1, "+1s"]].map(([d, label]) => (
-            <button key={label as string} type="button" onClick={() => adjustEnd(d as number)} style={{ fontSize: 11, padding: "3px 7px" }}>{label as string}</button>
-          ))}
-        </div>
-      </div>
-
-      {codingError && <p className="danger-text" style={{ margin: "4px 0 0", fontSize: 12 }}>{codingError}</p>}
+      {codingError && <p className="danger-text" style={{ margin: "12px 0 0", fontSize: 12 }}>{codingError}</p>}
     </div>
   );
 }
