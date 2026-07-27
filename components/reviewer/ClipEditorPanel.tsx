@@ -447,12 +447,12 @@ function HtmlClipEditor({
         <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%`, height: 20, transform: "translateY(-50%)", background: "var(--accent)", opacity: 0.7, borderRadius: 10, pointerEvents: "none" }} />
         {/* Playhead */}
         <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 3, background: "rgba(255,255,255,.8)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 2 }} />
-        {/* Start handle */}
-        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: 26, height: 26, transform: "translate(-50%,-50%)", background: "#fff", border: "3px solid rgba(255,255,255,.4)", borderRadius: "50%", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Clip start" />
+        {/* Start handle — vertical bar */}
+        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: 6, height: 28, transform: "translate(-50%,-50%)", background: "#fff", borderRadius: 3, pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Clip start" />
         {/* Incident diamond */}
-        <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 16, height: 16, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "3px solid rgba(255,255,255,.6)", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Tagged incident" />
-        {/* End handle */}
-        <div style={{ position: "absolute", top: "50%", left: `${endPct}%`, width: 26, height: 26, transform: "translate(-50%,-50%) rotate(45deg)", background: "rgba(255,255,255,.92)", border: "3px solid rgba(255,255,255,.4)", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Clip end" />
+        <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 14, height: 14, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "2px solid rgba(255,255,255,.7)", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Tagged incident" />
+        {/* End handle — vertical bar */}
+        <div style={{ position: "absolute", top: "50%", left: `${endPct}%`, width: 6, height: 28, transform: "translate(-50%,-50%)", background: "rgba(255,255,255,.92)", borderRadius: 3, pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Clip end" />
       </div>
 
       {/* ── Marker labels ── */}
@@ -718,9 +718,9 @@ function YtClipEditor({
         <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 20, transform: "translateY(-50%)", background: "rgba(255,255,255,.12)", borderRadius: 10, pointerEvents: "none" }} />
         <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%`, height: 20, transform: "translateY(-50%)", background: "var(--accent)", opacity: 0.7, borderRadius: 10, pointerEvents: "none" }} />
         <div style={{ position: "absolute", top: 0, bottom: 0, left: `${currentPct}%`, width: 3, background: "rgba(255,255,255,.8)", transform: "translateX(-50%)", pointerEvents: "none", borderRadius: 2 }} />
-        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: 26, height: 26, transform: "translate(-50%,-50%)", background: "#fff", border: "3px solid rgba(255,255,255,.4)", borderRadius: "50%", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Clip start" />
-        <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 16, height: 16, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "3px solid rgba(255,255,255,.6)", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Tagged incident" />
-        <div style={{ position: "absolute", top: "50%", left: `${endPct}%`, width: 26, height: 26, transform: "translate(-50%,-50%) rotate(45deg)", background: "rgba(255,255,255,.92)", border: "3px solid rgba(255,255,255,.4)", pointerEvents: "none", zIndex: 2, boxShadow: "0 2px 8px rgba(0,0,0,.6)" }} title="Clip end" />
+        <div style={{ position: "absolute", top: "50%", left: `${startPct}%`, width: 6, height: 28, transform: "translate(-50%,-50%)", background: "#fff", borderRadius: 3, pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Clip start" />
+        <div style={{ position: "absolute", top: "50%", left: `${incidentPct}%`, width: 14, height: 14, transform: "translate(-50%,-50%) rotate(45deg)", background: "var(--accent)", border: "2px solid rgba(255,255,255,.7)", pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Tagged incident" />
+        <div style={{ position: "absolute", top: "50%", left: `${endPct}%`, width: 6, height: 28, transform: "translate(-50%,-50%)", background: "rgba(255,255,255,.92)", borderRadius: 3, pointerEvents: "none", zIndex: 2, boxShadow: "0 1px 5px rgba(0,0,0,.7)" }} title="Clip end" />
       </div>
 
       {/* ── Marker labels ── */}
