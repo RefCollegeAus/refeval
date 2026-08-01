@@ -91,12 +91,18 @@ export function RefereeCommentsScreen({
   session,
   myReviews,
   allTags,
+  clearUnread,
+  onRead,
   onWatchClip,
   onBack,
 }: {
   session: RefEvalSession;
   myReviews: ReviewRecord[];
   allTags: CodedTag[];
+  /** Instantly clears a thread's entry in the shared unread state so the Home badge updates without waiting on a refetch. */
+  clearUnread?: (reviewId: string, tagId: string) => void;
+  /** Re-fetches the shared unread state from the database so it stays correct after a page reload. */
+  onRead?: () => void;
   onWatchClip: (reviewId: string, tagId: string) => void;
   onBack: () => void;
 }) {
@@ -191,7 +197,7 @@ export function RefereeCommentsScreen({
     });
   }, [userId]);
 
-  const markSeen = useCallback((key: string) => {
+  const markSeen = useCallback((key: string, thread: CommentThread) => {
     const now = new Date().toISOString();
     setSeenAt(prev => {
       const next = { ...prev, [key]: now };
@@ -201,15 +207,32 @@ export function RefereeCommentsScreen({
     setThreads(prev => prev.map(t =>
       threadKey(t.reviewId, t.tagId) === key ? { ...t, unreadCount: 0 } : t
     ));
-  }, [userId]);
+
+    // Persist to the same review_comment_reads table the Home page badge reads from,
+    // and invalidate that shared state immediately — otherwise reading here never
+    // clears the "My Comments" indicator, and reverts on refresh.
+    if (thread.tagId) {
+      clearUnread?.(thread.reviewId, thread.tagId);
+      getSupabaseClient()
+        .from("review_comment_reads")
+        .upsert(
+          { user_id: userId, review_id: thread.reviewId, tag_id: thread.tagId, last_read_at: now, updated_at: now },
+          { onConflict: "user_id,review_id,tag_id" },
+        )
+        .then(() => onRead?.());
+    }
+  }, [userId, clearUnread, onRead]);
 
   const toggleExpand = useCallback((key: string) => {
     setExpandedKey(prev => {
       const next = prev === key ? null : key;
-      if (next) markSeen(next);
+      if (next) {
+        const thread = threads.find(t => threadKey(t.reviewId, t.tagId) === next);
+        if (thread) markSeen(next, thread);
+      }
       return next;
     });
-  }, [markSeen]);
+  }, [markSeen, threads]);
 
   const sendReply = useCallback(async (thread: CommentThread) => {
     const key = threadKey(thread.reviewId, thread.tagId);

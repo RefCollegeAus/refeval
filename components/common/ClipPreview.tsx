@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ListVideo, ChevronLeft, ChevronRight, ExternalLink, RotateCcw } from "lucide-react";
+import { ListVideo, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import type { ReviewRecord, CodedTag, RefSlot } from "@/lib/types/reviews";
-import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
-import { resolveClipBounds } from "@/lib/utils/clipBounds";
+import { resolveClipPlayback } from "@/lib/utils/clipBounds";
+import { ClipRangeVideoPlayer } from "@/components/common/ClipRangeVideoPlayer";
 
 // ── Shared types and helpers ──────────────────────────────────────────────────
 
@@ -51,21 +50,6 @@ function MetaRow({ label, value, bold, mono }: { label: string; value?: string; 
   );
 }
 
-// ── Rewatch overlay ───────────────────────────────────────────────────────────
-
-function RewatchOverlay({ onRewatch }: { onRewatch: () => void }) {
-  return (
-    <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <button
-        onClick={onRewatch}
-        style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 22px", borderRadius: 99, background: "rgba(255,255,255,.15)", border: "1px solid rgba(255,255,255,.35)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", backdropFilter: "blur(4px)" }}
-      >
-        <RotateCcw size={16} /> Rewatch clip
-      </button>
-    </div>
-  );
-}
-
 // ── ClipPreview ───────────────────────────────────────────────────────────────
 
 export interface ClipPreviewProps {
@@ -82,146 +66,6 @@ export interface ClipPreviewProps {
 }
 
 export function ClipPreview({ clip, index, total, onPrev, onNext, onOpenReview, extraActions, learningMode }: ClipPreviewProps) {
-  const ytContainerRef = useRef<HTMLDivElement>(null);
-  const ytPlayerRef = useRef<any>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const seekTargetRef = useRef<number>(0);
-  const endTargetRef = useRef<number>(0);
-  const prevVideoIdRef = useRef<string>("");
-  const cancelledRef = useRef(false);
-  const endedRef = useRef(false);
-  const [ended, setEnded] = useState(false);
-
-  const videoId = clip ? getYouTubeId(clip.review.videoLink) : "";
-  const isDirect = clip ? (!videoId && isDirectVideoUrl(clip.review.videoLink)) : false;
-
-  const { startTime, endTime } = clip
-    ? resolveClipBounds(clip.tag)
-    : { startTime: 0, endTime: 10 };
-
-  // Reset ended state when clip changes
-  useEffect(() => {
-    endedRef.current = false;
-    setEnded(false);
-    endTargetRef.current = endTime;
-  }, [clip?.tag.id, endTime]);
-
-  // Direct video: seek when clip changes
-  useEffect(() => {
-    if (!clip || !isDirect || !videoRef.current) return;
-    endedRef.current = false;
-    setEnded(false);
-    videoRef.current.currentTime = startTime;
-  }, [clip?.tag.id, isDirect, startTime]);
-
-  // YouTube player lifecycle
-  useEffect(() => {
-    cancelledRef.current = false;
-
-    if (!clip || !videoId) {
-      if (ytPlayerRef.current?.destroy) {
-        try { ytPlayerRef.current.destroy(); } catch {}
-        ytPlayerRef.current = null;
-      }
-      prevVideoIdRef.current = "";
-      return;
-    }
-
-    seekTargetRef.current = startTime;
-    endTargetRef.current = endTime;
-    endedRef.current = false;
-    setEnded(false);
-
-    const isSameVideo = videoId === prevVideoIdRef.current;
-    prevVideoIdRef.current = videoId;
-
-    if (isSameVideo && ytPlayerRef.current?.seekTo) {
-      ytPlayerRef.current.seekTo(startTime, true);
-      return;
-    }
-
-    if (ytPlayerRef.current?.loadVideoById) {
-      ytPlayerRef.current.loadVideoById({ videoId, startSeconds: Math.floor(startTime) });
-      return;
-    }
-
-    function createPlayer() {
-      if (cancelledRef.current || !ytContainerRef.current || !window.YT?.Player) return;
-      if (ytPlayerRef.current?.destroy) {
-        try { ytPlayerRef.current.destroy(); } catch {}
-        ytPlayerRef.current = null;
-      }
-      ytPlayerRef.current = new window.YT.Player(ytContainerRef.current, {
-        videoId,
-        width: "100%",
-        height: "100%",
-        playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
-        events: {
-          onReady: () => {
-            if (!cancelledRef.current) {
-              ytPlayerRef.current?.seekTo?.(seekTargetRef.current, true);
-            }
-          },
-        },
-      });
-    }
-
-    if (window.YT?.Player) {
-      createPlayer();
-    } else {
-      const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
-      if (!existing) {
-        const s = document.createElement("script");
-        s.src = "https://www.youtube.com/iframe_api";
-        document.body.appendChild(s);
-      }
-      window.onYouTubeIframeAPIReady = createPlayer;
-    }
-
-    return () => {
-      cancelledRef.current = true;
-      if (ytPlayerRef.current?.destroy) {
-        try { ytPlayerRef.current.destroy(); } catch {}
-        ytPlayerRef.current = null;
-      }
-      prevVideoIdRef.current = "";
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoId]);
-
-  // Poll YouTube for end boundary
-  useEffect(() => {
-    if (!videoId) return;
-    const interval = setInterval(() => {
-      if (endedRef.current || !ytPlayerRef.current) return;
-      const state: number = ytPlayerRef.current.getPlayerState?.() ?? -1;
-      if (state !== 1) return;
-      const t: number = ytPlayerRef.current.getCurrentTime?.() ?? 0;
-      if (t >= endTargetRef.current) {
-        ytPlayerRef.current.pauseVideo?.();
-        endedRef.current = true;
-        setEnded(true);
-      }
-    }, 250);
-    return () => clearInterval(interval);
-  }, [videoId]);
-
-  function handleYtRewatch() {
-    endedRef.current = false;
-    setEnded(false);
-    ytPlayerRef.current?.seekTo?.(seekTargetRef.current, true);
-    ytPlayerRef.current?.playVideo?.();
-  }
-
-  function handleDirectRewatch() {
-    endedRef.current = false;
-    setEnded(false);
-    if (videoRef.current) {
-      videoRef.current.currentTime = startTime;
-      videoRef.current.play().catch(() => {});
-    }
-  }
-
   if (!clip) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 320, color: "var(--muted)", gap: 10 }}>
@@ -233,46 +77,21 @@ export function ClipPreview({ clip, index, total, onPrev, onNext, onOpenReview, 
 
   const { tag, review, refereeName, categoryGroup, subtype } = clip;
   const gameDate = review.gameDate || review.createdAt.slice(0, 10);
+  const { startTime, endTime } = resolveClipPlayback(tag);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-      {/* Video */}
-      <div className="clip-video-frame" style={{ position: "relative", width: "100%", aspectRatio: "16/9", background: "#000", borderRadius: 10, overflow: "hidden", border: "2px solid var(--accent)", boxSizing: "border-box" }}>
-        {videoId ? (
-          <>
-            <div ref={ytContainerRef} style={{ width: "100%", height: "100%" }} />
-            {ended && <RewatchOverlay onRewatch={handleYtRewatch} />}
-          </>
-        ) : isDirect ? (
-          <>
-            <video
-              ref={videoRef}
-              src={clip.review.videoLink}
-              controls
-              style={{ width: "100%", height: "100%", display: "block" }}
-              onLoadedMetadata={() => {
-                endedRef.current = false;
-                setEnded(false);
-                if (videoRef.current) videoRef.current.currentTime = startTime;
-              }}
-              onTimeUpdate={() => {
-                if (endedRef.current || !videoRef.current) return;
-                if (videoRef.current.currentTime >= endTargetRef.current) {
-                  videoRef.current.pause();
-                  endedRef.current = true;
-                  setEnded(true);
-                }
-              }}
-            />
-            {ended && <RewatchOverlay onRewatch={handleDirectRewatch} />}
-          </>
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "rgba(255,255,255,0.45)", fontSize: 13 }}>
-            {clip.review.videoLink ? "Unsupported video type" : "No video attached"}
-          </div>
-        )}
-      </div>
+      {/* Video — clipKey (tag id) drives reseeking even when clips share a source video */}
+      <ClipRangeVideoPlayer
+        videoLink={review.videoLink}
+        clipKey={tag.id}
+        startTime={startTime}
+        endTime={endTime}
+        autoPlay={false}
+        className="clip-video-frame"
+        style={{ borderRadius: 10, border: "2px solid var(--accent)", boxSizing: "border-box" }}
+      />
 
       {/* Prev / Next */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>

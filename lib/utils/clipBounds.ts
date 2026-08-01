@@ -81,3 +81,31 @@ export function formatClipTime(s: number): string {
   const sec = (s % 60).toFixed(1).padStart(4, "0");
   return `${m}:${sec}`;
 }
+
+// ── resolveClipPlayback ───────────────────────────────────────────────────────
+
+export type ClipPlayback = {
+  startTime: number;
+  /** Absolute stop time, or null when the clip has no stored end time — playback should run unbounded. */
+  endTime: number | null;
+};
+
+/**
+ * Resolves start/stop times for referee- and learner-facing clip playback.
+ *
+ * Unlike resolveClipBounds() (which always derives a default post-roll end for
+ * editor/timeline display purposes), this only enforces a stop time when the
+ * clip has an explicit endTimeSeconds. Older clips saved before end times were
+ * introduced keep their resolved start time but play through without an
+ * artificial cutoff.
+ */
+export function resolveClipPlayback(
+  tag: Pick<CodedTag, "adjustedSeconds" | "startTimeSeconds" | "endTimeSeconds" | "mode">,
+  videoDuration?: number,
+): ClipPlayback {
+  const bounds = resolveClipBounds(tag, videoDuration);
+  return {
+    startTime: bounds.startTime,
+    endTime: tag.endTimeSeconds != null ? bounds.endTime : null,
+  };
+}

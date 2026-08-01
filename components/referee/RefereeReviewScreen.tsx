@@ -4,12 +4,11 @@ import { useState, useEffect, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { ReviewComments } from "@/components/ReviewComments";
 import { makeAnalytics, countBy } from "@/lib/utils/analytics";
-import { embedUrl, isDirectVideoUrl } from "@/lib/utils/video";
 import { MessageSquare } from "lucide-react";
 import type { ReviewRecord, CodedTag, RefSlot, OfficialSummary } from "@/lib/types/reviews";
 import type { RefEvalSession } from "@/lib/types/auth";
-import { ReviewClipPlayer } from "@/components/learning/ReviewClipPlayer";
-import { resolveClipBounds } from "@/lib/utils/clipBounds";
+import { ClipRangeVideoPlayer } from "@/components/common/ClipRangeVideoPlayer";
+import { resolveClipPlayback } from "@/lib/utils/clipBounds";
 
 import type { UnreadCounts } from "@/lib/hooks/useUnreadCounts";
 
@@ -130,17 +129,11 @@ export function RefereeReviewScreen({
     const idx = visibleTags.findIndex(t => t.id === initialTagId);
     return idx >= 0 ? idx : 0;
   });
-  const [seekSeconds, setSeekSeconds] = useState(() => {
-    if (!initialTagId) return 0;
-    const tag = visibleTags.find(t => t.id === initialTagId);
-    return tag?.adjustedSeconds ?? 0;
-  });
   const [seekAutoplay, setSeekAutoplay] = useState(!!initialTagId);
   const [showComments, setShowComments] = useState(false);
   const [facetFilters, setFacetFilters] = useState<FacetFilters>(EMPTY_FACETS);
   const [expandedCategoryGroup, setExpandedCategoryGroup] = useState<string | null>(null);
-  const [videoError, setVideoError] = useState(false);
-  // When true the primary player shows a bounded ReviewClipPlayer instead of the full embed
+  // When true the player is bounded to the selected clip's timestamp range instead of playing the full video.
   const [clipViewMode, setClipViewMode] = useState(!!initialTagId);
 
   useEffect(() => { setShowComments(false); }, [selectedIdx]);
@@ -241,19 +234,11 @@ export function RefereeReviewScreen({
   const total = filteredTags.length;
   const selectedTag = total > 0 ? filteredTags[selectedIdx] ?? null : null;
 
-  const currentEmbed = review?.videoLink
-    ? embedUrl(review.videoLink, seekSeconds, seekAutoplay)
-    : "";
-  const isIframe = currentEmbed.includes("youtube.com/embed");
-  const isDirectVideo = review?.videoLink ? isDirectVideoUrl(review.videoLink) : false;
-
   function selectClip(idx: number) {
     const tag = filteredTags[idx];
     if (!tag) return;
     setSelectedIdx(idx);
-    setSeekSeconds(tag.adjustedSeconds);
     setSeekAutoplay(true);
-    setVideoError(false);
     setClipViewMode(true);
   }
 
@@ -349,65 +334,29 @@ export function RefereeReviewScreen({
             </div>
           )}
 
-          {/* Video player — switches between full embed and bounded clip view */}
-          {clipViewMode && selectedTag && review?.videoLink ? (
-            <div>
-              {(() => {
-                const { startTime, endTime } = resolveClipBounds(selectedTag);
-                return (
-                  <ReviewClipPlayer
-                    videoLink={review.videoLink}
-                    startSeconds={startTime}
-                    endSeconds={endTime}
-                  />
-                );
-              })()}
-              <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-                <button
-                  style={{ fontSize: 12, padding: "5px 14px", opacity: 0.75 }}
-                  onClick={() => { setClipViewMode(false); setVideoError(false); }}
-                >
-                  ↗ Watch Full Video
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="video-placeholder" style={{ margin: 0, aspectRatio: "16 / 9", overflow: "hidden", padding: 0 }}>
-              {currentEmbed ? (
-                isIframe ? (
-                  <iframe
-                    className="video-frame"
-                    src={currentEmbed}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                ) : isDirectVideo ? (
-                  videoError ? (
-                    <div style={{ padding: 16, color: "var(--muted)", fontSize: 13, display: "flex", flexDirection: "column", gap: 8 }}>
-                      <span>Video could not be loaded.</span>
-                      <a href={review!.videoLink} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>Open source video ↗</a>
-                    </div>
-                  ) : (
-                    <video
-                      key={seekSeconds}
-                      controls
-                      src={review!.videoLink + `#t=${Math.floor(seekSeconds)}`}
-                      className="video-frame"
-                      onError={() => setVideoError(true)}
-                    />
-                  )
-                ) : (
-                  <p className="hint" style={{ padding: 4 }}>
-                    This video link cannot be embedded. Ask your educator to attach a YouTube or direct video link.
-                  </p>
-                )
-              ) : (
-                <p className="hint" style={{ padding: 4 }}>
-                  No video attached to this review.
-                </p>
-              )}
-            </div>
-          )}
+          {/* Video player — always full size; bounded to the selected clip's timestamp range once one is chosen */}
+          <div className="video-placeholder" style={{ margin: 0, aspectRatio: "16 / 9", overflow: "hidden", padding: 0 }}>
+            {clipViewMode && selectedTag ? (() => {
+              const { startTime, endTime } = resolveClipPlayback(selectedTag);
+              return (
+                <ClipRangeVideoPlayer
+                  videoLink={review?.videoLink || ""}
+                  clipKey={selectedTag.id}
+                  startTime={startTime}
+                  endTime={endTime}
+                  autoPlay={seekAutoplay}
+                />
+              );
+            })() : (
+              <ClipRangeVideoPlayer
+                videoLink={review?.videoLink || ""}
+                clipKey="full-video"
+                startTime={0}
+                endTime={null}
+                autoPlay={false}
+              />
+            )}
+          </div>
 
           {/* Clip navigation + selected clip detail */}
           {total > 0 && (

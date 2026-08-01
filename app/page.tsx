@@ -2206,6 +2206,8 @@ export default function Home() {
           session={session}
           myReviews={allMyReviews}
           allTags={tags}
+          clearUnread={clearCount}
+          onRead={refreshUnread}
           onWatchClip={(reviewId, tagId) => {
             setRefReviewSeekTagId(tagId);
             setActiveReviewId(reviewId);
