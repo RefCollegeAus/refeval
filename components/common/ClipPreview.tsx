@@ -63,9 +63,11 @@ export interface ClipPreviewProps {
   extraActions?: React.ReactNode;
   /** When true, hides internal evaluation fields (referee, educator, game, notes) and Open Full Review */
   learningMode?: boolean;
+  /** Bump this on every selection (even re-selecting the current clip) to force the player to restart from the beginning. */
+  selectionToken?: number;
 }
 
-export function ClipPreview({ clip, index, total, onPrev, onNext, onOpenReview, extraActions, learningMode }: ClipPreviewProps) {
+export function ClipPreview({ clip, index, total, onPrev, onNext, onOpenReview, extraActions, learningMode, selectionToken }: ClipPreviewProps) {
   if (!clip) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 320, color: "var(--muted)", gap: 10 }}>
@@ -82,10 +84,10 @@ export function ClipPreview({ clip, index, total, onPrev, onNext, onOpenReview, 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-      {/* Video — clipKey (tag id) drives reseeking even when clips share a source video */}
+      {/* Video — clipKey (tag id + selection token) drives reseeking, even for same-source clips or re-selecting the current clip */}
       <ClipRangeVideoPlayer
         videoLink={review.videoLink}
-        clipKey={tag.id}
+        clipKey={selectionToken != null ? `${tag.id}:${selectionToken}` : tag.id}
         startTime={startTime}
         endTime={endTime}
         autoPlay={false}

@@ -135,6 +135,9 @@ export function RefereeReviewScreen({
   const [expandedCategoryGroup, setExpandedCategoryGroup] = useState<string | null>(null);
   // When true the player is bounded to the selected clip's timestamp range instead of playing the full video.
   const [clipViewMode, setClipViewMode] = useState(!!initialTagId);
+  // Bumped on every clip selection (even re-selecting the current clip) so ClipRangeVideoPlayer
+  // always restarts from the beginning instead of no-opping when the clip id hasn't changed.
+  const [selectionNonce, setSelectionNonce] = useState(0);
 
   useEffect(() => { setShowComments(false); }, [selectedIdx]);
   useEffect(() => { setSelectedIdx(0); setShowComments(false); }, [facetFilters]);
@@ -240,6 +243,9 @@ export function RefereeReviewScreen({
     setSelectedIdx(idx);
     setSeekAutoplay(true);
     setClipViewMode(true);
+    // Re-selecting the currently active clip doesn't change selectedIdx, so bump this
+    // separately to force the player to restart from the beginning.
+    setSelectionNonce(n => n + 1);
   }
 
   // Stats bars: shows compatible counts; selected zero-count values stay visible and removable
@@ -341,7 +347,7 @@ export function RefereeReviewScreen({
               return (
                 <ClipRangeVideoPlayer
                   videoLink={review?.videoLink || ""}
-                  clipKey={selectedTag.id}
+                  clipKey={`${selectedTag.id}:${selectionNonce}`}
                   startTime={startTime}
                   endTime={endTime}
                   autoPlay={seekAutoplay}

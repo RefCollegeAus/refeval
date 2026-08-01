@@ -27,8 +27,16 @@ export function PlaylistActivity({
   onOpenReview,
 }: Props) {
   const [previewIndex, setPreviewIndex] = useState(0);
+  // Bumped on every row click (even re-clicking the already-previewed clip) so the
+  // player restarts from the beginning instead of no-opping when the index is unchanged.
+  const [selectionToken, setSelectionToken] = useState(0);
   const safeIndex   = Math.min(previewIndex, Math.max(0, clipRows.length - 1));
   const previewClip = clipRows.length > 0 ? clipRows[safeIndex] : null;
+
+  function selectPreview(i: number) {
+    setPreviewIndex(i);
+    setSelectionToken(n => n + 1);
+  }
 
   if (clipsLoading && clipRows.length === 0) {
     return (
@@ -80,8 +88,8 @@ export function PlaylistActivity({
               tabIndex={0}
               aria-pressed={isPreviewing}
               aria-label={`Clip ${i + 1}: ${row.categoryGroup}${row.subtype ? ` – ${row.subtype}` : ""}`}
-              onClick={() => setPreviewIndex(i)}
-              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPreviewIndex(i); } }}
+              onClick={() => selectPreview(i)}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPreview(i); } }}
               style={{
                 display: "flex", gap: 8, padding: "10px 8px 10px 10px",
                 borderBottom: "1px solid var(--border)", cursor: "pointer",
@@ -131,6 +139,7 @@ export function PlaylistActivity({
             onNext={() => setPreviewIndex(i => Math.min(clipRows.length - 1, i + 1))}
             onOpenReview={onOpenReview}
             learningMode
+            selectionToken={selectionToken}
           />
           {previewClip?.creatorNote && (
             <div style={{ borderTop: "1px solid var(--border)", marginTop: 12, paddingTop: 12 }}>
