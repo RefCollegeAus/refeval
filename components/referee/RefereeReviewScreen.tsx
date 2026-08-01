@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Header } from "@/components/Header";
 import { ReviewComments } from "@/components/ReviewComments";
 import { makeAnalytics, countBy } from "@/lib/utils/analytics";
@@ -138,6 +138,7 @@ export function RefereeReviewScreen({
   // Bumped on every clip selection (even re-selecting the current clip) so ClipRangeVideoPlayer
   // always restarts from the beginning instead of no-opping when the clip id hasn't changed.
   const [selectionNonce, setSelectionNonce] = useState(0);
+  const videoBoxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setShowComments(false); }, [selectedIdx]);
   useEffect(() => { setSelectedIdx(0); setShowComments(false); }, [facetFilters]);
@@ -246,6 +247,7 @@ export function RefereeReviewScreen({
     // Re-selecting the currently active clip doesn't change selectedIdx, so bump this
     // separately to force the player to restart from the beginning.
     setSelectionNonce(n => n + 1);
+    videoBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   // Stats bars: shows compatible counts; selected zero-count values stay visible and removable
@@ -341,7 +343,7 @@ export function RefereeReviewScreen({
           )}
 
           {/* Video player — always full size; bounded to the selected clip's timestamp range once one is chosen */}
-          <div className="video-placeholder" style={{ margin: 0, aspectRatio: "16 / 9", overflow: "hidden", padding: 0 }}>
+          <div ref={videoBoxRef} className="video-placeholder" style={{ margin: 0, aspectRatio: "16 / 9", overflow: "hidden", padding: 0 }}>
             {clipViewMode && selectedTag ? (() => {
               const { startTime, endTime } = resolveClipPlayback(selectedTag);
               return (

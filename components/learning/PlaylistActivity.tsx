@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CheckCircle2, ListVideo, MessageSquare } from "lucide-react";
 import { ClipPreview, outcomeClass } from "@/components/common/ClipPreview";
 import type { ClipRow } from "@/components/common/ClipPreview";
@@ -32,10 +32,12 @@ export function PlaylistActivity({
   const [selectionToken, setSelectionToken] = useState(0);
   const safeIndex   = Math.min(previewIndex, Math.max(0, clipRows.length - 1));
   const previewClip = clipRows.length > 0 ? clipRows[safeIndex] : null;
+  const videoBoxRef = useRef<HTMLDivElement>(null);
 
   function selectPreview(i: number) {
     setPreviewIndex(i);
     setSelectionToken(n => n + 1);
+    videoBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   if (clipsLoading && clipRows.length === 0) {
@@ -130,7 +132,7 @@ export function PlaylistActivity({
 
       {/* Right: sticky preview */}
       <div style={{ flex: 1, position: "sticky", top: 20 }}>
-        <div className="panel">
+        <div className="panel" ref={videoBoxRef}>
           <ClipPreview
             clip={previewClip}
             index={safeIndex}
