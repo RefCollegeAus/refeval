@@ -627,8 +627,7 @@ export function RefereeReviewScreen({
                       </p>
                     )}
                     {sel && (
-                      /* stopPropagation prevents the card's onClick from seeking the video when clicking expand content */
-                      <div className="rv-clip-expand" onClick={e => e.stopPropagation()}>
+                      <div className="rv-clip-expand">
                         {tag.coverage && (
                           <div className="rv-clip-field">
                             <span className="rv-clip-field-label">Coverage</span>
@@ -655,7 +654,8 @@ export function RefereeReviewScreen({
                             <button
                               className="clip-action-btn"
                               style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                              onClick={() => {
+                              onClick={e => {
+                                e.stopPropagation();
                                 const willOpen = !showComments;
                                 setShowComments(v => !v);
                                 if (willOpen && review?.id) clearUnread?.(review.id, tag.id);
@@ -671,9 +671,10 @@ export function RefereeReviewScreen({
                             )}
                           </div>
                         </div>
-                        {/* Comments panel inside the expanded clip card — no scroll hunting */}
+                        {/* Comments panel inside the expanded clip card — no scroll hunting. Its own
+                            click handler stops propagation so typing/replying doesn't reselect the clip. */}
                         {showComments && review?.id && (
-                          <div style={{ gridColumn: "1/-1", marginTop: 8 }}>
+                          <div style={{ gridColumn: "1/-1", marginTop: 8 }} onClick={e => e.stopPropagation()}>
                             <ReviewComments
                               reviewId={review.id}
                               tagId={tag.id}
