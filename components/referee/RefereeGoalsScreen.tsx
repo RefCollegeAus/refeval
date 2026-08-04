@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import {
-  ChevronLeft, Target, CheckCircle, Archive, ChevronDown, ChevronUp,
+  Target, CheckCircle, Archive, ChevronDown, ChevronUp,
   Plus, Pencil, Trash2, Calendar, BookOpen, Link2, FileText, User,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
@@ -17,21 +17,15 @@ import { NOTE_TYPES } from "@/lib/types/developmentNotes";
 import type { ReviewRecord } from "@/lib/types/reviews";
 import type { ReviewGoalLink, ClipGoalLink } from "@/lib/types/reviewGoalLinks";
 import type { MemberRecord } from "@/lib/types/members";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, type BadgeTone, Button, Card, EmptyState, Tabs, type TabItem, Textarea, Input, Select } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
-// ── Colour tokens (mirrors RefereeDevelopmentScreen) ─────────────────────────
+// ── Tone tokens ────────────────────────────────────────────────────────────────
 
-const PRIORITY_COLOR: Record<string, string> = {
-  Low: "#636366", Medium: "#ff9f0a", High: "#ff453a",
-};
-const PRIORITY_BG: Record<string, string> = {
-  Low: "rgba(99,99,102,.15)", Medium: "rgba(255,159,10,.12)", High: "rgba(255,69,58,.12)",
-};
-const STATUS_COLOR: Record<GoalStatus, string> = {
-  Active: "#0a84ff", Completed: "#30d158", Archived: "#636366",
-};
-const STATUS_BG: Record<GoalStatus, string> = {
-  Active: "rgba(10,132,255,.1)", Completed: "rgba(48,209,88,.1)", Archived: "rgba(99,99,102,.12)",
-};
+const PRIORITY_TONE: Record<string, BadgeTone> = { Low: "neutral", Medium: "warn", High: "danger" };
+const PRIORITY_BORDER: Record<string, string> = { Low: "border-l-border", Medium: "border-l-warn", High: "border-l-danger" };
+const STATUS_TONE: Record<GoalStatus, BadgeTone> = { Active: "accent", Completed: "good", Archived: "neutral" };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -51,45 +45,8 @@ function isDueSoon(iso: string | null | undefined) {
   return diff > 0 && diff < 14 * 24 * 60 * 60 * 1000;
 }
 
-// ── Badge components ──────────────────────────────────────────────────────────
-
-function PriorityBadge({ priority }: { priority: string }) {
-  return (
-    <span style={{
-      fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 5,
-      background: PRIORITY_BG[priority] ?? "rgba(99,99,102,.15)",
-      color: PRIORITY_COLOR[priority] ?? "var(--muted)",
-      border: `1px solid ${(PRIORITY_COLOR[priority] ?? "#636366")}44`,
-      textTransform: "uppercase" as const, letterSpacing: "0.05em",
-    }}>
-      {priority}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: GoalStatus }) {
-  return (
-    <span style={{
-      fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 5,
-      background: STATUS_BG[status], color: STATUS_COLOR[status],
-      border: `1px solid ${STATUS_COLOR[status]}44`,
-      textTransform: "uppercase" as const, letterSpacing: "0.05em",
-    }}>
-      {status}
-    </span>
-  );
-}
-
 function CategoryChip({ category }: { category: string }) {
-  return (
-    <span style={{
-      fontSize: 11, padding: "2px 9px", borderRadius: 999,
-      background: "rgba(165,106,27,.1)", color: "var(--accent)",
-      border: "1px solid rgba(165,106,27,.25)", fontWeight: 600,
-    }}>
-      {category}
-    </span>
-  );
+  return <Badge tone="accent">{category}</Badge>;
 }
 
 // ── Note form (create / edit a self-reflection) ───────────────────────────────
@@ -134,59 +91,36 @@ function NoteForm({ refereeId, linkedGoalId, existing, goalViews, onSave, onSave
   const activeGoals = goalViews.filter(gv => gv.status === "Active");
 
   return (
-    <div style={{
-      background: "var(--panel3)", border: "1px solid var(--border)",
-      borderRadius: 10, padding: "14px 16px", marginTop: 10,
-    }}>
-      <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 13 }}>
-        {existing ? "Edit reflection" : "Add a self-reflection note"}
-      </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <input
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          placeholder="Note title…"
-          style={{ width: "100%", boxSizing: "border-box" }}
-        />
-        <textarea
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          rows={3}
-          placeholder="What did you observe, learn or reflect on?…"
-          style={{ resize: "vertical", width: "100%", boxSizing: "border-box" }}
-        />
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <label style={{ flex: "1 1 140px", display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
-            Type
-            <select value={noteType} onChange={e => setNoteType(e.target.value as NoteType)}>
-              {REFEREE_NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+    <Card className="mt-2.5 grid gap-2 bg-panel-2">
+      <p className="text-[13px] font-bold text-text">{existing ? "Edit reflection" : "Add a self-reflection note"}</p>
+      <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Note title…" />
+      <Textarea value={body} onChange={e => setBody(e.target.value)} rows={3} placeholder="What did you observe, learn or reflect on?…" />
+      <div className="flex flex-wrap gap-2">
+        <label className="flex flex-1 basis-[140px] flex-col gap-1 text-xs">
+          Type
+          <Select value={noteType} onChange={e => setNoteType(e.target.value as NoteType)}>
+            {REFEREE_NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </Select>
+        </label>
+        {activeGoals.length > 0 && (
+          <label className="flex flex-1 basis-[180px] flex-col gap-1 text-xs">
+            Link to goal (optional)
+            <Select value={linkedGoal} onChange={e => setLinkedGoal(e.target.value)}>
+              <option value="">— None —</option>
+              {activeGoals.map(gv => (
+                <option key={gv.id} value={gv.goalId}>{gv.title}</option>
+              ))}
+            </Select>
           </label>
-          {activeGoals.length > 0 && (
-            <label style={{ flex: "1 1 180px", display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
-              Link to goal (optional)
-              <select value={linkedGoal} onChange={e => setLinkedGoal(e.target.value)}>
-                <option value="">— None —</option>
-                {activeGoals.map(gv => (
-                  <option key={gv.id} value={gv.goalId}>{gv.title}</option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-          <button onClick={onCancel} style={{ fontSize: 13 }}>Cancel</button>
-          <button
-            className="primary"
-            onClick={handleSave}
-            disabled={!title.trim() || !body.trim()}
-            style={{ fontSize: 13 }}
-          >
-            Save reflection
-          </button>
-        </div>
+        )}
       </div>
-    </div>
+      <div className="mt-1 flex justify-end gap-2">
+        <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
+        <Button variant="primary" size="sm" onClick={handleSave} disabled={!title.trim() || !body.trim()}>
+          Save reflection
+        </Button>
+      </div>
+    </Card>
   );
 }
 
@@ -219,81 +153,57 @@ function GoalDetailPanel({
   const assignedByMember = goalDef ? members.find(m => m.id === goalDef.createdBy) : undefined;
   const assignedByName = assignedByMember?.name ?? "Your educator";
 
-  const allNotes = useMemo(() => {
-    const combined = [...visibleNotes, ...selfNotes];
-    combined.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return combined;
-  }, [visibleNotes, selfNotes]);
-
   return (
-    <div style={{
-      borderTop: "1px solid var(--border)",
-      padding: "14px 0 2px",
-      marginTop: 10,
-    }}>
+    <div className="mt-2.5 border-t border-border pt-3.5">
       {/* Meta row */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12, fontSize: 13 }}>
-        <span style={{ color: "var(--muted)" }}>
-          <User size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />
-          Assigned by <strong>{assignedByName}</strong>
+      <div className="mb-3 flex flex-wrap gap-3 text-[13px]">
+        <span className="text-muted">
+          <User size={13} className="mr-1 inline align-middle" />
+          Assigned by <strong className="text-text">{assignedByName}</strong>
         </span>
         {goalView.targetReviewDate && (
-          <span style={{
-            color: isOverdue(goalView.targetReviewDate) ? "#ff453a"
-              : isDueSoon(goalView.targetReviewDate) ? "#ff9f0a" : "var(--muted)",
-          }}>
-            <Calendar size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />
+          <span className={isOverdue(goalView.targetReviewDate) ? "text-red-300" : isDueSoon(goalView.targetReviewDate) ? "text-yellow-300" : "text-muted"}>
+            <Calendar size={13} className="mr-1 inline align-middle" />
             Target review {fmtDate(goalView.targetReviewDate)}
             {isOverdue(goalView.targetReviewDate) && " · Overdue"}
             {!isOverdue(goalView.targetReviewDate) && isDueSoon(goalView.targetReviewDate) && " · Due soon"}
           </span>
         )}
         {linkedReviews.length > 0 && (
-          <span style={{ color: "var(--muted)" }}>
-            <Link2 size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />
+          <span className="text-muted">
+            <Link2 size={13} className="mr-1 inline align-middle" />
             {linkedReviews.length} linked review{linkedReviews.length !== 1 ? "s" : ""}
           </span>
         )}
-        {linkedClipCount > 0 && (
-          <span style={{ color: "var(--muted)" }}>
-            {linkedClipCount} linked clip{linkedClipCount !== 1 ? "s" : ""}
-          </span>
-        )}
+        {linkedClipCount > 0 && <span className="text-muted">{linkedClipCount} linked clip{linkedClipCount !== 1 ? "s" : ""}</span>}
       </div>
 
       {/* Description */}
       {goalView.description && (
-        <div style={{ marginBottom: 12 }}>
-          <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Description</p>
-          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "var(--text)" }}>{goalView.description}</p>
+        <div className="mb-3">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted">Description</p>
+          <p className="text-[13px] leading-relaxed text-text">{goalView.description}</p>
         </div>
       )}
 
       {/* Educator notes visible to this referee */}
       {visibleNotes.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            <BookOpen size={12} style={{ verticalAlign: "middle", marginRight: 4 }} />
+        <div className="mb-3">
+          <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+            <BookOpen size={12} className="mr-1 inline align-middle" />
             Coaching notes
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div className="grid gap-1.5">
             {visibleNotes.map(note => {
               const author = members.find(m => m.id === note.createdBy);
               return (
-                <div key={note.id} style={{
-                  background: "var(--panel3)", border: "1px solid var(--border)",
-                  borderLeft: "3px solid var(--accent)", borderRadius: 8, padding: "8px 12px",
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>{note.title}</p>
-                    <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap", flexShrink: 0 }}>
-                      {fmtDate(note.createdAt)}
-                    </span>
+                <div key={note.id} className="rounded-lg border border-border border-l-4 border-l-accent bg-panel-2 px-3 py-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[13px] font-bold text-text">{note.title}</p>
+                    <span className="shrink-0 whitespace-nowrap text-[11px] text-muted">{fmtDate(note.createdAt)}</span>
                   </div>
-                  {author && (
-                    <p style={{ margin: "1px 0 4px", fontSize: 11, color: "var(--muted)" }}>{author.name}</p>
-                  )}
-                  <p style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.6, color: "var(--text)" }}>{note.body}</p>
+                  {author && <p className="mt-0.5 text-[11px] text-muted">{author.name}</p>}
+                  <p className="mt-1 text-[13px] leading-relaxed text-text">{note.body}</p>
                 </div>
               );
             })}
@@ -302,29 +212,24 @@ function GoalDetailPanel({
       )}
 
       {/* Self-reflection notes */}
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            <FileText size={12} style={{ verticalAlign: "middle", marginRight: 4 }} />
+      <div className="mb-2">
+        <div className="mb-1.5 flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted">
+            <FileText size={12} className="mr-1 inline align-middle" />
             My reflections
           </p>
           {!showNoteForm && !editingNoteId && (
-            <button
-              onClick={() => setShowNoteForm(true)}
-              style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 4 }}
-            >
+            <Button variant="secondary" size="sm" className="gap-1" onClick={() => setShowNoteForm(true)}>
               <Plus size={12} /> Add
-            </button>
+            </Button>
           )}
         </div>
 
         {selfNotes.length === 0 && !showNoteForm && (
-          <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", fontStyle: "italic" }}>
-            No reflections yet. Record your thoughts, observations or self-assessment here.
-          </p>
+          <p className="text-xs italic text-muted">No reflections yet. Record your thoughts, observations or self-assessment here.</p>
         )}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div className="grid gap-1.5">
           {selfNotes.map(note => (
             <div key={note.id}>
               {editingNoteId === note.id ? (
@@ -338,34 +243,20 @@ function GoalDetailPanel({
                   onCancel={() => setEditingNoteId(null)}
                 />
               ) : (
-                <div style={{
-                  background: "var(--panel3)", border: "1px solid var(--border)",
-                  borderLeft: "3px solid #5e5ce6", borderRadius: 8, padding: "8px 12px",
-                  position: "relative",
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>{note.title}</p>
-                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                      <button
-                        onClick={() => setEditingNoteId(note.id)}
-                        style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: "var(--muted)" }}
-                        title="Edit"
-                      >
+                <div className="rounded-lg border border-border border-l-4 border-l-[#5e5ce6] bg-panel-2 px-3 py-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[13px] font-bold text-text">{note.title}</p>
+                    <div className="flex shrink-0 gap-1">
+                      <button onClick={() => setEditingNoteId(note.id)} className="border-none bg-none p-0.5 text-muted" title="Edit">
                         <Pencil size={13} />
                       </button>
-                      <button
-                        onClick={() => setConfirmDeleteNote(note.id)}
-                        style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: "#ff453a" }}
-                        title="Delete"
-                      >
+                      <button onClick={() => setConfirmDeleteNote(note.id)} className="border-none bg-none p-0.5 text-red-300" title="Delete">
                         <Trash2 size={13} />
                       </button>
                     </div>
                   </div>
-                  <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--muted)" }}>
-                    {note.noteType} · {fmtDate(note.createdAt)}
-                  </p>
-                  <p style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.6, color: "var(--text)" }}>{note.body}</p>
+                  <p className="mt-0.5 text-[11px] text-muted">{note.noteType} · {fmtDate(note.createdAt)}</p>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-text">{note.body}</p>
                 </div>
               )}
             </div>
@@ -386,21 +277,13 @@ function GoalDetailPanel({
 
       {/* Linked reviews */}
       {linkedReviews.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            Linked reviews
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div className="mt-2.5">
+          <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">Linked reviews</p>
+          <div className="grid gap-1">
             {linkedReviews.map(review => (
-              <div key={review.id} style={{
-                background: "var(--panel3)", border: "1px solid var(--border)",
-                borderRadius: 7, padding: "6px 12px",
-                display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
-              }}>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{review.game}</span>
-                <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                  {fmtDate(review.gameDate || review.createdAt)}
-                </span>
+              <div key={review.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-panel-2 px-3 py-1.5">
+                <span className="text-[13px] font-semibold text-text">{review.game}</span>
+                <span className="whitespace-nowrap text-[11px] text-muted">{fmtDate(review.gameDate || review.createdAt)}</span>
               </div>
             ))}
           </div>
@@ -485,8 +368,6 @@ export function RefereeGoalsScreen({
     archived:  goalViews.filter(gv => gv.status === "Archived"),
   }), [goalViews]);
 
-  const visibleGoals = byTab[tab];
-
   function toggleExpand(id: string) {
     setExpandedId(prev => prev === id ? null : id);
   }
@@ -500,219 +381,186 @@ export function RefereeGoalsScreen({
   }
 
   const totalActive = byTab.active.length;
+  const overdueActive = byTab.active.filter(gv => isOverdue(gv.targetReviewDate)).length;
+  const soonActive = byTab.active.filter(gv => isDueSoon(gv.targetReviewDate)).length;
+
+  function renderGoalList(goals: RefereeGoalView[], emptyLabel: string, emptyHint: string) {
+    if (goals.length === 0) {
+      return <EmptyState icon={<Target size={28} />} title={emptyLabel} description={emptyHint} />;
+    }
+    return (
+      <div className="grid gap-2">
+        {goals.map(gv => {
+          const isExpanded = expandedId === gv.id;
+          const goalDef = goalDefs.find(d => d.id === gv.goalId);
+          const latestNote = latestEducatorNoteForGoal(gv.goalId);
+
+          const goalReviewLinks = reviewGoalLinks.filter(l => l.goalDefId === gv.goalId && l.refereeId === myId);
+          const linkedRevIds = new Set(goalReviewLinks.map(l => l.reviewId));
+          const linkedReviews = completedReviews.filter(r => linkedRevIds.has(r.id));
+
+          const clipCount = clipGoalLinks.filter(l => l.goalDefId === gv.goalId && l.refereeId === myId).length;
+
+          const goalVisibleNotes = visibleEducatorNotes.filter(n => n.linkedGoalId === gv.goalId);
+          const goalSelfNotes    = selfReflectionNotes.filter(n => n.linkedGoalId === gv.goalId);
+
+          const targetOverdue = gv.status === "Active" && isOverdue(gv.targetReviewDate);
+          const targetSoon    = gv.status === "Active" && isDueSoon(gv.targetReviewDate);
+
+          return (
+            <div
+              key={gv.id}
+              onClick={() => toggleExpand(gv.id)}
+              className={cn(
+                "cursor-pointer rounded-xl border bg-panel-2 border-l-4 p-3.5 transition-colors",
+                isExpanded ? "border-accent" : "border-border",
+                PRIORITY_BORDER[gv.priority] ?? "border-l-border",
+              )}
+            >
+              {/* Card header */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1.5 text-sm font-bold text-text">{gv.title}</p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge tone={STATUS_TONE[gv.status]}>{gv.status}</Badge>
+                    <Badge tone={PRIORITY_TONE[gv.priority] ?? "neutral"}>{gv.priority}</Badge>
+                    <CategoryChip category={gv.category} />
+                  </div>
+                </div>
+                {isExpanded ? <ChevronUp size={16} className="mt-0.5 shrink-0 text-muted" /> : <ChevronDown size={16} className="mt-0.5 shrink-0 text-muted" />}
+              </div>
+
+              {/* Card summary (collapsed) */}
+              {!isExpanded && (
+                <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted">
+                  {gv.targetReviewDate && (
+                    <span className={targetOverdue ? "text-red-300" : targetSoon ? "text-yellow-300" : "text-muted"}>
+                      <Calendar size={11} className="mr-0.5 inline align-middle" />
+                      {targetOverdue ? "Overdue · " : targetSoon ? "Due soon · " : "Target "}
+                      {fmtDate(gv.targetReviewDate)}
+                    </span>
+                  )}
+                  {linkedReviews.length > 0 && (
+                    <span><Link2 size={11} className="mr-0.5 inline align-middle" />{linkedReviews.length} review{linkedReviews.length !== 1 ? "s" : ""}</span>
+                  )}
+                  {clipCount > 0 && <span>{clipCount} clip{clipCount !== 1 ? "s" : ""}</span>}
+                  {latestNote && (
+                    <span className="italic">
+                      <BookOpen size={11} className="mr-0.5 inline align-middle" />
+                      {latestNote.title}
+                    </span>
+                  )}
+                  {gv.completedAt && (
+                    <span className="text-good">
+                      <CheckCircle size={11} className="mr-0.5 inline align-middle" />
+                      Completed {fmtDate(gv.completedAt)}
+                    </span>
+                  )}
+                  {gv.archivedAt && (
+                    <span><Archive size={11} className="mr-0.5 inline align-middle" />Archived {fmtDate(gv.archivedAt)}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Expanded detail */}
+              {isExpanded && (
+                <div onClick={e => e.stopPropagation()}>
+                  <GoalDetailPanel
+                    goalView={gv}
+                    goalDef={goalDef}
+                    visibleNotes={goalVisibleNotes}
+                    selfNotes={goalSelfNotes}
+                    linkedReviews={linkedReviews}
+                    linkedClipCount={clipCount}
+                    members={members}
+                    session={session}
+                    goalViews={goalViews}
+                    onCreateNote={onCreateNote}
+                    onUpdateNote={onUpdateNote}
+                    onDeleteNote={onDeleteNote}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const tabItems: TabItem[] = [
+    {
+      id: "active",
+      label: "Active",
+      badge: byTab.active.length > 0 ? <Badge tone="neutral">{byTab.active.length}</Badge> : undefined,
+      content: renderGoalList(byTab.active, "No active development goals", "Your educator will assign goals to track your long-term development."),
+    },
+    {
+      id: "completed",
+      label: "Completed",
+      badge: byTab.completed.length > 0 ? <Badge tone="neutral">{byTab.completed.length}</Badge> : undefined,
+      content: renderGoalList(byTab.completed, "No completed goals yet", "Goals you complete will appear here."),
+    },
+    {
+      id: "archived",
+      label: "Archived",
+      badge: byTab.archived.length > 0 ? <Badge tone="neutral">{byTab.archived.length}</Badge> : undefined,
+      content: renderGoalList(byTab.archived, "No archived goals", "Goals that are no longer active but not yet completed are archived here."),
+    },
+  ];
 
   return (
     <div className="layout">
-      <section className="panel">
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-          <button
-            onClick={onBack}
-            style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 2px", color: "var(--muted)", display: "flex", alignItems: "center", gap: 4, fontSize: 14 }}
-          >
-            <ChevronLeft size={18} /> Back
-          </button>
-          <div>
-            <p className="eyebrow" style={{ margin: 0 }}>My Development</p>
-            <h2 style={{ margin: "2px 0 0" }}>Development Goals</h2>
-          </div>
-        </div>
-
-        {/* Tab bar */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
-          {(["active", "completed", "archived"] as TabKey[]).map(t => (
-            <button
-              key={t}
-              onClick={() => { setTab(t); setExpandedId(null); }}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                padding: "8px 14px", fontSize: 13, fontWeight: tab === t ? 700 : 400,
-                color: tab === t ? "var(--accent)" : "var(--muted)",
-                borderBottom: tab === t ? "2px solid var(--accent)" : "2px solid transparent",
-                marginBottom: -1,
-                textTransform: "capitalize" as const,
-              }}
-            >
-              {t}
-              {byTab[t].length > 0 && (
-                <span style={{
-                  marginLeft: 6, fontSize: 11, padding: "1px 6px", borderRadius: 999,
-                  background: tab === t ? "var(--accent)" : "var(--border)",
-                  color: tab === t ? "#fff" : "var(--muted)",
-                }}>
-                  {byTab[t].length}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Empty state */}
-        {visibleGoals.length === 0 && (
-          <div style={{ padding: "40px 0", textAlign: "center" }}>
-            <Target size={32} style={{ color: "var(--muted)", marginBottom: 12 }} />
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>
-              {tab === "active" ? "No active development goals" : tab === "completed" ? "No completed goals yet" : "No archived goals"}
-            </p>
-            <p className="hint" style={{ margin: "4px 0 0" }}>
-              {tab === "active" ? "Your educator will assign goals to track your long-term development." : ""}
-            </p>
-          </div>
-        )}
-
-        {/* Goal cards */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {visibleGoals.map(gv => {
-            const isExpanded = expandedId === gv.id;
-            const goalDef = goalDefs.find(d => d.id === gv.goalId);
-            const latestNote = latestEducatorNoteForGoal(gv.goalId);
-
-            const goalReviewLinks = reviewGoalLinks.filter(l => l.goalDefId === gv.goalId && l.refereeId === myId);
-            const linkedRevIds = new Set(goalReviewLinks.map(l => l.reviewId));
-            const linkedReviews = completedReviews.filter(r => linkedRevIds.has(r.id));
-
-            const clipCount = clipGoalLinks.filter(l => l.goalDefId === gv.goalId && l.refereeId === myId).length;
-
-            const goalVisibleNotes = visibleEducatorNotes.filter(n => n.linkedGoalId === gv.goalId);
-            const goalSelfNotes    = selfReflectionNotes.filter(n => n.linkedGoalId === gv.goalId);
-
-            const targetOverdue = gv.status === "Active" && isOverdue(gv.targetReviewDate);
-            const targetSoon    = gv.status === "Active" && isDueSoon(gv.targetReviewDate);
-
-            return (
-              <div
-                key={gv.id}
-                style={{
-                  background: "var(--panel2)",
-                  border: `1px solid ${isExpanded ? "var(--accent)" : "var(--border)"}`,
-                  borderLeft: `3px solid ${PRIORITY_COLOR[gv.priority] ?? "var(--border)"}`,
-                  borderRadius: 10,
-                  padding: "12px 14px",
-                  cursor: "pointer",
-                  transition: "border-color 0.15s",
-                }}
-                onClick={() => toggleExpand(gv.id)}
-              >
-                {/* Card header */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: "0 0 5px", fontWeight: 700, fontSize: 14 }}>{gv.title}</p>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                      <StatusBadge status={gv.status} />
-                      <PriorityBadge priority={gv.priority} />
-                      <CategoryChip category={gv.category} />
-                    </div>
-                  </div>
-                  {isExpanded ? <ChevronUp size={16} style={{ color: "var(--muted)", flexShrink: 0, marginTop: 2 }} />
-                              : <ChevronDown size={16} style={{ color: "var(--muted)", flexShrink: 0, marginTop: 2 }} />}
-                </div>
-
-                {/* Card summary (collapsed) */}
-                {!isExpanded && (
-                  <div style={{ marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, color: "var(--muted)" }}>
-                    {gv.targetReviewDate && (
-                      <span style={{ color: targetOverdue ? "#ff453a" : targetSoon ? "#ff9f0a" : "var(--muted)" }}>
-                        <Calendar size={11} style={{ verticalAlign: "middle", marginRight: 3 }} />
-                        {targetOverdue ? "Overdue · " : targetSoon ? "Due soon · " : "Target "}
-                        {fmtDate(gv.targetReviewDate)}
-                      </span>
-                    )}
-                    {linkedReviews.length > 0 && (
-                      <span><Link2 size={11} style={{ verticalAlign: "middle", marginRight: 3 }} />{linkedReviews.length} review{linkedReviews.length !== 1 ? "s" : ""}</span>
-                    )}
-                    {clipCount > 0 && (
-                      <span>{clipCount} clip{clipCount !== 1 ? "s" : ""}</span>
-                    )}
-                    {latestNote && (
-                      <span style={{ fontStyle: "italic" }}>
-                        <BookOpen size={11} style={{ verticalAlign: "middle", marginRight: 3 }} />
-                        {latestNote.title}
-                      </span>
-                    )}
-                    {gv.completedAt && (
-                      <span style={{ color: STATUS_COLOR.Completed }}>
-                        <CheckCircle size={11} style={{ verticalAlign: "middle", marginRight: 3 }} />
-                        Completed {fmtDate(gv.completedAt)}
-                      </span>
-                    )}
-                    {gv.archivedAt && (
-                      <span>
-                        <Archive size={11} style={{ verticalAlign: "middle", marginRight: 3 }} />
-                        Archived {fmtDate(gv.archivedAt)}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Expanded detail */}
-                {isExpanded && (
-                  <div onClick={e => e.stopPropagation()}>
-                    <GoalDetailPanel
-                      goalView={gv}
-                      goalDef={goalDef}
-                      visibleNotes={goalVisibleNotes}
-                      selfNotes={goalSelfNotes}
-                      linkedReviews={linkedReviews}
-                      linkedClipCount={clipCount}
-                      members={members}
-                      session={session}
-                      goalViews={goalViews}
-                      onCreateNote={onCreateNote}
-                      onUpdateNote={onUpdateNote}
-                      onDeleteNote={onDeleteNote}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      <div className="grid gap-4">
+        <PageFrame
+          className="p-0"
+          eyebrow="My Development"
+          title="Development Goals"
+          actions={<Button variant="secondary" size="sm" onClick={onBack}>← Back</Button>}
+        />
+        <Card>
+          <Tabs
+            ariaLabel="Development goals"
+            tabs={tabItems}
+            activeId={tab}
+            onChange={(id) => { setTab(id as TabKey); setExpandedId(null); }}
+          />
+        </Card>
+      </div>
 
       {/* Sidebar */}
-      <aside className="panel side-panel">
-        <div className="analytics-card">
-          <h3 style={{ margin: "0 0 10px" }}>Overview</h3>
-          <div className="metric-grid">
-            <div className="metric-tile">
-              <div className="number" style={{ color: STATUS_COLOR.Active }}>{byTab.active.length}</div>
-              <div className="hint">Active</div>
+      <aside className="panel side-panel grid gap-4">
+        <Card>
+          <h3 className="mb-2.5 text-sm font-bold text-text">Overview</h3>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-lg border border-border bg-panel-2 p-3 text-center">
+              <div className="text-xl font-extrabold text-accent">{byTab.active.length}</div>
+              <div className="text-xs text-muted">Active</div>
             </div>
-            <div className="metric-tile">
-              <div className="number" style={{ color: STATUS_COLOR.Completed }}>{byTab.completed.length}</div>
-              <div className="hint">Completed</div>
+            <div className="rounded-lg border border-border bg-panel-2 p-3 text-center">
+              <div className="text-xl font-extrabold text-good">{byTab.completed.length}</div>
+              <div className="text-xs text-muted">Completed</div>
             </div>
           </div>
-          {totalActive > 0 && (() => {
-            const overdue = byTab.active.filter(gv => isOverdue(gv.targetReviewDate)).length;
-            const soon    = byTab.active.filter(gv => isDueSoon(gv.targetReviewDate)).length;
-            return (overdue > 0 || soon > 0) ? (
-              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
-                {overdue > 0 && (
-                  <p style={{ margin: 0, fontSize: 12, color: "#ff453a" }}>
-                    ⚠ {overdue} goal{overdue !== 1 ? "s" : ""} overdue for review
-                  </p>
-                )}
-                {soon > 0 && (
-                  <p style={{ margin: 0, fontSize: 12, color: "#ff9f0a" }}>
-                    ● {soon} goal{soon !== 1 ? "s" : ""} due for review soon
-                  </p>
-                )}
-              </div>
-            ) : null;
-          })()}
-        </div>
+          {totalActive > 0 && (overdueActive > 0 || soonActive > 0) && (
+            <div className="mt-2.5 grid gap-1">
+              {overdueActive > 0 && (
+                <p className="text-xs text-red-300">⚠ {overdueActive} goal{overdueActive !== 1 ? "s" : ""} overdue for review</p>
+              )}
+              {soonActive > 0 && (
+                <p className="text-xs text-yellow-300">● {soonActive} goal{soonActive !== 1 ? "s" : ""} due for review soon</p>
+              )}
+            </div>
+          )}
+        </Card>
 
         {/* Self-reflection notes sidebar */}
-        <div className="analytics-card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <h3 style={{ margin: 0 }}>My Reflections</h3>
-            <button
-              onClick={() => setShowAddNote(v => !v)}
-              style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 4 }}
-            >
+        <Card>
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-text">My Reflections</h3>
+            <Button variant="secondary" size="sm" className="gap-1" onClick={() => setShowAddNote(v => !v)}>
               <Plus size={12} /> Add
-            </button>
+            </Button>
           </div>
 
           {showAddNote && (
@@ -727,66 +575,50 @@ export function RefereeGoalsScreen({
           )}
 
           {selfReflectionNotes.length === 0 && !showAddNote && (
-            <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", fontStyle: "italic" }}>
-              No reflections yet. Add a self-reflection note to record your thoughts and observations.
-            </p>
+            <p className="text-xs italic text-muted">No reflections yet. Add a self-reflection note to record your thoughts and observations.</p>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: showAddNote ? 8 : 0 }}>
+          <div className={cn("grid gap-1.5", showAddNote && "mt-2")}>
             {selfReflectionNotes.slice(0, 5).map(note => (
-              <div key={note.id} style={{
-                background: "var(--panel3)", border: "1px solid var(--border)",
-                borderLeft: "3px solid #5e5ce6", borderRadius: 8, padding: "8px 10px",
-              }}>
-                <p style={{ margin: 0, fontWeight: 700, fontSize: 12 }}>{note.title}</p>
-                <p style={{ margin: "1px 0 0", fontSize: 11, color: "var(--muted)" }}>
-                  {note.noteType} · {fmtDate(note.createdAt)}
-                </p>
-                <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text)", lineHeight: 1.5 }}>
+              <div key={note.id} className="rounded-lg border border-border border-l-4 border-l-[#5e5ce6] bg-panel-2 px-2.5 py-2">
+                <p className="text-xs font-bold text-text">{note.title}</p>
+                <p className="mt-0.5 text-[11px] text-muted">{note.noteType} · {fmtDate(note.createdAt)}</p>
+                <p className="mt-1 text-xs leading-relaxed text-text">
                   {note.body.length > 120 ? note.body.slice(0, 117) + "…" : note.body}
                 </p>
               </div>
             ))}
             {selfReflectionNotes.length > 5 && (
-              <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
-                + {selfReflectionNotes.length - 5} more — expand a goal to view all
-              </p>
+              <p className="text-center text-xs text-muted">+ {selfReflectionNotes.length - 5} more — expand a goal to view all</p>
             )}
           </div>
-        </div>
+        </Card>
 
         {/* Educator notes visible to this referee */}
         {visibleEducatorNotes.length > 0 && (
-          <div className="analytics-card">
-            <h3 style={{ margin: "0 0 8px" }}>
-              <BookOpen size={14} style={{ verticalAlign: "middle", marginRight: 5 }} />
+          <Card>
+            <h3 className="mb-2 text-sm font-bold text-text">
+              <BookOpen size={14} className="mr-1 inline align-middle" />
               Coaching notes
             </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div className="grid gap-1.5">
               {visibleEducatorNotes.slice(0, 3).map(note => {
                 const author = members.find(m => m.id === note.createdBy);
                 return (
-                  <div key={note.id} style={{
-                    background: "var(--panel3)", border: "1px solid var(--border)",
-                    borderLeft: "3px solid var(--accent)", borderRadius: 8, padding: "8px 10px",
-                  }}>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: 12 }}>{note.title}</p>
-                    {author && (
-                      <p style={{ margin: "1px 0 0", fontSize: 11, color: "var(--muted)" }}>{author.name} · {fmtDate(note.createdAt)}</p>
-                    )}
-                    <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text)", lineHeight: 1.5 }}>
+                  <div key={note.id} className="rounded-lg border border-border border-l-4 border-l-accent bg-panel-2 px-2.5 py-2">
+                    <p className="text-xs font-bold text-text">{note.title}</p>
+                    {author && <p className="mt-0.5 text-[11px] text-muted">{author.name} · {fmtDate(note.createdAt)}</p>}
+                    <p className="mt-1 text-xs leading-relaxed text-text">
                       {note.body.length > 100 ? note.body.slice(0, 97) + "…" : note.body}
                     </p>
                   </div>
                 );
               })}
               {visibleEducatorNotes.length > 3 && (
-                <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
-                  + {visibleEducatorNotes.length - 3} more — expand a goal to view all
-                </p>
+                <p className="text-center text-xs text-muted">+ {visibleEducatorNotes.length - 3} more — expand a goal to view all</p>
               )}
             </div>
-          </div>
+          </Card>
         )}
       </aside>
     </div>

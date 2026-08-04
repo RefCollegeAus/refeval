@@ -675,34 +675,12 @@ label{display:grid;gap:7px;font-size:13px;font-weight:800;color:var(--muted)} a{
 .date-preset-btn.active{background:linear-gradient(135deg,#a56a1b,#bf7c21)!important;border-color:transparent!important;color:#fff!important}
 /* Phase 12 — Referee review screen */
 /* Referee personal summary card */
-.rv-summary-card{border-top:3px solid var(--accent)!important;display:flex;flex-direction:column;gap:12px}
-.rv-summary-field{display:flex;flex-direction:column;gap:3px}
-.rv-summary-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
-.rv-summary-value{margin:0;font-size:13px;line-height:1.55;white-space:pre-wrap;color:var(--text)}
 .rv-layout{display:grid;grid-template-columns:1fr 320px;gap:18px;padding:18px;align-items:start}
 .rv-main{display:flex;flex-direction:column;gap:14px}
-.rv-context{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .rv-sidebar{position:sticky;top:18px;max-height:calc(100vh - 90px);overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:22px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.06)}
 .rv-sidebar-heading{margin:0 0 10px;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.rv-clip-list{display:flex;flex-direction:column;gap:6px}
-.rv-clip-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;cursor:pointer;transition:border-color .15s}
-.rv-clip-card:hover{border-color:rgba(165,106,27,.45)}
-.rv-clip-card.rv-selected{border-color:var(--accent);border-width:1.5px;box-shadow:0 0 0 2px rgba(165,106,27,.12)}
-.rv-clip-header{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.rv-clip-num{font-size:11px;font-weight:900;color:var(--muted);min-width:28px}
-.rv-clip-time{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
-.rv-clip-expand{margin-top:10px;padding-top:8px;border-top:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.rv-clip-field{display:flex;flex-direction:column;gap:2px}
-.rv-clip-field-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.rv-clip-field-value{font-size:13px;font-weight:600}
 .rv-clip-notes{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;font-style:italic;color:var(--muted)}
-.rv-detail-panel{padding:16px}
-.rv-detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
-.rv-nav{display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:10px 14px}
-.rv-nav-count{font-size:13px;font-weight:700;color:var(--muted)}
-.rv-stats-breakdowns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:960px){.rv-layout{grid-template-columns:1fr}.rv-sidebar{position:static;max-height:none}}
-@media(max-width:600px){.rv-detail-grid{grid-template-columns:1fr 1fr}.rv-stats-breakdowns{grid-template-columns:1fr}}
 .review-side-block,.review-side-actions{display:grid;gap:10px;align-content:start}
 .review-side-breakdowns-wrap{position:relative}
 .review-side-breakdowns-wrap::after{content:"";position:absolute;bottom:0;left:0;right:0;height:38px;background:linear-gradient(to bottom,transparent,var(--panel));pointer-events:none;border-radius:0 0 14px 14px;z-index:1}

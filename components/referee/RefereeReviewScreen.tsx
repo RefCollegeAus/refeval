@@ -9,6 +9,8 @@ import type { ReviewRecord, CodedTag, RefSlot, OfficialSummary } from "@/lib/typ
 import type { RefEvalSession } from "@/lib/types/auth";
 import { ClipRangeVideoPlayer } from "@/components/common/ClipRangeVideoPlayer";
 import { resolveClipPlayback } from "@/lib/utils/clipBounds";
+import { Badge, Button, Card } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 import type { UnreadCounts } from "@/lib/hooks/useUnreadCounts";
 
@@ -42,12 +44,12 @@ function relationLabel(tag: CodedTag, mySlot: RefSlot | null): string {
   return "Review Only";
 }
 
-function outcomeClass(outcome?: string | null): string {
-  if (!outcome) return "review";
+function outcomeTone(outcome?: string | null): "good" | "danger" | "warn" | "neutral" {
+  if (!outcome) return "neutral";
   const o = outcome.toLowerCase();
-  if (o.startsWith("correct")) return "done";
-  if (o.startsWith("incorrect")) return "incorrect";
-  return "review";
+  if (o.startsWith("correct")) return "good";
+  if (o.startsWith("incorrect")) return "danger";
+  return "warn";
 }
 
 type FacetFilters = {
@@ -217,10 +219,6 @@ export function RefereeReviewScreen({
     }));
   }
 
-  function clearFacet(collection: keyof FacetFilters) {
-    setFacetFilters(prev => ({ ...prev, [collection]: null }));
-  }
-
   function clearAllFacets() {
     setFacetFilters({ ...EMPTY_FACETS });
   }
@@ -261,21 +259,22 @@ export function RefereeReviewScreen({
     return allEntries.map(([name, count]) => {
       const isActive = isFacetActive(collection, name);
       return (
-        <div
+        <button
           key={name}
-          className={"metric-row clickable" + (isActive ? " analytics-active" : "")}
-          role="button"
-          tabIndex={0}
+          type="button"
           onClick={() => toggleFacet(collection, name)}
-          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet(collection, name); } }}
           title={isActive ? "Click to clear filter" : `Filter clips: ${name}`}
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left text-[13px] transition-colors",
+            isActive ? "border-accent/40 bg-accent/10 text-accent" : "border-transparent text-text hover:bg-panel-2"
+          )}
         >
-          <span>{name}</span>
-          <div className="mini-bar">
-            <div className="mini-bar-fill" style={{ width: count > 0 ? `${Math.round((count / max) * 100)}%` : "0%" }} />
+          <span className="flex-1 truncate">{name}</span>
+          <div className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-panel-3">
+            <div className="h-full rounded-full bg-accent" style={{ width: count > 0 ? `${Math.round((count / max) * 100)}%` : "0%" }} />
           </div>
-          <strong>{count}</strong>
-        </div>
+          <strong className="w-5 shrink-0 text-right">{count}</strong>
+        </button>
       );
     });
   }
@@ -303,43 +302,43 @@ export function RefereeReviewScreen({
       <div className="rv-layout">
 
         {/* ── Main column ── */}
-        <div className="rv-main">
+        <div className="rv-main grid gap-4">
 
           {/* Review context bar */}
-          <div className="panel rv-context">
+          <Card className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="eyebrow">Referee Evaluation</p>
-              <h2 style={{ marginBottom: 4 }}>{review?.game || "Review"}</h2>
-              <p className="hint" style={{ margin: 0 }}>
+              <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Referee Evaluation</p>
+              <h2 className="text-lg font-bold text-text">{review?.game || "Review"}</h2>
+              <p className="mt-1 text-sm text-muted">
                 Educator: {review?.educatorName || "—"} · Status: {review?.status || "—"}
               </p>
             </div>
-            <button onClick={onHome}>← All Reviews</button>
-          </div>
+            <Button variant="secondary" size="sm" onClick={onHome}>← All Reviews</Button>
+          </Card>
 
           {/* Final summary card — only shown when educator has written one */}
           {officialSummary && (officialSummary.positives || officialSummary.workOns || officialSummary.nextFocus) && (
-            <div className="panel rv-summary-card">
-              <p className="eyebrow" style={{ marginBottom: 6 }}>Your Performance Summary</p>
+            <Card className="grid gap-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-accent">Your Performance Summary</p>
               {officialSummary.positives && (
-                <div className="rv-summary-field">
-                  <span className="rv-summary-label">Positives</span>
-                  <p className="rv-summary-value">{officialSummary.positives}</p>
+                <div>
+                  <span className="text-xs font-semibold text-muted">Positives</span>
+                  <p className="mt-0.5 text-sm text-text">{officialSummary.positives}</p>
                 </div>
               )}
               {officialSummary.workOns && (
-                <div className="rv-summary-field">
-                  <span className="rv-summary-label">Areas to work on</span>
-                  <p className="rv-summary-value">{officialSummary.workOns}</p>
+                <div>
+                  <span className="text-xs font-semibold text-muted">Areas to work on</span>
+                  <p className="mt-0.5 text-sm text-text">{officialSummary.workOns}</p>
                 </div>
               )}
               {officialSummary.nextFocus && (
-                <div className="rv-summary-field">
-                  <span className="rv-summary-label">Focus for next game</span>
-                  <p className="rv-summary-value">{officialSummary.nextFocus}</p>
+                <div>
+                  <span className="text-xs font-semibold text-muted">Focus for next game</span>
+                  <p className="mt-0.5 text-sm text-text">{officialSummary.nextFocus}</p>
                 </div>
               )}
-            </div>
+            </Card>
           )}
 
           {/* Video player — always full size; bounded to the selected clip's timestamp range once one is chosen */}
@@ -369,216 +368,230 @@ export function RefereeReviewScreen({
           {/* Clip navigation + selected clip detail */}
           {total > 0 && (
             <>
-              <div className="rv-nav">
-                <button onClick={() => selectClip(selectedIdx - 1)} disabled={selectedIdx === 0}>
+              <div className="flex items-center justify-between gap-3">
+                <Button variant="secondary" size="sm" onClick={() => selectClip(selectedIdx - 1)} disabled={selectedIdx === 0}>
                   ← Previous
-                </button>
-                <span className="rv-nav-count">Clip {selectedIdx + 1} of {total}</span>
-                <button onClick={() => selectClip(selectedIdx + 1)} disabled={selectedIdx === total - 1}>
+                </Button>
+                <span className="text-sm font-semibold text-muted">Clip {selectedIdx + 1} of {total}</span>
+                <Button variant="secondary" size="sm" onClick={() => selectClip(selectedIdx + 1)} disabled={selectedIdx === total - 1}>
                   Next →
-                </button>
+                </Button>
               </div>
 
               {selectedTag && (
-                <div className="rv-detail-panel panel">
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                <Card className="grid gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="eyebrow" style={{ marginBottom: 2 }}>Clip {selectedIdx + 1}</p>
-                      <h3 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 900 }}>
-                        {selectedTag.adjustedTime}
-                      </h3>
-                      <p className="hint" style={{ margin: 0 }}>
+                      <p className="mb-0.5 text-xs font-bold uppercase tracking-wide text-accent">Clip {selectedIdx + 1}</p>
+                      <h3 className="text-xl font-extrabold text-text">{selectedTag.adjustedTime}</h3>
+                      <p className="mt-0.5 text-sm text-muted">
                         {relationLabel(selectedTag, mySlot)} · {displayName(selectedTag.refereeTarget, review)}
                       </p>
                     </div>
-                    {selectedTag.outcome && (
-                      <span className={`status ${outcomeClass(selectedTag.outcome)}`}>
-                        {selectedTag.outcome}
-                      </span>
-                    )}
+                    {selectedTag.outcome && <Badge tone={outcomeTone(selectedTag.outcome)}>{selectedTag.outcome}</Badge>}
                   </div>
 
-                  <div className="rv-detail-grid">
-                    <div className="rv-clip-field">
-                      <span className="rv-clip-field-label">Coverage</span>
-                      <span className="rv-clip-field-value">{selectedTag.coverage || "—"}</span>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <span className="block text-xs text-muted">Coverage</span>
+                      <span className="text-sm font-semibold text-text">{selectedTag.coverage || "—"}</span>
                     </div>
-                    <div className="rv-clip-field">
-                      <span className="rv-clip-field-label">Position</span>
-                      <span className="rv-clip-field-value">{selectedTag.position || "—"}</span>
+                    <div>
+                      <span className="block text-xs text-muted">Position</span>
+                      <span className="text-sm font-semibold text-text">{selectedTag.position || "—"}</span>
                     </div>
-                    <div className="rv-clip-field">
-                      <span className="rv-clip-field-label">Call Category</span>
-                      <span className="rv-clip-field-value">{selectedTag.category || "—"}</span>
+                    <div>
+                      <span className="block text-xs text-muted">Call Category</span>
+                      <span className="text-sm font-semibold text-text">{selectedTag.category || "—"}</span>
                     </div>
                   </div>
 
                   {selectedTag.notes && (
-                    <div className="rv-clip-notes" style={{ marginTop: 12 }}>
+                    <div className="rounded-lg border border-border bg-panel-2 px-3 py-2 text-sm text-text">
                       {selectedTag.notes}
                     </div>
                   )}
-                </div>
+                </Card>
               )}
             </>
           )}
 
           {visibleTags.length === 0 && (
-            <div className="empty-state">No clips have been tagged for this review yet.</div>
+            <Card className="py-8 text-center text-sm text-muted">No clips have been tagged for this review yet.</Card>
           )}
           {visibleTags.length > 0 && total === 0 && hasAnyFilter && (
-            <div className="empty-state">
-              No clips match the selected filters.{" "}
-              <button style={{ fontSize: 13 }} onClick={clearAllFacets}>Clear filters</button>
-            </div>
+            <Card className="flex flex-wrap items-center justify-center gap-2 py-8 text-center text-sm text-muted">
+              No clips match the selected filters.
+              <Button variant="secondary" size="sm" onClick={clearAllFacets}>Clear filters</Button>
+            </Card>
           )}
 
           {/* ── Analytics & Filter section ── */}
           {visibleTags.length > 0 && (
             <>
               {/* Performance summary tiles */}
-              <div className="analytics-card">
-                <h3>Performance Summary</h3>
-                <div className="metric-grid" style={{ marginTop: 8 }}>
-                  <div className="metric-tile">
-                    <div className="number">{analytics.total}</div>
-                    <div className="hint">Clips</div>
+              <Card>
+                <h3 className="mb-3 text-sm font-bold text-text">Performance Summary</h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-lg border border-border bg-panel-2 p-3 text-center">
+                    <div className="text-xl font-extrabold text-text">{analytics.total}</div>
+                    <div className="text-xs text-muted">Clips</div>
                   </div>
-                  <div className="metric-tile">
-                    <div className="number">{analytics.accuracy}</div>
-                    <div className="hint">Accuracy</div>
+                  <div className="rounded-lg border border-border bg-panel-2 p-3 text-center">
+                    <div className="text-xl font-extrabold text-text">{analytics.accuracy}</div>
+                    <div className="text-xs text-muted">Accuracy</div>
                   </div>
-                  <div
-                    className={"metric-tile clickable" + (isFacetActive("outcome", "Correct") ? " analytics-active" : "")}
-                    role="button"
-                    tabIndex={0}
+                  <button
+                    type="button"
                     title="Filter to correct decisions"
                     onClick={() => toggleFacet("outcome", "Correct")}
-                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("outcome", "Correct"); } }}
+                    className={cn(
+                      "rounded-lg border p-3 text-center transition-colors",
+                      isFacetActive("outcome", "Correct") ? "border-good/40 bg-good/10" : "border-border bg-panel-2 hover:bg-panel-3"
+                    )}
                   >
-                    <div className="number">{analytics.correctCalls + analytics.correctNoCalls}</div>
-                    <div className="hint">Correct ↗</div>
-                  </div>
-                  <div
-                    className={"metric-tile clickable" + (isFacetActive("outcome", "Incorrect") ? " analytics-active" : "")}
-                    role="button"
-                    tabIndex={0}
+                    <div className="text-xl font-extrabold text-good">{analytics.correctCalls + analytics.correctNoCalls}</div>
+                    <div className="text-xs text-muted">Correct ↗</div>
+                  </button>
+                  <button
+                    type="button"
                     title="Filter to incorrect decisions"
                     onClick={() => toggleFacet("outcome", "Incorrect")}
-                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("outcome", "Incorrect"); } }}
+                    className={cn(
+                      "rounded-lg border p-3 text-center transition-colors",
+                      isFacetActive("outcome", "Incorrect") ? "border-danger/40 bg-danger/10" : "border-border bg-panel-2 hover:bg-panel-3"
+                    )}
                   >
-                    <div className="number">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div>
-                    <div className="hint">Incorrect ↗</div>
-                  </div>
+                    <div className="text-xl font-extrabold text-red-300">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div>
+                    <div className="text-xs text-muted">Incorrect ↗</div>
+                  </button>
                 </div>
-              </div>
+              </Card>
 
               {/* Selected Filters — compact chip row, only when at least one filter is active */}
               {hasAnyFilter && (
-                <div className="selected-filters">
-                  <div className="facet-active-chips">
-                    {activeChips.map(chip => (
-                      <button
-                        key={chip.collection + chip.value}
-                        className="filter-chip"
-                        onClick={() => toggleFacet(chip.collection, chip.value)}
-                        title={`Remove: ${chip.label}`}
-                      >
-                        {chip.label} ×
-                      </button>
-                    ))}
-                    <button className="facet-clear-all" onClick={clearAllFacets}>Clear all ×</button>
-                  </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {activeChips.map(chip => (
+                    <button
+                      key={chip.collection + chip.value}
+                      onClick={() => toggleFacet(chip.collection, chip.value)}
+                      title={`Remove: ${chip.label}`}
+                      className="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent"
+                    >
+                      {chip.label} ×
+                    </button>
+                  ))}
+                  <button onClick={clearAllFacets} className="text-xs font-semibold text-muted hover:text-text">Clear all ×</button>
                 </div>
               )}
 
               {/* Statistics breakdowns — counts reflect compatible clips only (excluded-facet pattern) */}
-              <div className="rv-stats-breakdowns">
-                <div className="analytics-card">
-                  <h3>Outcome <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>
-                  {bars(outcomeSectionCounts, "outcome")}
-                </div>
-                <div className="analytics-card">
-                  <h3>Category <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>
-                  {(() => {
-                    // If selected group/specific has count 0 in compatible pool, still show it
-                    const selectedCat = facetFilters.category;
-                    const selectedGroup = selectedCat
-                      ? (selectedCat.includes(" — ") ? selectedCat.split(" — ")[0] : selectedCat)
-                      : null;
-                    const displayGroups: [string, number][] =
-                      selectedGroup && !groupedCategoryCounts.some(([g]) => g === selectedGroup)
-                        ? [...groupedCategoryCounts, [selectedGroup, 0]]
-                        : groupedCategoryCounts;
-                    const maxG = Math.max(...displayGroups.map(([, c]) => c), 1);
-                    return displayGroups.map(([group, count]) => {
-                      const isGroupActive =
-                        facetFilters.category !== null && (
-                          facetFilters.category === group ||
-                          facetFilters.category.startsWith(group + " — ")
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Card>
+                  <h3 className="mb-2 flex items-baseline gap-2 text-sm font-bold text-text">
+                    Outcome <span className="text-xs font-normal text-muted">click to filter</span>
+                  </h3>
+                  <div className="grid gap-1">{bars(outcomeSectionCounts, "outcome")}</div>
+                </Card>
+                <Card>
+                  <h3 className="mb-2 flex items-baseline gap-2 text-sm font-bold text-text">
+                    Category <span className="text-xs font-normal text-muted">click to filter</span>
+                  </h3>
+                  <div className="grid gap-1">
+                    {(() => {
+                      // If selected group/specific has count 0 in compatible pool, still show it
+                      const selectedCat = facetFilters.category;
+                      const selectedGroup = selectedCat
+                        ? (selectedCat.includes(" — ") ? selectedCat.split(" — ")[0] : selectedCat)
+                        : null;
+                      const displayGroups: [string, number][] =
+                        selectedGroup && !groupedCategoryCounts.some(([g]) => g === selectedGroup)
+                          ? [...groupedCategoryCounts, [selectedGroup, 0]]
+                          : groupedCategoryCounts;
+                      const maxG = Math.max(...displayGroups.map(([, c]) => c), 1);
+                      return displayGroups.map(([group, count]) => {
+                        const isGroupActive =
+                          facetFilters.category !== null && (
+                            facetFilters.category === group ||
+                            facetFilters.category.startsWith(group + " — ")
+                          );
+                        return (
+                          <button
+                            key={group}
+                            type="button"
+                            onClick={() => { toggleFacet("category", group); toggleCategoryExpansion(group); }}
+                            title={isGroupActive && isFacetActive("category", group) ? "Click to clear filter" : `Filter clips: ${group}`}
+                            className={cn(
+                              "flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left text-[13px] transition-colors",
+                              isGroupActive ? "border-accent/40 bg-accent/10 text-accent" : "border-transparent text-text hover:bg-panel-2"
+                            )}
+                          >
+                            <span className="flex-1 truncate">{group}</span>
+                            <div className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-panel-3">
+                              <div className="h-full rounded-full bg-accent" style={{ width: count > 0 ? `${Math.round((count / maxG) * 100)}%` : "0%" }} />
+                            </div>
+                            <strong className="w-5 shrink-0 text-right">{count}</strong>
+                          </button>
                         );
+                      });
+                    })()}
+                    {/* Sub-count drill-down: shown when a category group is expanded */}
+                    {expandedCategoryGroup !== null && (() => {
+                      const subs = allCategorySubCounts[expandedCategoryGroup] ?? [];
+                      // If a specific sub is selected and has count 0, still show it
+                      const selectedCat = facetFilters.category;
+                      const isSpecificSelected =
+                        selectedCat?.includes(" — ") &&
+                        selectedCat.startsWith(expandedCategoryGroup + " — ");
+                      const allSubs: [string, string, number][] =
+                        isSpecificSelected && !subs.some(([, fv]) => fv === selectedCat)
+                          ? [...subs, [selectedCat!.split(" — ")[1], selectedCat!, 0]]
+                          : subs;
+                      if (allSubs.length === 0) return null;
+                      const maxS = Math.max(...allSubs.map(([,, c]) => c), 1);
                       return (
-                        <div key={group} className={"metric-row clickable" + (isGroupActive ? " analytics-active" : "")}
-                          role="button" tabIndex={0}
-                          onClick={() => { toggleFacet("category", group); setExpandedCategoryGroup(group); }}
-                          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("category", group); setExpandedCategoryGroup(group); } }}
-                          title={isGroupActive && isFacetActive("category", group) ? "Click to clear filter" : `Filter clips: ${group}`}
-                        >
-                          <span>{group}</span>
-                          <div className="mini-bar"><div className="mini-bar-fill" style={{ width: count > 0 ? `${Math.round((count / maxG) * 100)}%` : "0%" }} /></div>
-                          <strong>{count}</strong>
-                        </div>
-                      );
-                    });
-                  })()}
-                  {/* Sub-count drill-down: shown when a category group is expanded */}
-                  {expandedCategoryGroup !== null && (() => {
-                    const subs = allCategorySubCounts[expandedCategoryGroup] ?? [];
-                    // If a specific sub is selected and has count 0, still show it
-                    const selectedCat = facetFilters.category;
-                    const isSpecificSelected =
-                      selectedCat?.includes(" — ") &&
-                      selectedCat.startsWith(expandedCategoryGroup + " — ");
-                    const allSubs: [string, string, number][] =
-                      isSpecificSelected && !subs.some(([, fv]) => fv === selectedCat)
-                        ? [...subs, [selectedCat!.split(" — ")[1], selectedCat!, 0]]
-                        : subs;
-                    if (allSubs.length === 0) return null;
-                    const maxS = Math.max(...allSubs.map(([,, c]) => c), 1);
-                    return (
-                      <>
-                        <div style={{ marginTop: 10 }}>
-                          <p style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                        <>
+                          <p className="mt-2 text-[11px] font-bold uppercase tracking-wide text-muted">
                             {expandedCategoryGroup} — specific tags
                           </p>
-                        </div>
-                        {allSubs.map(([specific, fullVal, count]) => {
-                          const isSubActive = isFacetActive("category", fullVal);
-                          return (
-                            <div key={fullVal} className={"metric-row clickable" + (isSubActive ? " analytics-active" : "")}
-                              role="button" tabIndex={0}
-                              onClick={() => toggleFacet("category", fullVal)}
-                              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFacet("category", fullVal); } }}
-                              title={isSubActive ? "Click to clear filter" : `Filter clips: ${fullVal}`}
-                            >
-                              <span style={{ paddingLeft: 8, fontSize: 13 }}>↳ {specific}</span>
-                              <div className="mini-bar"><div className="mini-bar-fill" style={{ width: count > 0 ? `${Math.round((count / maxS) * 100)}%` : "0%" }} /></div>
-                              <strong>{count}</strong>
-                            </div>
-                          );
-                        })}
-                      </>
-                    );
-                  })()}
-                </div>
-                <div className="analytics-card">
-                  <h3>Position <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>
-                  {bars(positionSectionCounts, "position")}
-                </div>
-                <div className="analytics-card">
-                  <h3>Coverage <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>click to filter</span></h3>
-                  {bars(coverageSectionCounts, "coverage")}
-                </div>
+                          {allSubs.map(([specific, fullVal, count]) => {
+                            const isSubActive = isFacetActive("category", fullVal);
+                            return (
+                              <button
+                                key={fullVal}
+                                type="button"
+                                onClick={() => toggleFacet("category", fullVal)}
+                                title={isSubActive ? "Click to clear filter" : `Filter clips: ${fullVal}`}
+                                className={cn(
+                                  "flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 pl-4 text-left text-[13px] transition-colors",
+                                  isSubActive ? "border-accent/40 bg-accent/10 text-accent" : "border-transparent text-text hover:bg-panel-2"
+                                )}
+                              >
+                                <span className="flex-1 truncate">↳ {specific}</span>
+                                <div className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-panel-3">
+                                  <div className="h-full rounded-full bg-accent" style={{ width: count > 0 ? `${Math.round((count / maxS) * 100)}%` : "0%" }} />
+                                </div>
+                                <strong className="w-5 shrink-0 text-right">{count}</strong>
+                              </button>
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </Card>
+                <Card>
+                  <h3 className="mb-2 flex items-baseline gap-2 text-sm font-bold text-text">
+                    Position <span className="text-xs font-normal text-muted">click to filter</span>
+                  </h3>
+                  <div className="grid gap-1">{bars(positionSectionCounts, "position")}</div>
+                </Card>
+                <Card>
+                  <h3 className="mb-2 flex items-baseline gap-2 text-sm font-bold text-text">
+                    Coverage <span className="text-xs font-normal text-muted">click to filter</span>
+                  </h3>
+                  <div className="grid gap-1">{bars(coverageSectionCounts, "coverage")}</div>
+                </Card>
               </div>
             </>
           )}
@@ -586,97 +599,87 @@ export function RefereeReviewScreen({
         </div>
 
         {/* ── Sidebar: clip list ── */}
-        <aside className="rv-sidebar">
-          <p className="rv-sidebar-heading">
+        <aside className="rv-sidebar grid content-start gap-3">
+          <p className="flex items-center gap-2 text-sm font-bold text-text">
             Clips ({total}{hasAnyFilter ? ` of ${visibleTags.length}` : ""})
-            {hasAnyFilter && <button style={{ fontSize: 11, marginLeft: 6, padding: "1px 6px" }} onClick={clearAllFacets}>✕ clear</button>}
+            {hasAnyFilter && <button className="text-xs font-semibold text-accent" onClick={clearAllFacets}>✕ clear</button>}
           </p>
           {total === 0 ? (
-            <p className="hint">No clips available.</p>
+            <p className="text-sm text-muted">No clips available.</p>
           ) : (
-            <div className="rv-clip-list">
+            <div className="grid gap-2">
               {filteredTags.map((tag, i) => {
                 const sel = i === selectedIdx;
+                const unread = unreadCounts?.[`${review?.id}::${tag.id}`] ?? 0;
                 return (
                   <div
                     key={tag.id}
-                    className={"rv-clip-card" + (sel ? " rv-selected" : "")}
                     onClick={() => selectClip(i)}
+                    className={cn(
+                      "cursor-pointer rounded-xl border p-3 transition-colors",
+                      sel ? "border-accent/50 bg-accent/[.07]" : "border-border bg-panel hover:bg-panel-2"
+                    )}
                   >
-                    <div className="rv-clip-header">
-                      <div className="badge-wrap">
-                        <span className="rv-clip-num">#{i + 1}</span>
-                        {(unreadCounts?.[`${review?.id}::${tag.id}`] ?? 0) > 0 && (
-                          <span className="badge-count">{Math.min(unreadCounts![`${review!.id}::${tag.id}`], 99)}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative inline-flex">
+                        <span className="text-xs font-bold text-muted">#{i + 1}</span>
+                        {unread > 0 && (
+                          <span className="absolute -right-2 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-danger px-1 text-[9px] font-bold leading-none text-white">
+                            {Math.min(unread, 99)}
+                          </span>
                         )}
                       </div>
-                      <span className="rv-clip-time">{tag.adjustedTime}</span>
-                      {tag.outcome && (
-                        <span
-                          className={`status ${outcomeClass(tag.outcome)}`}
-                          style={{ fontSize: 11, padding: "2px 7px" }}
-                        >
-                          {tag.outcome}
-                        </span>
-                      )}
-                      <span className="hint" style={{ fontSize: 11, marginLeft: "auto" }}>
-                        {relationLabel(tag, mySlot)}
-                      </span>
+                      <span className="text-sm font-semibold text-text">{tag.adjustedTime}</span>
+                      {tag.outcome && <Badge tone={outcomeTone(tag.outcome)} className="text-[10px]">{tag.outcome}</Badge>}
+                      <span className="ml-auto text-[11px] text-muted">{relationLabel(tag, mySlot)}</span>
                     </div>
-                    {tag.category && (
-                      <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
-                        {tag.category}
-                      </p>
-                    )}
+                    {tag.category && <p className="mt-1 text-xs text-muted">{tag.category}</p>}
                     {sel && (
-                      <div className="rv-clip-expand">
+                      <div className="mt-2 grid gap-1.5 border-t border-border pt-2">
                         {tag.coverage && (
-                          <div className="rv-clip-field">
-                            <span className="rv-clip-field-label">Coverage</span>
-                            <span className="rv-clip-field-value">{tag.coverage}</span>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted">Coverage</span>
+                            <span className="font-semibold text-text">{tag.coverage}</span>
                           </div>
                         )}
                         {tag.position && (
-                          <div className="rv-clip-field">
-                            <span className="rv-clip-field-label">Position</span>
-                            <span className="rv-clip-field-value">{tag.position}</span>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted">Position</span>
+                            <span className="font-semibold text-text">{tag.position}</span>
                           </div>
                         )}
-                        <div className="rv-clip-field">
-                          <span className="rv-clip-field-label">Applies to</span>
-                          <span className="rv-clip-field-value">{displayName(tag.refereeTarget, review)}</span>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted">Applies to</span>
+                          <span className="font-semibold text-text">{displayName(tag.refereeTarget, review)}</span>
                         </div>
                         {tag.notes && (
-                          <div className="rv-clip-notes" style={{ gridColumn: "1/-1" }}>
+                          <div className="rounded-lg border border-border bg-panel-2 px-2.5 py-1.5 text-xs text-text">
                             {tag.notes}
                           </div>
                         )}
-                        <div style={{ gridColumn: "1/-1", marginTop: 4 }}>
-                          <div className="badge-wrap" style={{ display: "inline-flex" }}>
-                            <button
-                              className="clip-action-btn"
-                              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                              onClick={e => {
-                                e.stopPropagation();
-                                const willOpen = !showComments;
-                                setShowComments(v => !v);
-                                if (willOpen && review?.id) clearUnread?.(review.id, tag.id);
-                              }}
-                            >
-                              <MessageSquare size={11} />
-                              {showComments ? "Hide comments" : "View comments"}
-                            </button>
-                            {(unreadCounts?.[`${review?.id}::${tag.id}`] ?? 0) > 0 && (
-                              <span className="badge-count">
-                                {Math.min(unreadCounts![`${review!.id}::${tag.id}`], 99)}
-                              </span>
-                            )}
-                          </div>
+                        <div className="relative inline-flex w-fit">
+                          <button
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2 py-1 text-xs font-semibold text-text hover:bg-panel-3"
+                            onClick={e => {
+                              e.stopPropagation();
+                              const willOpen = !showComments;
+                              setShowComments(v => !v);
+                              if (willOpen && review?.id) clearUnread?.(review.id, tag.id);
+                            }}
+                          >
+                            <MessageSquare size={11} />
+                            {showComments ? "Hide comments" : "View comments"}
+                          </button>
+                          {unread > 0 && (
+                            <span className="absolute -right-1.5 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-danger px-1 text-[9px] font-bold leading-none text-white">
+                              {Math.min(unread, 99)}
+                            </span>
+                          )}
                         </div>
                         {/* Comments panel inside the expanded clip card — no scroll hunting. Its own
                             click handler stops propagation so typing/replying doesn't reselect the clip. */}
                         {showComments && review?.id && (
-                          <div style={{ gridColumn: "1/-1", marginTop: 8 }} onClick={e => e.stopPropagation()}>
+                          <div onClick={e => e.stopPropagation()}>
                             <ReviewComments
                               reviewId={review.id}
                               tagId={tag.id}

@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BookOpen, Calendar, AlertCircle, ChevronLeft, CheckCircle2, ChevronDown, ChevronUp, ListVideo, HelpCircle, MessageSquare, Zap } from "lucide-react";
+import { BookOpen, Calendar, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, ListVideo, HelpCircle, MessageSquare, Zap } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { Assignment, AssignmentUser } from "@/lib/types/assignments";
-import { STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 import type { SimulatorAttempt } from "@/lib/types/simulator";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, type BadgeTone, Button, Card, EmptyState } from "@/components/ui";
 
 interface Props {
   session: RefEvalSession;
@@ -46,6 +47,28 @@ function pendingSortKey(a: Assignment): [number, number] {
 }
 
 const INSTRUCTIONS_THRESHOLD = 200;
+
+// Assignment "type" (Playlist/Quiz/Simulator/...) is informational, not a status — a
+// single restrained tone keeps the card from competing with the real status badge.
+function typeLabelFor(a: Assignment): string {
+  const hasPlaylist   = !!a.playlistId;
+  const hasSimulator  = !!a.simulatorSessionId;
+  const hasReflection = a.questions.length > 0;
+  const hasQuiz       = a.quizQuestions.length > 0;
+  if (hasSimulator) return "Simulator";
+  if (!hasPlaylist && hasQuiz) return "Quiz";
+  if (hasPlaylist && !hasReflection && !hasQuiz) return "Playlist";
+  if (hasPlaylist && hasReflection && !hasQuiz) return "Playlist + Reflection";
+  if (hasPlaylist && !hasReflection && hasQuiz) return "Playlist + Quiz";
+  if (hasPlaylist && hasReflection && hasQuiz) return "Playlist + Reflection + Quiz";
+  return "Assignment";
+}
+
+const STATUS_TONE: Record<AssignmentUser["status"], BadgeTone> = {
+  Assigned: "neutral",
+  Started: "warn",
+  Completed: "good",
+};
 
 export function MyLearningScreen({ session, myAssignments, playlists, members, simulatorAttempts = [], onOpenPlaylist, onOpenSimulator, onBack }: Props) {
   const userId = session.user.id;
@@ -95,43 +118,17 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, s
     const playlist = playlists.find(p => p.id === a.playlistId);
     const assigner = members.find(m => m.id === (a.assignedBy ?? ""));
     const hasPlaylist   = !!a.playlistId;
-    const hasSimulator  = !!a.simulatorSessionId;
     const hasReflection = a.questions.length > 0;
     const hasQuiz       = a.quizQuestions.length > 0;
-
-    let typeLabel: string;
-    let typeBg: string;
-    let typeBorder: string;
-    let typeColor: string;
-    if (hasSimulator) {
-      typeLabel = "Simulator";
-      typeBg = "rgba(245,158,11,.13)"; typeBorder = "rgba(245,158,11,.4)"; typeColor = "#fde68a";
-    } else if (!hasPlaylist && hasQuiz) {
-      typeLabel = "Quiz";
-      typeBg = "rgba(99,102,241,.15)"; typeBorder = "rgba(99,102,241,.4)"; typeColor = "#a5b4fc";
-    } else if (hasPlaylist && !hasReflection && !hasQuiz) {
-      typeLabel = "Playlist";
-      typeBg = "rgba(59,130,246,.13)"; typeBorder = "rgba(59,130,246,.35)"; typeColor = "#93c5fd";
-    } else if (hasPlaylist && hasReflection && !hasQuiz) {
-      typeLabel = "Playlist + Reflection";
-      typeBg = "rgba(20,184,166,.13)"; typeBorder = "rgba(20,184,166,.35)"; typeColor = "#5eead4";
-    } else if (hasPlaylist && !hasReflection && hasQuiz) {
-      typeLabel = "Playlist + Quiz";
-      typeBg = "rgba(139,92,246,.13)"; typeBorder = "rgba(139,92,246,.35)"; typeColor = "#c4b5fd";
-    } else if (hasPlaylist && hasReflection && hasQuiz) {
-      typeLabel = "Playlist + Reflection + Quiz";
-      typeBg = "rgba(139,92,246,.13)"; typeBorder = "rgba(139,92,246,.35)"; typeColor = "#c4b5fd";
-    } else {
-      typeLabel = "Assignment";
-      typeBg = "rgba(255,255,255,.07)"; typeBorder = "rgba(255,255,255,.15)"; typeColor = "var(--muted)";
-    }
+    const hasSimulator  = !!a.simulatorSessionId;
+    const typeLabel = typeLabelFor(a);
 
     const summaryParts: React.ReactNode[] = [];
     if (hasPlaylist) {
       const clipCount = playlist?.items.length ?? 0;
       summaryParts.push(
-        <span key="pl" style={{ display: "flex", alignItems: "center", gap: 3 }}>
-          <ListVideo size={10} style={{ flexShrink: 0 }} />
+        <span key="pl" className="flex items-center gap-1">
+          <ListVideo size={10} className="shrink-0" />
           {clipCount} clip{clipCount !== 1 ? "s" : ""}
         </span>
       );
@@ -139,8 +136,8 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, s
     if (hasReflection) {
       const qCount = a.questions.length;
       summaryParts.push(
-        <span key="ref" style={{ display: "flex", alignItems: "center", gap: 3 }}>
-          <MessageSquare size={10} style={{ flexShrink: 0 }} />
+        <span key="ref" className="flex items-center gap-1">
+          <MessageSquare size={10} className="shrink-0" />
           {qCount} reflection Q{qCount !== 1 ? "s" : ""}
         </span>
       );
@@ -148,8 +145,8 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, s
     if (hasQuiz) {
       const qCount = a.quizQuestions.length;
       summaryParts.push(
-        <span key="quiz" style={{ display: "flex", alignItems: "center", gap: 3 }}>
-          <HelpCircle size={10} style={{ flexShrink: 0 }} />
+        <span key="quiz" className="flex items-center gap-1">
+          <HelpCircle size={10} className="shrink-0" />
           {qCount} question{qCount !== 1 ? "s" : ""}
         </span>
       );
@@ -171,95 +168,53 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, s
     const isExpanded  = expanded.has(a.id);
     const longInstructions = a.instructions && a.instructions.length > INSTRUCTIONS_THRESHOLD;
 
+    const accentClass = overdue
+      ? "border-l-4 border-l-danger"
+      : dueSoon
+      ? "border-l-4 border-l-warn"
+      : isCompleted
+      ? "border-l-4 border-l-good/60"
+      : "border-l-4 border-l-border";
+
     return (
-      <div
-        key={a.id}
-        style={{
-          background: "var(--panel)",
-          border: "1px solid var(--border)",
-          borderRadius: 12,
-          padding: 16,
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          borderLeft: overdue
-            ? "4px solid rgba(239,68,68,.6)"
-            : dueSoon
-            ? "4px solid rgba(245,158,11,.6)"
-            : isCompleted
-            ? "4px solid rgba(34,197,94,.4)"
-            : "4px solid var(--border)",
-        }}
-      >
+      <Card key={a.id} className={`flex flex-col gap-3 ${accentClass}`}>
         {/* Title row */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {a.title}
-            </div>
-            <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999,
-                background: typeBg, border: `1px solid ${typeBorder}`, color: typeColor,
-                whiteSpace: "nowrap",
-              }}>
-                {typeLabel}
-              </span>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[15px] font-bold text-text">{a.title}</div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <Badge tone="neutral">{typeLabel}</Badge>
               {summaryParts.length > 0 && (
-                <span style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  {summaryParts.map((part, i) => (
-                    <span key={i} style={{ display: "flex", alignItems: "center", gap: 3 }}>{part}</span>
-                  ))}
+                <span className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
+                  {summaryParts}
                 </span>
               )}
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-            {/* Status badge */}
-            {!isCompleted && (
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999,
-                background: STATUS_BG[au.status],
-                color: STATUS_COLORS[au.status],
-                border: `1px solid ${STATUS_BORDER[au.status]}`,
-              }}>
-                {au.status}
-              </span>
-            )}
-            {a.required && (
-              <span style={REQUIRED_BADGE_STYLE}>Required</span>
-            )}
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {!isCompleted && <Badge tone={STATUS_TONE[au.status]}>{au.status}</Badge>}
+            {a.required && <Badge tone="danger">Required</Badge>}
           </div>
         </div>
 
         {/* Completion banner for completed assignments */}
         {isCompleted && au.completedAt && (
-          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 10px", background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.25)", borderRadius: 8 }}>
-            <CheckCircle2 size={14} style={{ color: "#22c55e", flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: "#86efac", fontWeight: 600 }}>
-              Completed {fmt(au.completedAt)}
-            </span>
+          <div className="flex items-center gap-2 rounded-lg border border-good/25 bg-good/[.08] px-2.5 py-1.5">
+            <CheckCircle2 size={14} className="shrink-0 text-good" />
+            <span className="text-[13px] font-semibold text-good">Completed {fmt(au.completedAt)}</span>
           </div>
         )}
 
         {/* Instructions */}
         {a.instructions && (
           <div>
-            <p style={{
-              margin: 0, fontSize: 13, color: "var(--muted)",
-              ...(!isExpanded && longInstructions ? {
-                overflow: "hidden",
-                display: "-webkit-box",
-                WebkitLineClamp: 3,
-                WebkitBoxOrient: "vertical" as const,
-              } : {}),
-            }}>
+            <p className={`m-0 text-[13px] text-muted ${!isExpanded && longInstructions ? "line-clamp-3" : ""}`}>
               {a.instructions}
             </p>
             {longInstructions && (
               <button
                 onClick={() => toggleExpand(a.id)}
-                style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 5, padding: 0, background: "none", border: "none", fontSize: 12, color: "var(--accent)", cursor: "pointer", fontWeight: 600 }}
+                className="mt-1 flex items-center gap-1 border-none bg-none p-0 text-xs font-semibold text-accent"
               >
                 {isExpanded ? <><ChevronUp size={13} /> Show less</> : <><ChevronDown size={13} /> Show more</>}
               </button>
@@ -268,12 +223,10 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, s
         )}
 
         {/* Meta row */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 12, color: "var(--muted)" }}>
-          {assigner && (
-            <span>Assigned by {assigner.name || assigner.email}</span>
-          )}
+        <div className="flex flex-wrap gap-3 text-xs text-muted">
+          {assigner && <span>Assigned by {assigner.name || assigner.email}</span>}
           {a.dueDate && !isCompleted && (
-            <span style={{ display: "flex", alignItems: "center", gap: 4, color: overdue ? "#fca5a5" : dueSoon ? "#fde68a" : "var(--muted)" }}>
+            <span className={`flex items-center gap-1 ${overdue ? "text-red-300" : dueSoon ? "text-yellow-300" : "text-muted"}`}>
               {(overdue || dueSoon) && <AlertCircle size={12} />}
               <Calendar size={11} />
               Due {fmt(a.dueDate)}
@@ -286,19 +239,20 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, s
         {/* Action button */}
         {hasSimulator ? (
           <>
-            <button
-              className={isCompleted ? undefined : "primary"}
-              style={{ alignSelf: "flex-start", fontSize: 13, display: "flex", alignItems: "center", gap: 5 }}
+            <Button
+              variant={isCompleted ? "secondary" : "primary"}
+              size="sm"
+              className="w-fit gap-1.5"
               onClick={() => onOpenSimulator ? onOpenSimulator(a, au) : undefined}
             >
               <Zap size={13} />
               {isCompleted ? "Replay Simulator" : au.status === "Assigned" ? "Start Simulator" : "Continue Simulator"}
-            </button>
+            </Button>
             {mySimAttempts.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 12, color: "var(--muted)", borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: 2 }}>
-                <span><strong style={{ color: "var(--text)" }}>{mySimAttempts.length}</strong> attempt{mySimAttempts.length !== 1 ? "s" : ""}</span>
-                {latestPct !== null && <span>Latest <strong style={{ color: "var(--accent)" }}>{latestPct}%</strong></span>}
-                {bestPct !== null && latestPct !== bestPct && <span>Best <strong style={{ color: "#22c55e" }}>{bestPct}%</strong></span>}
+              <div className="flex flex-wrap gap-2.5 border-t border-border pt-2 text-xs text-muted">
+                <span><strong className="text-text">{mySimAttempts.length}</strong> attempt{mySimAttempts.length !== 1 ? "s" : ""}</span>
+                {latestPct !== null && <span>Latest <strong className="text-accent">{latestPct}%</strong></span>}
+                {bestPct !== null && latestPct !== bestPct && <span>Best <strong className="text-good">{bestPct}%</strong></span>}
                 {latestSimAttempt?.completedAt && <span>Last played {fmt(latestSimAttempt.completedAt)}</span>}
               </div>
             )}
@@ -306,92 +260,75 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, s
         ) : (
           <>
             {!isCompleted && (
-              <button
-                className="primary"
-                style={{ alignSelf: "flex-start", fontSize: 13 }}
-                onClick={() => onOpenPlaylist(a, au)}
-              >
+              <Button variant="primary" size="sm" className="w-fit" onClick={() => onOpenPlaylist(a, au)}>
                 {au.status === "Assigned" ? "Start Learning" : "Continue Learning"}
-              </button>
+              </Button>
             )}
             {isCompleted && (
-              <button
-                style={{ alignSelf: "flex-start", fontSize: 13 }}
-                onClick={() => onOpenPlaylist(a, au)}
-              >
+              <Button variant="secondary" size="sm" className="w-fit" onClick={() => onOpenPlaylist(a, au)}>
                 {a.playlistId ? "View Playlist" : "View Quiz"}
-              </button>
+              </Button>
             )}
           </>
         )}
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div style={{ padding: "20px 20px 60px", boxSizing: "border-box", maxWidth: 860, margin: "0 auto" }}>
-
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BookOpen size={22} style={{ color: "var(--muted)", flexShrink: 0 }} />
-          <div>
-            <p className="eyebrow" style={{ margin: 0 }}>Referee Portal</p>
-            <h1 style={{ margin: 0, fontSize: 22 }}>My Learning</h1>
-            <p className="hint" style={{ margin: "2px 0 0" }}>Assignments from your educators</p>
-          </div>
-        </div>
-        <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <ChevronLeft size={15} /> Back
-        </button>
-      </div>
-
+    <PageFrame
+      eyebrow="Referee Portal"
+      title="My Learning"
+      description="Assignments from your educators"
+      actions={<Button variant="secondary" size="sm" onClick={onBack}>← Back</Button>}
+      className="mx-auto max-w-[900px]"
+    >
       {/* Empty state */}
       {myAssignments.length === 0 && (
-        <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-          <BookOpen size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
-          <p style={{ margin: 0, fontWeight: 700 }}>No learning assignments yet</p>
-          <p className="hint" style={{ margin: "6px 0 0" }}>Your educators will assign learning activities here.</p>
-        </div>
+        <EmptyState
+          icon={<BookOpen size={28} />}
+          title="No learning assignments yet"
+          description="Your educators will assign learning activities here."
+        />
       )}
 
       {/* Learning summary */}
       {myAssignments.length > 0 && (
-        <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
-          <div className="panel" style={{ flex: "1 1 120px", padding: "12px 16px", textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)" }}>{pending.length}</div>
-            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Pending</div>
-          </div>
-          <div className="panel" style={{ flex: "1 1 120px", padding: "12px 16px", textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#86efac" }}>{completed.length}</div>
-            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Completed</div>
-          </div>
-          <div className="panel" style={{ flex: "1 1 120px", padding: "12px 16px", textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: overdueCount > 0 ? "#fca5a5" : "var(--text)" }}>{overdueCount}</div>
-            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Overdue</div>
-          </div>
+        <div className="flex flex-wrap gap-3">
+          <Card className="min-w-[120px] flex-1 text-center">
+            <div className="text-2xl font-extrabold text-text">{pending.length}</div>
+            <div className="mt-0.5 text-xs text-muted">Pending</div>
+          </Card>
+          <Card className="min-w-[120px] flex-1 text-center">
+            <div className="text-2xl font-extrabold text-good">{completed.length}</div>
+            <div className="mt-0.5 text-xs text-muted">Completed</div>
+          </Card>
+          <Card className="min-w-[120px] flex-1 text-center">
+            <div className={`text-2xl font-extrabold ${overdueCount > 0 ? "text-red-300" : "text-text"}`}>{overdueCount}</div>
+            <div className="mt-0.5 text-xs text-muted">Overdue</div>
+          </Card>
         </div>
       )}
 
       {/* Pending */}
       {pending.length > 0 && (
-        <div style={{ marginBottom: 32 }}>
-          <h2 className="ed-section-title">To Do · {pending.length}</h2>
-          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
+        <section className="grid gap-3">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">To Do · {pending.length}</h2>
+          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
             {pending.map(a => renderCard(a))}
           </div>
-        </div>
+        </section>
       )}
 
       {/* Completed */}
       {completed.length > 0 && (
-        <div>
-          <h2 className="ed-section-title">Completed · {completed.length}</h2>
-          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
+        <section className="grid gap-3">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Completed · {completed.length}</h2>
+          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
             {completed.map(a => renderCard(a))}
           </div>
-        </div>
+        </section>
       )}
-    </div>
+    </PageFrame>
   );
 }

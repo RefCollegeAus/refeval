@@ -19,8 +19,22 @@ export interface TabItem {
 // the product. Same visual/accessibility contract as RefOps's version
 // (role=tablist, aria-selected, horizontal scroll instead of wrap on
 // mobile) — only the state mechanism differs.
-export function Tabs({ tabs, ariaLabel = "Tabs" }: { tabs: TabItem[]; ariaLabel?: string }) {
-  const [activeId, setActiveId] = useState(tabs[0]?.id);
+export function Tabs({
+  tabs,
+  ariaLabel = "Tabs",
+  activeId: controlledActiveId,
+  onChange,
+}: {
+  tabs: TabItem[];
+  ariaLabel?: string;
+  /** Omit for self-managed (uncontrolled) tab state. Pass alongside `onChange` when
+   *  something outside the tab bar itself (e.g. a "view all" link) needs to switch tabs. */
+  activeId?: string;
+  onChange?: (id: string) => void;
+}) {
+  const [internalActiveId, setInternalActiveId] = useState(tabs[0]?.id);
+  const activeId = controlledActiveId ?? internalActiveId;
+  const setActiveId = onChange ?? setInternalActiveId;
   const active = tabs.find((t) => t.id === activeId) ?? tabs[0];
 
   return (

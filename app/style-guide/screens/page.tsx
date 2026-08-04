@@ -1,21 +1,33 @@
 "use client";
 
 // Internal, unlinked diagnostic page — Phase 3 (High-Traffic Screen
-// Modernisation) verification. Renders the three migrated screens against
-// deterministic local fixtures, since no live Supabase role credentials
-// were available for this phase (see the Phase 3 deliverables report).
-// EducatorDashboard and OrganisationScreen are rendered as the real,
-// unmodified production components. The Referee Home screen is NOT a
+// Modernisation) and Phase 4 (Referee Development Experience) verification.
+// Renders the migrated screens against deterministic local fixtures, since
+// no live Supabase role credentials were available for either phase (see
+// the Phase 3/4 deliverables reports). EducatorDashboard, OrganisationScreen,
+// MyLearningScreen, RefereeReviewScreen, RefereeGoalsScreen,
+// RefereeDevelopmentScreen and RefereeCommentsScreen are all rendered as the
+// real, unmodified production components. The Referee Home screen is NOT a
 // standalone component — it's inline JSX inside app/page.tsx's "referee"
 // screen branch — so its markup is intentionally duplicated below,
 // fed by fixtures, for visual verification only. Any real change to that
 // screen must still be made in app/page.tsx; this fixture is not a second
 // source of truth for its logic.
+//
+// RefereeCommentsScreen fetches its own comment threads from Supabase (no
+// prop injection for thread data), so its fixture below only verifies the
+// header/filter chrome and empty state deterministically — not a populated
+// thread list.
 
 import { useState } from "react";
 import { Inbox, Eye, BarChart3, Target, MessageSquare, BookOpen } from "lucide-react";
 import { EducatorDashboard } from "@/components/educator/EducatorDashboard";
 import { OrganisationScreen } from "@/components/organisation/OrganisationScreen";
+import { RefereeDevelopmentScreen } from "@/components/educator/RefereeDevelopmentScreen";
+import { MyLearningScreen } from "@/components/referee/MyLearningScreen";
+import { RefereeReviewScreen } from "@/components/referee/RefereeReviewScreen";
+import { RefereeGoalsScreen } from "@/components/referee/RefereeGoalsScreen";
+import { RefereeCommentsScreen } from "@/components/referee/RefereeCommentsScreen";
 import { PageFrame } from "@/components/shell/PageFrame";
 import { Badge, Button, Card, EmptyState, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui";
 import { makeAnalytics } from "@/lib/utils/analytics";
@@ -23,8 +35,11 @@ import { makeDefaultSettings } from "@/lib/types/organisationSettings";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { Assignment } from "@/lib/types/assignments";
+import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
-import type { RefereeGoalView } from "@/lib/types/developmentGoals";
+import type { RefereeGoalView, DevGoalDef } from "@/lib/types/developmentGoals";
+import type { DevelopmentNote } from "@/lib/types/developmentNotes";
+import type { ReviewGoalLink, ClipGoalLink } from "@/lib/types/reviewGoalLinks";
 import type { Group } from "@/lib/types/groups";
 import type { OrganisationRecord } from "@/lib/types/organisations";
 
@@ -78,13 +93,32 @@ const TAGS: CodedTag[] = [
   { id: "tag-2", reviewId: "rev-2", organisationId: ORG_ID, time: "04:02", seconds: 242, adjustedSeconds: 232, adjustedTime: "03:52", mode: "video", refereeTarget: "Referee 1", extraReviewOfficials: [], clipOfficials: [], outcome: "Incorrect No Call", category: "Travel", position: "Lead", coverage: "Secondary", createdAt: daysAgo(5) },
 ];
 
+const PLAYLISTS: Playlist[] = [
+  {
+    id: "pl-1", organisationId: ORG_ID, title: "Positioning fundamentals", description: null,
+    createdBy: "user-jamie", createdAt: daysAgo(10), updatedAt: daysAgo(10), archivedAt: null,
+    items: [
+      { id: "pi-1", playlistId: "pl-1", reviewId: "rev-2", tagId: "tag-1", position: 0, createdAt: daysAgo(10), creatorNote: null },
+      { id: "pi-2", playlistId: "pl-1", reviewId: "rev-2", tagId: "tag-2", position: 1, createdAt: daysAgo(10), creatorNote: null },
+    ],
+  },
+];
+
 const ASSIGNMENTS: Assignment[] = [
   {
-    id: "assign-1", organisationId: ORG_ID, playlistId: null, simulatorSessionId: null, assignedBy: "user-jamie",
-    title: "Positioning fundamentals", instructions: null, dueDate: daysAgo(-3).slice(0, 10), required: true, quizAllowRetakes: true,
-    createdAt: daysAgo(10), questions: [], quizQuestions: [],
+    id: "assign-1", organisationId: ORG_ID, playlistId: "pl-1", simulatorSessionId: null, assignedBy: "user-jamie",
+    title: "Positioning fundamentals", instructions: "Review the two clips below and note where your trail position could be tighter.", dueDate: daysAgo(-3).slice(0, 10), required: true, quizAllowRetakes: true,
+    createdAt: daysAgo(10), questions: [{ id: "q-1", prompt: "What would you do differently?" } as never], quizQuestions: [],
     assignmentUsers: [
       { id: "au-1", assignmentId: "assign-1", userId: "user-alex", status: "Started", assignedAt: daysAgo(10), startedAt: daysAgo(3), completedAt: null, watchedClipIds: [], reflectionResponses: null, reflectionSubmittedAt: null, quizAnswers: null, quizScore: null, quizTotal: null, quizSubmittedAt: null, quizAttemptCount: 0 },
+    ],
+  },
+  {
+    id: "assign-2", organisationId: ORG_ID, playlistId: null, simulatorSessionId: null, assignedBy: "user-jamie",
+    title: "Rules refresher quiz", instructions: null, dueDate: daysAgo(20).slice(0, 10), required: false, quizAllowRetakes: true,
+    createdAt: daysAgo(25), questions: [], quizQuestions: [{ id: "qq-1", prompt: "Sample question" } as never],
+    assignmentUsers: [
+      { id: "au-2", assignmentId: "assign-2", userId: "user-alex", status: "Completed", assignedAt: daysAgo(25), startedAt: daysAgo(22), completedAt: daysAgo(21), watchedClipIds: [], reflectionResponses: null, reflectionSubmittedAt: null, quizAnswers: null, quizScore: 8, quizTotal: 10, quizSubmittedAt: daysAgo(21), quizAttemptCount: 1 },
     ],
   },
 ];
@@ -106,6 +140,34 @@ const GOALS: RefereeGoalView[] = [
 
 const GROUPS: Group[] = [
   { id: "grp-1", organisationId: ORG_ID, name: "Junior Development", description: "First-year referees", colour: "#3b82f6", createdAt: daysAgo(30), updatedAt: daysAgo(30), members: [{ id: "gm-1", groupId: "grp-1", userId: "user-alex", createdAt: daysAgo(30) }] },
+];
+
+const DEV_GOAL_DEFS: DevGoalDef[] = [
+  {
+    id: "def-1", organisationId: ORG_ID, title: "Improve trail positioning", description: "Focus on staying wide on transition.",
+    category: "Positioning", priority: "High", createdBy: "user-jamie", createdAt: daysAgo(15), updatedAt: daysAgo(15),
+  },
+];
+
+const DEV_NOTES: DevelopmentNote[] = [
+  {
+    id: "note-1", refereeId: "user-alex", organisationId: ORG_ID, title: "Great trail work last game",
+    body: "Noticed much tighter trail positioning in the second half — keep it up.", noteType: "Sideline Feedback",
+    visibility: "Visible to Referee", createdBy: "user-jamie", createdAt: daysAgo(4), updatedAt: daysAgo(4), linkedGoalId: "def-1",
+  },
+  {
+    id: "note-2", refereeId: "user-alex", organisationId: ORG_ID, title: "Self-reflection — Round 7",
+    body: "I felt rushed on the transition call in the third quarter, want to work on anticipation.", noteType: "General",
+    visibility: "Visible to Referee", createdBy: "user-alex", createdAt: daysAgo(2), updatedAt: daysAgo(2), linkedGoalId: null,
+  },
+];
+
+const REVIEW_GOAL_LINKS: ReviewGoalLink[] = [
+  { id: "rgl-1", organisationId: ORG_ID, reviewId: "rev-2", goalDefId: "def-1", refereeId: "user-alex", linkedAt: daysAgo(5), linkedBy: "user-jamie", createdGoalFromReview: false },
+];
+
+const CLIP_GOAL_LINKS: ClipGoalLink[] = [
+  { id: "cgl-1", organisationId: ORG_ID, clipId: "tag-1", reviewId: "rev-2", goalDefId: "def-1", refereeId: "user-alex" },
 ];
 
 const ORG: OrganisationRecord = { id: ORG_ID, name: "Demo Basketball Association", createdAt: daysAgo(200), timezone: "Australia/Sydney", brandColour: "#a56a1b", logoUrl: null };
@@ -345,6 +407,140 @@ export default function ScreenFixturesPage() {
               </div>
             </aside>
           </div>
+        </div>
+      </Section>
+
+      <Section title="My Learning" description='screen === "my-learning" → components/referee/MyLearningScreen.tsx'>
+        <div className="rounded-2xl border border-border">
+          <MyLearningScreen
+            session={SESSION_REFEREE}
+            myAssignments={ASSIGNMENTS}
+            playlists={PLAYLISTS}
+            members={MEMBERS}
+            simulatorAttempts={[]}
+            onOpenPlaylist={() => {}}
+            onOpenSimulator={() => {}}
+            onBack={() => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="My Learning — empty state" description="Zero assignments.">
+        <div className="rounded-2xl border border-border">
+          <MyLearningScreen
+            session={SESSION_REFEREE}
+            myAssignments={[]}
+            playlists={[]}
+            members={MEMBERS}
+            simulatorAttempts={[]}
+            onOpenPlaylist={() => {}}
+            onOpenSimulator={() => {}}
+            onBack={() => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Individual review landing / summary" description='screen === "refereeReview" → components/referee/RefereeReviewScreen.tsx (video player + clip selection untouched)'>
+        {/* This screen self-renders the real <Header>, which owns a `position: fixed` Sidebar —
+            correct in production (exactly one screen mounts at a time), but this fixture gallery
+            stacks many screens in one scrollable page, so `contain: layout` scopes the fixed
+            Sidebar to this box instead of letting it escape over earlier sections. */}
+        <div className="rounded-2xl border border-border" style={{ contain: "layout" }}>
+          <RefereeReviewScreen
+            review={REVIEWS[1]}
+            visibleTags={TAGS}
+            mySlot="Referee 1"
+            session={SESSION_REFEREE}
+            unreadCounts={{ "rev-2::tag-1": 2 }}
+            onRead={() => {}}
+            clearUnread={() => {}}
+            officialSummary={{ positives: "Strong hustle and communication throughout.", workOns: "Trail distance on fast breaks.", nextFocus: "Stay wide through transition." }}
+            initialTagId={null}
+            onHome={() => {}}
+            onAdmin={() => {}}
+            onProfile={() => {}}
+            onLogout={() => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Development Goals — My Goals" description='screen === "referee-goals" → components/referee/RefereeGoalsScreen.tsx'>
+        <div className="rounded-2xl border border-border">
+          <RefereeGoalsScreen
+            session={SESSION_REFEREE}
+            goalViews={GOALS}
+            goalDefs={DEV_GOAL_DEFS}
+            notes={DEV_NOTES}
+            completedReviews={[REVIEWS[1]]}
+            reviewGoalLinks={REVIEW_GOAL_LINKS}
+            clipGoalLinks={CLIP_GOAL_LINKS}
+            members={MEMBERS}
+            onCreateNote={() => {}}
+            onUpdateNote={() => {}}
+            onDeleteNote={() => {}}
+            onBack={() => {}}
+            initialGoalId={null}
+          />
+        </div>
+      </Section>
+
+      <Section title="Development Goals — empty state" description="Zero goals, zero notes.">
+        <div className="rounded-2xl border border-border">
+          <RefereeGoalsScreen
+            session={SESSION_REFEREE}
+            goalViews={[]}
+            goalDefs={[]}
+            notes={[]}
+            completedReviews={[]}
+            reviewGoalLinks={[]}
+            clipGoalLinks={[]}
+            members={MEMBERS}
+            onCreateNote={() => {}}
+            onUpdateNote={() => {}}
+            onDeleteNote={() => {}}
+            onBack={() => {}}
+            initialGoalId={null}
+          />
+        </div>
+      </Section>
+
+      <Section title="Development Timeline" description='screen === "referee-development" → components/educator/RefereeDevelopmentScreen.tsx (shared with educator; canEdit=false for a referee viewing their own record)'>
+        <div className="rounded-2xl border border-border">
+          <RefereeDevelopmentScreen
+            session={SESSION_REFEREE}
+            referee={MEMBERS[0]}
+            refereeMembers={MEMBERS.filter(m => m.role === "referee")}
+            goalViews={GOALS}
+            notes={DEV_NOTES}
+            completedReviews={[REVIEWS[1]]}
+            reviewGoalLinks={REVIEW_GOAL_LINKS}
+            allReviews={REVIEWS}
+            onAssignGoal={() => {}}
+            onUpdateGoalDef={() => {}}
+            onUpdateRefereeGoal={() => {}}
+            onCompleteGoal={() => {}}
+            onArchiveGoal={() => {}}
+            onReopenGoal={() => {}}
+            onDeleteGoal={() => {}}
+            onCreateNote={() => {}}
+            onUpdateNote={() => {}}
+            onDeleteNote={() => {}}
+            onBack={() => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="My Comments / feedback" description='screen === "referee-comments" → components/referee/RefereeCommentsScreen.tsx (comment threads fetched live from Supabase — see file header)'>
+        <div className="rounded-2xl border border-border">
+          <RefereeCommentsScreen
+            session={SESSION_REFEREE}
+            myReviews={REVIEWS}
+            allTags={TAGS}
+            clearUnread={() => {}}
+            onRead={() => {}}
+            onWatchClip={() => {}}
+            onBack={() => {}}
+          />
         </div>
       </Section>
     </main>
