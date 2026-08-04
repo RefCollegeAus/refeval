@@ -1,3 +1,122 @@
+@layer legacy, theme, utilities;
+
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
+/*
+ * Referee College Design System — Phase 1 (foundation)
+ * ──────────────────────────────────────────────────────────────────────────
+ * This block establishes the shared token layer and Tailwind utility
+ * classes used by the new component library in components/ui/*, without
+ * changing any of RefEval's existing styling below.
+ *
+ * Everything from the next `:root { ... }` block to the end of this file is
+ * RefEval's pre-existing CSS, untouched — every selector, value and rule is
+ * byte-for-byte identical to before this phase. It is wrapped in an
+ * explicit, deliberately low-priority `legacy` layer so new
+ * Tailwind-utility-driven components (rendered on /style-guide for now, and
+ * screen-by-screen from Phase 3 onward) can override it cleanly where both
+ * systems target the same bare HTML element (button, input, table, etc).
+ * Tailwind's preflight/base reset is intentionally NOT imported (only
+ * `theme` and `utilities`, above) — this guarantees Tailwind never resets
+ * any bare element site-wide, so every existing screen keeps rendering
+ * exactly as it did before this phase; no existing code path is touched.
+ *
+ * Two genuinely new tokens are added here, both naming values that already
+ * exist elsewhere in this file rather than introducing new colours:
+ *   --accent-2  the gradient-end colour already hardcoded in `.primary`
+ *               below (#bf7c21) — named so new components can reference it
+ *               as a token instead of repeating the literal.
+ *   --info      the info-toast colour already used in AppToast.tsx
+ *               (#6366f1, indigo) — named for the same reason.
+ * Font family is deliberately not re-mapped here: new components inherit
+ * Inter automatically from `body`'s existing font-family rule below (an
+ * inherited CSS property), so no next/font dependency is added in this
+ * phase.
+ */
+:root {
+  --accent-2: #bf7c21;
+  --info: #6366f1;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel2);
+  --color-panel-3: var(--panel3);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-brand: var(--accent);
+  --color-brand-hover: var(--accent-2);
+  --color-surface: var(--panel);
+  --color-elevated: var(--panel2);
+  --color-danger: var(--danger);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-info: var(--info);
+}
+
+/*
+ * Referee College Design System — reusable structural class used by the new
+ * Table primitive (components/ui/Table.tsx) for its responsive mobile
+ * collapse. This generalises a pattern RefEval already proved out for the
+ * referee "My Reviews" table (`.ref-reviews-table`, inside the legacy layer
+ * below) into a reusable, unscoped class so any new Table instance gets the
+ * same behaviour without re-authoring it per screen.
+ */
+@media (max-width: 720px) {
+  .rcds-table table,
+  .rcds-table thead,
+  .rcds-table tbody,
+  .rcds-table tr,
+  .rcds-table th,
+  .rcds-table td {
+    display: block;
+    width: auto;
+    min-width: 0;
+  }
+  .rcds-table thead {
+    display: none;
+  }
+  .rcds-table tbody tr {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background: var(--panel2);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .rcds-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    border: none;
+    font-size: 14px;
+  }
+  .rcds-table td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-right: 8px;
+  }
+  .rcds-table td:not([data-label])::before {
+    display: none;
+  }
+}
+
+@layer legacy {
+
 :root {
   --bg:#111112; --panel:#1c1c1e; --panel2:#242426; --panel3:#2c2c2e;
   --text:#f5f5f5; --muted:#8e8e93; --border:#38383b; --accent:#a56a1b;
@@ -587,3 +706,5 @@ table tbody tr:hover{background:rgba(165,106,27,.04)}
 .org-sidebar{width:220px;flex-shrink:0;border-right:1px solid var(--border);padding:20px 12px;display:flex;flex-direction:column;gap:2px;background:var(--panel)}
 .org-content{flex:1;min-width:0;padding:24px 28px;overflow-y:auto}
 @media(max-width:760px){.org-layout{flex-direction:column}.org-sidebar{width:100%;flex-direction:row;overflow-x:auto;flex-wrap:nowrap;padding:10px 8px;border-right:none;border-bottom:1px solid var(--border);gap:4px}.org-sidebar-header,.org-sidebar-footer{display:none!important}.org-sidebar button{width:auto;flex-shrink:0;white-space:nowrap}.org-content{padding:16px 12px}}
+
+} /* end @layer legacy */
