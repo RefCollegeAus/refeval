@@ -245,7 +245,7 @@ export function NotificationCentre({
 
   return (
     <PageFrame
-      className="mx-auto max-w-[900px]"
+      className="mx-auto max-w-[900px] p-0"
       eyebrow="In-App"
       title="Notifications"
       description={unreadCount > 0 ? `${unreadCount} unread` : undefined}

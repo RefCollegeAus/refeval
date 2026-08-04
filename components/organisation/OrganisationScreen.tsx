@@ -143,25 +143,16 @@ export function OrganisationScreen({
           return (
             <button
               key={page}
+              type="button"
               onClick={() => setCurrentPage(page)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 9,
-                width: "100%",
-                textAlign: "left",
-                padding: "8px 10px",
-                borderRadius: 10,
-                border: `1px solid ${active ? "rgba(165,106,27,.3)" : "transparent"}`,
-                background: active ? "rgba(165,106,27,.14)" : "none",
-                color: active ? "var(--accent)" : "var(--text)",
-                fontWeight: active ? 800 : 600,
-                fontSize: 13,
-                cursor: "pointer",
-                boxShadow: "none",
-              }}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium shadow-none transition-colors",
+                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                active ? "bg-accent/15 text-amber-300" : "text-muted hover:bg-panel-3 hover:text-text"
+              )}
             >
-              <span style={{ color: active ? "var(--accent)" : "var(--muted)", flexShrink: 0 }}>
+              <span className={cn("shrink-0", active ? "text-amber-300" : "text-muted")}>
                 {icon}
               </span>
               {label}

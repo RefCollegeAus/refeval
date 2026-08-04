@@ -275,7 +275,7 @@ export default function ScreenFixturesPage() {
       </header>
 
       <Section title="Educator Dashboard" description='screen === "educator" → components/educator/EducatorDashboard.tsx'>
-        <div className="rounded-2xl border border-border">
+        <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
           <EducatorDashboard
             session={SESSION_EDUCATOR}
             reviews={REVIEWS}
@@ -300,7 +300,7 @@ export default function ScreenFixturesPage() {
       </Section>
 
       <Section title="Educator Dashboard — empty state" description="Zero reviews, zero follow-ups, zero activity.">
-        <div className="rounded-2xl border border-border">
+        <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
           <EducatorDashboard
             session={SESSION_ADMIN}
             reviews={[]}
@@ -588,7 +588,7 @@ export default function ScreenFixturesPage() {
       {/* ── Phase 6 — Educator and admin experience ─────────────────────────── */}
 
       <Section title="Groups" description='screen === "groups" → components/educator/GroupsScreen.tsx'>
-        <div className="rounded-2xl border border-border">
+        <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
           <GroupsScreen
             session={SESSION_EDUCATOR}
             groups={GROUPS}
@@ -609,7 +609,7 @@ export default function ScreenFixturesPage() {
       </Section>
 
       <Section title="Groups — empty state" description="Zero groups.">
-        <div className="rounded-2xl border border-border">
+        <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
           <GroupsScreen
             session={SESSION_EDUCATOR}
             groups={[]}
@@ -629,7 +629,7 @@ export default function ScreenFixturesPage() {
       </Section>
 
       <Section title="Notifications" description='screen === "notifications" → components/NotificationCentre.tsx'>
-        <div className="rounded-2xl border border-border">
+        <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
           <NotificationCentre
             notifications={NOTIFICATIONS}
             unreadCount={NOTIFICATIONS.filter(n => !n.isRead).length}
@@ -645,7 +645,7 @@ export default function ScreenFixturesPage() {
       </Section>
 
       <Section title="Notifications — empty state" description="Zero notifications.">
-        <div className="rounded-2xl border border-border">
+        <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
           <NotificationCentre
             notifications={[]}
             unreadCount={0}
@@ -661,7 +661,7 @@ export default function ScreenFixturesPage() {
       </Section>
 
       <Section title="Member Management" description='screen === "database" → components/admin/MembersScreen.tsx (fetches its own member list live from Supabase — renders its empty state deterministically, same limitation as My Comments above)'>
-        <div className="rounded-2xl border border-border">
+        <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
           <MembersScreen
             session={SESSION_ADMIN}
             onNavigateSettings={() => {}}
@@ -674,7 +674,7 @@ export default function ScreenFixturesPage() {
       {/* ── Phase 6B — Educator operations ──────────────────────────────────── */}
 
       <Section title="Assignments — list" description='screen === "assignments" → components/admin/AssignmentsScreen.tsx'>
-        <div className="rounded-2xl border border-border">
+        <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
           <AssignmentsScreen
             session={SESSION_ADMIN}
             assignments={ASSIGNMENTS}
@@ -694,7 +694,7 @@ export default function ScreenFixturesPage() {
       </Section>
 
       <Section title="Assignments — empty state" description="Zero assignments.">
-        <div className="rounded-2xl border border-border">
+        <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
           <AssignmentsScreen
             session={SESSION_ADMIN}
             assignments={[]}
@@ -792,7 +792,7 @@ export default function ScreenFixturesPage() {
       </Section>
 
       <Section title="Your Profile" description='screen === "profile" → components/admin/UserProfileScreen.tsx'>
-        <div className="rounded-2xl border border-border">
+        <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
           <UserProfileScreen
             session={SESSION_ADMIN}
             onBack={() => {}}

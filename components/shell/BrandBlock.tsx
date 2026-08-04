@@ -32,14 +32,14 @@ export function BrandBlock({ variant = "header", className }: BrandBlockProps) {
         alt="Referee College of Australia logo"
         className={cn(
           "w-auto object-contain drop-shadow-[0_4px_16px_rgba(165,106,27,0.28)]",
-          isAuth ? "h-16" : "h-8 sm:h-10"
+          isAuth ? "h-16" : "h-9 sm:h-[68px]"
         )}
       />
       <div className={cn("min-w-0", isAuth ? "leading-tight" : "leading-none")}>
         <p
           className={cn(
             "font-bold uppercase text-accent",
-            isAuth ? "text-[11px] font-black tracking-wider" : "hidden text-[10px] tracking-[0.18em] sm:block"
+            isAuth ? "text-[11px] font-black tracking-wider" : "hidden text-[11px] tracking-[0.2em] sm:block"
           )}
         >
           Referee College of Australia
@@ -47,7 +47,7 @@ export function BrandBlock({ variant = "header", className }: BrandBlockProps) {
         <p
           className={cn(
             "font-bold tracking-tight text-text",
-            isAuth ? "text-lg" : "text-base leading-none sm:mt-1.5 sm:text-xl"
+            isAuth ? "text-lg" : "text-lg leading-none sm:mt-2 sm:text-[30px]"
           )}
         >
           RefCoach

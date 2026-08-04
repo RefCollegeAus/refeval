@@ -483,52 +483,50 @@ export function GroupsScreen({
   }
 
   return (
-    <div className="lh-layout">
+    <div className="lh-layout p-0">
 
       {/* ── Main column ── */}
       <div className="lh-main">
 
-        {/* Header + search bar in one panel */}
-        <Card>
-          <div className="flex flex-wrap items-center justify-between gap-3.5">
-            <div>
-              <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">{eyebrow ?? "Learning Hub"}</p>
-              <h1 className="text-xl font-bold text-text">Groups</h1>
+        {/* Header — plain, not boxed, matching PageFrame's title/action row */}
+        <div className="flex flex-wrap items-center justify-between gap-3.5">
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">{eyebrow ?? "Learning Hub"}</p>
+            <h1 className="text-xl font-bold text-text">Groups</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            {canCreate && (
+              <Button variant="primary" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+                <Plus size={14} /> New Group
+              </Button>
+            )}
+            <Button variant="secondary" className="gap-1.5" onClick={onBack}><ChevronLeft size={15} /> Back</Button>
+          </div>
+        </div>
+
+        {/* Search/sort toolbar — only when groups exist, kept outside any Card */}
+        {!loading && groups.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="relative flex-[1_1_200px]">
+              <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search groups…" aria-label="Search groups" className="pl-8" />
             </div>
-            <div className="flex items-center gap-2">
-              {canCreate && (
-                <Button variant="primary" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-                  <Plus size={14} /> New Group
-                </Button>
-              )}
-              <Button variant="secondary" className="gap-1.5" onClick={onBack}><ChevronLeft size={15} /> Back</Button>
+            {search && (
+              <button onClick={() => setSearch("")} aria-label="Clear search" className="shrink-0 rounded-lg border-none bg-none p-1.5 text-muted">
+                <X size={13} />
+              </button>
+            )}
+            <span className="ml-auto whitespace-nowrap text-xs text-muted">
+              {search ? `${filtered.length} of ${groups.length}` : groups.length} group{groups.length !== 1 ? "s" : ""}
+            </span>
+            <div className="flex shrink-0 items-center gap-1">
+              <span className="text-xs text-muted">Sort:</span>
+              <SortBtn col="name" label="Name" />
+              <SortBtn col="members" label="Members" />
+              <SortBtn col="created" label="Date" />
             </div>
           </div>
-
-          {/* Inline search/sort — only when groups exist */}
-          {!loading && groups.length > 0 && (
-            <div className="mt-3.5 flex flex-wrap items-center gap-2.5 border-t border-border pt-3.5">
-              <div className="relative flex-[1_1_200px]">
-                <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search groups…" aria-label="Search groups" className="pl-8" />
-              </div>
-              {search && (
-                <button onClick={() => setSearch("")} aria-label="Clear search" className="shrink-0 rounded-lg border-none bg-none p-1.5 text-muted">
-                  <X size={13} />
-                </button>
-              )}
-              <span className="ml-auto whitespace-nowrap text-xs text-muted">
-                {search ? `${filtered.length} of ${groups.length}` : groups.length} group{groups.length !== 1 ? "s" : ""}
-              </span>
-              <div className="flex shrink-0 items-center gap-1">
-                <span className="text-xs text-muted">Sort:</span>
-                <SortBtn col="name" label="Name" />
-                <SortBtn col="members" label="Members" />
-                <SortBtn col="created" label="Date" />
-              </div>
-            </div>
-          )}
-        </Card>
+        )}
 
         {/* Error */}
         {error && <p className="text-[13px] text-red-300">{error}</p>}

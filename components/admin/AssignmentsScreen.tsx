@@ -164,7 +164,7 @@ export function AssignmentsScreen({
 
   return (
     <PageFrame
-      className="mx-auto max-w-[1200px]"
+      className="mx-auto max-w-[1200px] p-0"
       eyebrow="Organisation"
       title="Learning Assignments"
       description="Playlists, quizzes, and simulator assignments for team members"

@@ -173,7 +173,7 @@ export function MembersScreen({
 
   return (
     <PageFrame
-      className="mx-auto max-w-[1200px]"
+      className="mx-auto max-w-[1200px] p-0"
       eyebrow={session.activeOrganisation?.name || "Organisation"}
       title="Member Management"
       description={

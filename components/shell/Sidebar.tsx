@@ -82,7 +82,7 @@ export function Sidebar({ open, onClose, session, activeScreen, onHome, onLearni
           // only position that removes it from flow entirely, which is what
           // the `.rcds-sidebar ~ *` horizontal offset rule assumes.
           "rcds-sidebar fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col border-r border-border bg-panel transition-transform",
-          "lg:top-16 lg:z-0 lg:h-[calc(100vh-4rem)] lg:translate-x-0",
+          "lg:top-[104px] lg:z-0 lg:h-[calc(100vh-104px)] lg:translate-x-0",
           // `max-lg:` / `lg:` are mutually exclusive media queries, so these
           // two rules can never both match the same viewport — deliberately
           // NOT an unconditional base rule overridden by a `lg:` one: with
@@ -94,7 +94,7 @@ export function Sidebar({ open, onClose, session, activeScreen, onHome, onLearni
           open ? "max-lg:translate-x-0" : "max-lg:-translate-x-full"
         )}
       >
-        <div className="flex h-14 shrink-0 items-center justify-end px-3 sm:h-16 lg:hidden">
+        <div className="flex h-16 shrink-0 items-center justify-end px-3 lg:hidden">
           <button
             onClick={onClose}
             aria-label="Close navigation"
