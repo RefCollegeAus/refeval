@@ -272,7 +272,7 @@ export function CommentInbox({
 
   return (
     <PageFrame
-      className="mx-auto max-w-[900px]"
+      className="mx-auto max-w-[900px] p-0"
       eyebrow="Educator"
       title="Comment Inbox"
       description="Threads where referees are waiting for your response"

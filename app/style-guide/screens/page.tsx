@@ -285,9 +285,6 @@ export default function ScreenFixturesPage() {
             refereeMembers={MEMBERS.filter(m => m.role === "referee")}
             allRefereeGoalViews={GOALS}
             totalUnread={2}
-            canViewClipLibrary
-            canAccessPlaylists
-            canViewAssignments
             startNewReview={() => {}}
             openReviewForEdit={() => {}}
             deleteReview={() => {}}
@@ -310,9 +307,6 @@ export default function ScreenFixturesPage() {
             refereeMembers={[]}
             allRefereeGoalViews={[]}
             totalUnread={0}
-            canViewClipLibrary
-            canAccessPlaylists
-            canViewAssignments
             startNewReview={() => {}}
             openReviewForEdit={() => {}}
             deleteReview={() => {}}
@@ -335,6 +329,8 @@ export default function ScreenFixturesPage() {
             settings={ORG_SETTINGS}
             onUpdateSettings={() => {}}
             onBack={() => {}}
+            currentPage="dashboard"
+            setCurrentPage={() => {}}
             onNavigateMembers={() => {}}
             groupCount={GROUPS.length}
             activeGoalCount={GOALS.filter(g => g.status === "Active").length}

@@ -110,7 +110,7 @@ export function PlaylistsScreen({
   }
 
   return (
-    <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
+    <div style={{ boxSizing: "border-box" }}>
       <div className="panel">
 
         {/* Header */}

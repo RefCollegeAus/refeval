@@ -13,6 +13,8 @@ import { showToast } from "@/lib/toast";
 import { Header } from "@/components/Header";
 import { PageFrame } from "@/components/shell/PageFrame";
 import type { RefEvalSession, Role, Screen } from "@/lib/types/auth";
+import type { OrgPage } from "@/components/organisation/OrganisationScreen";
+import type { NavContext } from "@/components/shell/nav";
 import {
   Badge,
   Button,
@@ -70,20 +72,38 @@ export default function StyleGuidePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [role, setRole] = useState<Role>("admin");
   const [activeScreen, setActiveScreen] = useState<Screen>("educator");
+  const [activeOrgPage, setActiveOrgPage] = useState<OrgPage>("dashboard");
+
+  const navContext: NavContext = {
+    role,
+    homeScreen: role === "referee" ? "referee" : role === "viewer" ? "viewer" : "educator",
+    isManagement: role === "educator" || role === "admin" || role === "super_admin",
+    isAdmin: role === "admin" || role === "super_admin",
+    isReferee: role === "referee",
+    canViewClipLibrary: true,
+    canAccessPlaylists: true,
+    canViewAssignments: true,
+    canViewGroups: true,
+    unreadComments: 3,
+  };
 
   return (
     <>
       <ToastViewport />
 
-      {/* Real Header (Phase 2) — same component production screens use, with
-          a mock session so every role's sidebar visibility can be checked
-          without needing live Supabase credentials for each role. Rendered
-          at the top of the page (not nested inside <main> below) so the
-          `.rcds-sidebar ~ *` desktop offset behaves exactly as it does on a
-          real screen — this page IS the "screen content" sibling. */}
+      {/* Real Header + Sidebar (Phase 2/6B) — same components production
+          screens use, with a mock session + navContext so every role's full
+          sidebar (grouped sections, Organisation submenu, badges) can be
+          checked without needing live Supabase credentials for each role.
+          Rendered at the top of the page (not nested inside <main> below) so
+          the `.rcds-sidebar ~ *` desktop offset behaves exactly as it does on
+          a real screen — this page IS the "screen content" sibling. */}
       <Header
         session={mockSession(role)}
         activeScreen={activeScreen}
+        activeOrgPage={activeOrgPage}
+        navContext={navContext}
+        onNavigate={(screen, orgPage) => { setActiveScreen(screen); if (orgPage) setActiveOrgPage(orgPage); }}
         onHome={() => setActiveScreen("educator")}
         onAdmin={() => setActiveScreen("database")}
         onOrganisation={() => setActiveScreen("organisation")}
@@ -109,7 +129,7 @@ export default function StyleGuidePage() {
 
         <Section
           title="Shell — role switcher"
-          description="Toggle role to verify sidebar visibility rules match the original Header.tsx exactly (Learning: educator/admin/super_admin; Organisation & Dashboard: admin/super_admin; Home: everyone). Resize below 1024px to see the mobile drawer."
+          description="Toggle role to verify sidebar section/item visibility against components/shell/nav.ts (Reviews/Learning & Content: management roles; People/Organisation: admin+; Development: referee only). Resize below 1024px to see the mobile drawer."
         >
           <div className="flex flex-wrap items-center gap-2">
             {ROLES.map((r) => (

@@ -404,7 +404,7 @@ export function AssignmentDetailScreen({
 
   return (
     <PageFrame
-      className="mx-auto max-w-[1200px]"
+      className="mx-auto max-w-[1200px] p-0"
       eyebrow="Learning Assignment"
       title={assignment.title}
       actions={

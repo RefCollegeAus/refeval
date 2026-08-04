@@ -83,7 +83,7 @@ export function QuizBuilderScreen({ members, groups, reviews = [], tags = [], on
   const resolvedCount = resolveUserIds().length;
 
   return (
-    <div style={{ padding: "20px 20px 60px", boxSizing: "border-box", maxWidth: 1100, margin: "0 auto" }}>
+    <div style={{ boxSizing: "border-box", maxWidth: 1100, margin: "0 auto" }}>
 
       {/* Page header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, gap: 12 }}>

@@ -26,7 +26,7 @@ import { ROLE_TONE } from "@/lib/utils/roleTone";
 
 // ── Sub-page routing ──────────────────────────────────────────────────────────
 
-type OrgPage =
+export type OrgPage =
   | "dashboard"
   | "profile"
   | "branding"
@@ -40,30 +40,6 @@ type OrgPage =
   | "roles"
   | "resources"
   | "billing";
-
-type NavItem =
-  | { type: "page";      page: OrgPage; label: string; icon: ReactNode }
-  | { type: "divider";   label: string };
-
-const NAV_ITEMS: NavItem[] = [
-  { type: "page",    page: "dashboard",     label: "Dashboard",       icon: <Building2 size={15} /> },
-  { type: "divider", label: "Identity" },
-  { type: "page",    page: "profile",       label: "Profile",         icon: <User size={15} /> },
-  { type: "page",    page: "branding",      label: "Branding",        icon: <Palette size={15} /> },
-  { type: "page",    page: "preferences",   label: "Preferences",     icon: <SlidersHorizontal size={15} /> },
-  { type: "divider", label: "People" },
-  { type: "page",    page: "members",       label: "Members",         icon: <Users size={15} /> },
-  { type: "page",    page: "groups",        label: "Groups",          icon: <Layers size={15} /> },
-  { type: "page",    page: "roles",         label: "Roles",           icon: <Key size={15} /> },
-  { type: "page",    page: "security",      label: "Security",        icon: <Shield size={15} /> },
-  { type: "divider", label: "Defaults" },
-  { type: "page",    page: "reviews",       label: "Review Defaults", icon: <Film size={15} /> },
-  { type: "page",    page: "learning",      label: "Learning",        icon: <BookOpen size={15} /> },
-  { type: "page",    page: "notifications", label: "Notifications",   icon: <Bell size={15} /> },
-  { type: "divider", label: "Platform" },
-  { type: "page",    page: "resources",     label: "Resources",       icon: <FolderOpen size={15} /> },
-  { type: "page",    page: "billing",       label: "Billing & Plan",  icon: <CreditCard size={15} /> },
-];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -87,6 +63,8 @@ interface Props {
   settings: OrganisationSettings;
   onUpdateSettings: (patch: Partial<OrganisationSettings>) => void;
   onBack: () => void;
+  currentPage: OrgPage;
+  setCurrentPage: (page: OrgPage) => void;
   onNavigateMembers: () => void;
   groupCount?: number;
   activeGoalCount?: number;
@@ -106,93 +84,23 @@ interface Props {
 
 export function OrganisationScreen({
   session, org, members, reviews, assignments,
-  settings, onUpdateSettings, onBack, onNavigateMembers,
+  settings, onUpdateSettings, currentPage, setCurrentPage, onNavigateMembers,
   groupCount = 0, activeGoalCount = 0,
   groups = [], groupsLoading = false, groupsError = "",
   canCreateGroups = false, canEditGroups = false, canDeleteGroups = false,
   onCreateGroup, onUpdateGroup, onDeleteGroup, onSetGroupMembers,
 }: Props) {
-  const [currentPage, setCurrentPage] = useState<OrgPage>("dashboard");
-
-  return (
-    <div className="org-layout">
-
-      {/* ── Sidebar nav ── */}
-      <nav className="org-sidebar">
-        <div className="org-sidebar-header" style={{ marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
-          <p className="eyebrow" style={{ margin: 0 }}>Organisation</p>
-          <p style={{ margin: "3px 0 0", fontWeight: 800, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>
-            {org?.name ?? "Settings"}
-          </p>
-        </div>
-
-        {NAV_ITEMS.map((item, idx) => {
-          if (item.type === "divider") {
-            return (
-              <p key={`div-${idx}`} style={{
-                margin: "10px 0 4px", padding: "0 10px",
-                fontSize: 10, fontWeight: 800, textTransform: "uppercase",
-                letterSpacing: "0.07em", color: "var(--muted)", opacity: 0.6,
-              }}>
-                {item.label}
-              </p>
-            );
-          }
-          const { page, label, icon } = item;
-          const active = currentPage === page;
-          return (
-            <button
-              key={page}
-              type="button"
-              onClick={() => setCurrentPage(page)}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium shadow-none transition-colors",
-                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-                active ? "bg-accent/15 text-amber-300" : "text-muted hover:bg-panel-3 hover:text-text"
-              )}
-            >
-              <span className={cn("shrink-0", active ? "text-amber-300" : "text-muted")}>
-                {icon}
-              </span>
-              {label}
-            </button>
-          );
-        })}
-
-        <div className="org-sidebar-footer" style={{ marginTop: "auto", paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-          <button
-            onClick={onBack}
-            style={{
-              width: "100%",
-              fontSize: 12,
-              padding: "6px 10px",
-              color: "var(--muted)",
-              background: "none",
-              border: "none",
-              textAlign: "left",
-              cursor: "pointer",
-              boxShadow: "none",
-            }}
-          >
-            ← Back to app
-          </button>
-        </div>
-      </nav>
-
-      {/* ── Page content ── */}
-      <div className="org-content">
-        {renderPage(currentPage, {
-          session, org, members, reviews, assignments,
-          settings, onUpdateSettings, setCurrentPage, onNavigateMembers,
-          groupCount, activeGoalCount,
-          groups, groupsLoading, groupsError,
-          canCreateGroups, canEditGroups, canDeleteGroups,
-          onCreateGroup, onUpdateGroup, onDeleteGroup, onSetGroupMembers,
-        })}
-      </div>
-    </div>
-  );
+  // Navigation for Organisation settings now lives entirely in the main
+  // app Sidebar (see components/shell/nav.ts) — this component only
+  // renders the active sub-page's content inside AppShell's canvas.
+  return renderPage(currentPage, {
+    session, org, members, reviews, assignments,
+    settings, onUpdateSettings, setCurrentPage, onNavigateMembers,
+    groupCount, activeGoalCount,
+    groups, groupsLoading, groupsError,
+    canCreateGroups, canEditGroups, canDeleteGroups,
+    onCreateGroup, onUpdateGroup, onDeleteGroup, onSetGroupMembers,
+  });
 }
 
 // ── Page context ──────────────────────────────────────────────────────────────

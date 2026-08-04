@@ -179,7 +179,7 @@ export function SimulatorBuilderScreen({
 
   if (view === "list") {
     return (
-      <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
+      <div style={{ boxSizing: "border-box" }}>
         <div className="panel" style={{ marginBottom: 16 }}>
           <div className="table-head">
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -364,7 +364,7 @@ export function SimulatorBuilderScreen({
 
   return (
     <>
-    <div style={{ padding: "20px 20px 80px", boxSizing: "border-box" }}>
+    <div style={{ boxSizing: "border-box" }}>
       <div className="panel" style={{ marginBottom: 16 }}>
         <div className="table-head">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

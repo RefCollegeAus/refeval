@@ -61,7 +61,7 @@ export function OrgSettingsScreen({
   }
 
   return (
-    <div className="layout one-col">
+    <div className="layout one-col p-0">
       <section className="panel">
         <div className="table-head" style={{ marginBottom: 18 }}>
           <div>

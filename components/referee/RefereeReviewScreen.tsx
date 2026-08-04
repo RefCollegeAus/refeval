@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Header } from "@/components/Header";
+import { AppShell } from "@/components/shell/AppShell";
 import { ReviewComments } from "@/components/ReviewComments";
 import { makeAnalytics, countBy } from "@/lib/utils/analytics";
 import { MessageSquare } from "lucide-react";
 import type { ReviewRecord, CodedTag, RefSlot, OfficialSummary } from "@/lib/types/reviews";
-import type { RefEvalSession } from "@/lib/types/auth";
+import type { RefEvalSession, Screen } from "@/lib/types/auth";
+import type { OrgPage } from "@/components/organisation/OrganisationScreen";
+import type { NavContext } from "@/components/shell/nav";
 import { ClipRangeVideoPlayer } from "@/components/common/ClipRangeVideoPlayer";
 import { resolveClipPlayback } from "@/lib/utils/clipBounds";
 import { Badge, Button, Card } from "@/components/ui";
@@ -28,6 +30,8 @@ type Props = {
   onAdmin: () => void;
   onProfile: () => void;
   onLogout: () => void;
+  navContext?: NavContext;
+  onNavigate?: (screen: Screen, orgPage?: OrgPage) => void;
 };
 
 function displayName(slot: RefSlot, review?: ReviewRecord): string {
@@ -125,6 +129,8 @@ export function RefereeReviewScreen({
   onAdmin,
   onProfile,
   onLogout,
+  navContext,
+  onNavigate,
 }: Props) {
   const [selectedIdx, setSelectedIdx] = useState(() => {
     if (!initialTagId) return 0;
@@ -291,15 +297,16 @@ export function RefereeReviewScreen({
   }
 
   return (
-    <main>
-      <Header
-        session={session}
-        onHome={onHome}
-        onAdmin={onAdmin}
-        onProfile={onProfile}
-        onLogout={onLogout}
-      />
-      <div className="rv-layout">
+    <AppShell
+      session={session}
+      onHome={onHome}
+      onAdmin={onAdmin}
+      onProfile={onProfile}
+      onLogout={onLogout}
+      navContext={navContext}
+      onNavigate={onNavigate}
+    >
+      <div className="rv-layout p-0">
 
         {/* ── Main column ── */}
         <div className="rv-main grid gap-4">
@@ -698,6 +705,6 @@ export function RefereeReviewScreen({
 
         </aside>
       </div>
-    </main>
+    </AppShell>
   );
 }

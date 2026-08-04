@@ -648,9 +648,5 @@ table tbody tr:hover{background:rgba(165,106,27,.04)}
 .loading-spinner{width:14px;height:14px;border:2px solid rgba(165,106,27,.2);border-top-color:var(--accent);border-radius:50%;animation:rc-spin .65s linear infinite;flex-shrink:0}
 /* ─────────────────────────────────────────────────────────────────────────── */
 
-.org-layout{display:flex;min-height:calc(100vh - 73px)}
-.org-sidebar{width:220px;flex-shrink:0;border-right:1px solid var(--border);padding:20px 12px;display:flex;flex-direction:column;gap:2px;background:var(--panel)}
-.org-content{flex:1;min-width:0;padding:24px;overflow-y:auto}
-@media(max-width:760px){.org-layout{flex-direction:column}.org-sidebar{width:100%;flex-direction:row;overflow-x:auto;flex-wrap:nowrap;padding:10px 8px;border-right:none;border-bottom:1px solid var(--border);gap:4px}.org-sidebar-header,.org-sidebar-footer{display:none!important}.org-sidebar button{width:auto;flex-shrink:0;white-space:nowrap}.org-content{padding:16px}}
 
 } /* end @layer legacy */

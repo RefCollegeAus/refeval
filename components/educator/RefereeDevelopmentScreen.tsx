@@ -1029,7 +1029,7 @@ export function RefereeDevelopmentScreen({
   ];
 
   return (
-    <div className="mx-auto max-w-[900px] px-4 py-7 sm:px-6">
+    <div className="mx-auto max-w-[900px]">
 
       {/* Back nav */}
       <button onClick={onBack} className="mb-5 flex items-center gap-1.5 border-none bg-none p-0 text-[13px] text-muted">

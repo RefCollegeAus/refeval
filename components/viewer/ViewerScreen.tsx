@@ -25,7 +25,7 @@ export function ViewerScreen({ session, games, loading, error }: Props) {
   }
 
   return (
-    <div className="layout" style={{ maxWidth: 800, margin: "0 auto", padding: "32px 16px" }}>
+    <div className="layout" style={{ maxWidth: 800, margin: "0 auto" }}>
       <div style={{ marginBottom: 24 }}>
         <p className="eyebrow">View-Only Games</p>
         <h1 style={{ margin: "4px 0 6px" }}>

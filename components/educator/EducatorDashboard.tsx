@@ -2,8 +2,7 @@
 
 import { useState, useMemo } from "react";
 import {
-  Plus, MessageSquare, Film, ListChecks, BookOpen,
-  Trash2, ChevronDown, ChevronUp, Users, Building2, Play, AlertCircle, Inbox,
+  Plus, Trash2, ChevronDown, ChevronUp, Users, Play, AlertCircle, Inbox,
 } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { RefEvalSession } from "@/lib/types/auth";
@@ -36,9 +35,6 @@ interface Props {
   refereeMembers: MemberRecord[];
   allRefereeGoalViews: RefereeGoalView[];
   totalUnread: number;
-  canViewClipLibrary: boolean;
-  canAccessPlaylists: boolean;
-  canViewAssignments: boolean;
   startNewReview: () => void;
   openReviewForEdit: (review: ReviewRecord) => void;
   deleteReview: (id: string) => void;
@@ -72,7 +68,6 @@ function toneBorderClass(tone: BadgeTone): string {
 
 export function EducatorDashboard({
   session, reviews, tags, playlists: _playlists, assignments, refereeMembers, allRefereeGoalViews, totalUnread,
-  canViewClipLibrary, canAccessPlaylists, canViewAssignments,
   startNewReview, openReviewForEdit, deleteReview, setScreen, onNavigateDevelopment,
   onboardingDismissed, dismissOnboarding,
 }: Props) {
@@ -421,26 +416,17 @@ export function EducatorDashboard({
 
   // ── Quick Actions ─────────────────────────────────────────────────────────────
   // "New Review" is intentionally omitted here — PageFrame's own primary
-  // action (below) already carries it, so listing it again would duplicate
-  // it (mirrors RefOps's dashboard: "Manage organisation" is likewise
-  // omitted from Quick Actions because the summary card above already links
-  // it).
+  // action (below) already carries it. Comment Inbox / Clip Library /
+  // Playlists / Assignments / Organisation were removed from this bar once
+  // the main Sidebar (components/shell/nav.ts) made all five directly
+  // reachable from every screen — keeping both would duplicate the same
+  // destinations in two places. Development Hub stays: it has no single
+  // sidebar destination (it always needs a specific referee first), so it
+  // remains a genuinely contextual action.
 
   const quickActions = [
-    { icon: <MessageSquare size={14} />, label: "Comment Inbox", onClick: () => setScreen("comment-inbox"),
-      badge: totalUnread > 0 ? (totalUnread > 99 ? "99+" : String(totalUnread)) : undefined },
-    ...(canViewClipLibrary ? [{ icon: <Film size={14} />, label: "Clip Library",
-      onClick: () => setScreen("clip-library"), badge: undefined as string | undefined }] : []),
-    ...(canAccessPlaylists ? [{ icon: <ListChecks size={14} />, label: "Playlists",
-      onClick: () => setScreen("playlists"), badge: undefined as string | undefined }] : []),
-    ...(canViewAssignments ? [{ icon: <BookOpen size={14} />, label: "Assignments",
-      onClick: () => setScreen("assignments"), badge: undefined as string | undefined }] : []),
     ...(refereeMembers.length > 0 ? [{ icon: <Users size={14} />, label: "Development Hub",
       onClick: () => onNavigateDevelopment(refereeMembers[0].id), badge: undefined as string | undefined }] : []),
-    ...(session.activeRole === "admin" || session.activeRole === "super_admin" ? [{
-      icon: <Building2 size={14} />, label: "Organisation",
-      onClick: () => setScreen("organisation"), badge: undefined as string | undefined,
-    }] : []),
   ];
 
   // ── Priority helpers ──────────────────────────────────────────────────────────

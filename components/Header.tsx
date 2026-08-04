@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { LogOut, Bell, Search, Menu } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
+import type { OrgPage } from "@/components/organisation/OrganisationScreen";
+import type { NavContext } from "./shell/nav";
 import { BrandBlock } from "./shell/BrandBlock";
 import { Sidebar } from "./shell/Sidebar";
 
@@ -39,6 +41,9 @@ export function Header({
   onLogout,
   unreadNotificationCount = 0,
   activeScreen,
+  activeOrgPage,
+  navContext,
+  onNavigate,
 }: {
   session: RefEvalSession | null;
   onHome: () => void;
@@ -51,6 +56,9 @@ export function Header({
   onLogout: () => void;
   unreadNotificationCount?: number;
   activeScreen?: Screen;
+  activeOrgPage?: OrgPage;
+  navContext?: NavContext;
+  onNavigate?: (screen: Screen, orgPage?: OrgPage) => void;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -145,6 +153,9 @@ export function Header({
         onClose={() => setSidebarOpen(false)}
         session={session}
         activeScreen={activeScreen}
+        activeOrgPage={activeOrgPage}
+        navContext={navContext}
+        onNavigate={onNavigate}
         onHome={onHome}
         onLearning={onLearning}
         onOrganisation={onOrganisation}

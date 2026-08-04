@@ -202,7 +202,7 @@ export function TeamManagementScreen({ session, members, permissionMap, permissi
 
   return (
     <PageFrame
-      className="mx-auto max-w-[1200px]"
+      className="mx-auto max-w-[1200px] p-0"
       eyebrow="Organisation"
       title="Team Management"
       description="Customise individual permissions for team members, or restore their role defaults."

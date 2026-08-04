@@ -51,7 +51,8 @@ import { useGroups } from "@/lib/hooks/useGroups";
 import { useDevelopmentGoals } from "@/lib/hooks/useDevelopmentGoals";
 import { useDevelopmentNotes } from "@/lib/hooks/useDevelopmentNotes";
 import { useReviewGoalLinks } from "@/lib/hooks/useReviewGoalLinks";
-import { OrganisationScreen } from "@/components/organisation/OrganisationScreen";
+import { OrganisationScreen, type OrgPage } from "@/components/organisation/OrganisationScreen";
+import type { NavContext } from "@/components/shell/nav";
 import { NotificationCentre } from "@/components/NotificationCentre";
 import { useOrganisationSettings } from "@/lib/hooks/useOrganisationSettings";
 import { useNotifications } from "@/lib/hooks/useNotifications";
@@ -66,7 +67,7 @@ import {
   makeNoteAddedDraft,
   getVisibleUnreadCount,
 } from "@/lib/services/notifications";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Pause, Play, Trash2, Eye, MessageSquare, BarChart3, Target, BookOpen, Inbox, Tag } from "lucide-react";
 import { PageFrame } from "@/components/shell/PageFrame";
 import { Badge, Button, Card, EmptyState, Input, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Textarea } from "@/components/ui";
@@ -145,6 +146,7 @@ export default function Home() {
 
   // --- Screen state ---
   const [screen, setScreen] = useState<Screen>("login");
+  const [orgPage, setOrgPage] = useState<OrgPage>("dashboard");
 
   // --- Hooks ---
   const {
@@ -320,6 +322,26 @@ export default function Home() {
   const canCreateGroups = hasPermission(_userPerms, _activeRole, PERMISSIONS.GROUPS_CREATE);
   const canEditGroups   = hasPermission(_userPerms, _activeRole, PERMISSIONS.GROUPS_EDIT);
   const canDeleteGroups = hasPermission(_userPerms, _activeRole, PERMISSIONS.GROUPS_DELETE);
+
+  // --- Central sidebar navigation: one context object + one navigate function,
+  // reused across every Header/AppShell call site instead of scattering
+  // visibility checks or per-screen onX callbacks through JSX.
+  const navContext: NavContext = {
+    role: _activeRole,
+    homeScreen: _activeRole === "referee" ? "referee" : _activeRole === "viewer" ? "viewer" : "educator",
+    isManagement: _activeRole === "educator" || _activeRole === "admin" || _activeRole === "super_admin",
+    isAdmin: _activeRole === "admin" || _activeRole === "super_admin",
+    isReferee: _activeRole === "referee",
+    canViewClipLibrary,
+    canAccessPlaylists,
+    canViewAssignments,
+    canViewGroups,
+    unreadComments: totalUnread,
+  };
+  const navigate = useCallback((target: Screen, page?: OrgPage) => {
+    setScreen(target);
+    if (page) setOrgPage(page);
+  }, []);
 
   // --- Assignments ---
   const {
@@ -997,49 +1019,49 @@ export default function Home() {
 
   if (screen === "login")
     return (
-      <main>
-        <Header session={null} onHome={() => {}} onAdmin={() => {}} onProfile={() => {}} onLogout={logout} />
+      <AppShell session={null} onHome={() => {}} onAdmin={() => {}} onProfile={() => {}} onLogout={logout} >
         <LoginScreen
           loginName={loginName} setLoginName={setLoginName}
           loginPassword={loginPassword} setLoginPassword={setLoginPassword}
           loginError={loginError || urlAuthError} login={login}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
 
   if (screen === "org-selector" && pendingSession)
     return (
-      <main>
-        <Header session={null} onHome={() => {}} onAdmin={() => {}} onProfile={() => {}} onLogout={logout} />
+      <AppShell session={null} onHome={() => {}} onAdmin={() => {}} onProfile={() => {}} onLogout={logout} >
         <OrganisationSelector
           memberships={pendingSession.memberships}
           onSelect={selectOrganisation}
           onLogout={logout}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
 
   if (screen === "viewer" && session) {
     return (
-      <main>
-        <Header
-          session={session}
-          activeScreen={screen}
-          onHome={() => setScreen("viewer")}
-          onAdmin={() => {}}
-          onProfile={() => setScreen("user-profile")}
-          onNotifications={() => setScreen("notifications")}
-          unreadNotificationCount={visibleUnreadCount}
-          onSearch={() => setShowSearch(true)}
-          onLogout={logout}
-        />
+      <AppShell
+        session={session}
+        activeScreen={screen}
+        onHome={() => setScreen("viewer")}
+        onAdmin={() => {}}
+        onNavigate={navigate}
+        navContext={navContext}
+        activeOrgPage={orgPage}
+        onProfile={() => setScreen("user-profile")}
+        onNotifications={() => setScreen("notifications")}
+        unreadNotificationCount={visibleUnreadCount}
+        onSearch={() => setShowSearch(true)}
+        onLogout={logout}
+      >
         <ViewerScreen
           session={session}
           games={viewOnlyGames}
           loading={viewOnlyGamesLoading}
           error={viewOnlyGamesError}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
@@ -1051,7 +1073,7 @@ export default function Home() {
         onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
         onAdmin={() => setScreen("database")}
         onOrganisation={() => setScreen("organisation")}
-        onLearning={() => setScreen("learning-hub")}
+        onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
         onProfile={() => setScreen("user-profile")}
         onNotifications={() => setScreen("notifications")}
         unreadNotificationCount={visibleUnreadCount}
@@ -1076,46 +1098,44 @@ export default function Home() {
     const org = activeOrg ?? organisations[0];
     if (!org) return null;
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <OrgSettingsScreen
           session={session!}
           org={org}
           onSaved={() => refreshOrganisations()}
           onNavigateMembers={() => setScreen("database")}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
   if (screen === "organisation") {
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <OrganisationScreen
           session={session!}
           org={activeOrg}
@@ -1125,6 +1145,8 @@ export default function Home() {
           settings={orgSettings.settings}
           onUpdateSettings={orgSettings.updateSettings}
           onBack={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
+          currentPage={orgPage}
+          setCurrentPage={setOrgPage}
           onNavigateMembers={() => setScreen("database")}
           groupCount={groups.length}
           activeGoalCount={allRefereeGoalViews.filter(v => v.status === "Active").length}
@@ -1139,26 +1161,25 @@ export default function Home() {
           onDeleteGroup={async id => { await deleteGroup(id); }}
           onSetGroupMembers={async (groupId, userIds) => { await setGroupMembers(groupId, userIds); }}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
   if (screen === "clip-library") {
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : returnToScreen)}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <ClipLibraryScreen
           key="clip-library"
           session={session!}
@@ -1176,26 +1197,25 @@ export default function Home() {
           onNavigateToQuizBuilder={() => setScreen("quiz-builder")}
           onNavigateToLearningLibrary={() => { setReturnToScreen("learning-hub"); setScreen("learning-library"); }}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
   if (screen === "learning-library") {
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : returnToScreen)}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <ClipLibraryScreen
           key="learning-library"
           session={session!}
@@ -1213,26 +1233,25 @@ export default function Home() {
           onRemoveFromLearningLibrary={removeFromLearningLibrary}
           onNavigateToQuizBuilder={() => setScreen("quiz-builder")}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
   if (screen === "playlists") {
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : returnToScreen)}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <PlaylistsScreen
           session={session!}
           playlists={playlists}
@@ -1246,7 +1265,7 @@ export default function Home() {
           canDelete={canDeletePlaylists}
           onBack={() => setScreen(returnToScreen)}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
@@ -1257,20 +1276,19 @@ export default function Home() {
       return null;
     }
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : returnToScreen)}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <PlaylistDetailScreen
           playlist={activePlaylist}
           reviews={reviews}
@@ -1325,7 +1343,7 @@ export default function Home() {
           onArchive={async (id) => { await archivePlaylist(id); setPlaylistDetailId(null); setScreen("playlists"); }}
           onBack={() => setScreen("playlists")}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
@@ -1337,7 +1355,7 @@ export default function Home() {
         onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : returnToScreen)}
         onAdmin={() => setScreen("database")}
         onOrganisation={() => setScreen("organisation")}
-        onLearning={() => setScreen("learning-hub")}
+        onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
         onProfile={() => setScreen("user-profile")}
         onNotifications={() => setScreen("notifications")}
         unreadNotificationCount={visibleUnreadCount}
@@ -1390,20 +1408,19 @@ export default function Home() {
       ? (simulatorSessions.find(s => s.id === activeAssignment.simulatorSessionId)?.title ?? null)
       : null;
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : returnToScreen)}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <AssignmentDetailScreen
           assignment={activeAssignment}
           playlist={activeAssignmentPlaylist}
@@ -1443,26 +1460,25 @@ export default function Home() {
             }
           }}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
   if (screen === "quiz-builder") {
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : returnToScreen)}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <QuizBuilderScreen
           session={session!}
           members={members}
@@ -1472,26 +1488,25 @@ export default function Home() {
           onCreate={async (input) => { await createAssignment(input); }}
           onBack={() => setScreen("assignments")}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
   if (screen === "my-learning") {
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <MyLearningScreen
           session={session!}
           myAssignments={myAssignments}
@@ -1521,7 +1536,7 @@ export default function Home() {
           }}
           onBack={() => setScreen("referee")}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
@@ -1532,20 +1547,19 @@ export default function Home() {
     const runnerPlaylist = playlists.find(p => p.id === assignment.playlistId) ?? null;
     const runnerAssignedByName = members.find(m => m.id === assignment.assignedBy)?.name ?? null;
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : returnToScreen)}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <LearningAssignmentRunner
           assignment={assignment}
           assignmentUser={assignmentUser}
@@ -1599,26 +1613,25 @@ export default function Home() {
             setScreen("my-learning");
           }}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
   if (screen === "team-management") {
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <TeamManagementScreen
           session={session!}
           members={members}
@@ -1627,7 +1640,7 @@ export default function Home() {
           onSavePerms={saveUserPerms}
           onBack={() => setScreen("educator")}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
@@ -1639,7 +1652,7 @@ export default function Home() {
         onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")}
         onAdmin={() => setScreen("database")}
         onOrganisation={() => setScreen("organisation")}
-        onLearning={() => setScreen("learning-hub")}
+        onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
         onProfile={() => setScreen("user-profile")}
         onNotifications={() => setScreen("notifications")}
         unreadNotificationCount={visibleUnreadCount}
@@ -1658,8 +1671,7 @@ export default function Home() {
 
   if (screen === "comment-inbox") {
     return (
-      <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
+      <AppShell session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} >
         <CommentInbox
           session={session}
           onHome={() => setScreen("educator")}
@@ -1670,7 +1682,7 @@ export default function Home() {
             if (r) openReviewForEdit(r);
           }}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
@@ -1684,8 +1696,7 @@ export default function Home() {
       setScreen(s);
     };
     return (
-      <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
+      <AppShell session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} >
         <LearningHub
           session={session}
           tags={tags}
@@ -1707,14 +1718,13 @@ export default function Home() {
             setScreen("referee-development");
           }}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
   if (screen === "learning-progress" && session) {
     return (
-      <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen("learning-hub")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
+      <AppShell session={session} activeScreen={screen} onHome={() => setScreen("learning-hub")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} >
         <LearningProgress
           session={session}
           assignments={assignments}
@@ -1722,13 +1732,13 @@ export default function Home() {
           groups={groups}
           setScreen={setScreen}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
   if (screen === "groups" && session) {
     return (
-      <AppShell session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout}>
+      <AppShell session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout}>
         <GroupsScreen
           session={session}
           groups={groups}
@@ -1750,8 +1760,7 @@ export default function Home() {
 
   if (screen === "simulator-builder" && session) {
     return (
-      <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
+      <AppShell session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} >
         <SimulatorBuilderScreen
           session={session}
           sessions={simulatorSessions}
@@ -1805,7 +1814,7 @@ export default function Home() {
             setScreen("simulator-analytics");
           }}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
@@ -1824,8 +1833,7 @@ export default function Home() {
         .map(s => s.id)
     );
     return (
-      <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
+      <AppShell session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} >
         <SimulatorRunnerScreen
           session={session}
           sessions={runnableSimulatorSessions}
@@ -1845,14 +1853,13 @@ export default function Home() {
           initialSessionId={simulatorRunnerSessionId}
           onNavigateToBuilder={() => { setSimulatorRunnerAssignmentUserId(null); setReturnToScreen("learning-hub"); setScreen("simulator-builder"); }}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
   if (screen === "simulator-analytics" && session) {
     return (
-      <main>
-        <Header session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
+      <AppShell session={session} activeScreen={screen} onHome={() => setScreen(returnToScreen)} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} >
         <SimulatorAnalyticsDashboard
           sessions={simulatorSessions}
           attempts={simulatorAttempts}
@@ -1862,7 +1869,7 @@ export default function Home() {
           initialSessionId={simulatorAnalyticsSessionId}
           onBack={() => setScreen("simulator-builder")}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
@@ -1873,7 +1880,7 @@ export default function Home() {
       setScreen(s);
     };
     return (
-      <AppShell session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout}>
+      <AppShell session={session} activeScreen={screen} onHome={() => setScreen("educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout}>
         <EducatorDashboard
           session={session}
           reviews={reviews}
@@ -1883,9 +1890,6 @@ export default function Home() {
           refereeMembers={refereeMembers}
           allRefereeGoalViews={allRefereeGoalViews}
           totalUnread={totalUnread}
-          canViewClipLibrary={canViewClipLibrary}
-          canAccessPlaylists={canAccessPlaylists}
-          canViewAssignments={canViewAssignments}
           startNewReview={startNewReview}
           openReviewForEdit={openReviewForEdit}
           deleteReview={deleteReview}
@@ -1947,7 +1951,7 @@ export default function Home() {
     };
 
     return (
-      <AppShell session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout}>
+      <AppShell session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout}>
         <div className="layout p-0">
           <div className="grid gap-4">
             <PageFrame
@@ -2143,6 +2147,8 @@ export default function Home() {
         onAdmin={() => setScreen("database")}
         onProfile={() => setScreen("user-profile")}
         onLogout={logout}
+        navContext={navContext}
+        onNavigate={navigate}
       />
     );
   }
@@ -2156,20 +2162,19 @@ export default function Home() {
     const refereeCompletedReviews = assignedReviewsForReferee(referee.id);
     const refereeReviewGoalLinks = reviewGoalLinks.filter(l => l.refereeId === referee.id);
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen(session.activeRole === "referee" ? "referee" : "educator")}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <RefereeDevelopmentScreen
           session={session}
           referee={referee}
@@ -2238,27 +2243,26 @@ export default function Home() {
           onDeleteNote={deleteNote}
           onBack={() => setScreen(session.activeRole === "referee" ? "referee" : "educator")}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
   if (screen === "referee-comments" && session) {
     const allMyReviews = assignedReviewsForReferee(session.user.id);
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen("referee")}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <RefereeCommentsScreen
           session={session}
           myReviews={allMyReviews}
@@ -2272,7 +2276,7 @@ export default function Home() {
           }}
           onBack={() => setScreen("referee")}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
@@ -2283,20 +2287,19 @@ export default function Home() {
     const myReviewGoalLinks  = reviewGoalLinks.filter(l => l.refereeId === session.user.id);
     const myClipGoalLinks    = clipGoalLinks.filter(l => l.refereeId === session.user.id);
     return (
-      <main>
-        <Header
+      <AppShell
           session={session}
           activeScreen={screen}
           onHome={() => setScreen("referee")}
           onAdmin={() => setScreen("database")}
           onOrganisation={() => setScreen("organisation")}
-          onLearning={() => setScreen("learning-hub")}
+          onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
           onProfile={() => setScreen("user-profile")}
           onNotifications={() => setScreen("notifications")}
           unreadNotificationCount={visibleUnreadCount}
           onSearch={() => setShowSearch(true)}
           onLogout={logout}
-        />
+        >
         <RefereeGoalsScreen
           session={session}
           goalViews={myGoalViews}
@@ -2312,7 +2315,7 @@ export default function Home() {
           onBack={() => { setActiveGoalId(null); setScreen("referee"); }}
           initialGoalId={activeGoalId}
         />
-      {globalSearchOverlay}{appToast}</main>
+      {globalSearchOverlay}{appToast}</AppShell>
     );
   }
 
@@ -2325,7 +2328,7 @@ export default function Home() {
         onHome={() => setScreen(homeScreen)}
         onAdmin={() => setScreen("database")}
         onOrganisation={() => setScreen("organisation")}
-        onLearning={() => setScreen("learning-hub")}
+        onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage}
         onProfile={() => setScreen("user-profile")}
         onNotifications={() => setScreen("notifications")}
         unreadNotificationCount={visibleUnreadCount}
@@ -2360,6 +2363,8 @@ export default function Home() {
         onAdmin={() => setScreen("database")}
         onProfile={() => setScreen("user-profile")}
         onLogout={logout}
+        navContext={navContext}
+        onNavigate={navigate}
       />
     );
   }
@@ -2373,7 +2378,7 @@ export default function Home() {
     ] as [string, string, string][]
   ).filter(([id]) => !!id);
 
-  return <AppShell session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout}><div className="layout p-0"><section className="panel !p-0 overflow-hidden"><div className="border-b border-border p-5"><p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Evaluation</p><h2 className="text-xl font-bold text-text">{reviewGame || "Untitled Review"}</h2><p className="mt-1 text-sm text-muted">Educator: {activeReview?.educatorName || session?.profile.name || "—"} · Status: {activeReview?.status || "In Review"}</p><div className="mt-2.5 flex flex-wrap gap-1.5"><span className="chip">Crew Chief: {slotName("Referee 1", activeReview)}</span><span className="chip">Umpire 1: {slotName("Referee 2", activeReview)}</span><span className="chip">Umpire 2: {slotName("Referee 3", activeReview)}</span></div></div><div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border bg-panel-2 px-5 py-3"><div className="flex min-w-0 flex-wrap items-center gap-2 text-sm"><span className="truncate font-semibold text-text">{reviewGame && reviewGame !== "New Review" ? reviewGame : "Untitled Review"}</span>{reviewGameDate && <span className="text-muted">· {reviewGameDate}</span>}{reviewVideoLink ? <span className="text-muted">· 🎥 Video</span> : <span className="text-yellow-300/70">· No video</span>}</div><Button variant="secondary" size="sm" className="shrink-0" onClick={()=>setSetupModalOpen(true)}>✏️ Edit Game Details</Button></div><div className="px-5 pt-4"><div className="mode-switch"><button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button><button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button></div>{mode === "video" ? <><div className="reviewer-controls"><div className="review-mode-group"><label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label></div><div className="playback-group"><button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button><button className="playback-btn play-pause-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button><button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button></div><Button variant="primary" className="gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button></div><div className="video-placeholder shadow-lg" style={{margin:0,aspectRatio:"16/9",overflow:"hidden",padding:0}}>{usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} className="video-frame" onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}</div>{usingYouTubeVideo&&<p className="hint" style={{marginTop:4,fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}</> : <div className="timer-card"><div className="timer">{formatTime(timerSeconds)}</div><div className="toolbar"><button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button><button onClick={() => setTimerSeconds(0)}>Reset</button><button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button><button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button></div><p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p></div>}<div className="mt-4"><p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">Timeline</p><div className="timeline"><div className="progress" style={{ width: `${progressPct}%` }} />{timelineMarkers.map(m => <button key={m.id} type="button" className={"marker" + (selectedTagId === m.id ? " marker--active" : "")} title={m.label} aria-label={m.label} style={{ left: `${m.left}%`, background: m.color, border: "none", cursor: "pointer" }} onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }} />)}</div></div></div></section><aside className="panel side-panel border-0 bg-transparent p-0 shadow-none"><div className="flex flex-wrap gap-1.5"><Button variant="secondary" size="sm" onClick={()=>setConfirmDiscardReview(true)}>{isNewReview ? "Discard Review" : "← Back"}</Button><Button variant="secondary" size="sm" className="text-yellow-300" onClick={saveCompleteLater}>Save &amp; Complete Later</Button><Button variant="good" size="sm" onClick={submitReview}>Submit Review</Button></div><div className="flex flex-wrap gap-1.5"><Button variant="secondary" size="sm" className="gap-1.5" onClick={exportCsv}><Download size={14} /> CSV</Button><Button variant="primary" size="sm" className="gap-1.5" onClick={exportExcel}><Download size={14} /> Excel</Button></div><Card className="grid gap-3"><h2 className="text-sm font-bold text-text">Performance Analytics</h2><label className="grid gap-1 text-xs text-muted">Analytics view<select value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div className="grid grid-cols-2 gap-2"><div className="rounded-lg border border-border bg-panel-2 p-3 text-center"><div className="text-xl font-extrabold text-text">{analytics.total}</div><div className="text-xs text-muted">Total clips</div></div><div className="rounded-lg border border-border bg-panel-2 p-3 text-center"><div className="text-xl font-extrabold text-accent">{analytics.accuracy}</div><div className="text-xs text-muted">Coded accuracy</div></div><div className="rounded-lg border border-border bg-panel-2 p-3 text-center"><div className="text-xl font-extrabold text-good">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="text-xs text-muted">Correct decisions</div></div><div className="rounded-lg border border-border bg-panel-2 p-3 text-center"><div className="text-xl font-extrabold text-red-300">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="text-xs text-muted">Incorrect decisions</div></div></div></Card><div className="review-side-breakdowns-wrap"><div className="review-side-breakdowns grid gap-3"><div className="flex items-baseline justify-between"><span className="text-xs font-bold uppercase tracking-wide text-muted">Breakdowns</span><span className="text-[11px] text-muted">Scroll ↓</span></div><Card><h3 className="mb-2 text-sm font-bold text-text">Outcome Breakdown</h3><div className="grid gap-1">{analytics.outcomeCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div></Card><Card><h3 className="mb-2 text-sm font-bold text-text">Category Breakdown</h3><div className="grid gap-1">{analytics.categoryCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div></Card><Card><h3 className="mb-2 text-sm font-bold text-text">Position Breakdown</h3><div className="grid gap-1">{analytics.positionCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div></Card><Card><h3 className="mb-2 text-sm font-bold text-text">Coverage Breakdown</h3><div className="grid gap-1">{analytics.coverageCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div></Card></div></div><div className="grid gap-3">{mode === "video" ? <Card className="grid gap-2"><Button variant="primary" className="gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button><p className="text-xs text-muted">Shortcut: X opens the video coding panel.</p></Card> : <Card><h2 className="mb-2 text-sm font-bold text-text">Non-video hotkeys</h2><div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div></Card>}{summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&Object.values(activeReview.officialSummaries[id]).some(Boolean))&&<Card className="grid gap-3"><h3 className="text-sm font-bold text-text">Final Summaries</h3>{summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&(s.positives||s.workOns||s.nextFocus)?<div key={id} className="border-b border-border pb-3 last:border-b-0 last:pb-0"><p className="mb-1.5 font-bold text-text">{name} <span className="font-normal text-muted">· {role}</span></p>{s.positives&&<><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="mb-1.5 whitespace-pre-wrap text-[13px] text-text">{s.positives}</p></>}{s.workOns&&<><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-[13px] text-text">{s.workOns}</p></>}</div>:null})}</Card>}</div>{activeReview && session && (()=>{
+  return <AppShell session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout}><div className="layout p-0"><section className="panel !p-0 overflow-hidden"><div className="border-b border-border p-5"><p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Evaluation</p><h2 className="text-xl font-bold text-text">{reviewGame || "Untitled Review"}</h2><p className="mt-1 text-sm text-muted">Educator: {activeReview?.educatorName || session?.profile.name || "—"} · Status: {activeReview?.status || "In Review"}</p><div className="mt-2.5 flex flex-wrap gap-1.5"><span className="chip">Crew Chief: {slotName("Referee 1", activeReview)}</span><span className="chip">Umpire 1: {slotName("Referee 2", activeReview)}</span><span className="chip">Umpire 2: {slotName("Referee 3", activeReview)}</span></div></div><div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border bg-panel-2 px-5 py-3"><div className="flex min-w-0 flex-wrap items-center gap-2 text-sm"><span className="truncate font-semibold text-text">{reviewGame && reviewGame !== "New Review" ? reviewGame : "Untitled Review"}</span>{reviewGameDate && <span className="text-muted">· {reviewGameDate}</span>}{reviewVideoLink ? <span className="text-muted">· 🎥 Video</span> : <span className="text-yellow-300/70">· No video</span>}</div><Button variant="secondary" size="sm" className="shrink-0" onClick={()=>setSetupModalOpen(true)}>✏️ Edit Game Details</Button></div><div className="px-5 pt-4"><div className="mode-switch"><button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button><button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button></div>{mode === "video" ? <><div className="reviewer-controls"><div className="review-mode-group"><label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label></div><div className="playback-group"><button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button><button className="playback-btn play-pause-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button><button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button></div><Button variant="primary" className="gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button></div><div className="video-placeholder shadow-lg" style={{margin:0,aspectRatio:"16/9",overflow:"hidden",padding:0}}>{usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} className="video-frame" onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}</div>{usingYouTubeVideo&&<p className="hint" style={{marginTop:4,fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}</> : <div className="timer-card"><div className="timer">{formatTime(timerSeconds)}</div><div className="toolbar"><button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button><button onClick={() => setTimerSeconds(0)}>Reset</button><button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button><button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button></div><p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p></div>}<div className="mt-4"><p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">Timeline</p><div className="timeline"><div className="progress" style={{ width: `${progressPct}%` }} />{timelineMarkers.map(m => <button key={m.id} type="button" className={"marker" + (selectedTagId === m.id ? " marker--active" : "")} title={m.label} aria-label={m.label} style={{ left: `${m.left}%`, background: m.color, border: "none", cursor: "pointer" }} onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }} />)}</div></div></div></section><aside className="panel side-panel border-0 bg-transparent p-0 shadow-none"><div className="flex flex-wrap gap-1.5"><Button variant="secondary" size="sm" onClick={()=>setConfirmDiscardReview(true)}>{isNewReview ? "Discard Review" : "← Back"}</Button><Button variant="secondary" size="sm" className="text-yellow-300" onClick={saveCompleteLater}>Save &amp; Complete Later</Button><Button variant="good" size="sm" onClick={submitReview}>Submit Review</Button></div><div className="flex flex-wrap gap-1.5"><Button variant="secondary" size="sm" className="gap-1.5" onClick={exportCsv}><Download size={14} /> CSV</Button><Button variant="primary" size="sm" className="gap-1.5" onClick={exportExcel}><Download size={14} /> Excel</Button></div><Card className="grid gap-3"><h2 className="text-sm font-bold text-text">Performance Analytics</h2><label className="grid gap-1 text-xs text-muted">Analytics view<select value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>{REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}</select></label><div className="grid grid-cols-2 gap-2"><div className="rounded-lg border border-border bg-panel-2 p-3 text-center"><div className="text-xl font-extrabold text-text">{analytics.total}</div><div className="text-xs text-muted">Total clips</div></div><div className="rounded-lg border border-border bg-panel-2 p-3 text-center"><div className="text-xl font-extrabold text-accent">{analytics.accuracy}</div><div className="text-xs text-muted">Coded accuracy</div></div><div className="rounded-lg border border-border bg-panel-2 p-3 text-center"><div className="text-xl font-extrabold text-good">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="text-xs text-muted">Correct decisions</div></div><div className="rounded-lg border border-border bg-panel-2 p-3 text-center"><div className="text-xl font-extrabold text-red-300">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="text-xs text-muted">Incorrect decisions</div></div></div></Card><div className="review-side-breakdowns-wrap"><div className="review-side-breakdowns grid gap-3"><div className="flex items-baseline justify-between"><span className="text-xs font-bold uppercase tracking-wide text-muted">Breakdowns</span><span className="text-[11px] text-muted">Scroll ↓</span></div><Card><h3 className="mb-2 text-sm font-bold text-text">Outcome Breakdown</h3><div className="grid gap-1">{analytics.outcomeCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div></Card><Card><h3 className="mb-2 text-sm font-bold text-text">Category Breakdown</h3><div className="grid gap-1">{analytics.categoryCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div></Card><Card><h3 className="mb-2 text-sm font-bold text-text">Position Breakdown</h3><div className="grid gap-1">{analytics.positionCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div></Card><Card><h3 className="mb-2 text-sm font-bold text-text">Coverage Breakdown</h3><div className="grid gap-1">{analytics.coverageCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div></Card></div></div><div className="grid gap-3">{mode === "video" ? <Card className="grid gap-2"><Button variant="primary" className="gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button><p className="text-xs text-muted">Shortcut: X opens the video coding panel.</p></Card> : <Card><h2 className="mb-2 text-sm font-bold text-text">Non-video hotkeys</h2><div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div></Card>}{summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&Object.values(activeReview.officialSummaries[id]).some(Boolean))&&<Card className="grid gap-3"><h3 className="text-sm font-bold text-text">Final Summaries</h3>{summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&(s.positives||s.workOns||s.nextFocus)?<div key={id} className="border-b border-border pb-3 last:border-b-0 last:pb-0"><p className="mb-1.5 font-bold text-text">{name} <span className="font-normal text-muted">· {role}</span></p>{s.positives&&<><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="mb-1.5 whitespace-pre-wrap text-[13px] text-text">{s.positives}</p></>}{s.workOns&&<><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-[13px] text-text">{s.workOns}</p></>}</div>:null})}</Card>}</div>{activeReview && session && (()=>{
   const slots: Array<{id:string; name:string}> = [
     {id: activeReview.referee1Id, name: activeReview.referee1Name},
     {id: activeReview.referee2Id, name: activeReview.referee2Name},

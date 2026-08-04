@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
-import { Header } from "@/components/Header";
+import { AppShell } from "@/components/shell/AppShell";
 import { makeAnalytics, percent, countBy } from "@/lib/utils/analytics";
 import { embedUrl, isDirectVideoUrl } from "@/lib/utils/video";
 import { normaliseClipTaxonomy } from "@/lib/utils/taxonomyCompatibility";
 import { DateRangeFilter, datePassesFilter, DATE_RANGE_DEFAULT } from "@/components/common/DateRangeFilter";
 import type { DateRangeValue } from "@/components/common/DateRangeFilter";
 import type { ReviewRecord, CodedTag, RefSlot } from "@/lib/types/reviews";
-import type { RefEvalSession } from "@/lib/types/auth";
+import type { RefEvalSession, Screen } from "@/lib/types/auth";
+import type { OrgPage } from "@/components/organisation/OrganisationScreen";
+import type { NavContext } from "@/components/shell/nav";
 
 type Props = {
   reviews: ReviewRecord[];
@@ -18,6 +20,8 @@ type Props = {
   onAdmin: () => void;
   onProfile: () => void;
   onLogout: () => void;
+  navContext?: NavContext;
+  onNavigate?: (screen: Screen, orgPage?: OrgPage) => void;
 };
 
 type StatsTag = CodedTag & {
@@ -200,7 +204,7 @@ function AccuracyTrend({
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onProfile, onLogout }: Props) {
+export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onProfile, onLogout, navContext, onNavigate }: Props) {
   const [dateFilter, setDateFilter] = useState<DateRangeValue>(DATE_RANGE_DEFAULT);
   const [facetFilters, setFacetFilters] = useState<FacetFilters>(EMPTY_FACETS);
   const [expandedCategoryGroup, setExpandedCategoryGroup] = useState<string | null>(null);
@@ -400,8 +404,12 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
   function goNext() { if (hasNext) selectClip(filteredTags[selectedIdx + 1]); }
 
   return (
-    <main>
-      <Header session={session} onHome={onBack} onAdmin={onAdmin} onProfile={onProfile} onLogout={onLogout} />
+    <AppShell session={session} onHome={onBack} onAdmin={onAdmin} onProfile={onProfile} onLogout={onLogout} navContext={navContext} onNavigate={onNavigate}>
+      {/* This hub is a dense, full-bleed split-pane layout (see .sh-body's
+          `height: calc(100vh - 200px)`) that predates AppShell — cancel
+          AppShell's page gutter with matching negative margins rather than
+          rework the layout to accommodate it. */}
+      <div className="-m-4 sm:-m-6 lg:-m-8">
 
       {/* ── Slim toolbar: title + back ── */}
       <div className="sh-toolbar">
@@ -775,7 +783,8 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
 
         </div>
       )}
-    </main>
+      </div>
+    </AppShell>
   );
 }
 

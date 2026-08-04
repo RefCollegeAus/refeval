@@ -327,7 +327,7 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
   }
 
   return (
-    <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
+    <div style={{ boxSizing: "border-box" }}>
 
       {/* ── Header & filters ── */}
       <div className="panel" style={{ marginBottom: 16 }}>

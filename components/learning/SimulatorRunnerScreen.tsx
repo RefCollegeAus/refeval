@@ -576,7 +576,7 @@ function ScoreScreen({
     : { label: "Needs Work", color: "#ef4444" };
 
   return (
-    <div style={{ padding: "20px 20px 80px", boxSizing: "border-box", maxWidth: 680, margin: "0 auto" }}>
+    <div style={{ boxSizing: "border-box", maxWidth: 680, margin: "0 auto" }}>
       <div className="panel" style={{ textAlign: "center", padding: "32px 24px", marginBottom: 16 }}>
         <Zap size={32} style={{ color: "#fbbf24", marginBottom: 10 }} />
         <p className="eyebrow">{session.title}</p>
@@ -835,7 +835,7 @@ export function SimulatorRunnerScreen({
 
   if (view === "picker") {
     return (
-      <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
+      <div style={{ boxSizing: "border-box" }}>
         <div className="panel" style={{ marginBottom: 16 }}>
           <div className="table-head">
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -943,7 +943,7 @@ export function SimulatorRunnerScreen({
 
     if (activeEvents.length === 0) {
       return (
-        <div style={{ padding: "20px 20px 60px", boxSizing: "border-box", maxWidth: 580, margin: "0 auto" }}>
+        <div style={{ boxSizing: "border-box", maxWidth: 580, margin: "0 auto" }}>
           <div className="panel" style={{ textAlign: "center", padding: "48px 24px" }}>
             <button onClick={() => setView("picker")} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, margin: "0 auto 24px" }}>
               <ChevronLeft size={14} /> All Simulations
@@ -965,7 +965,7 @@ export function SimulatorRunnerScreen({
     }
 
     return (
-      <div style={{ padding: "20px 20px 60px", boxSizing: "border-box", maxWidth: 580, margin: "0 auto" }}>
+      <div style={{ boxSizing: "border-box", maxWidth: 580, margin: "0 auto" }}>
         <div className="panel">
           <button
             onClick={() => setView("picker")}
@@ -1045,7 +1045,7 @@ export function SimulatorRunnerScreen({
     const total = activeEvents.length;
 
     return (
-      <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
+      <div style={{ boxSizing: "border-box" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

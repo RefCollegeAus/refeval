@@ -276,7 +276,7 @@ export function RefereeCommentsScreen({
       title="My Comments"
       description="Comment threads from all your evaluations"
       actions={<Button variant="secondary" size="sm" onClick={onBack}>← Back</Button>}
-      className="mx-auto max-w-[900px]"
+      className="mx-auto max-w-[900px] p-0"
     >
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-1.5">

@@ -510,7 +510,7 @@ export function RefereeGoalsScreen({
   ];
 
   return (
-    <div className="layout">
+    <div className="layout p-0">
       <div className="grid gap-4">
         <PageFrame
           className="p-0"
