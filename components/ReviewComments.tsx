@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Send } from "lucide-react";
+import { MessageSquare, Send } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { RefEvalSession } from "@/lib/types/auth";
+import { Badge, Button, Card, Spinner, Textarea } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 type Comment = {
   id: string;
@@ -113,33 +115,41 @@ export function ReviewComments({
   const label = tagId ? "Comments on this clip" : "Discussion";
 
   return (
-    <section className="panel disc-panel">
-      <div className="disc-header">
-        <h2 style={{ margin: 0 }}>
-          💬 {label}
+    <Card className="grid gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-text">
+          <MessageSquare size={15} className="text-muted" />
+          {label}
         </h2>
-        {!loading && (
-          <span className="disc-count">{comments.length} {comments.length === 1 ? "comment" : "comments"}</span>
-        )}
+        {!loading && <Badge tone="accent">{comments.length} {comments.length === 1 ? "comment" : "comments"}</Badge>}
       </div>
 
       {loading ? (
-        <div className="loading-state"><span className="loading-spinner" />Loading comments…</div>
+        <div className="flex items-center gap-2 text-sm text-muted">
+          <Spinner size={16} /> Loading comments…
+        </div>
       ) : (
-        <div className="disc-list" ref={listRef}>
+        <div ref={listRef} className="grid max-h-72 gap-2.5 overflow-y-auto">
           {comments.length === 0 ? (
-            <p className="hint disc-empty">No comments yet. Be the first to add feedback.</p>
+            <p className="text-xs text-muted">No comments yet. Be the first to add feedback.</p>
           ) : (
             comments.map(c => {
               const isMe = c.userId === session?.user.id;
               return (
-                <div key={c.id} className={"disc-message" + (isMe ? " disc-mine" : "")}>
-                  <div className="disc-meta">
-                    <span className="disc-author">{c.authorName}</span>
-                    <span className="disc-time">{formatTs(c.createdAt)}</span>
+                <div key={c.id} className={cn("flex flex-col gap-0.5", isMe ? "items-end" : "items-start")}>
+                  <div className="flex items-center gap-2 text-[11px] text-muted">
+                    <span className="font-semibold text-text">{c.authorName}</span>
+                    <span>{formatTs(c.createdAt)}</span>
                   </div>
-                  <div className="disc-bubble">
-                    <p className="disc-text">{c.message}</p>
+                  <div
+                    className={cn(
+                      "max-w-[85%] border px-3 py-2",
+                      isMe
+                        ? "rounded-[12px_12px_2px_12px] border-accent/30 bg-accent/[.14]"
+                        : "rounded-[12px_12px_12px_2px] border-border bg-panel-2",
+                    )}
+                  >
+                    <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-text">{c.message}</p>
                   </div>
                 </div>
               );
@@ -148,11 +158,10 @@ export function ReviewComments({
         </div>
       )}
 
-      <div className="disc-reply-area">
-        {error && <p className="danger-text" style={{ margin: "0 0 4px" }}>{error}</p>}
-        <div className="disc-compose">
-          <textarea
-            className="disc-textarea"
+      <div className="grid gap-1.5 border-t border-border pt-3">
+        {error && <p className="text-xs text-red-300">{error}</p>}
+        <div className="flex items-end gap-2">
+          <Textarea
             placeholder="Write a comment…"
             value={draft}
             onChange={e => setDraft(e.target.value)}
@@ -161,20 +170,15 @@ export function ReviewComments({
             }}
             rows={3}
             disabled={sending}
+            className="flex-1 resize-none"
           />
-          <button
-            className="primary disc-send"
-            onClick={send}
-            disabled={!draft.trim() || sending}
-          >
+          <Button variant="primary" className="shrink-0 gap-1.5 self-end" onClick={send} disabled={!draft.trim() || sending}>
             <Send size={15} />
             {sending ? "Sending…" : "Send"}
-          </button>
+          </Button>
         </div>
-        <p className="hint" style={{ fontSize: 11 }}>
-          Ctrl+Enter / ⌘+Enter to send
-        </p>
+        <p className="text-[11px] text-muted">Ctrl+Enter / ⌘+Enter to send</p>
       </div>
-    </section>
+    </Card>
   );
 }
