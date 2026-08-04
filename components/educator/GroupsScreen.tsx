@@ -11,6 +11,9 @@ import { GROUP_COLOURS } from "@/lib/types/groups";
 import type { MemberRecord } from "@/lib/types/members";
 import { fmtDate } from "@/lib/utils/time";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { useModalA11y } from "@/lib/hooks/useModalA11y";
+import { Badge, Button, Card, EmptyState, Input, Spinner, Textarea } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -29,7 +32,7 @@ const COLOUR_NAMES: Record<string, string> = {
 
 function ColourPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+    <div className="mt-1.5 flex flex-wrap gap-2">
       {GROUP_COLOURS.map(c => (
         <button
           key={c}
@@ -37,11 +40,8 @@ function ColourPicker({ value, onChange }: { value: string; onChange: (c: string
           onClick={() => onChange(c)}
           aria-label={COLOUR_NAMES[c] ?? c}
           aria-pressed={value === c}
-          style={{
-            width: 28, height: 28, borderRadius: "50%", background: c, border: "none",
-            cursor: "pointer", outline: value === c ? `3px solid var(--text)` : "none",
-            outlineOffset: 2, flexShrink: 0,
-          }}
+          className="h-7 w-7 shrink-0 rounded-full border-none"
+          style={{ background: c, outline: value === c ? "3px solid var(--text)" : "none", outlineOffset: 2 }}
           title={COLOUR_NAMES[c] ?? c}
         />
       ))}
@@ -77,54 +77,45 @@ function MemberPicker({
 
   return (
     <div>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span>Members <span className="hint" style={{ fontWeight: 400 }}>(referees only)</span></span>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {selected.size > 0 && (
-            <span style={{ color: "var(--accent)", fontWeight: 700, fontSize: 12 }}>{selected.size} selected</span>
-          )}
-          <button type="button" style={{ fontSize: 11, padding: "2px 8px" }}
-            onClick={() => onChange(new Set(filtered.map(m => m.id)))}>
+      <div className="mb-1.5 flex items-center justify-between text-[13px] font-semibold text-text">
+        <span>Members <span className="font-normal text-muted">(referees only)</span></span>
+        <div className="flex items-center gap-2">
+          {selected.size > 0 && <span className="text-xs font-bold text-accent">{selected.size} selected</span>}
+          <Button type="button" variant="secondary" size="sm" onClick={() => onChange(new Set(filtered.map(m => m.id)))}>
             Select All
-          </button>
-          <button type="button" style={{ fontSize: 11, padding: "2px 8px" }}
-            onClick={() => onChange(new Set())}>
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={() => onChange(new Set())}>
             Clear All
-          </button>
+          </Button>
         </div>
       </div>
-      <div style={{ position: "relative", marginBottom: 6 }}>
-        <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-        <input
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          placeholder="Search referees…"
-          style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
-        />
+      <div className="relative mb-1.5">
+        <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+        <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search referees…" className="pl-8" />
       </div>
-      <div style={{ border: "1px solid var(--border)", borderRadius: 8, maxHeight: 200, overflowY: "auto" }}>
+      <div className="max-h-[200px] overflow-y-auto rounded-lg border border-border">
         {referees.length === 0 ? (
-          <p className="hint" style={{ padding: "10px 12px", margin: 0 }}>No referees in this organisation.</p>
+          <p className="p-3 text-sm text-muted">No referees in this organisation.</p>
         ) : filtered.length === 0 ? (
-          <p className="hint" style={{ padding: "10px 12px", margin: 0 }}>No matches.</p>
+          <p className="p-3 text-sm text-muted">No matches.</p>
         ) : (
           filtered.map(m => (
             <label
               key={m.id}
-              style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "pointer",
-                borderBottom: "1px solid var(--border)", background: selected.has(m.id) ? "var(--panel2)" : undefined,
-              }}
+              className={cn(
+                "flex cursor-pointer items-center gap-2.5 border-b border-border px-3 py-2 last:border-b-0",
+                selected.has(m.id) && "bg-panel-2"
+              )}
             >
               <input
                 type="checkbox"
                 checked={selected.has(m.id)}
                 onChange={() => toggle(m.id)}
-                style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }}
+                className="h-3.5 w-3.5 shrink-0 accent-accent"
               />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</div>
-                <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-semibold text-text">{m.name}</div>
+                <div className="truncate text-[11px] text-muted">{m.email}</div>
               </div>
             </label>
           ))
@@ -157,6 +148,7 @@ function GroupModal({
   );
   const [saving, setSaving]       = useState(false);
   const [err, setErr]             = useState("");
+  const dialogRef = useModalA11y<HTMLDivElement>(true, onClose);
 
   async function handleSave() {
     if (!name.trim()) { setErr("Group name is required."); return; }
@@ -172,46 +164,40 @@ function GroupModal({
 
   return (
     <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 520, maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
-        <div className="modal-title" style={{ flexShrink: 0 }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={mode === "create" ? "Create Group" : "Edit Group"} tabIndex={-1} className="modal flex flex-col" style={{ maxWidth: 520, maxHeight: "92vh" }}>
+        <div className="modal-title shrink-0">
           <div>
             <p className="eyebrow">{mode === "create" ? "New Group" : "Edit Group"}</p>
             <h1 style={{ fontSize: 20, margin: 0 }}>{mode === "create" ? "Create Group" : "Edit Group"}</h1>
           </div>
-          <button onClick={onClose}>✕</button>
+          <button aria-label="Close" onClick={onClose}>✕</button>
         </div>
 
-        <div style={{ overflowY: "auto", flex: 1, paddingTop: 4 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12 }}>
-            <label>
+        <div className="flex-1 overflow-y-auto pt-1">
+          <div className="mt-3 grid gap-3.5">
+            <label className="grid gap-1 text-sm font-semibold text-text">
               Group Name *
-              <input value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="e.g. Development Squad" />
+              <Input value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="e.g. Development Squad" />
             </label>
-            <label>
-              Description <span className="hint">(optional)</span>
-              <textarea
-                value={description}
-                onChange={e => setDesc(e.target.value)}
-                rows={2}
-                placeholder="What is this group for?"
-                style={{ width: "100%", boxSizing: "border-box", resize: "vertical" }}
-              />
+            <label className="grid gap-1 text-sm font-semibold text-text">
+              Description <span className="text-xs font-normal text-muted">(optional)</span>
+              <Textarea value={description} onChange={e => setDesc(e.target.value)} rows={2} placeholder="What is this group for?" />
             </label>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Colour</div>
+              <div className="text-[13px] font-semibold text-text">Colour</div>
               <ColourPicker value={colour} onChange={setColour} />
             </div>
             <MemberPicker members={members} selected={selected} onChange={setSelected} />
           </div>
         </div>
 
-        <div style={{ flexShrink: 0, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-          {err && <p className="danger-text" style={{ margin: "0 0 10px" }}>{err}</p>}
+        <div className="mt-4 shrink-0 border-t border-border pt-3">
+          {err && <p className="mb-2.5 text-[13px] text-red-300">{err}</p>}
           <div className="action-row">
-            <button onClick={onClose}>Cancel</button>
-            <button className="primary" onClick={handleSave} disabled={saving}>
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : mode === "create" ? `Create Group${selected.size > 0 ? ` (${selected.size})` : ""}` : "Save Changes"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -287,66 +273,50 @@ function GroupDetail({
   return (
     <>
       {/* Single panel for both header and member list */}
-      <div className="panel" style={{ borderLeft: `4px solid ${group.colour}` }}>
+      <Card className="border-l-4" style={{ borderLeftColor: group.colour }}>
 
         {/* Group header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="eyebrow" style={{ margin: "0 0 2px" }}>Group</p>
-            <h2 style={{ margin: 0, fontSize: 18 }}>{group.name}</h2>
-            {group.description && (
-              <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>{group.description}</p>
-            )}
-            <p className="hint" style={{ margin: "6px 0 0", fontSize: 12 }}>
+            <p className="mb-0.5 text-xs font-bold uppercase tracking-wide text-accent">Group</p>
+            <h2 className="text-lg font-bold text-text">{group.name}</h2>
+            {group.description && <p className="mt-1 text-[13px] text-muted">{group.description}</p>}
+            <p className="mt-1.5 text-xs text-muted">
               {group.members.length} member{group.members.length !== 1 ? "s" : ""} · Created {fmtDate(group.createdAt)}
             </p>
           </div>
-          <button onClick={onClose} title="Close" style={{ padding: "4px 8px", flexShrink: 0 }}><X size={14} /></button>
+          <button onClick={onClose} title="Close" aria-label="Close" className="shrink-0 rounded-lg p-1 text-muted hover:bg-panel-3"><X size={14} /></button>
         </div>
 
         {/* Edit / Delete actions */}
         {canEdit && (
-          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-            <button style={{ fontSize: 12, padding: "4px 12px" }} onClick={() => setEditOpen(true)}>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" className="gap-1" onClick={() => setEditOpen(true)}>
               <Pencil size={12} /> Edit
-            </button>
+            </Button>
             {canDelete && (
-              <button className="danger" style={{ fontSize: 12, padding: "4px 12px" }} onClick={() => setConfirmDelete(true)}>
+              <Button variant="danger" size="sm" className="gap-1" onClick={() => setConfirmDelete(true)}>
                 <Trash2 size={12} /> Delete
-              </button>
+              </Button>
             )}
           </div>
         )}
 
-        {/* Section divider — full-bleed within panel */}
-        <div style={{ margin: "14px -18px 0", borderTop: "1px solid var(--border)" }} />
-
         {/* Members section */}
-        <div style={{ marginTop: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <h3 className="ed-section-title" style={{ margin: 0 }}>
-              Members ({group.members.length})
-            </h3>
-          </div>
+        <div className="mt-4 border-t border-border pt-3.5">
+          <h3 className="mb-2.5 text-sm font-bold text-text">
+            Members ({group.members.length})
+          </h3>
 
           {/* Member search */}
           {group.members.length > 0 && (
-            <div style={{ display: "flex", gap: 4, marginBottom: 8, alignItems: "center" }}>
-              <div style={{ position: "relative", flex: 1 }}>
-                <Search size={12} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-                <input
-                  value={memberSearch}
-                  onChange={e => setMemberSearch(e.target.value)}
-                  placeholder="Search members…"
-                  style={{ paddingLeft: 26, fontSize: 12, width: "100%", boxSizing: "border-box" }}
-                />
+            <div className="mb-2 flex items-center gap-1">
+              <div className="relative flex-1">
+                <Search size={12} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted" />
+                <Input value={memberSearch} onChange={e => setMemberSearch(e.target.value)} placeholder="Search members…" className="py-1.5 pl-6 text-xs" />
               </div>
               {memberSearch && (
-                <button
-                  onClick={() => setMemberSearch("")}
-                  aria-label="Clear search"
-                  style={{ border: "none", background: "none", padding: "4px 5px", cursor: "pointer", flexShrink: 0 }}
-                >
+                <button onClick={() => setMemberSearch("")} aria-label="Clear search" className="shrink-0 rounded-lg border-none bg-none p-1.5 text-muted">
                   <X size={12} />
                 </button>
               )}
@@ -355,39 +325,31 @@ function GroupDetail({
 
           {/* Member list */}
           {group.members.length === 0 ? (
-            <div className="empty-state" style={{ padding: "16px 10px" }}>
-              <p className="hint" style={{ margin: 0, fontSize: 13 }}>No members yet.</p>
-              {canEdit ? (
-                <button style={{ marginTop: 8, fontSize: 12 }} onClick={() => setEditOpen(true)}>
-                  Add Members
-                </button>
-              ) : (
-                <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
-                  Contact an administrator to add members to this group.
-                </p>
-              )}
-            </div>
+            <EmptyState
+              title="No members yet."
+              action={
+                canEdit ? (
+                  <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>Add Members</Button>
+                ) : (
+                  <p className="text-xs text-muted">Contact an administrator to add members to this group.</p>
+                )
+              }
+            />
           ) : filteredMembers.length === 0 ? (
-            <p className="hint" style={{ fontSize: 13, padding: "8px 0", margin: 0 }}>No members match your search.</p>
+            <p className="py-2 text-[13px] text-muted">No members match your search.</p>
           ) : (
             <div>
-              {filteredMembers.map(({ gm, member: m }, i) => (
-                <div
-                  key={gm.id}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    padding: "9px 0",
-                    borderBottom: i < filteredMembers.length - 1 ? "1px solid var(--border)" : "none",
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{m!.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--muted)" }}>{m!.email}</div>
+              {filteredMembers.map(({ gm, member: m }) => (
+                <div key={gm.id} className="flex items-center gap-2 border-b border-border py-2.5 last:border-b-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-semibold text-text">{m!.name}</div>
+                    <div className="text-[11px] text-muted">{m!.email}</div>
                   </div>
                   {canEdit && (
                     <button
                       title="Remove from group"
-                      style={{ padding: "2px 6px", flexShrink: 0 }}
+                      aria-label={`Remove ${m!.name} from group`}
+                      className="shrink-0 rounded-lg p-1 text-muted hover:bg-panel-3"
                       onClick={() => setPendingRemoveId(m!.id)}
                       disabled={busy}
                     >
@@ -399,7 +361,7 @@ function GroupDetail({
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {editOpen && (
         <GroupModal
@@ -514,12 +476,9 @@ export function GroupsScreen({
 
   function SortBtn({ col, label }: { col: SortKey; label: string }) {
     return (
-      <button
-        style={{ fontSize: 12, padding: "3px 8px", display: "inline-flex", alignItems: "center", gap: 4, background: sort === col ? "var(--panel2)" : undefined }}
-        onClick={() => toggleSort(col)}
-      >
-        {label} <ArrowUpDown size={11} style={{ opacity: sort === col ? 1 : 0.4 }} />
-      </button>
+      <Button variant="secondary" size="sm" className={cn("gap-1", sort === col && "bg-panel-2")} onClick={() => toggleSort(col)}>
+        {label} <ArrowUpDown size={11} className={sort === col ? "opacity-100" : "opacity-40"} />
+      </Button>
     );
   }
 
@@ -530,134 +489,110 @@ export function GroupsScreen({
       <div className="lh-main">
 
         {/* Header + search bar in one panel */}
-        <div className="panel">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3.5">
             <div>
-              <p className="eyebrow" style={{ margin: 0 }}>{eyebrow ?? "Learning Hub"}</p>
-              <h1 style={{ margin: 0, fontSize: 22 }}>Groups</h1>
+              <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">{eyebrow ?? "Learning Hub"}</p>
+              <h1 className="text-xl font-bold text-text">Groups</h1>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div className="flex items-center gap-2">
               {canCreate && (
-                <button className="primary" onClick={() => setCreateOpen(true)}>
+                <Button variant="primary" className="gap-1.5" onClick={() => setCreateOpen(true)}>
                   <Plus size={14} /> New Group
-                </button>
+                </Button>
               )}
-              <button onClick={onBack}><ChevronLeft size={15} /> Back</button>
+              <Button variant="secondary" className="gap-1.5" onClick={onBack}><ChevronLeft size={15} /> Back</Button>
             </div>
           </div>
 
           {/* Inline search/sort — only when groups exist */}
           {!loading && groups.length > 0 && (
-            <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ position: "relative", flex: "1 1 200px" }}>
-                <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search groups…"
-                  aria-label="Search groups"
-                  style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
-                />
+            <div className="mt-3.5 flex flex-wrap items-center gap-2.5 border-t border-border pt-3.5">
+              <div className="relative flex-[1_1_200px]">
+                <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search groups…" aria-label="Search groups" className="pl-8" />
               </div>
               {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  aria-label="Clear search"
-                  style={{ border: "none", background: "none", padding: "4px 6px", cursor: "pointer", flexShrink: 0 }}
-                >
+                <button onClick={() => setSearch("")} aria-label="Clear search" className="shrink-0 rounded-lg border-none bg-none p-1.5 text-muted">
                   <X size={13} />
                 </button>
               )}
-              <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap", marginLeft: "auto" }}>
+              <span className="ml-auto whitespace-nowrap text-xs text-muted">
                 {search ? `${filtered.length} of ${groups.length}` : groups.length} group{groups.length !== 1 ? "s" : ""}
               </span>
-              <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
-                <span className="hint" style={{ fontSize: 12 }}>Sort:</span>
+              <div className="flex shrink-0 items-center gap-1">
+                <span className="text-xs text-muted">Sort:</span>
                 <SortBtn col="name" label="Name" />
                 <SortBtn col="members" label="Members" />
                 <SortBtn col="created" label="Date" />
               </div>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Error */}
-        {error && <p className="danger-text" style={{ margin: 0 }}>{error}</p>}
+        {error && <p className="text-[13px] text-red-300">{error}</p>}
 
         {/* Loading */}
         {loading && (
-          <div className="loading-state" style={{ justifyContent: "center", padding: "32px 0" }}><span className="loading-spinner" />Loading groups…</div>
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted">
+            <Spinner size={16} /> Loading groups…
+          </div>
         )}
 
         {/* Empty state — no groups yet */}
         {!loading && groups.length === 0 && !error && (
-          <div className="empty-state">
-            <Users size={32} style={{ opacity: 0.25, marginBottom: 10 }} />
-            <p style={{ margin: 0, fontWeight: 700 }}>No groups yet</p>
-            <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
-              Create a group to organise referees into cohorts.
-            </p>
-            {canCreate && (
-              <button className="primary" style={{ marginTop: 12 }} onClick={() => setCreateOpen(true)}>
-                <Plus size={14} /> New Group
-              </button>
-            )}
-          </div>
+          <EmptyState
+            icon={<Users size={28} />}
+            title="No groups yet"
+            description="Create a group to organise referees into cohorts."
+            action={canCreate ? <Button variant="primary" className="gap-1.5" onClick={() => setCreateOpen(true)}><Plus size={14} /> New Group</Button> : undefined}
+          />
         )}
 
         {/* No search results */}
         {!loading && groups.length > 0 && filtered.length === 0 && (
-          <div className="empty-state">
-            <Search size={28} style={{ opacity: 0.25, marginBottom: 10 }} />
-            <p style={{ margin: 0, fontWeight: 700 }}>No groups match your search</p>
-            <button style={{ marginTop: 10, fontSize: 13 }} onClick={() => setSearch("")}>Clear search</button>
-          </div>
+          <EmptyState
+            icon={<Search size={28} />}
+            title="No groups match your search"
+            action={<Button variant="secondary" size="sm" onClick={() => setSearch("")}>Clear search</Button>}
+          />
         )}
 
         {/* Groups grid */}
         {!loading && filtered.length > 0 && (
-          <div className="groups-grid">
+          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
             {filtered.map(g => (
-              <div
+              <Card
                 key={g.id}
-                className={"groups-card" + (selectedId === g.id ? " groups-card--selected" : "")}
-                style={{ borderTop: `3px solid ${g.colour}` }}
                 onClick={() => setSelectedId(prev => prev === g.id ? null : g.id)}
-              >
-                <div className="groups-card-header">
-                  <div className="groups-card-dot" style={{ background: g.colour }} />
-                  <div className="groups-card-name">{g.name}</div>
-                  {g.members.length === 0 && (
-                    <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(245,158,11,.15)", color: "#fde68a", border: "1px solid rgba(245,158,11,.3)", fontWeight: 700, marginLeft: 4, flexShrink: 0 }}>
-                      Empty
-                    </span>
-                  )}
-                </div>
-                {g.description && (
-                  <p className="groups-card-desc">{g.description}</p>
+                className={cn(
+                  "cursor-pointer border-t-[3px] transition-colors",
+                  selectedId === g.id ? "border-accent/60 bg-accent/[.05]" : "hover:bg-panel-2"
                 )}
-                <div className="groups-card-meta">
-                  <span><Users size={11} /> {g.members.length} member{g.members.length !== 1 ? "s" : ""}</span>
+                style={{ borderTopColor: g.colour }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: g.colour }} />
+                  <div className="min-w-0 flex-1 truncate text-sm font-bold text-text">{g.name}</div>
+                  {g.members.length === 0 && <Badge tone="warn" className="shrink-0">Empty</Badge>}
+                </div>
+                {g.description && <p className="mt-1.5 line-clamp-2 text-xs text-muted">{g.description}</p>}
+                <div className="mt-2.5 flex items-center justify-between text-xs text-muted">
+                  <span className="flex items-center gap-1"><Users size={11} /> {g.members.length} member{g.members.length !== 1 ? "s" : ""}</span>
                   <span>{fmtDate(g.createdAt)}</span>
                 </div>
-                <div className="groups-card-actions" onClick={e => e.stopPropagation()}>
-                  <button
-                    style={{ fontSize: 12, padding: "3px 10px" }}
-                    onClick={() => setSelectedId(prev => prev === g.id ? null : g.id)}
-                  >
+                <div className="mt-2.5 flex gap-1.5" onClick={e => e.stopPropagation()}>
+                  <Button variant="secondary" size="sm" className="gap-1" onClick={() => setSelectedId(prev => prev === g.id ? null : g.id)}>
                     <ChevronRight size={12} /> View
-                  </button>
+                  </Button>
                   {canDelete && (
-                    <button
-                      className="danger"
-                      style={{ fontSize: 12, padding: "3px 10px" }}
-                      onClick={() => setPendingDeleteId(g.id)}
-                    >
+                    <Button variant="danger" size="sm" className="gap-1" onClick={() => setPendingDeleteId(g.id)}>
                       <Trash2 size={12} /> Delete
-                    </button>
+                    </Button>
                   )}
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}
@@ -677,37 +612,35 @@ export function GroupsScreen({
             onClose={() => setSelectedId(null)}
           />
         ) : (
-          <div className="empty-state" style={{ textAlign: "center", padding: "28px 20px" }}>
-            <Users size={26} style={{ opacity: 0.2, marginBottom: 10 }} />
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>Select a group</p>
-            <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
-              Click a group card to view members and manage the group.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Users size={26} />}
+            title="Select a group"
+            description="Click a group card to view members and manage the group."
+          />
         )}
 
         {/* Summary */}
-        <div className="panel" style={{ boxShadow: "none" }}>
-          <h3 className="ed-section-title" style={{ marginBottom: 10 }}>Summary</h3>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "7px 0", borderBottom: "1px solid var(--border)" }}>
-              <span className="hint">Total Groups</span>
-              <strong>{groups.length}</strong>
+        <Card className="shadow-none">
+          <h3 className="mb-2.5 text-sm font-bold text-text">Summary</h3>
+          <div className="grid">
+            <div className="flex items-center justify-between border-b border-border py-1.5 text-[13px]">
+              <span className="text-muted">Total Groups</span>
+              <strong className="text-text">{groups.length}</strong>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "7px 0", borderBottom: "1px solid var(--border)" }}>
-              <span className="hint">Unique Members</span>
-              <strong>{new Set(groups.flatMap(g => g.members.map(m => m.userId))).size}</strong>
+            <div className="flex items-center justify-between border-b border-border py-1.5 text-[13px]">
+              <span className="text-muted">Unique Members</span>
+              <strong className="text-text">{new Set(groups.flatMap(g => g.members.map(m => m.userId))).size}</strong>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: "7px 0" }}>
-              <span className="hint">Avg Size</span>
-              <strong>
+            <div className="flex items-center justify-between py-1.5 text-[13px]">
+              <span className="text-muted">Avg Size</span>
+              <strong className="text-text">
                 {groups.length > 0
                   ? Math.round(groups.reduce((s, g) => s + g.members.length, 0) / groups.length)
                   : 0}
               </strong>
             </div>
           </div>
-        </div>
+        </Card>
       </aside>
 
       {/* Create modal */}

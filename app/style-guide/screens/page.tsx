@@ -28,6 +28,9 @@ import { MyLearningScreen } from "@/components/referee/MyLearningScreen";
 import { RefereeReviewScreen } from "@/components/referee/RefereeReviewScreen";
 import { RefereeGoalsScreen } from "@/components/referee/RefereeGoalsScreen";
 import { RefereeCommentsScreen } from "@/components/referee/RefereeCommentsScreen";
+import { GroupsScreen } from "@/components/educator/GroupsScreen";
+import { NotificationCentre } from "@/components/NotificationCentre";
+import { MembersScreen } from "@/components/admin/MembersScreen";
 import { PageFrame } from "@/components/shell/PageFrame";
 import { Badge, Button, Card, EmptyState, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui";
 import { makeAnalytics } from "@/lib/utils/analytics";
@@ -42,6 +45,7 @@ import type { DevelopmentNote } from "@/lib/types/developmentNotes";
 import type { ReviewGoalLink, ClipGoalLink } from "@/lib/types/reviewGoalLinks";
 import type { Group } from "@/lib/types/groups";
 import type { OrganisationRecord } from "@/lib/types/organisations";
+import type { Notification, NotificationPreferences } from "@/lib/types/notifications";
 
 const ORG_ID = "org-demo";
 
@@ -173,6 +177,32 @@ const CLIP_GOAL_LINKS: ClipGoalLink[] = [
 const ORG: OrganisationRecord = { id: ORG_ID, name: "Demo Basketball Association", createdAt: daysAgo(200), timezone: "Australia/Sydney", brandColour: "#a56a1b", logoUrl: null };
 
 const ORG_SETTINGS = makeDefaultSettings("Demo Basketball Association");
+
+const NOTIFICATIONS: Notification[] = [
+  {
+    id: "ntf-1", organisationId: ORG_ID, userId: "user-jamie", type: "review_completed",
+    title: "Review completed", message: "Eagles vs Wolves has been submitted with 2 clips tagged.",
+    relatedEntityType: "review", relatedEntityId: "rev-2", createdAt: daysAgo(1), createdBy: "user-alex",
+    isRead: false, readAt: null, priority: "normal", actionLabel: "View review", actionRoute: "referee", metadata: null,
+  },
+  {
+    id: "ntf-2", organisationId: ORG_ID, userId: "user-jamie", type: "assignment_overdue",
+    title: "Assignment overdue", message: "Alex Referee's \"Foul Recognition\" module is 3 days overdue.",
+    relatedEntityType: "assignment", relatedEntityId: "asg-1", createdAt: daysAgo(3), createdBy: null,
+    isRead: false, readAt: null, priority: "high", actionLabel: "View assignment", actionRoute: "assignments", metadata: null,
+  },
+  {
+    id: "ntf-3", organisationId: ORG_ID, userId: "user-jamie", type: "goal_updated",
+    title: "Goal completed", message: "Alex Referee marked \"Improve trail positioning\" as complete.",
+    relatedEntityType: "development_goal", relatedEntityId: "def-1", createdAt: daysAgo(6), createdBy: "user-alex",
+    isRead: true, readAt: daysAgo(5), priority: "normal", actionLabel: null, actionRoute: null, metadata: null,
+  },
+];
+
+const NOTIFICATION_PREFS: NotificationPreferences = {
+  userId: "user-jamie", inAppEnabled: true, reviewNotifications: true, assignmentNotifications: true,
+  learningNotifications: true, developmentGoalNotifications: true, organisationNotifications: true, systemNotifications: false,
+};
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -540,6 +570,92 @@ export default function ScreenFixturesPage() {
             onRead={() => {}}
             onWatchClip={() => {}}
             onBack={() => {}}
+          />
+        </div>
+      </Section>
+
+      {/* ── Phase 6 — Educator and admin experience ─────────────────────────── */}
+
+      <Section title="Groups" description='screen === "groups" → components/educator/GroupsScreen.tsx'>
+        <div className="rounded-2xl border border-border">
+          <GroupsScreen
+            session={SESSION_EDUCATOR}
+            groups={GROUPS}
+            members={MEMBERS}
+            loading={false}
+            error=""
+            canCreate
+            canEdit
+            canDelete
+            onBack={() => {}}
+            onCreateGroup={async () => {}}
+            onUpdateGroup={async () => {}}
+            onDeleteGroup={async () => {}}
+            onSetGroupMembers={async () => {}}
+            eyebrow="Learning Hub"
+          />
+        </div>
+      </Section>
+
+      <Section title="Groups — empty state" description="Zero groups.">
+        <div className="rounded-2xl border border-border">
+          <GroupsScreen
+            session={SESSION_EDUCATOR}
+            groups={[]}
+            members={MEMBERS}
+            loading={false}
+            error=""
+            canCreate
+            canEdit
+            canDelete
+            onBack={() => {}}
+            onCreateGroup={async () => {}}
+            onUpdateGroup={async () => {}}
+            onDeleteGroup={async () => {}}
+            onSetGroupMembers={async () => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Notifications" description='screen === "notifications" → components/NotificationCentre.tsx'>
+        <div className="rounded-2xl border border-border">
+          <NotificationCentre
+            notifications={NOTIFICATIONS}
+            unreadCount={NOTIFICATIONS.filter(n => !n.isRead).length}
+            onMarkRead={() => {}}
+            onMarkAllRead={() => {}}
+            onDelete={() => {}}
+            onNavigate={() => {}}
+            onBack={() => {}}
+            preferences={NOTIFICATION_PREFS}
+            onUpdatePreferences={() => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Notifications — empty state" description="Zero notifications.">
+        <div className="rounded-2xl border border-border">
+          <NotificationCentre
+            notifications={[]}
+            unreadCount={0}
+            onMarkRead={() => {}}
+            onMarkAllRead={() => {}}
+            onDelete={() => {}}
+            onNavigate={() => {}}
+            onBack={() => {}}
+            preferences={NOTIFICATION_PREFS}
+            onUpdatePreferences={() => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Member Management" description='screen === "database" → components/admin/MembersScreen.tsx (fetches its own member list live from Supabase — renders its empty state deterministically, same limitation as My Comments above)'>
+        <div className="rounded-2xl border border-border">
+          <MembersScreen
+            session={SESSION_ADMIN}
+            onNavigateSettings={() => {}}
+            onNavigateTeam={() => {}}
+            onRefreshOrgMembers={() => {}}
           />
         </div>
       </Section>

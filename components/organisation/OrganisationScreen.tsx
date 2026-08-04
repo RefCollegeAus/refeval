@@ -22,6 +22,7 @@ import {
 import { PageFrame } from "@/components/shell/PageFrame";
 import { Badge, Button, Card, EmptyState } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
+import { ROLE_TONE } from "@/lib/utils/roleTone";
 
 // ── Sub-page routing ──────────────────────────────────────────────────────────
 
@@ -253,14 +254,9 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
 // (referee/educator/admin are a genuinely meaningful distinction, not
 // decorative) but mapped onto the shared token palette instead of four
 // unrelated hex values, per "do not flatten meaningful semantic
-// differences" while still satisfying "restrained colour usage."
-const ROLE_TONE: Record<string, { dot: string; text: string; bg: string; border: string }> = {
-  referee:     { dot: "bg-good",   text: "text-good",         bg: "bg-good/10",   border: "border-good/25" },
-  educator:    { dot: "bg-info",   text: "text-blue-300",     bg: "bg-info/10",   border: "border-info/25" },
-  admin:       { dot: "bg-accent", text: "text-amber-300",    bg: "bg-accent/10", border: "border-accent/25" },
-  super_admin: { dot: "bg-accent", text: "text-amber-300",    bg: "bg-accent/10", border: "border-accent/25" },
-  viewer:      { dot: "bg-muted",  text: "text-muted",        bg: "bg-panel-3",   border: "border-border" },
-};
+// differences" while still satisfying "restrained colour usage." Extracted
+// to lib/utils/roleTone.ts in Phase 6 so other screens (Members, Team
+// Management, user profile) share the same mapping.
 
 function RolePill({ role, label, count }: { role: string; label: string; count: number }) {
   const tone = ROLE_TONE[role] ?? ROLE_TONE.viewer;

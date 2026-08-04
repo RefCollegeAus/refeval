@@ -11,6 +11,10 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { showToast } from "@/lib/toast";
 import type { EnrichedMember } from "@/lib/types/members";
 import type { Role, RefEvalSession } from "@/lib/types/auth";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, Card, EmptyState, Input, Select, Spinner, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui";
+import { ROLE_TONE } from "@/lib/utils/roleTone";
+import { cn } from "@/lib/utils/cn";
 
 const ROLE_LABELS: Record<Role, string> = {
   viewer: "Viewer",
@@ -26,14 +30,6 @@ const ROLE_DESCRIPTIONS: Record<Role, string> = {
   educator:    "Creates reviews, manages learning assignments, and coaches referees.",
   referee:     "Views their own reviews, completes assigned learning, and tracks development goals.",
   viewer:      "No default access — permissions can be assigned individually.",
-};
-
-const ROLE_COLOR: Record<Role, string> = {
-  referee:     "#30d158",
-  educator:    "#6fb8ff",
-  admin:       "#ff9f0a",
-  super_admin: "#c4b5fd",
-  viewer:      "#636366",
 };
 
 function fmt(iso: string | null) {
@@ -166,7 +162,7 @@ export function MembersScreen({
   }
 
   function SortIcon({ field }: { field: SortField }) {
-    if (sortField !== field) return <span style={{ opacity: 0.25, fontSize: 11 }}>↕</span>;
+    if (sortField !== field) return <span className="opacity-25 text-[11px]">↕</span>;
     return sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />;
   }
 
@@ -176,120 +172,88 @@ export function MembersScreen({
   const adminCount     = members.filter(m => m.role === "admin" || m.role === "super_admin").length;
 
   return (
-    <div className="layout one-col">
-
-      {/* ── Page header ── */}
-      <div className="panel" style={{ padding: "20px 24px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
-        <div>
-          <p className="eyebrow" style={{ margin: 0 }}>{session.activeOrganisation?.name || "Organisation"}</p>
-          <h1 style={{ margin: "3px 0 0", fontSize: 24 }}>Member Management</h1>
-          <p className="hint" style={{ margin: "5px 0 0" }}>
-            {loading ? "Loading members…" : `${members.length} member${members.length !== 1 ? "s" : ""}`}
-            {!loading && pendingCount > 0 && (
-              <span style={{ marginLeft: 8, color: "#ff9f0a" }}>
-                · {pendingCount} pending invitation{pendingCount !== 1 ? "s" : ""}
-              </span>
-            )}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap", alignItems: "center" }}>
-          <button onClick={load} title="Refresh member list" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+    <PageFrame
+      className="mx-auto max-w-[1200px]"
+      eyebrow={session.activeOrganisation?.name || "Organisation"}
+      title="Member Management"
+      description={
+        loading
+          ? "Loading members…"
+          : `${members.length} member${members.length !== 1 ? "s" : ""}${pendingCount > 0 ? ` · ${pendingCount} pending invitation${pendingCount !== 1 ? "s" : ""}` : ""}`
+      }
+      actions={
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={load}>
             <RefreshCw size={13} /> Refresh
-          </button>
-          <button onClick={onNavigateSettings} style={{ fontSize: 13 }}>Org Settings</button>
+          </Button>
+          <Button variant="secondary" size="sm" onClick={onNavigateSettings}>Org Settings</Button>
           {onNavigateTeam && (
-            <button onClick={onNavigateTeam} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={onNavigateTeam}>
               <Shield size={13} /> Permissions
-            </button>
+            </Button>
           )}
         </div>
-      </div>
-
+      }
+    >
       {/* ── Role stats ── */}
       {!loading && members.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
-          {[
-            { label: "Total",     value: members.length,   color: "var(--accent)" },
-            { label: "Referees",  value: refereeCount,     color: "#30d158" },
-            { label: "Educators", value: educatorCount,    color: "#6fb8ff" },
-            { label: "Admins",    value: adminCount,       color: "#ff9f0a" },
-            { label: "Pending",   value: pendingCount,     color: pendingCount > 0 ? "#ff9f0a" : "var(--muted)" },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="ed-summary-card">
-              <div className="ed-summary-number" style={{ color }}>{value}</div>
-              <div className="ed-summary-label">{label}</div>
-            </div>
-          ))}
+        <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))" }}>
+          <div className="ed-summary-card"><div className="ed-summary-number">{members.length}</div><div className="ed-summary-label">Total</div></div>
+          <div className="ed-summary-card"><div className="ed-summary-number">{refereeCount}</div><div className="ed-summary-label">Referees</div></div>
+          <div className="ed-summary-card"><div className="ed-summary-number">{educatorCount}</div><div className="ed-summary-label">Educators</div></div>
+          <div className="ed-summary-card"><div className="ed-summary-number">{adminCount}</div><div className="ed-summary-label">Admins</div></div>
+          <div className="ed-summary-card"><div className={cn("ed-summary-number", pendingCount > 0 && "text-warn")}>{pendingCount}</div><div className="ed-summary-label">Pending</div></div>
         </div>
       )}
 
       {/* ── Invite form ── */}
-      <div className="panel" style={{ padding: "20px 22px" }}>
-        <h2 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", gap: 8, letterSpacing: "-0.01em" }}>
-          <UserPlus size={15} style={{ color: "var(--accent)" }} />
+      <Card>
+        <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-text">
+          <UserPlus size={15} className="text-accent" />
           Invite New Member
         </h2>
-        <form className="setup-grid" onSubmit={handleInvite} style={{ marginTop: 0, alignItems: "end" }}>
-          <label>
+        <form className="setup-grid items-end" onSubmit={handleInvite}>
+          <label className="grid gap-1 text-xs font-semibold text-muted">
             Full name
-            <input
-              value={inviteName}
-              onChange={e => setInviteName(e.target.value)}
-              placeholder="Jane Smith"
-              required
-            />
+            <Input value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Jane Smith" required />
           </label>
-          <label>
+          <label className="grid gap-1 text-xs font-semibold text-muted">
             Email address
-            <input
-              type="email"
-              value={inviteEmail}
-              onChange={e => setInviteEmail(e.target.value)}
-              placeholder="jane@example.com"
-              required
-            />
+            <Input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="jane@example.com" required />
           </label>
-          <label>
+          <label className="grid gap-1 text-xs font-semibold text-muted">
             Role
-            <select value={inviteRole} onChange={e => setInviteRole(e.target.value as Role)}>
+            <Select value={inviteRole} onChange={e => setInviteRole(e.target.value as Role)}>
               {assignableRoles.map(r => (
                 <option key={r} value={r}>{ROLE_LABELS[r]}</option>
               ))}
-            </select>
-            <span className="hint" style={{ fontSize: 11, marginTop: 4, display: "block" }}>
-              {ROLE_DESCRIPTIONS[inviteRole]}
-            </span>
+            </Select>
+            <span className="text-[11px] font-normal text-muted">{ROLE_DESCRIPTIONS[inviteRole]}</span>
           </label>
-          <div style={{ display: "grid", gap: 8 }}>
-            {inviteError && <p className="danger-text" style={{ margin: 0, fontSize: 13 }}>{inviteError}</p>}
-            <button type="submit" className="primary" disabled={inviteLoading}>
+          <div className="grid gap-2">
+            {inviteError && <p className="text-[13px] text-red-300">{inviteError}</p>}
+            <Button type="submit" variant="primary" disabled={inviteLoading}>
               {inviteLoading ? "Sending…" : "Send Invitation"}
-            </button>
+            </Button>
           </div>
         </form>
         {!isSuperAdmin && (
-          <p className="hint" style={{ margin: "10px 0 0", fontSize: 12 }}>
+          <p className="mt-2.5 text-xs text-muted">
             Admin and Super Admin roles can only be assigned by a Super Admin.
           </p>
         )}
-      </div>
+      </Card>
 
       {/* ── Member list ── */}
-      <div className="panel" style={{ padding: "20px 22px" }}>
-
+      <Card>
         {/* Search + count */}
         {members.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-            <div style={{ position: "relative", flex: "1 1 260px", maxWidth: 380 }}>
-              <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search by name or email…"
-                style={{ paddingLeft: 30, width: "100%", boxSizing: "border-box", fontSize: 13 }}
-              />
+          <div className="mb-4 flex items-center gap-3">
+            <div className="relative max-w-[380px] flex-[1_1_260px]">
+              <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email…" className="pl-8" />
             </div>
-            <span className="hint" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+            <span className="whitespace-nowrap text-xs text-muted">
               {search
                 ? `${displayed.length} of ${members.length} member${members.length !== 1 ? "s" : ""}`
                 : `${members.length} member${members.length !== 1 ? "s" : ""}`}
@@ -297,159 +261,113 @@ export function MembersScreen({
           </div>
         )}
 
-        {/* Loading */}
-        {loading && <div className="loading-state" style={{ justifyContent: "center", padding: "32px 0" }}><span className="loading-spinner" />Loading members…</div>}
+        {loading && (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted">
+            <Spinner size={16} /> Loading members…
+          </div>
+        )}
 
-        {/* Empty state — no members */}
         {!loading && members.length === 0 && (
-          <div style={{ padding: "40px 24px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: "rgba(165,106,27,.1)", border: "1px solid rgba(165,106,27,.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <UserPlus size={22} style={{ color: "var(--accent)" }} />
-            </div>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>No members yet</p>
-            <p className="hint" style={{ margin: 0, maxWidth: 380, fontSize: 13 }}>
-              Send the first invitation above to add people to your organisation.
-            </p>
-          </div>
+          <EmptyState
+            icon={<UserPlus size={28} />}
+            title="No members yet"
+            description="Send the first invitation above to add people to your organisation."
+          />
         )}
 
-        {/* Empty state — no search match */}
         {!loading && members.length > 0 && displayed.length === 0 && (
-          <div style={{ padding: "32px 0", textAlign: "center" }}>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No members match your search</p>
-            <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>Try a different name or email.</p>
-          </div>
+          <EmptyState title="No members match your search" description="Try a different name or email." />
         )}
 
-        {/* Table */}
         {!loading && displayed.length > 0 && (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ minWidth: 860 }}>
-              <thead>
-                <tr>
-                  {(
-                    [
-                      ["name",             "Name"],
-                      ["email",            "Email"],
-                      ["role",             "Role"],
-                      ["invitationStatus", "Status"],
-                      ["joinedAt",         "Date Added"],
-                      ["lastSignInAt",     "Last Sign In"],
-                    ] as [SortField, string][]
-                  ).map(([field, label]) => (
-                    <th
-                      key={field}
-                      style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
-                      onClick={() => toggleSort(field)}
-                    >
-                      {label} <SortIcon field={field} />
-                    </th>
-                  ))}
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayed.map(member => {
-                  const isSelf    = member.id === session.user.id;
-                  const busy      = actionLoading === member.id;
-                  const roleColor = ROLE_COLOR[member.role] ?? "#636366";
-                  const canEditRole =
-                    !isSelf &&
-                    (isSuperAdmin ||
-                      (session.activeRole === "admin" &&
-                        member.role !== "admin" &&
-                        member.role !== "super_admin"));
+          <Table>
+            <TableHead>
+              <TableRow>
+                {(
+                  [
+                    ["name",             "Name"],
+                    ["email",            "Email"],
+                    ["role",             "Role"],
+                    ["invitationStatus", "Status"],
+                    ["joinedAt",         "Date Added"],
+                    ["lastSignInAt",     "Last Sign In"],
+                  ] as [SortField, string][]
+                ).map(([field, label]) => (
+                  <TableHeaderCell key={field} className="cursor-pointer select-none whitespace-nowrap" onClick={() => toggleSort(field)}>
+                    {label} <SortIcon field={field} />
+                  </TableHeaderCell>
+                ))}
+                <TableHeaderCell>Actions</TableHeaderCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {displayed.map(member => {
+                const isSelf    = member.id === session.user.id;
+                const busy      = actionLoading === member.id;
+                const tone      = ROLE_TONE[member.role] ?? ROLE_TONE.viewer;
+                const canEditRole =
+                  !isSelf &&
+                  (isSuperAdmin ||
+                    (session.activeRole === "admin" &&
+                      member.role !== "admin" &&
+                      member.role !== "super_admin"));
 
-                  return (
-                    <tr key={member.id} style={{ opacity: busy ? 0.5 : 1 }}>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{
-                            width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
-                            background: `${roleColor}20`,
-                            border: `1.5px solid ${roleColor}40`,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 12, fontWeight: 900, color: roleColor,
-                          }}>
-                            {member.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase() || "?"}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: 14 }}>{member.name}</div>
-                            {isSelf && <div className="hint" style={{ fontSize: 11 }}>You</div>}
-                          </div>
+                return (
+                  <TableRow key={member.id} className={busy ? "opacity-50" : undefined}>
+                    <TableCell data-label="Name">
+                      <div className="flex items-center gap-2.5">
+                        <div className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-full border text-xs font-black", tone.bg, tone.border, tone.text)}>
+                          {member.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase() || "?"}
                         </div>
-                      </td>
-                      <td style={{ color: "var(--muted)", fontSize: 13 }}>{member.email}</td>
-                      <td>
-                        {canEditRole ? (
-                          <select
-                            value={member.role}
-                            disabled={busy}
-                            onChange={e => handleRoleChange(member, e.target.value as Role)}
-                            style={{ width: "auto", padding: "5px 8px", fontSize: 13 }}
-                          >
-                            {assignableRoles.map(r => (
-                              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className={`role-badge role-${member.role}`}>
-                            {ROLE_LABELS[member.role]}
-                          </span>
+                        <div>
+                          <div className="text-sm font-bold text-text">{member.name}</div>
+                          {isSelf && <div className="text-[11px] text-muted">You</div>}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell data-label="Email" className="text-[13px] text-muted">{member.email}</TableCell>
+                    <TableCell data-label="Role">
+                      {canEditRole ? (
+                        <Select value={member.role} disabled={busy} onChange={e => handleRoleChange(member, e.target.value as Role)} className="w-auto py-1.5 text-[13px]">
+                          {assignableRoles.map(r => (
+                            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                          ))}
+                        </Select>
+                      ) : (
+                        <Badge tone="neutral" className={tone.text}>{ROLE_LABELS[member.role]}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell data-label="Status">
+                      <Badge tone={member.invitationStatus === "pending" ? "warn" : "good"}>
+                        {member.invitationStatus === "pending" ? "Pending" : "Active"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell data-label="Date Added" className="whitespace-nowrap text-[13px] text-muted">{fmt(member.joinedAt)}</TableCell>
+                    <TableCell data-label="Last Sign In" className="whitespace-nowrap text-[13px] text-muted">{fmt(member.lastSignInAt)}</TableCell>
+                    <TableCell data-label="">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Button variant="secondary" size="sm" className="gap-1" onClick={() => setManagingMember(member)} disabled={busy} title="Manage user profile and security">
+                          <Settings size={12} /> Manage
+                        </Button>
+                        {member.invitationStatus === "pending" && (
+                          <Button variant="secondary" size="sm" onClick={() => handleResend(member)} disabled={busy} title="Resend invitation email">
+                            Resend
+                          </Button>
                         )}
-                      </td>
-                      <td>
-                        <span className={`status-badge status-${member.invitationStatus}`}>
-                          {member.invitationStatus === "pending" ? "Pending" : "Active"}
-                        </span>
-                      </td>
-                      <td style={{ color: "var(--muted)", fontSize: 13, whiteSpace: "nowrap" }}>
-                        {fmt(member.joinedAt)}
-                      </td>
-                      <td style={{ color: "var(--muted)", fontSize: 13, whiteSpace: "nowrap" }}>
-                        {fmt(member.lastSignInAt)}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", alignItems: "center" }}>
-                          <button
-                            onClick={() => setManagingMember(member)}
-                            disabled={busy}
-                            style={{ fontSize: 12, padding: "5px 10px", display: "flex", alignItems: "center", gap: 4 }}
-                            title="Manage user profile and security"
-                          >
-                            <Settings size={12} /> Manage
-                          </button>
-                          {member.invitationStatus === "pending" && (
-                            <button
-                              onClick={() => handleResend(member)}
-                              disabled={busy}
-                              style={{ fontSize: 12, padding: "5px 10px" }}
-                              title="Resend invitation email"
-                            >
-                              Resend
-                            </button>
-                          )}
-                          {!isSelf && (
-                            <button
-                              className="danger"
-                              onClick={() => handleRemove(member)}
-                              disabled={busy}
-                              style={{ fontSize: 12, padding: "5px 10px", display: "flex", alignItems: "center", gap: 4 }}
-                              title="Remove from organisation"
-                            >
-                              <X size={12} /> Remove
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        {!isSelf && (
+                          <Button variant="danger" size="sm" className="gap-1" onClick={() => handleRemove(member)} disabled={busy} title="Remove from organisation">
+                            <X size={12} /> Remove
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
-      </div>
+      </Card>
 
       {managingMember && (
         <ManageUserModal
@@ -471,6 +389,6 @@ export function MembersScreen({
           onConfirm={() => confirmRemove(confirmRemoveMember)}
         />
       )}
-    </div>
+    </PageFrame>
   );
 }

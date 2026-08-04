@@ -1,10 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Card, Badge } from "@/components/ui";
 
 // ── SettingsPage ──────────────────────────────────────────────────────────────
-// Top-level wrapper for a settings page. Provides consistent padding and
-// optional back/action area.
+// Top-level wrapper for a settings page. Thin wrapper over the shared
+// PageFrame — `className="p-0"` since every settings page already sits
+// inside `.org-content`'s own padding (see OrganisationScreen.tsx).
 export function SettingsPage({
   title,
   eyebrow,
@@ -19,19 +22,9 @@ export function SettingsPage({
   children: ReactNode;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          {eyebrow && <p className="eyebrow" style={{ margin: "0 0 4px" }}>{eyebrow}</p>}
-          <h1 style={{ margin: 0, fontSize: 24 }}>{title}</h1>
-          {description && (
-            <p className="hint" style={{ margin: "6px 0 0", maxWidth: 540 }}>{description}</p>
-          )}
-        </div>
-        {actions && <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>{actions}</div>}
-      </div>
+    <PageFrame className="p-0" title={title} eyebrow={eyebrow} description={description} actions={actions}>
       {children}
-    </div>
+    </PageFrame>
   );
 }
 
@@ -47,10 +40,10 @@ export function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div className="grid gap-2.5">
       <div>
-        <p className="ed-section-title" style={{ margin: 0 }}>{title}</p>
-        {description && <p className="hint" style={{ margin: "3px 0 0", fontSize: 12 }}>{description}</p>}
+        <p className="text-sm font-bold uppercase tracking-wide text-muted">{title}</p>
+        {description && <p className="mt-1 text-xs text-muted">{description}</p>}
       </div>
       {children}
     </div>
@@ -69,17 +62,15 @@ export function SettingsCard({
   children: ReactNode;
 }) {
   return (
-    <div className="panel" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 0 }}>
+    <Card>
       {(title || description) && (
-        <div style={{ marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
-          {title && <p style={{ margin: 0, fontWeight: 800, fontSize: 14 }}>{title}</p>}
-          {description && <p className="hint" style={{ margin: "3px 0 0", fontSize: 12 }}>{description}</p>}
+        <div className="mb-3.5 border-b border-border pb-3">
+          {title && <p className="text-sm font-bold text-text">{title}</p>}
+          {description && <p className="mt-1 text-xs text-muted">{description}</p>}
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-        {children}
-      </div>
-    </div>
+      <div className="grid">{children}</div>
+    </Card>
   );
 }
 
@@ -97,22 +88,12 @@ export function SettingsRow({
   last?: boolean;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 20,
-        padding: "12px 0",
-        borderBottom: last ? "none" : "1px solid var(--border)",
-        flexWrap: "wrap",
-      }}
-    >
-      <div style={{ flex: 1, minWidth: 160 }}>
-        <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>{label}</p>
-        {description && <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>{description}</p>}
+    <div className={`flex flex-wrap items-center justify-between gap-5 py-3 ${last ? "" : "border-b border-border"}`}>
+      <div className="min-w-[160px] flex-1">
+        <p className="text-sm font-semibold text-text">{label}</p>
+        {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
       </div>
-      <div style={{ flexShrink: 0 }}>{children}</div>
+      <div className="shrink-0">{children}</div>
     </div>
   );
 }
@@ -129,39 +110,14 @@ export function SettingsPlaceholder({
   items?: string[];
 }) {
   return (
-    <div
-      style={{
-        background: "var(--panel2)",
-        border: "1px dashed var(--border)",
-        borderRadius: 16,
-        padding: "36px 28px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        alignItems: "flex-start",
-      }}
-    >
-      <div
-        style={{
-          background: "rgba(165,106,27,.12)",
-          border: "1px solid rgba(165,106,27,.25)",
-          borderRadius: 8,
-          padding: "3px 10px",
-          fontSize: 11,
-          fontWeight: 800,
-          color: "var(--accent)",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-        }}
-      >
-        Coming soon
-      </div>
-      <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
-      <p className="hint" style={{ margin: 0, maxWidth: 480, lineHeight: 1.55 }}>{description}</p>
+    <div className="grid items-start gap-3 rounded-2xl border border-dashed border-border bg-panel-2 p-8">
+      <Badge tone="accent" className="w-fit">Coming soon</Badge>
+      <h2 className="text-lg font-bold text-text">{title}</h2>
+      <p className="max-w-[480px] text-sm leading-relaxed text-muted">{description}</p>
       {items && items.length > 0 && (
-        <ul style={{ margin: "4px 0 0", paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+        <ul className="mt-1 grid list-disc gap-1 pl-[18px]">
           {items.map((item) => (
-            <li key={item} className="hint" style={{ fontSize: 13 }}>{item}</li>
+            <li key={item} className="text-[13px] text-muted">{item}</li>
           ))}
         </ul>
       )}

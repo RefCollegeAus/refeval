@@ -13,6 +13,9 @@ import type {
 } from "@/lib/types/notifications";
 import { fmtRel } from "@/lib/utils/time";
 import { getNotificationCategory } from "@/lib/services/notifications";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, Card, EmptyState } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 interface Props {
   notifications: Notification[];
@@ -47,10 +50,10 @@ function typeIcon(type: NotificationType) {
   }
 }
 
-function priorityAccent(priority: Notification["priority"]) {
-  if (priority === "high")   return "#ff453a";
-  if (priority === "normal") return "var(--accent)";
-  return "var(--muted)";
+function priorityTextClass(priority: Notification["priority"]) {
+  if (priority === "high")   return "text-red-300";
+  if (priority === "normal") return "text-accent";
+  return "text-muted";
 }
 
 function isToday(iso: string) {
@@ -132,73 +135,60 @@ function NotificationRow({
 }) {
   return (
     <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 12,
-        padding: "12px 14px",
-        borderRadius: 8,
-        background: notif.isRead ? "transparent" : "rgba(165,106,27,.07)",
-        border: `1px solid ${notif.isRead ? "var(--border)" : "rgba(165,106,27,.22)"}`,
-        marginBottom: 8,
-        cursor: "default",
-      }}
+      className={cn(
+        "mb-2 flex items-start gap-3 rounded-lg border p-3",
+        notif.isRead ? "border-border bg-transparent" : "border-accent/25 bg-accent/[.07]"
+      )}
     >
-      <div
-        style={{
-          width: 32, height: 32, borderRadius: 8, background: "var(--panel2)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0, color: priorityAccent(notif.priority), marginTop: 1,
-        }}
-      >
+      <div className={cn("mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-panel-2", priorityTextClass(notif.priority))}>
         {typeIcon(notif.type)}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-          <span style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <div className="min-w-0 flex-1">
+        <div className="mb-0.5 flex items-center gap-1.5">
+          <span className="text-[11px] uppercase tracking-wide text-muted">
             {FILTERS.find(f => f.value === getNotificationCategory(notif.type))?.label ?? "System"}
           </span>
           {notif.priority === "high" && (
-            <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: "#ff453a" }}>
+            <span className="flex items-center gap-1 text-[10px] text-red-300">
               <AlertTriangle size={10} /> Urgent
             </span>
           )}
-          {!notif.isRead && (
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)", display: "inline-block" }} />
-          )}
+          {!notif.isRead && <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />}
         </div>
-        <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: notif.isRead ? 400 : 600, lineHeight: 1.35 }}>
+        <p className={cn("mb-0.5 text-[13px] leading-snug", notif.isRead ? "font-normal text-text" : "font-semibold text-text")}>
           {notif.title}
         </p>
-        <p style={{ margin: "0 0 6px", fontSize: 13, color: "var(--muted)", lineHeight: 1.4 }}>
+        <p className="mb-1.5 text-[13px] leading-snug text-muted">
           {notif.message}
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 11, color: "var(--muted)" }}>{fmtRel(notif.createdAt)}</span>
+        <div className="flex items-center gap-2.5">
+          <span className="text-[11px] text-muted">{fmtRel(notif.createdAt)}</span>
           {notif.actionLabel && notif.actionRoute && (
-            <button
-              style={{ fontSize: 11, padding: "2px 8px", display: "flex", alignItems: "center", gap: 4 }}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-1"
               onClick={() => {
                 if (!notif.isRead) onMarkRead(notif.id);
                 onNavigate(notif.actionRoute!, notif.relatedEntityId);
               }}
             >
               <ExternalLink size={11} /> {notif.actionLabel}
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+      <div className="flex shrink-0 flex-col gap-1">
         {!notif.isRead && (
-          <button title="Mark as read" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => onMarkRead(notif.id)}>
+          <Button variant="secondary" size="sm" title="Mark as read" onClick={() => onMarkRead(notif.id)}>
             <CheckCheck size={13} />
-          </button>
+          </Button>
         )}
-        <button title="Delete" style={{ fontSize: 11, padding: "3px 8px", color: "var(--muted)" }} onClick={() => onDelete(notif.id)}>
+        <Button variant="secondary" size="sm" title="Delete" className="text-muted" onClick={() => onDelete(notif.id)}>
           <Trash2 size={13} />
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -210,20 +200,14 @@ function PrefToggle({ checked, onChange }: { checked: boolean; onChange: (v: boo
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      style={{
-        width: 36, height: 20, borderRadius: 10, padding: 0, border: "none", cursor: "pointer", flexShrink: 0,
-        background: checked ? "var(--accent)" : "var(--panel3)", transition: "background .15s",
-        position: "relative",
-      }}
+      className={cn(
+        "relative h-5 w-9 shrink-0 rounded-full border-none p-0 transition-colors",
+        checked ? "bg-accent" : "bg-panel-3"
+      )}
     >
       <span
-        style={{
-          position: "absolute", top: 2,
-          left: checked ? 18 : 2,
-          width: 16, height: 16, borderRadius: "50%",
-          background: "#fff",
-          transition: "left .15s",
-        }}
+        className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-[left]"
+        style={{ left: checked ? 18 : 2 }}
       />
     </button>
   );
@@ -231,12 +215,8 @@ function PrefToggle({ checked, onChange }: { checked: boolean; onChange: (v: boo
 
 function PrefRow({ label, checked, onChange, last = false }: { label: string; checked: boolean; onChange: (v: boolean) => void; last?: boolean }) {
   return (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "10px 14px",
-      borderBottom: last ? "none" : "1px solid var(--border)",
-    }}>
-      <span style={{ fontSize: 13 }}>{label}</span>
+    <div className={cn("flex items-center justify-between px-3.5 py-2.5", !last && "border-b border-border")}>
+      <span className="text-[13px] text-text">{label}</span>
       <PrefToggle checked={checked} onChange={onChange} />
     </div>
   );
@@ -264,145 +244,102 @@ export function NotificationCentre({
   const empty = emptyStateMessage(activeFilter);
 
   return (
-    <div className="layout one-col">
-      <div className="panel">
-        {/* Header */}
-        <div className="table-head" style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Bell size={20} style={{ color: "var(--muted)", flexShrink: 0 }} />
-            <div>
-              <p className="eyebrow" style={{ margin: 0 }}>In-App</p>
-              <h1 style={{ margin: 0, fontSize: 22 }}>
-                Notifications
-                {unreadCount > 0 && (
-                  <span style={{ marginLeft: 10, fontSize: 14, fontWeight: 500, color: "var(--accent)" }}>
-                    {unreadCount} unread
-                  </span>
-                )}
-              </h1>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {unreadCount > 0 && (
-              <button onClick={onMarkAllRead} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <CheckCheck size={14} /> Mark All Read
-              </button>
-            )}
-            <button
-              onClick={() => setShowPrefs(v => !v)}
-              style={{ display: "flex", alignItems: "center", gap: 6, color: showPrefs ? "var(--accent)" : undefined }}
-              title="Notification settings"
-            >
-              <Settings size={14} /> Settings
-            </button>
-            <button onClick={onBack}>← Back</button>
-          </div>
+    <PageFrame
+      className="mx-auto max-w-[900px]"
+      eyebrow="In-App"
+      title="Notifications"
+      description={unreadCount > 0 ? `${unreadCount} unread` : undefined}
+      actions={
+        <div className="flex flex-wrap items-center gap-2">
+          {unreadCount > 0 && (
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={onMarkAllRead}>
+              <CheckCheck size={14} /> Mark All Read
+            </Button>
+          )}
+          <Button
+            variant={showPrefs ? "primary" : "secondary"}
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setShowPrefs(v => !v)}
+            title="Notification settings"
+          >
+            <Settings size={14} /> Settings
+          </Button>
+          <Button variant="secondary" size="sm" onClick={onBack}>← Back</Button>
         </div>
-
-        {/* Filter bar */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
-          {FILTERS.map(f => (
-            <button
-              key={f.value}
-              onClick={() => setActiveFilter(f.value)}
-              style={{
-                fontSize: 12, padding: "5px 12px", borderRadius: 20,
-                background: activeFilter === f.value ? "var(--accent)" : "var(--panel2)",
-                color: activeFilter === f.value ? "#fff" : "var(--muted)",
-                border: `1px solid ${activeFilter === f.value ? "var(--accent)" : "var(--border)"}`,
-                fontWeight: activeFilter === f.value ? 700 : 400,
-                cursor: "pointer",
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Preferences panel */}
-        {showPrefs && preferences && (
-          <div style={{
-            marginBottom: 24,
-            borderRadius: 12,
-            border: "1px solid var(--border)",
-            background: "var(--panel2)",
-            overflow: "hidden",
-          }}>
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "12px 14px",
-              borderBottom: "1px solid var(--border)",
-            }}>
-              <div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>Notification Settings</p>
-                <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Choose which categories appear in your notification centre.</p>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                  {preferences.inAppEnabled ? "Enabled" : "Disabled"}
-                </span>
-                <PrefToggle
-                  checked={preferences.inAppEnabled}
-                  onChange={v => onUpdatePreferences({ inAppEnabled: v })}
-                />
-              </div>
-            </div>
-            {preferences.inAppEnabled && (
-              <>
-                <PrefRow label="Reviews"           checked={preferences.reviewNotifications}          onChange={v => onUpdatePreferences({ reviewNotifications: v })} />
-                <PrefRow label="Assignments"        checked={preferences.assignmentNotifications}      onChange={v => onUpdatePreferences({ assignmentNotifications: v })} />
-                <PrefRow label="Learning"           checked={preferences.learningNotifications}        onChange={v => onUpdatePreferences({ learningNotifications: v })} />
-                <PrefRow label="Development Goals"  checked={preferences.developmentGoalNotifications} onChange={v => onUpdatePreferences({ developmentGoalNotifications: v })} />
-                <PrefRow label="Organisation"       checked={preferences.organisationNotifications}    onChange={v => onUpdatePreferences({ organisationNotifications: v })} />
-                <PrefRow label="System"             checked={preferences.systemNotifications}          onChange={v => onUpdatePreferences({ systemNotifications: v })} last />
-              </>
+      }
+    >
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-1.5">
+        {FILTERS.map(f => (
+          <button
+            key={f.value}
+            onClick={() => setActiveFilter(f.value)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs transition-colors",
+              activeFilter === f.value
+                ? "border-accent bg-accent font-bold text-white"
+                : "border-border bg-panel-2 font-normal text-muted"
             )}
-          </div>
-        )}
-
-        {/* Empty state */}
-        {filtered.length === 0 && (
-          <div style={{
-            textAlign: "center", padding: "56px 24px",
-            background: "var(--panel2)", borderRadius: 16, border: "1px solid var(--border)",
-          }}>
-            <div style={{
-              width: 56, height: 56, borderRadius: 16,
-              background: "var(--panel3)", border: "1px solid var(--border)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 16px",
-            }}>
-              <Bell size={24} style={{ color: "var(--muted)", opacity: 0.5 }} />
-            </div>
-            <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 15 }}>{empty.heading}</p>
-            <p style={{ margin: 0, color: "var(--muted)", fontSize: 13, maxWidth: 280, marginInline: "auto" }}>
-              {empty.sub}
-            </p>
-          </div>
-        )}
-
-        {/* Grouped notifications */}
-        {groups.map(group => (
-          <div key={group.label} style={{ marginBottom: 24 }}>
-            <p style={{
-              margin: "0 0 10px", fontSize: 11, fontWeight: 700,
-              textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)",
-              borderBottom: "1px solid var(--border)", paddingBottom: 6,
-            }}>
-              {group.label}
-            </p>
-            {group.items.map(n => (
-              <NotificationRow
-                key={n.id}
-                notif={n}
-                onMarkRead={onMarkRead}
-                onDelete={onDelete}
-                onNavigate={onNavigate}
-              />
-            ))}
-          </div>
+          >
+            {f.label}
+          </button>
         ))}
       </div>
-    </div>
+
+      {/* Preferences panel */}
+      {showPrefs && preferences && (
+        <Card className="!p-0 overflow-hidden">
+          <div className="flex items-center justify-between border-b border-border px-3.5 py-3">
+            <div>
+              <p className="text-[13px] font-bold text-text">Notification Settings</p>
+              <p className="text-xs text-muted">Choose which categories appear in your notification centre.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge tone={preferences.inAppEnabled ? "good" : "neutral"}>
+                {preferences.inAppEnabled ? "Enabled" : "Disabled"}
+              </Badge>
+              <PrefToggle
+                checked={preferences.inAppEnabled}
+                onChange={v => onUpdatePreferences({ inAppEnabled: v })}
+              />
+            </div>
+          </div>
+          {preferences.inAppEnabled && (
+            <>
+              <PrefRow label="Reviews"           checked={preferences.reviewNotifications}          onChange={v => onUpdatePreferences({ reviewNotifications: v })} />
+              <PrefRow label="Assignments"        checked={preferences.assignmentNotifications}      onChange={v => onUpdatePreferences({ assignmentNotifications: v })} />
+              <PrefRow label="Learning"           checked={preferences.learningNotifications}        onChange={v => onUpdatePreferences({ learningNotifications: v })} />
+              <PrefRow label="Development Goals"  checked={preferences.developmentGoalNotifications} onChange={v => onUpdatePreferences({ developmentGoalNotifications: v })} />
+              <PrefRow label="Organisation"       checked={preferences.organisationNotifications}    onChange={v => onUpdatePreferences({ organisationNotifications: v })} />
+              <PrefRow label="System"             checked={preferences.systemNotifications}          onChange={v => onUpdatePreferences({ systemNotifications: v })} last />
+            </>
+          )}
+        </Card>
+      )}
+
+      {/* Empty state */}
+      {filtered.length === 0 && (
+        <EmptyState icon={<Bell size={28} />} title={empty.heading} description={empty.sub} />
+      )}
+
+      {/* Grouped notifications */}
+      {groups.map(group => (
+        <div key={group.label}>
+          <p className="mb-2.5 border-b border-border pb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
+            {group.label}
+          </p>
+          {group.items.map(n => (
+            <NotificationRow
+              key={n.id}
+              notif={n}
+              onMarkRead={onMarkRead}
+              onDelete={onDelete}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      ))}
+    </PageFrame>
   );
 }
