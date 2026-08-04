@@ -6,10 +6,15 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 import type { Assignment, AssignmentStatus, ReflectionQuestion, QuizQuestion } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
-import { ASSIGNMENT_STATUSES as ALL_STATUSES, STATUS_COLORS, STATUS_BG, STATUS_BORDER, REQUIRED_BADGE_STYLE, learningPctColor } from "@/lib/types/assignments";
+import { ASSIGNMENT_STATUSES as ALL_STATUSES, STATUS_COLORS, STATUS_BG, STATUS_BORDER, learningPctColor } from "@/lib/types/assignments";
 import QuizEditor from "@/components/learning/QuizEditor";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { SimulatorAttempt } from "@/lib/types/simulator";
+import { useModalA11y } from "@/lib/hooks/useModalA11y";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, Card, Input, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Textarea } from "@/components/ui";
+import { ROLE_TONE } from "@/lib/utils/roleTone";
+import { cn } from "@/lib/utils/cn";
 
 interface Props {
   assignment: Assignment;
@@ -58,6 +63,7 @@ function EditModal({
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>(assignment.quizQuestions ?? []);
   const [saving, setSaving]             = useState(false);
   const [err, setErr]                   = useState("");
+  const dialogRef = useModalA11y<HTMLDivElement>(true, onClose);
 
   function addQuestion() {
     setQuestions(prev => [...prev, { id: crypto.randomUUID(), text: "", required: false, displayOrder: prev.length }]);
@@ -109,94 +115,69 @@ function EditModal({
 
   return (
     <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 520, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-        <div className="modal-title" style={{ flexShrink: 0 }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Edit Assignment" tabIndex={-1} className="modal flex flex-col" style={{ maxWidth: 520, maxHeight: "90vh" }}>
+        <div className="modal-title shrink-0">
           <div>
             <p className="eyebrow">Edit Assignment</p>
             <h1 style={{ fontSize: 20, margin: 0 }}>Update details</h1>
           </div>
           <button onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
-          <label>
+        <div className="mt-4 flex flex-1 flex-col gap-3.5 overflow-y-auto">
+          <label className="grid gap-1 text-sm font-semibold text-text">
             Title *
-            <input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
+            <Input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
           </label>
-          <label>
-            Instructions <span className="hint">(optional)</span>
-            <textarea
-              value={instructions}
-              onChange={e => setInstr(e.target.value)}
-              rows={4}
-              style={{ width: "100%", boxSizing: "border-box", resize: "vertical" }}
-            />
+          <label className="grid gap-1 text-sm font-semibold text-text">
+            Instructions <span className="text-xs font-normal text-muted">(optional)</span>
+            <Textarea value={instructions} onChange={e => setInstr(e.target.value)} rows={4} />
           </label>
-          <label>
-            Due Date <span className="hint">(optional)</span>
-            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+          <label className="grid gap-1 text-sm font-semibold text-text">
+            Due Date <span className="text-xs font-normal text-muted">(optional)</span>
+            <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={required}
-              onChange={e => setRequired(e.target.checked)}
-              style={{ width: 15, height: 15, accentColor: "var(--accent)", cursor: "pointer" }}
-            />
-            <span style={{ fontSize: 13 }}>Required assignment</span>
+          <label className="flex cursor-pointer items-center gap-2.5">
+            <input type="checkbox" checked={required} onChange={e => setRequired(e.target.checked)} className="h-[15px] w-[15px] cursor-pointer accent-accent" />
+            <span className="text-[13px] text-text">Required assignment</span>
           </label>
           {assignment.quizQuestions.length > 0 && (
-            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={allowRetakes}
-                onChange={e => setAllowRetakes(e.target.checked)}
-                style={{ width: 15, height: 15, accentColor: "var(--accent)", cursor: "pointer" }}
-              />
-              <span style={{ fontSize: 13 }}>Allow quiz retakes</span>
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input type="checkbox" checked={allowRetakes} onChange={e => setAllowRetakes(e.target.checked)} className="h-[15px] w-[15px] cursor-pointer accent-accent" />
+              <span className="text-[13px] text-text">Allow quiz retakes</span>
             </label>
           )}
 
           {/* Reflection questions */}
           <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>
-                Reflection Questions <span className="hint" style={{ fontWeight: 400 }}>(optional)</span>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-[13px] font-semibold text-text">
+                Reflection Questions <span className="font-normal text-muted">(optional)</span>
               </div>
-              <button type="button" style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 4 }} onClick={addQuestion}>
+              <Button type="button" variant="secondary" size="sm" className="gap-1" onClick={addQuestion}>
                 <Plus size={12} /> Add Question
-              </button>
+              </Button>
             </div>
             {questions.length === 0 ? (
-              <p className="hint" style={{ fontSize: 12, margin: 0 }}>
+              <p className="text-xs text-muted">
                 No reflection questions. Referees will be able to complete the assignment after watching all clips.
               </p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="grid gap-2">
                 {questions.map((q, i) => (
-                  <div key={q.id} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                  <div key={q.id} className="flex items-start gap-1.5">
                     {/* Reorder */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 1, paddingTop: 4, flexShrink: 0 }}>
-                      <button type="button" onClick={() => moveQuestion(q.id, -1)} disabled={i === 0} style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", padding: "1px 3px", color: "var(--muted)", opacity: i === 0 ? 0.3 : 1 }} title="Move up"><ChevronUp size={12} /></button>
-                      <button type="button" onClick={() => moveQuestion(q.id, 1)} disabled={i === questions.length - 1} style={{ background: "none", border: "none", cursor: i === questions.length - 1 ? "default" : "pointer", padding: "1px 3px", color: "var(--muted)", opacity: i === questions.length - 1 ? 0.3 : 1 }} title="Move down"><ChevronDown size={12} /></button>
+                    <div className="flex shrink-0 flex-col gap-0.5 pt-1">
+                      <button type="button" onClick={() => moveQuestion(q.id, -1)} disabled={i === 0} className={cn("border-none bg-none p-0.5 text-muted", i === 0 ? "cursor-default opacity-30" : "cursor-pointer")} title="Move up"><ChevronUp size={12} /></button>
+                      <button type="button" onClick={() => moveQuestion(q.id, 1)} disabled={i === questions.length - 1} className={cn("border-none bg-none p-0.5 text-muted", i === questions.length - 1 ? "cursor-default opacity-30" : "cursor-pointer")} title="Move down"><ChevronDown size={12} /></button>
                     </div>
-                    <span style={{ fontSize: 12, color: "var(--muted)", paddingTop: 10, minWidth: 14, textAlign: "right", flexShrink: 0 }}>{i + 1}.</span>
-                    <input
-                      value={q.text}
-                      onChange={e => updateQuestion(q.id, e.target.value)}
-                      placeholder={`Question ${i + 1}…`}
-                      style={{ flex: 1, fontSize: 13 }}
-                    />
+                    <span className="min-w-[14px] shrink-0 pt-2.5 text-right text-xs text-muted">{i + 1}.</span>
+                    <Input value={q.text} onChange={e => updateQuestion(q.id, e.target.value)} placeholder={`Question ${i + 1}…`} className="flex-1 text-[13px]" />
                     {/* Required toggle */}
-                    <label style={{ display: "flex", alignItems: "center", gap: 3, paddingTop: 9, cursor: "pointer", flexShrink: 0, fontSize: 11, color: q.required ? "#fca5a5" : "var(--muted)", whiteSpace: "nowrap" }} title="Mark as required">
-                      <input type="checkbox" checked={q.required} onChange={() => toggleRequired(q.id)} style={{ width: 12, height: 12, accentColor: "var(--accent)", cursor: "pointer" }} />
+                    <label className={cn("flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap pt-2.5 text-[11px]", q.required ? "text-red-300" : "text-muted")} title="Mark as required">
+                      <input type="checkbox" checked={q.required} onChange={() => toggleRequired(q.id)} className="h-3 w-3 cursor-pointer accent-accent" />
                       Req
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => removeQuestion(q.id)}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "6px 4px", flexShrink: 0 }}
-                      title="Remove question"
-                    >
+                    <button type="button" onClick={() => removeQuestion(q.id)} className="shrink-0 border-none bg-none p-1.5 text-muted" title="Remove question">
                       <X size={14} />
                     </button>
                   </div>
@@ -207,19 +188,19 @@ function EditModal({
 
           {/* Knowledge quiz */}
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-              <HelpCircle size={13} /> Knowledge Quiz <span className="hint" style={{ fontWeight: 400 }}>(optional)</span>
+            <div className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-text">
+              <HelpCircle size={13} /> Knowledge Quiz <span className="font-normal text-muted">(optional)</span>
             </div>
             <QuizEditor questions={quizQuestions} onChange={setQuizQuestions} reviews={reviews} tags={tags} />
           </div>
 
-          {err && <p className="danger-text">{err}</p>}
+          {err && <p className="text-[13px] text-red-300">{err}</p>}
         </div>
-        <div className="action-row" style={{ flexShrink: 0, marginTop: 20, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-          <button onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={handleSave} disabled={saving}>
+        <div className="action-row mt-5 shrink-0 border-t border-border pt-3">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : "Save Changes"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -227,6 +208,8 @@ function EditModal({
 }
 
 // ── Add Users Panel ───────────────────────────────────────────────────────────
+
+const ROLE_LABELS: Record<string, string> = { viewer: "Viewer", referee: "Referee", educator: "Educator", admin: "Administrator", super_admin: "Super Admin" };
 
 function AddUsersPanel({
   assignment,
@@ -279,54 +262,43 @@ function AddUsersPanel({
   if (unassigned.length === 0) return null;
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <h3 className="ed-section-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+    <div className="mt-5">
+      <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-text">
         <UserPlus size={14} /> Add Team Members
       </h3>
-      <div style={{ position: "relative", marginBottom: 8 }}>
-        <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Search team members…"
-          style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
-        />
+      <div className="relative mb-2">
+        <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+        <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search team members…" className="pl-8" />
       </div>
-      <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
-        {filtered.length === 0 && (
-          <p className="hint" style={{ padding: "10px 12px", margin: 0 }}>No members to add.</p>
-        )}
-        {filtered.map(m => (
-          <label
-            key={m.id}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--border)", background: selected.has(m.id) ? "var(--panel2)" : undefined }}
-          >
-            <input
-              type="checkbox"
-              checked={selected.has(m.id)}
-              onChange={() => toggle(m.id)}
-              style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }}
-            />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name || m.email}</div>
-              <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</div>
-            </div>
-            <span className={`role-badge role-${m.role}`} style={{ fontSize: 10, flexShrink: 0 }}>
-              {({ viewer: "Viewer", referee: "Referee", educator: "Educator", admin: "Administrator", super_admin: "Super Admin" } as Record<string, string>)[m.role] ?? m.role}
-            </span>
-          </label>
-        ))}
+      <div className="max-h-[200px] overflow-y-auto rounded-lg border border-border">
+        {filtered.length === 0 && <p className="p-3 text-sm text-muted">No members to add.</p>}
+        {filtered.map(m => {
+          const tone = ROLE_TONE[m.role] ?? ROLE_TONE.viewer;
+          return (
+            <label
+              key={m.id}
+              className={cn("flex cursor-pointer items-center gap-2.5 border-b border-border px-3 py-2 last:border-b-0", selected.has(m.id) && "bg-panel-2")}
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(m.id)}
+                onChange={() => toggle(m.id)}
+                className="h-3.5 w-3.5 shrink-0 accent-accent"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-semibold text-text">{m.name || m.email}</div>
+                <div className="truncate text-[11px] text-muted">{m.email}</div>
+              </div>
+              <Badge tone="neutral" className={cn("shrink-0", tone.text)}>{ROLE_LABELS[m.role] ?? m.role}</Badge>
+            </label>
+          );
+        })}
       </div>
-      {err && <p className="danger-text" style={{ margin: "6px 0 0" }}>{err}</p>}
+      {err && <p className="mt-1.5 text-[13px] text-red-300">{err}</p>}
       {selected.size > 0 && (
-        <button
-          className="primary"
-          style={{ marginTop: 10, fontSize: 13 }}
-          onClick={handleAdd}
-          disabled={saving}
-        >
+        <Button variant="primary" size="sm" className="mt-2.5" onClick={handleAdd} disabled={saving}>
           {saving ? "Adding…" : `Add ${selected.size} member${selected.size !== 1 ? "s" : ""}`}
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -421,97 +393,98 @@ export function AssignmentDetailScreen({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignment.assignmentUsers, progressSort, progressSortAsc, members]);
 
+  // Column count for expanded-row colSpan (kept in sync with the header cells below)
+  const colCount = 2
+    + (assignment.simulatorSessionId ? 1 : 0)
+    + (assignment.playlistId && totalClips > 0 ? 1 : 0)
+    + (assignment.questions.length > 0 ? 1 : 0)
+    + (assignment.quizQuestions.length > 0 ? 1 : 0)
+    + 2
+    + (canEdit ? 1 : 0);
+
   return (
-    <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
-
-      {/* Header panel */}
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <div className="table-head">
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <BookOpen size={20} style={{ color: "var(--muted)", flexShrink: 0 }} />
-            <div>
-              <p className="eyebrow" style={{ margin: 0 }}>Learning Assignment</p>
-              <h1 style={{ margin: 0, fontSize: 22, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                {assignment.title}
-                {assignment.required && (
-                  <span style={REQUIRED_BADGE_STYLE}>Required</span>
-                )}
-              </h1>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {canEdit && (
-              <button style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} onClick={() => setEditOpen(true)}>
-                <Edit2 size={13} /> Edit
-              </button>
-            )}
-            {canDelete && (
-              <button className="danger" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }} onClick={() => setConfirmDelete(true)} disabled={deleting}>
-                <Trash2 size={13} /> Delete
-              </button>
-            )}
-            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <ChevronLeft size={15} /> Back
-            </button>
-          </div>
+    <PageFrame
+      className="mx-auto max-w-[1200px]"
+      eyebrow="Learning Assignment"
+      title={assignment.title}
+      actions={
+        <div className="flex flex-wrap items-center gap-2">
+          {canEdit && (
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setEditOpen(true)}>
+              <Edit2 size={13} /> Edit
+            </Button>
+          )}
+          {canDelete && (
+            <Button variant="danger" size="sm" className="gap-1.5" onClick={() => setConfirmDelete(true)} disabled={deleting}>
+              <Trash2 size={13} /> Delete
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={onBack}>
+            <ChevronLeft size={15} /> Back
+          </Button>
         </div>
+      }
+    >
+      {assignment.required && <Badge tone="danger" className="-mt-3 w-fit">Required</Badge>}
 
+      {/* Header details card */}
+      <Card className="grid gap-3.5">
         {/* Meta row */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 14, padding: "12px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
+        <div className="flex flex-wrap gap-4 rounded-lg border border-border bg-panel-2 p-3.5 text-[13px]">
           {assignment.simulatorSessionId && (
             <div>
-              <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2, display: "flex", alignItems: "center", gap: 4 }}>
+              <div className="mb-0.5 flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted">
                 <Zap size={10} /> Simulator
               </div>
-              <div style={{ fontWeight: 600 }}>{simulatorSessionTitle ?? "Unknown simulator"}</div>
+              <div className="font-semibold text-text">{simulatorSessionTitle ?? "Unknown simulator"}</div>
             </div>
           )}
           {assignment.playlistId && (
             <div>
-              <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Playlist</div>
-              <div style={{ fontWeight: 600 }}>{playlist?.title ?? "Unknown playlist"}</div>
+              <div className="mb-0.5 text-[11px] uppercase tracking-wide text-muted">Playlist</div>
+              <div className="font-semibold text-text">{playlist?.title ?? "Unknown playlist"}</div>
             </div>
           )}
           <div>
-            <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Due Date</div>
-            <div style={{ fontWeight: 600 }}>{fmt(assignment.dueDate)}</div>
+            <div className="mb-0.5 text-[11px] uppercase tracking-wide text-muted">Due Date</div>
+            <div className="font-semibold text-text">{fmt(assignment.dueDate)}</div>
           </div>
           {assignment.playlistId && (
             <div>
-              <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>Clips</div>
-              <div style={{ fontWeight: 600 }}>{totalClips > 0 ? totalClips : "—"}</div>
+              <div className="mb-0.5 text-[11px] uppercase tracking-wide text-muted">Clips</div>
+              <div className="font-semibold text-text">{totalClips > 0 ? totalClips : "—"}</div>
             </div>
           )}
         </div>
 
         {/* Progress summary */}
         {total > 0 && (
-          <div style={{ marginTop: 12 }}>
+          <div>
             {/* Stat chips */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+            <div className="mb-2.5 flex flex-wrap gap-2">
               {([
                 { label: "Assigned",    value: total,          color: "var(--muted)",          bg: "var(--panel2)" },
                 { label: "In Progress", value: inProgressCount, color: STATUS_COLORS.Started,   bg: STATUS_BG.Started },
                 { label: "Not Started", value: notStartedCount, color: STATUS_COLORS.Assigned,  bg: STATUS_BG.Assigned },
                 { label: "Completed",   value: completedCount,  color: STATUS_COLORS.Completed, bg: STATUS_BG.Completed },
               ] as const).map(({ label, value, color, bg }) => (
-                <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 8, background: bg, border: "1px solid var(--border)", fontSize: 12 }}>
-                  <span style={{ fontWeight: 700, color }}>{value}</span>
-                  <span style={{ color: "var(--muted)" }}>{label}</span>
+                <div key={label} className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs" style={{ background: bg }}>
+                  <span className="font-bold" style={{ color }}>{value}</span>
+                  <span className="text-muted">{label}</span>
                 </div>
               ))}
             </div>
             {/* Overall clip progress bar — only for playlist assignments */}
             {assignment.playlistId && totalClips > 0 && (
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>
+                <div className="mb-1 flex justify-between text-[11px] text-muted">
                   <span>Overall clip progress</span>
-                  <span style={{ fontWeight: 700, color: learningPctColor(overallPct) }}>{overallPct}%</span>
+                  <span className="font-bold" style={{ color: learningPctColor(overallPct) }}>{overallPct}%</span>
                 </div>
                 <div className="lh-progress-bar">
                   <div className="lh-progress-fill" style={{ width: `${overallPct}%`, background: learningPctColor(overallPct) }} />
                 </div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
+                <div className="mt-0.5 text-[11px] text-muted">
                   {overallWatched} of {overallPossible} clips watched across all referees
                 </div>
               </div>
@@ -521,25 +494,25 @@ export function AssignmentDetailScreen({
 
         {/* Instructions */}
         {assignment.instructions && (
-          <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
-            <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Instructions</div>
-            <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{assignment.instructions}</p>
+          <div className="rounded-lg border border-border bg-panel-2 p-3.5 text-[13px]">
+            <div className="mb-1.5 text-[11px] uppercase tracking-wide text-muted">Instructions</div>
+            <p className="whitespace-pre-wrap text-text">{assignment.instructions}</p>
           </div>
         )}
 
         {/* Quiz summary */}
         {assignment.quizQuestions.length > 0 && (
-          <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
-            <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+          <div className="rounded-lg border border-border bg-panel-2 p-3.5 text-[13px]">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted">
               <HelpCircle size={11} /> Knowledge Quiz ({assignment.quizQuestions.length} question{assignment.quizQuestions.length !== 1 ? "s" : ""})
             </div>
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>
+            <div className="text-xs text-muted">
               {assignment.assignmentUsers.filter(u => u.quizSubmittedAt).length} of {assignment.assignmentUsers.length} submitted
               {(() => {
                 const submitted = assignment.assignmentUsers.filter(u => u.quizScore !== null && u.quizTotal);
                 if (submitted.length === 0) return null;
                 const avg = Math.round(submitted.reduce((s, u) => s + (u.quizScore! / u.quizTotal!) * 100, 0) / submitted.length);
-                return <span style={{ marginLeft: 8, color: learningPctColor(avg), fontWeight: 700 }}>avg {avg}%</span>;
+                return <span className="ml-2 font-bold" style={{ color: learningPctColor(avg) }}>avg {avg}%</span>;
               })()}
             </div>
           </div>
@@ -547,43 +520,39 @@ export function AssignmentDetailScreen({
 
         {/* Reflection questions summary */}
         {assignment.questions.length > 0 && (
-          <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--panel2)", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13 }}>
-            <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+          <div className="rounded-lg border border-border bg-panel-2 p-3.5 text-[13px]">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted">
               <MessageSquare size={11} /> Reflection Questions ({assignment.questions.length})
             </div>
-            <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
+            <ol className="grid list-decimal gap-1 pl-5">
               {assignment.questions.map(q => (
-                <li key={q.id} style={{ fontSize: 13 }}>{q.text}</li>
+                <li key={q.id} className="text-[13px] text-text">{q.text}</li>
               ))}
             </ol>
-            <div style={{ marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
+            <div className="mt-2 text-xs text-muted">
               {assignment.assignmentUsers.filter(u => u.reflectionSubmittedAt).length} of {assignment.assignmentUsers.length} submitted
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Users panel */}
-      <div className="panel">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-          <h2 className="ed-section-title" style={{ margin: 0 }}>Assigned Members</h2>
+      <Card>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold text-text">Assigned Members</h2>
           {assignment.assignmentUsers.length > 1 && (
-            <div style={{ display: "flex", gap: 6, fontSize: 12 }}>
+            <div className="flex gap-1.5">
               {(["status", "progress", "name"] as ProgressSort[]).filter(key => key !== "progress" || !!assignment.playlistId).map(key => (
                 <button
                   key={key}
                   onClick={() => handleProgressSort(key)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 4,
-                    padding: "3px 10px", borderRadius: 6, fontSize: 12,
-                    background: progressSort === key ? "var(--panel2)" : "transparent",
-                    border: `1px solid ${progressSort === key ? "var(--accent)" : "var(--border)"}`,
-                    color: progressSort === key ? "var(--accent)" : "var(--muted)",
-                    fontWeight: progressSort === key ? 700 : 400,
-                  }}
+                  className={cn(
+                    "flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition-colors",
+                    progressSort === key ? "border-accent bg-panel-2 font-bold text-accent" : "border-border font-normal text-muted"
+                  )}
                 >
                   {key === "status" ? "Status" : key === "progress" ? "Progress" : "Name"}
-                  <ArrowUpDown size={10} style={{ opacity: progressSort === key ? 1 : 0.4 }} />
+                  <ArrowUpDown size={10} className={progressSort === key ? "opacity-100" : "opacity-40"} />
                 </button>
               ))}
             </div>
@@ -591,283 +560,275 @@ export function AssignmentDetailScreen({
         </div>
 
         {assignment.assignmentUsers.length === 0 ? (
-          <p className="hint">No members assigned yet.</p>
+          <p className="text-sm text-muted">No members assigned yet.</p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Name</th>
-                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Status</th>
-                  {assignment.simulatorSessionId && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Score</th>}
-                  {assignment.playlistId && totalClips > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, minWidth: 140 }}>Progress</th>}
-                  {assignment.questions.length > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Reflection</th>}
-                  {assignment.quizQuestions.length > 0 && <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Quiz</th>}
-                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Assigned</th>
-                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Completed</th>
-                  {canEdit && <th style={{ padding: "8px 10px" }} />}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedUsers.map(au => {
-                  const m = memberOf(au.userId);
-                  const isUpdating = updatingStatus === au.id;
-                  const isRemoving = removing === au.id;
-                  const statusColor = STATUS_COLORS[au.status];
-                  const statusBg = STATUS_BG[au.status];
-                  const watchedCount = au.watchedClipIds.length;
-                  const clipPct = totalClips > 0 ? Math.round((watchedCount / totalClips) * 100) : 0;
-                  const pctColor = learningPctColor(clipPct);
-                  const userSimAttempts = assignment.simulatorSessionId
-                    ? simulatorAttempts.filter(a => a.sessionId === assignment.simulatorSessionId && a.userId === au.userId)
-                    : [];
-                  const latestSimAttempt = userSimAttempts[0];
-                  const latestSimPct = latestSimAttempt?.score != null && latestSimAttempt.total
-                    ? Math.round((latestSimAttempt.score / latestSimAttempt.total) * 100) : null;
-                  return (
-                    <React.Fragment key={au.id}>
-                    <tr style={{ borderBottom: expandedResponsesId === au.id ? "none" : "1px solid var(--border)", opacity: isRemoving ? 0.5 : 1 }}>
-                      <td style={{ padding: "10px 10px" }}>
-                        <div style={{ fontWeight: 600 }}>{m?.name || "Unknown"}</div>
-                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{m?.email || "—"}</div>
-                      </td>
-                      <td style={{ padding: "10px 10px" }}>
-                        {canEdit && onUpdateStatus ? (
-                          <div style={{ position: "relative", display: "inline-block" }}>
-                            <select
-                              value={pendingStatus?.auId === au.id ? pendingStatus.status : au.status}
-                              disabled={isUpdating}
-                              onChange={e => setPendingStatus({ auId: au.id, status: e.target.value as AssignmentStatus, memberName: m?.name || "this referee" })}
-                              aria-label={`Learning status for ${m?.name || "this referee"}`}
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 700,
-                                padding: "4px 22px 4px 8px",
-                                borderRadius: 6,
-                                width: "auto",
-                                color: statusColor,
-                                background: statusBg,
-                                border: `1px solid ${STATUS_BORDER[au.status]}`,
-                                opacity: isUpdating ? 0.5 : 1,
-                                cursor: isUpdating ? "default" : "pointer",
-                                appearance: "none",
-                                WebkitAppearance: "none",
-                              }}
-                            >
-                              {ALL_STATUSES.map(s => (
-                                <option key={s} value={s}>{s}</option>
-                              ))}
-                            </select>
-                            <ChevronDown
-                              size={10}
-                              style={{
-                                position: "absolute",
-                                right: 6,
-                                top: "50%",
-                                transform: "translateY(-50%)",
-                                pointerEvents: "none",
-                                color: statusColor,
-                                opacity: 0.7,
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: 12, fontWeight: 700, color: statusColor }}>
-                            {au.status}
-                          </span>
-                        )}
-                      </td>
-                      {assignment.simulatorSessionId && (
-                        <td style={{ padding: "10px 10px", whiteSpace: "nowrap", fontSize: 12 }}>
-                          {latestSimPct !== null ? (
-                            <div>
-                              <span style={{ fontWeight: 700, color: learningPctColor(latestSimPct) }}>{latestSimPct}%</span>
-                              <span style={{ color: "var(--muted)", marginLeft: 6 }}>{latestSimAttempt.score}/{latestSimAttempt.total}</span>
-                              {userSimAttempts.length > 1 && (
-                                <div style={{ fontSize: 11, color: "var(--muted)" }}>{userSimAttempts.length} attempts</div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="hint">—</span>
-                          )}
-                        </td>
-                      )}
-                      {assignment.playlistId && totalClips > 0 && (
-                        <td style={{ padding: "10px 10px", minWidth: 140 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div className="lh-progress-bar" style={{ flex: 1 }} aria-hidden="true">
-                              <div className="lh-progress-fill" style={{ width: `${clipPct}%`, background: pctColor }} />
-                            </div>
-                            <span style={{ fontSize: 12, fontWeight: 700, minWidth: 34, color: pctColor }}>{clipPct}%</span>
-                          </div>
-                          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                            {watchedCount} of {totalClips} clips
-                          </div>
-                        </td>
-                      )}
-                      {assignment.questions.length > 0 && (
-                        <td style={{ padding: "10px 10px", whiteSpace: "nowrap", fontSize: 12 }}>
-                          {au.reflectionSubmittedAt ? (
-                            <button
-                              style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 4 }}
-                              onClick={() => setExpandedResponsesId(expandedResponsesId === au.id ? null : au.id)}
-                            >
-                              <MessageSquare size={11} />
-                              {expandedResponsesId === au.id ? "Hide" : "View"}
-                            </button>
-                          ) : (
-                            <span style={{ color: "var(--muted)" }}>—</span>
-                          )}
-                        </td>
-                      )}
-                      {assignment.quizQuestions.length > 0 && (
-                        <td style={{ padding: "10px 10px", whiteSpace: "nowrap", fontSize: 12 }}>
-                          {au.quizSubmittedAt ? (
-                            <button
-                              style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 4 }}
-                              onClick={() => setExpandedQuizId(expandedQuizId === au.id ? null : au.id)}
-                            >
-                              <HelpCircle size={11} />
-                              {au.quizScore !== null && au.quizTotal ? `${au.quizScore}/${au.quizTotal}` : "View"}
-                              {expandedQuizId === au.id ? " ▲" : " ▼"}
-                            </button>
-                          ) : (
-                            <span style={{ color: "var(--muted)" }}>—</span>
-                          )}
-                        </td>
-                      )}
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap", fontSize: 12, minWidth: 90 }}>
-                        {fmt(au.assignedAt)}
-                      </td>
-                      <td style={{ padding: "10px 10px", whiteSpace: "nowrap", fontSize: 12, minWidth: 90 }}>
-                        {au.completedAt ? (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#22c55e", fontWeight: 600 }}>
-                            <CheckCircle2 size={12} />
-                            {fmt(au.completedAt)}
-                          </span>
-                        ) : (
-                          <span className="hint">—</span>
-                        )}
-                      </td>
-                      {canEdit && (
-                        <td style={{ padding: "10px 10px", textAlign: "right", whiteSpace: "nowrap" }}>
-                          <button
-                            onClick={() => setPendingRemoveId(au.id)}
-                            disabled={isRemoving}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", display: "flex", alignItems: "center" }}
-                            title="Remove from assignment"
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Name</TableHeaderCell>
+                <TableHeaderCell>Status</TableHeaderCell>
+                {assignment.simulatorSessionId && <TableHeaderCell className="whitespace-nowrap">Score</TableHeaderCell>}
+                {assignment.playlistId && totalClips > 0 && <TableHeaderCell className="min-w-[140px]">Progress</TableHeaderCell>}
+                {assignment.questions.length > 0 && <TableHeaderCell className="whitespace-nowrap">Reflection</TableHeaderCell>}
+                {assignment.quizQuestions.length > 0 && <TableHeaderCell className="whitespace-nowrap">Quiz</TableHeaderCell>}
+                <TableHeaderCell className="whitespace-nowrap">Assigned</TableHeaderCell>
+                <TableHeaderCell className="whitespace-nowrap">Completed</TableHeaderCell>
+                {canEdit && <TableHeaderCell />}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {sortedUsers.map(au => {
+                const m = memberOf(au.userId);
+                const isUpdating = updatingStatus === au.id;
+                const isRemoving = removing === au.id;
+                const statusColor = STATUS_COLORS[au.status];
+                const statusBg = STATUS_BG[au.status];
+                const watchedCount = au.watchedClipIds.length;
+                const clipPct = totalClips > 0 ? Math.round((watchedCount / totalClips) * 100) : 0;
+                const pctColor = learningPctColor(clipPct);
+                const userSimAttempts = assignment.simulatorSessionId
+                  ? simulatorAttempts.filter(a => a.sessionId === assignment.simulatorSessionId && a.userId === au.userId)
+                  : [];
+                const latestSimAttempt = userSimAttempts[0];
+                const latestSimPct = latestSimAttempt?.score != null && latestSimAttempt.total
+                  ? Math.round((latestSimAttempt.score / latestSimAttempt.total) * 100) : null;
+                return (
+                  <React.Fragment key={au.id}>
+                  <TableRow className={isRemoving ? "opacity-50" : undefined}>
+                    <TableCell data-label="Name">
+                      <div className="font-semibold text-text">{m?.name || "Unknown"}</div>
+                      <div className="text-[11px] text-muted">{m?.email || "—"}</div>
+                    </TableCell>
+                    <TableCell data-label="Status">
+                      {canEdit && onUpdateStatus ? (
+                        <div className="relative inline-block">
+                          <select
+                            value={pendingStatus?.auId === au.id ? pendingStatus.status : au.status}
+                            disabled={isUpdating}
+                            onChange={e => setPendingStatus({ auId: au.id, status: e.target.value as AssignmentStatus, memberName: m?.name || "this referee" })}
+                            aria-label={`Learning status for ${m?.name || "this referee"}`}
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              padding: "4px 22px 4px 8px",
+                              borderRadius: 6,
+                              width: "auto",
+                              color: statusColor,
+                              background: statusBg,
+                              border: `1px solid ${STATUS_BORDER[au.status]}`,
+                              opacity: isUpdating ? 0.5 : 1,
+                              cursor: isUpdating ? "default" : "pointer",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                            }}
                           >
-                            <X size={14} />
-                          </button>
-                        </td>
+                            {ALL_STATUSES.map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                          <ChevronDown
+                            size={10}
+                            className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-70"
+                            style={{ color: statusColor }}
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-xs font-bold" style={{ color: statusColor }}>
+                          {au.status}
+                        </span>
                       )}
-                    </tr>
-                    {/* Expanded reflection responses */}
-                    {expandedResponsesId === au.id && au.reflectionSubmittedAt && au.reflectionResponses && (
-                      <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--panel2)" }}>
-                        <td colSpan={99} style={{ padding: "12px 14px" }}>
-                          <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-                            <MessageSquare size={11} />
-                            Reflection submitted {fmt(au.reflectionSubmittedAt)}
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            {assignment.questions.map((q, qi) => {
-                              const resp = au.reflectionResponses!.find(r => r.questionId === q.id);
-                              return (
-                                <div key={q.id}>
-                                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 3 }}>{qi + 1}. {q.text}</div>
-                                  <div style={{ fontSize: 13, color: resp?.response ? "var(--text)" : "var(--muted)", whiteSpace: "pre-wrap", paddingLeft: 14 }}>
-                                    {resp?.response || <em>No response</em>}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                    {/* Expanded quiz review */}
-                    {expandedQuizId === au.id && au.quizSubmittedAt && (
-                      <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--panel2)" }}>
-                        <td colSpan={99} style={{ padding: "12px 14px" }}>
-                          <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                            <HelpCircle size={11} />
-                            Quiz submitted {fmt(au.quizSubmittedAt)}
-                            {au.quizAttemptCount > 1 && <span>({au.quizAttemptCount} attempts)</span>}
-                            {au.quizScore !== null && au.quizTotal != null && (
-                              <span style={{ fontWeight: 700, color: learningPctColor(Math.round((au.quizScore / au.quizTotal) * 100)) }}>
-                                {au.quizScore}/{au.quizTotal} ({Math.round((au.quizScore / au.quizTotal) * 100)}%)
-                              </span>
+                    </TableCell>
+                    {assignment.simulatorSessionId && (
+                      <TableCell data-label="Score" className="whitespace-nowrap text-xs">
+                        {latestSimPct !== null ? (
+                          <div>
+                            <span className="font-bold" style={{ color: learningPctColor(latestSimPct) }}>{latestSimPct}%</span>
+                            <span className="ml-1.5 text-muted">{latestSimAttempt.score}/{latestSimAttempt.total}</span>
+                            {userSimAttempts.length > 1 && (
+                              <div className="text-[11px] text-muted">{userSimAttempts.length} attempts</div>
                             )}
                           </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            {assignment.quizQuestions.sort((a, b) => a.displayOrder - b.displayOrder).map((q, qi) => {
-                              const ans = au.quizAnswers?.find(a => a.questionId === q.id);
-                              const sel = ans?.selectedAnswerIndex ?? null;
-                              const correct = sel === q.correctAnswerIndex;
-                              return (
-                                <div key={q.id}>
-                                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                                    {qi + 1}. {q.prompt}
-                                    {sel !== null ? (
-                                      <span style={{ fontSize: 11, color: correct ? "#22c55e" : "#ef4444" }}>{correct ? "✓" : "✗"}</span>
-                                    ) : (
-                                      <span style={{ fontSize: 11, color: "var(--muted)" }}>no answer</span>
-                                    )}
-                                  </div>
-                                  <div style={{ paddingLeft: 14, display: "flex", flexDirection: "column", gap: 3 }}>
-                                    {q.answers.map((a, aIdx) => {
-                                      const isSelected = sel === aIdx;
-                                      const isCorrectAnswer = aIdx === q.correctAnswerIndex;
-                                      return (
-                                        <div key={aIdx} style={{
-                                          fontSize: 12, padding: "3px 8px", borderRadius: 5,
-                                          background: isCorrectAnswer ? "rgba(34,197,94,.1)" : isSelected && !correct ? "rgba(239,68,68,.1)" : "transparent",
-                                          border: `1px solid ${isCorrectAnswer ? "rgba(34,197,94,.3)" : isSelected && !correct ? "rgba(239,68,68,.3)" : "transparent"}`,
-                                          color: isSelected ? "var(--foreground)" : "var(--muted)",
-                                        }}>
-                                          {isSelected ? "→ " : "   "}{a}
-                                          {isCorrectAnswer && <span style={{ color: "#22c55e", marginLeft: 4 }}>✓</span>}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </td>
-                      </tr>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </TableCell>
                     )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                    {assignment.playlistId && totalClips > 0 && (
+                      <TableCell data-label="Progress" className="min-w-[140px]">
+                        <div className="flex items-center gap-2">
+                          <div className="lh-progress-bar flex-1" aria-hidden="true">
+                            <div className="lh-progress-fill" style={{ width: `${clipPct}%`, background: pctColor }} />
+                          </div>
+                          <span className="min-w-[34px] text-xs font-bold" style={{ color: pctColor }}>{clipPct}%</span>
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-muted">
+                          {watchedCount} of {totalClips} clips
+                        </div>
+                      </TableCell>
+                    )}
+                    {assignment.questions.length > 0 && (
+                      <TableCell data-label="Reflection" className="whitespace-nowrap text-xs">
+                        {au.reflectionSubmittedAt ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => setExpandedResponsesId(expandedResponsesId === au.id ? null : au.id)}
+                          >
+                            <MessageSquare size={11} />
+                            {expandedResponsesId === au.id ? "Hide" : "View"}
+                          </Button>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </TableCell>
+                    )}
+                    {assignment.quizQuestions.length > 0 && (
+                      <TableCell data-label="Quiz" className="whitespace-nowrap text-xs">
+                        {au.quizSubmittedAt ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => setExpandedQuizId(expandedQuizId === au.id ? null : au.id)}
+                          >
+                            <HelpCircle size={11} />
+                            {au.quizScore !== null && au.quizTotal ? `${au.quizScore}/${au.quizTotal}` : "View"}
+                            {expandedQuizId === au.id ? " ▲" : " ▼"}
+                          </Button>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </TableCell>
+                    )}
+                    <TableCell data-label="Assigned" className="min-w-[90px] whitespace-nowrap text-xs text-muted">
+                      {fmt(au.assignedAt)}
+                    </TableCell>
+                    <TableCell data-label="Completed" className="min-w-[90px] whitespace-nowrap text-xs">
+                      {au.completedAt ? (
+                        <span className="inline-flex items-center gap-1 font-semibold text-good">
+                          <CheckCircle2 size={12} />
+                          {fmt(au.completedAt)}
+                        </span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell data-label="" className="whitespace-nowrap text-right">
+                        <button
+                          onClick={() => setPendingRemoveId(au.id)}
+                          disabled={isRemoving}
+                          className="inline-flex items-center border-none bg-none p-1 text-muted"
+                          title="Remove from assignment"
+                        >
+                          <X size={14} />
+                        </button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                  {/* Expanded reflection responses */}
+                  {expandedResponsesId === au.id && au.reflectionSubmittedAt && au.reflectionResponses && (
+                    <TableRow className="bg-panel-2">
+                      <TableCell colSpan={colCount} className="p-3.5">
+                        <div className="mb-2 flex items-center gap-1.5 text-[11px] text-muted">
+                          <MessageSquare size={11} />
+                          Reflection submitted {fmt(au.reflectionSubmittedAt)}
+                        </div>
+                        <div className="grid gap-2.5">
+                          {assignment.questions.map((q, qi) => {
+                            const resp = au.reflectionResponses!.find(r => r.questionId === q.id);
+                            return (
+                              <div key={q.id}>
+                                <div className="mb-0.5 text-xs font-semibold text-text">{qi + 1}. {q.text}</div>
+                                <div className={cn("whitespace-pre-wrap pl-3.5 text-[13px]", resp?.response ? "text-text" : "text-muted")}>
+                                  {resp?.response || <em>No response</em>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {/* Expanded quiz review */}
+                  {expandedQuizId === au.id && au.quizSubmittedAt && (
+                    <TableRow className="bg-panel-2">
+                      <TableCell colSpan={colCount} className="p-3.5">
+                        <div className="mb-2 flex items-center gap-2 text-[11px] text-muted">
+                          <HelpCircle size={11} />
+                          Quiz submitted {fmt(au.quizSubmittedAt)}
+                          {au.quizAttemptCount > 1 && <span>({au.quizAttemptCount} attempts)</span>}
+                          {au.quizScore !== null && au.quizTotal != null && (
+                            <span className="font-bold" style={{ color: learningPctColor(Math.round((au.quizScore / au.quizTotal) * 100)) }}>
+                              {au.quizScore}/{au.quizTotal} ({Math.round((au.quizScore / au.quizTotal) * 100)}%)
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid gap-2.5">
+                          {assignment.quizQuestions.sort((a, b) => a.displayOrder - b.displayOrder).map((q, qi) => {
+                            const ans = au.quizAnswers?.find(a => a.questionId === q.id);
+                            const sel = ans?.selectedAnswerIndex ?? null;
+                            const correct = sel === q.correctAnswerIndex;
+                            return (
+                              <div key={q.id}>
+                                <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-text">
+                                  {qi + 1}. {q.prompt}
+                                  {sel !== null ? (
+                                    <span className={correct ? "text-[11px] text-good" : "text-[11px] text-red-300"}>{correct ? "✓" : "✗"}</span>
+                                  ) : (
+                                    <span className="text-[11px] text-muted">no answer</span>
+                                  )}
+                                </div>
+                                <div className="grid gap-1 pl-3.5">
+                                  {q.answers.map((a, aIdx) => {
+                                    const isSelected = sel === aIdx;
+                                    const isCorrectAnswer = aIdx === q.correctAnswerIndex;
+                                    return (
+                                      <div
+                                        key={aIdx}
+                                        className={cn(
+                                          "rounded-md border px-2 py-0.5 text-xs",
+                                          isCorrectAnswer
+                                            ? "border-good/30 bg-good/10 text-text"
+                                            : isSelected && !correct
+                                            ? "border-danger/30 bg-danger/10 text-text"
+                                            : "border-transparent text-muted"
+                                        )}
+                                      >
+                                        {isSelected ? "→ " : "   "}{a}
+                                        {isCorrectAnswer && <span className="ml-1 text-good">✓</span>}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </React.Fragment>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
 
         {/* Pending status change confirm */}
         {pendingStatus && (
-          <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 8, background: "rgba(245,158,11,.1)", border: "1px solid rgba(245,158,11,.3)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, flex: 1, minWidth: 0 }}>
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-warn/30 bg-warn/10 p-3">
+            <span className="min-w-0 flex-1 text-[13px] text-text">
               Set <strong>{pendingStatus.memberName}</strong>&apos;s status to <strong>{pendingStatus.status}</strong>? This overrides their recorded progress.
             </span>
-            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <button
-                className="primary"
-                style={{ fontSize: 12, padding: "5px 14px" }}
-                disabled={!!updatingStatus}
-                onClick={confirmStatusChange}
-              >
+            <div className="flex shrink-0 gap-2">
+              <Button variant="primary" size="sm" disabled={!!updatingStatus} onClick={confirmStatusChange}>
                 {updatingStatus ? "Saving…" : "Confirm"}
-              </button>
-              <button
-                style={{ fontSize: 12, padding: "5px 14px" }}
-                onClick={() => setPendingStatus(null)}
-              >
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setPendingStatus(null)}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -880,7 +841,7 @@ export function AssignmentDetailScreen({
             onAdd={userIds => onAddUsers(assignment.id, userIds)}
           />
         )}
-      </div>
+      </Card>
 
       {/* Edit modal */}
       {editOpen && (
@@ -918,6 +879,6 @@ export function AssignmentDetailScreen({
           />
         );
       })()}
-    </div>
+    </PageFrame>
   );
 }

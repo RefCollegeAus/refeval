@@ -4,11 +4,14 @@ import { useState, useMemo } from "react";
 import { BookOpen, Trash2, Eye, Search, ArrowUpDown, ChevronLeft, X, HelpCircle, Zap } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { Assignment } from "@/lib/types/assignments";
-import { REQUIRED_BADGE_STYLE, learningPctColor } from "@/lib/types/assignments";
+import { learningPctColor } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 import type { Group } from "@/lib/types/groups";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, EmptyState, Input, Spinner, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 interface Props {
   session: RefEvalSession;
@@ -140,15 +143,15 @@ export function AssignmentsScreen({
   function SortTh({ col, label, right }: { col: SortKey; label: string; right?: boolean }) {
     const active = sort === col;
     return (
-      <th
-        style={{ textAlign: right ? "right" : "left", padding: "8px 10px", fontWeight: 600, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+      <TableHeaderCell
+        className={cn("cursor-pointer select-none whitespace-nowrap", right && "text-right")}
         onClick={() => handleSort(col)}
       >
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <span className="inline-flex items-center gap-1">
           {label}
-          <ArrowUpDown size={11} style={{ opacity: active ? 1 : 0.3, color: active ? "var(--accent)" : undefined }} />
+          <ArrowUpDown size={11} className={active ? "text-accent opacity-100" : "opacity-30"} />
         </span>
-      </th>
+      </TableHeaderCell>
     );
   }
 
@@ -160,210 +163,174 @@ export function AssignmentsScreen({
   ];
 
   return (
-    <div style={{ padding: "20px 20px 60px", boxSizing: "border-box" }}>
-      <div className="panel">
-
-        {/* Header */}
-        <div className="table-head" style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <BookOpen size={20} style={{ color: "var(--muted)", flexShrink: 0 }} />
-            <div>
-              <p className="eyebrow" style={{ margin: 0 }}>Organisation</p>
-              <h1 style={{ margin: 0, fontSize: 22 }}>Learning Assignments</h1>
-              <p className="hint" style={{ margin: "2px 0 0" }}>
-                Playlists, quizzes, and simulator assignments for team members
-              </p>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {canCreate && onNewSimulator && simulatorSessions.length > 0 && (
-              <button
-                style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, padding: "7px 14px" }}
-                onClick={onNewSimulator}
-              >
-                <Zap size={13} /> Assign Simulator
-              </button>
-            )}
-            {canCreate && (
-              <button
-                className="primary"
-                style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, padding: "7px 14px" }}
-                onClick={onNewQuiz}
-              >
-                <HelpCircle size={13} /> New Quiz
-              </button>
-            )}
-            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <ChevronLeft size={15} /> Back
-            </button>
-          </div>
+    <PageFrame
+      className="mx-auto max-w-[1200px]"
+      eyebrow="Organisation"
+      title="Learning Assignments"
+      description="Playlists, quizzes, and simulator assignments for team members"
+      actions={
+        <div className="flex flex-wrap items-center gap-2">
+          {canCreate && onNewSimulator && simulatorSessions.length > 0 && (
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={onNewSimulator}>
+              <Zap size={13} /> Assign Simulator
+            </Button>
+          )}
+          {canCreate && (
+            <Button variant="primary" size="sm" className="gap-1.5" onClick={onNewQuiz}>
+              <HelpCircle size={13} /> New Quiz
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={onBack}>
+            <ChevronLeft size={15} /> Back
+          </Button>
         </div>
+      }
+    >
+      {error && <p className="text-[13px] text-red-300">{error}</p>}
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted">
+          <Spinner size={16} /> Loading…
+        </div>
+      )}
 
-        {error && <p className="danger-text">{error}</p>}
-        {loading && <div className="loading-state"><span className="loading-spinner" />Loading…</div>}
-
-        {/* Filter bar */}
-        {!loading && assignments.length > 0 && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
-            <div style={{ position: "relative", flex: "1 1 200px", maxWidth: 340 }}>
-              <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-              <input
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder="Search assignments…"
-                aria-label="Search assignments"
-                style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
-              />
-            </div>
-            {query && (
-              <button onClick={() => setQuery("")} aria-label="Clear search" style={{ border: "none", background: "none", padding: "4px 6px", cursor: "pointer" }}>
-                <X size={13} />
+      {/* Filter bar */}
+      {!loading && assignments.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative max-w-[340px] flex-[1_1_200px]">
+            <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search assignments…" aria-label="Search assignments" className="pl-8" />
+          </div>
+          {query && (
+            <button onClick={() => setQuery("")} aria-label="Clear search" className="rounded-lg border-none bg-none p-1.5 text-muted">
+              <X size={13} />
+            </button>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {STATUSES.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setStatusFilter(key)}
+                className={cn(
+                  "rounded-lg border px-2.5 py-1.5 text-xs transition-colors",
+                  statusFilter === key
+                    ? key === "overdue" ? "border-danger/40 bg-danger/10 font-bold text-red-300" : "border-accent/40 bg-accent/10 font-bold text-accent"
+                    : "border-border bg-panel-2 font-normal text-muted"
+                )}
+              >
+                {label}
+                {statusCounts[key] > 0 && statusFilter !== key && (
+                  <span className="ml-1 text-[11px] text-muted">{statusCounts[key]}</span>
+                )}
               </button>
-            )}
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-              {STATUSES.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setStatusFilter(key)}
-                  className={statusFilter === key ? "selected" : ""}
-                  style={{
-                    fontSize: 12, padding: "5px 10px", borderRadius: 8,
-                    color: key === "overdue" && statusFilter === key ? "#ef4444" : undefined,
-                  }}
-                >
-                  {label}
-                  {statusCounts[key] > 0 && statusFilter !== key && (
-                    <span style={{ marginLeft: 5, fontSize: 11, color: "var(--muted)" }}>{statusCounts[key]}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-            <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap", marginLeft: "auto" }}>
-              {filtered.length} of {assignments.length}
-            </span>
+            ))}
           </div>
-        )}
+          <span className="ml-auto whitespace-nowrap text-xs text-muted">
+            {filtered.length} of {assignments.length}
+          </span>
+        </div>
+      )}
 
-        {/* Empty states */}
-        {!loading && assignments.length === 0 && (
-          <div className="empty-state">
-            <BookOpen size={32} style={{ opacity: 0.3, marginBottom: 10 }} />
-            <p style={{ margin: 0, fontWeight: 700 }}>No assignments yet</p>
-            <p className="hint" style={{ margin: "6px 0 0" }}>
-              Open a playlist and click &ldquo;Assign Playlist&rdquo; to create a learning assignment,
-              use <strong>New Quiz</strong> above to create a standalone knowledge quiz,
-              or use <strong>Assign Simulator</strong> to assign a simulator session.
-            </p>
-          </div>
-        )}
+      {/* Empty states */}
+      {!loading && assignments.length === 0 && (
+        <EmptyState
+          icon={<BookOpen size={28} />}
+          title="No assignments yet"
+          description={'Open a playlist and click "Assign Playlist" to create a learning assignment, use New Quiz above to create a standalone knowledge quiz, or use Assign Simulator to assign a simulator session.'}
+        />
+      )}
 
-        {!loading && assignments.length > 0 && filtered.length === 0 && (
-          <p className="hint" style={{ padding: "16px 0" }}>No assignments match your filters.</p>
-        )}
+      {!loading && assignments.length > 0 && filtered.length === 0 && (
+        <p className="py-4 text-sm text-muted">No assignments match your filters.</p>
+      )}
 
-        {filtered.length > 0 && (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  <SortTh col="title"    label="Assignment" />
-                  <SortTh col="playlist" label="Content" />
-                  <SortTh col="users"    label="Users" right />
-                  <SortTh col="pct"      label="Progress" />
-                  <SortTh col="due"      label="Due" />
-                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>Created by</th>
-                  <SortTh col="created"  label="Created" />
-                  <th style={{ padding: "8px 10px" }} />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(a => {
-                  const isOverdue = a._statusFilter === "overdue";
-                  const isDone    = a._statusFilter === "completed";
-                  const pctColor  = learningPctColor(isDone ? 100 : a._pct);
-                  const isQuizOnly = !a.playlistId;
-                  return (
-                    <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "10px 10px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <span style={{ fontWeight: 600 }}>{a.title}</span>
-                          {a.required && (
-                            <span style={REQUIRED_BADGE_STYLE}>Required</span>
-                          )}
-                          {a.simulatorSessionId && (
-                            <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(245,158,11,.12)", color: "#fde68a", border: "1px solid rgba(245,158,11,.3)", fontWeight: 700, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
-                              <Zap size={9} /> Simulator
-                            </span>
-                          )}
-                          {isQuizOnly && !a.simulatorSessionId && (
-                            <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(99,102,241,.12)", color: "var(--accent)", border: "1px solid rgba(99,102,241,.3)", fontWeight: 700, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
-                              <HelpCircle size={9} /> Quiz
-                            </span>
-                          )}
-                          {isOverdue && (
-                            <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: "rgba(239,68,68,.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,.3)", fontWeight: 700, whiteSpace: "nowrap" }}>
-                              Overdue
-                            </span>
-                          )}
+      {filtered.length > 0 && (
+        <Table>
+          <TableHead>
+            <TableRow>
+              <SortTh col="title"    label="Assignment" />
+              <SortTh col="playlist" label="Content" />
+              <SortTh col="users"    label="Users" right />
+              <SortTh col="pct"      label="Progress" />
+              <SortTh col="due"      label="Due" />
+              <TableHeaderCell className="whitespace-nowrap">Created by</TableHeaderCell>
+              <SortTh col="created"  label="Created" />
+              <TableHeaderCell />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.map(a => {
+              const isOverdue = a._statusFilter === "overdue";
+              const isDone    = a._statusFilter === "completed";
+              const pctColor  = learningPctColor(isDone ? 100 : a._pct);
+              const isQuizOnly = !a.playlistId;
+              return (
+                <TableRow key={a.id}>
+                  <TableCell data-label="Assignment">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-semibold text-text">{a.title}</span>
+                      {a.required && <Badge tone="danger">Required</Badge>}
+                      {a.simulatorSessionId && (
+                        <Badge tone="warn" className="gap-1"><Zap size={9} /> Simulator</Badge>
+                      )}
+                      {isQuizOnly && !a.simulatorSessionId && (
+                        <Badge tone="accent" className="gap-1"><HelpCircle size={9} /> Quiz</Badge>
+                      )}
+                      {isOverdue && <Badge tone="danger">Overdue</Badge>}
+                    </div>
+                  </TableCell>
+                  <TableCell data-label="Content" className="max-w-[200px] truncate text-muted">
+                    {isQuizOnly && !a.simulatorSessionId
+                      ? <span className="text-xs italic text-muted">Standalone quiz</span>
+                      : a._playlistTitle}
+                  </TableCell>
+                  <TableCell data-label="Users" className="text-center">
+                    {a._userCount > 0
+                      ? <span className="chip text-[11px]">{a._userCount}</span>
+                      : <span className="text-muted">—</span>}
+                  </TableCell>
+                  <TableCell data-label="Progress" className="min-w-[130px]">
+                    {a._userCount > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <div className="lh-progress-bar flex-1" aria-hidden="true">
+                          <div className="lh-progress-fill" style={{ width: `${a._pct}%`, background: pctColor }} />
                         </div>
-                      </td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {isQuizOnly && !a.simulatorSessionId
-                          ? <span style={{ fontStyle: "italic", color: "var(--muted)", fontSize: 12 }}>Standalone quiz</span>
-                          : a._playlistTitle}
-                      </td>
-                      <td style={{ padding: "10px 10px", textAlign: "center" }}>
-                        {a._userCount > 0
-                          ? <span className="chip" style={{ fontSize: 11 }}>{a._userCount}</span>
-                          : <span className="hint">—</span>}
-                      </td>
-                      <td style={{ padding: "10px 10px", minWidth: 130 }}>
-                        {a._userCount > 0 ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div className="lh-progress-bar" style={{ flex: 1 }} aria-hidden="true">
-                              <div className="lh-progress-fill" style={{ width: `${a._pct}%`, background: pctColor }} />
-                            </div>
-                            <span style={{ fontSize: 12, fontWeight: 700, minWidth: 34, color: pctColor }}>{a._pct}%</span>
-                          </div>
-                        ) : <span className="hint">—</span>}
-                      </td>
-                      <td style={{ padding: "10px 10px", whiteSpace: "nowrap", color: isOverdue ? "#ef4444" : "var(--muted)" }}>
-                        {fmt(a.dueDate)}
-                      </td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {memberName(a.assignedBy, members)}
-                      </td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                        {fmt(a.createdAt)}
-                      </td>
-                      <td style={{ padding: "10px 10px", whiteSpace: "nowrap" }}>
-                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
-                          <button
-                            style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
-                            onClick={() => onView(a.id)}
-                          >
-                            <Eye size={12} /> View
-                          </button>
-                          {canDelete && (
-                            <button
-                              className="danger"
-                              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
-                              onClick={() => setPendingDeleteId(a.id)}
-                              disabled={deleting === a.id}
-                            >
-                              <Trash2 size={12} /> Delete
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                        <span className="min-w-[34px] text-xs font-bold" style={{ color: pctColor }}>{a._pct}%</span>
+                      </div>
+                    ) : <span className="text-muted">—</span>}
+                  </TableCell>
+                  <TableCell data-label="Due" className={cn("whitespace-nowrap", isOverdue ? "text-red-300" : "text-muted")}>
+                    {fmt(a.dueDate)}
+                  </TableCell>
+                  <TableCell data-label="Created by" className="max-w-[140px] truncate text-muted">
+                    {memberName(a.assignedBy, members)}
+                  </TableCell>
+                  <TableCell data-label="Created" className="whitespace-nowrap text-muted">
+                    {fmt(a.createdAt)}
+                  </TableCell>
+                  <TableCell data-label="">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button variant="secondary" size="sm" className="gap-1" onClick={() => onView(a.id)}>
+                        <Eye size={12} /> View
+                      </Button>
+                      {canDelete && (
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => setPendingDeleteId(a.id)}
+                          disabled={deleting === a.id}
+                        >
+                          <Trash2 size={12} /> Delete
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
 
       {pendingDeleteId && (
         <ConfirmModal
@@ -375,6 +342,6 @@ export function AssignmentsScreen({
           onCancel={() => setPendingDeleteId(null)}
         />
       )}
-    </div>
+    </PageFrame>
   );
 }

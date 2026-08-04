@@ -5,6 +5,10 @@ import { updateProfileName } from "@/lib/services/memberships";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { showToast } from "@/lib/toast";
 import type { RefEvalSession, Role } from "@/lib/types/auth";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, Card, Input, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui";
+import { ROLE_TONE } from "@/lib/utils/roleTone";
+import { cn } from "@/lib/utils/cn";
 
 const ROLE_LABELS: Record<Role, string> = {
   viewer: "Viewer",
@@ -64,119 +68,105 @@ export function UserProfileScreen({
   const multipleOrgs = session.memberships.length > 1;
 
   return (
-    <div className="layout one-col">
-      <section className="panel">
-        <div className="table-head" style={{ marginBottom: 18 }}>
-          <div>
-            <p className="eyebrow">Account</p>
-            <h1 style={{ marginBottom: 0 }}>Your Profile</h1>
-            <p className="hint" style={{ marginTop: 6 }}>{session.profile.email}</p>
-          </div>
-          <button onClick={onBack}>← Back</button>
-        </div>
+    <PageFrame
+      className="mx-auto max-w-[900px]"
+      eyebrow="Account"
+      title="Your Profile"
+      description={session.profile.email}
+      actions={<Button variant="secondary" size="sm" onClick={onBack}>← Back</Button>}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* ── Display name ── */}
+        <Card>
+          <h2 className="mb-3 text-sm font-bold text-text">Display Name</h2>
+          <form className="grid gap-3" onSubmit={handleNameSave}>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              Name
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Your display name" required />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              Email
+              <Input value={session.profile.email} disabled />
+            </label>
+            <Button type="submit" variant="primary" disabled={nameSaving} className="w-fit">
+              {nameSaving ? "Saving…" : "Save Name"}
+            </Button>
+          </form>
+        </Card>
 
-        <div className="profile-grid">
-          {/* ── Display name ── */}
-          <div className="analytics-card">
-            <h2>Display Name</h2>
-            <form className="form-stack" onSubmit={handleNameSave}>
-              <label>
-                Name
-                <input
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Your display name"
-                  required
-                />
-              </label>
-              <label>
-                Email
-                <input value={session.profile.email} disabled />
-              </label>
-              <button type="submit" className="primary" disabled={nameSaving}>
-                {nameSaving ? "Saving…" : "Save Name"}
-              </button>
-            </form>
-          </div>
+        {/* ── Password ── */}
+        <Card>
+          <h2 className="mb-3 text-sm font-bold text-text">Change Password</h2>
+          <form className="grid gap-3" onSubmit={handlePasswordSave}>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              New password
+              <Input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold text-muted">
+              Confirm new password
+              <Input
+                type="password"
+                value={confirmPw}
+                onChange={e => setConfirmPw(e.target.value)}
+                placeholder="Repeat new password"
+                autoComplete="new-password"
+              />
+            </label>
+            <Button type="submit" variant="primary" disabled={pwSaving} className="w-fit">
+              {pwSaving ? "Updating…" : "Update Password"}
+            </Button>
+          </form>
+        </Card>
+      </div>
 
-          {/* ── Password ── */}
-          <div className="analytics-card">
-            <h2>Change Password</h2>
-            <form className="form-stack" onSubmit={handlePasswordSave}>
-              <label>
-                New password
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="At least 8 characters"
-                  autoComplete="new-password"
-                />
-              </label>
-              <label>
-                Confirm new password
-                <input
-                  type="password"
-                  value={confirmPw}
-                  onChange={e => setConfirmPw(e.target.value)}
-                  placeholder="Repeat new password"
-                  autoComplete="new-password"
-                />
-              </label>
-              <button type="submit" className="primary" disabled={pwSaving}>
-                {pwSaving ? "Updating…" : "Update Password"}
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {/* ── Organisations ── */}
-        <div className="analytics-card" style={{ marginTop: 18 }}>
-          <h2>Your Organisations</h2>
-          {session.memberships.length === 0 ? (
-            <p className="hint">You are not a member of any organisations.</p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Organisation</th>
-                  <th>Role</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {session.memberships.map(m => {
-                  const isActive = m.organisationId === session.activeOrganisation?.id;
-                  return (
-                    <tr key={m.organisationId}>
-                      <td style={{ fontWeight: isActive ? 700 : undefined }}>
-                        {m.organisationName}
-                        {isActive && (
-                          <span className="hint" style={{ marginLeft: 8, fontSize: 11 }}>Current</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`role-badge role-${m.role}`}>{ROLE_LABELS[m.role]}</span>
-                      </td>
-                      <td>
-                        {!isActive && multipleOrgs && (
-                          <button
-                            style={{ fontSize: 12, padding: "5px 10px" }}
-                            onClick={() => onSwitchOrg(m)}
-                          >
-                            Switch to this org
-                          </button>
-                        )}
-                        {isActive && <span className="hint" style={{ fontSize: 12 }}>Active</span>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </section>
-    </div>
+      {/* ── Organisations ── */}
+      <Card>
+        <h2 className="mb-3 text-sm font-bold text-text">Your Organisations</h2>
+        {session.memberships.length === 0 ? (
+          <p className="text-sm text-muted">You are not a member of any organisations.</p>
+        ) : (
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeaderCell>Organisation</TableHeaderCell>
+                <TableHeaderCell>Role</TableHeaderCell>
+                <TableHeaderCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {session.memberships.map(m => {
+                const isActive = m.organisationId === session.activeOrganisation?.id;
+                const tone = ROLE_TONE[m.role] ?? ROLE_TONE.viewer;
+                return (
+                  <TableRow key={m.organisationId}>
+                    <TableCell data-label="Organisation" className={cn(isActive ? "font-bold" : "font-normal", "text-text")}>
+                      {m.organisationName}
+                      {isActive && <span className="ml-2 text-[11px] text-muted">Current</span>}
+                    </TableCell>
+                    <TableCell data-label="Role">
+                      <Badge tone="neutral" className={tone.text}>{ROLE_LABELS[m.role]}</Badge>
+                    </TableCell>
+                    <TableCell data-label="">
+                      {!isActive && multipleOrgs && (
+                        <Button variant="secondary" size="sm" onClick={() => onSwitchOrg(m)}>
+                          Switch to this org
+                        </Button>
+                      )}
+                      {isActive && <span className="text-xs text-muted">Active</span>}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+    </PageFrame>
   );
 }

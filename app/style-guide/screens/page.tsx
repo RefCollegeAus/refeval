@@ -31,6 +31,11 @@ import { RefereeCommentsScreen } from "@/components/referee/RefereeCommentsScree
 import { GroupsScreen } from "@/components/educator/GroupsScreen";
 import { NotificationCentre } from "@/components/NotificationCentre";
 import { MembersScreen } from "@/components/admin/MembersScreen";
+import { AssignmentsScreen } from "@/components/admin/AssignmentsScreen";
+import { AssignmentDetailScreen } from "@/components/admin/AssignmentDetailScreen";
+import { CommentInbox } from "@/components/educator/CommentInbox";
+import { TeamManagementScreen } from "@/components/admin/TeamManagementScreen";
+import { UserProfileScreen } from "@/components/admin/UserProfileScreen";
 import { PageFrame } from "@/components/shell/PageFrame";
 import { Badge, Button, Card, EmptyState, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui";
 import { makeAnalytics } from "@/lib/utils/analytics";
@@ -46,6 +51,8 @@ import type { ReviewGoalLink, ClipGoalLink } from "@/lib/types/reviewGoalLinks";
 import type { Group } from "@/lib/types/groups";
 import type { OrganisationRecord } from "@/lib/types/organisations";
 import type { Notification, NotificationPreferences } from "@/lib/types/notifications";
+import { PERMISSION_GROUPS } from "@/lib/types/permissions";
+import { defaultPermsForRole } from "@/lib/utils/permissions";
 
 const ORG_ID = "org-demo";
 
@@ -112,17 +119,17 @@ const ASSIGNMENTS: Assignment[] = [
   {
     id: "assign-1", organisationId: ORG_ID, playlistId: "pl-1", simulatorSessionId: null, assignedBy: "user-jamie",
     title: "Positioning fundamentals", instructions: "Review the two clips below and note where your trail position could be tighter.", dueDate: daysAgo(-3).slice(0, 10), required: true, quizAllowRetakes: true,
-    createdAt: daysAgo(10), questions: [{ id: "q-1", prompt: "What would you do differently?" } as never], quizQuestions: [],
+    createdAt: daysAgo(10), questions: [{ id: "q-1", text: "What would you do differently?", required: true, displayOrder: 0 }], quizQuestions: [],
     assignmentUsers: [
-      { id: "au-1", assignmentId: "assign-1", userId: "user-alex", status: "Started", assignedAt: daysAgo(10), startedAt: daysAgo(3), completedAt: null, watchedClipIds: [], reflectionResponses: null, reflectionSubmittedAt: null, quizAnswers: null, quizScore: null, quizTotal: null, quizSubmittedAt: null, quizAttemptCount: 0 },
+      { id: "au-1", assignmentId: "assign-1", userId: "user-alex", status: "Started", assignedAt: daysAgo(10), startedAt: daysAgo(3), completedAt: null, watchedClipIds: ["tag-1"], reflectionResponses: null, reflectionSubmittedAt: null, quizAnswers: null, quizScore: null, quizTotal: null, quizSubmittedAt: null, quizAttemptCount: 0 },
     ],
   },
   {
     id: "assign-2", organisationId: ORG_ID, playlistId: null, simulatorSessionId: null, assignedBy: "user-jamie",
     title: "Rules refresher quiz", instructions: null, dueDate: daysAgo(20).slice(0, 10), required: false, quizAllowRetakes: true,
-    createdAt: daysAgo(25), questions: [], quizQuestions: [{ id: "qq-1", prompt: "Sample question" } as never],
+    createdAt: daysAgo(25), questions: [], quizQuestions: [{ id: "qq-1", prompt: "A defender maintains legal guarding position when they:", answers: ["Are moving laterally", "Have both feet planted before contact", "Are outside the restricted area", "Have their arms raised"], correctAnswerIndex: 1, required: true, displayOrder: 0 }],
     assignmentUsers: [
-      { id: "au-2", assignmentId: "assign-2", userId: "user-alex", status: "Completed", assignedAt: daysAgo(25), startedAt: daysAgo(22), completedAt: daysAgo(21), watchedClipIds: [], reflectionResponses: null, reflectionSubmittedAt: null, quizAnswers: null, quizScore: 8, quizTotal: 10, quizSubmittedAt: daysAgo(21), quizAttemptCount: 1 },
+      { id: "au-2", assignmentId: "assign-2", userId: "user-alex", status: "Completed", assignedAt: daysAgo(25), startedAt: daysAgo(22), completedAt: daysAgo(21), watchedClipIds: [], reflectionResponses: null, reflectionSubmittedAt: null, quizAnswers: [{ questionId: "qq-1", selectedAnswerIndex: 1 }], quizScore: 8, quizTotal: 10, quizSubmittedAt: daysAgo(21), quizAttemptCount: 1 },
     ],
   },
 ];
@@ -203,6 +210,10 @@ const NOTIFICATION_PREFS: NotificationPreferences = {
   userId: "user-jamie", inAppEnabled: true, reviewNotifications: true, assignmentNotifications: true,
   learningNotifications: true, developmentGoalNotifications: true, organisationNotifications: true, systemNotifications: false,
 };
+
+const PERMISSION_MAP = new Map<string, Set<string>>([
+  ["user-jamie", new Set(Array.from(defaultPermsForRole("educator")).filter(k => k !== "groups.delete"))],
+]);
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -656,6 +667,137 @@ export default function ScreenFixturesPage() {
             onNavigateSettings={() => {}}
             onNavigateTeam={() => {}}
             onRefreshOrgMembers={() => {}}
+          />
+        </div>
+      </Section>
+
+      {/* ── Phase 6B — Educator operations ──────────────────────────────────── */}
+
+      <Section title="Assignments — list" description='screen === "assignments" → components/admin/AssignmentsScreen.tsx'>
+        <div className="rounded-2xl border border-border">
+          <AssignmentsScreen
+            session={SESSION_ADMIN}
+            assignments={ASSIGNMENTS}
+            playlists={PLAYLISTS}
+            members={MEMBERS}
+            groups={GROUPS}
+            loading={false}
+            error=""
+            canDelete
+            onView={() => {}}
+            onDelete={async () => {}}
+            onNewQuiz={() => {}}
+            onNewSimulator={() => {}}
+            onBack={() => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Assignments — empty state" description="Zero assignments.">
+        <div className="rounded-2xl border border-border">
+          <AssignmentsScreen
+            session={SESSION_ADMIN}
+            assignments={[]}
+            playlists={[]}
+            members={MEMBERS}
+            groups={GROUPS}
+            loading={false}
+            error=""
+            canDelete
+            onView={() => {}}
+            onDelete={async () => {}}
+            onNewQuiz={() => {}}
+            onNewSimulator={() => {}}
+            onBack={() => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Assignment detail — playlist assignment, in progress" description='screen === "assignment-detail" → components/admin/AssignmentDetailScreen.tsx (reflection question, single member "Started")'>
+        <div className="rounded-2xl border border-border">
+          <AssignmentDetailScreen
+            assignment={ASSIGNMENTS[0]}
+            playlist={PLAYLISTS[0]}
+            members={MEMBERS}
+            canEdit
+            canDelete
+            reviews={REVIEWS}
+            tags={TAGS}
+            onBack={() => {}}
+            onUpdate={async () => {}}
+            onDelete={async () => {}}
+            onAddUsers={async () => ({ added: 0, skipped: 0 })}
+            onRemoveUser={async () => {}}
+            onUpdateStatus={async () => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Assignment detail — quiz assignment, completed" description="Quiz-only assignment (no playlist), one member Completed with a scored quiz — verifies the quiz review expandable row.">
+        <div className="rounded-2xl border border-border">
+          <AssignmentDetailScreen
+            assignment={ASSIGNMENTS[1]}
+            playlist={null}
+            members={MEMBERS}
+            canEdit
+            canDelete
+            reviews={REVIEWS}
+            tags={TAGS}
+            onBack={() => {}}
+            onUpdate={async () => {}}
+            onDelete={async () => {}}
+            onAddUsers={async () => ({ added: 0, skipped: 0 })}
+            onRemoveUser={async () => {}}
+            onUpdateStatus={async () => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Comment Inbox" description='screen === "comment-inbox" → components/educator/CommentInbox.tsx (fetches its own review/comment threads live from Supabase — renders its empty state deterministically, same limitation as My Comments and Member Management above)'>
+        <div className="rounded-2xl border border-border">
+          <CommentInbox
+            session={SESSION_EDUCATOR}
+            onHome={() => {}}
+            onRead={() => {}}
+            onOpenReview={() => {}}
+            unreadCounts={{}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Team Management — permissions" description='screen === "team-management" → components/admin/TeamManagementScreen.tsx (one member with role-default permissions, one with a custom set)'>
+        <div className="rounded-2xl border border-border">
+          <TeamManagementScreen
+            session={SESSION_ADMIN}
+            members={MEMBERS}
+            permissionMap={PERMISSION_MAP}
+            permissionsLoading={false}
+            onSavePerms={async () => {}}
+            onBack={() => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Team Management — empty state" description="Zero members.">
+        <div className="rounded-2xl border border-border">
+          <TeamManagementScreen
+            session={SESSION_ADMIN}
+            members={[]}
+            permissionMap={new Map()}
+            permissionsLoading={false}
+            onSavePerms={async () => {}}
+            onBack={() => {}}
+          />
+        </div>
+      </Section>
+
+      <Section title="Your Profile" description='screen === "profile" → components/admin/UserProfileScreen.tsx'>
+        <div className="rounded-2xl border border-border">
+          <UserProfileScreen
+            session={SESSION_ADMIN}
+            onBack={() => {}}
+            onSwitchOrg={() => {}}
+            onProfileNameSaved={() => {}}
           />
         </div>
       </Section>

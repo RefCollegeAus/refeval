@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Send, ChevronDown, ChevronUp, Play } from "lucide-react";
+import { Send, ChevronDown, ChevronUp, Play, MessageSquare } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { embedUrl } from "@/lib/utils/video";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { UnreadCounts } from "@/lib/hooks/useUnreadCounts";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, Card, EmptyState, Spinner, Textarea } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 type CommentRow = {
   id: string;
@@ -48,12 +51,12 @@ type ReviewGroup = {
   latestAt: string;
 };
 
-function outcomeClass(outcome?: string | null): string {
-  if (!outcome) return "review";
+function outcomeTone(outcome?: string | null): "good" | "danger" | "warn" {
+  if (!outcome) return "warn";
   const o = outcome.toLowerCase();
-  if (o.startsWith("correct")) return "done";
-  if (o.startsWith("incorrect")) return "incorrect";
-  return "review";
+  if (o.startsWith("correct")) return "good";
+  if (o.startsWith("incorrect")) return "danger";
+  return "warn";
 }
 
 function formatTs(ts: string): string {
@@ -247,9 +250,9 @@ export function CommentInbox({
     if (isDirectVideo) return <video key={clip.adjustedSeconds} className="inbox-video-frame" controls src={`${url}#t=${Math.floor(clip.adjustedSeconds)}`} />;
     // Non-embeddable — offer to open in review
     return (
-      <p className="hint" style={{ margin: 0 }}>
+      <p className="text-sm text-muted">
         Video cannot be embedded here.{" "}
-        {onOpenReview && <button className="clip-action-btn" onClick={() => onOpenReview(review.id)}>Open in review ↗</button>}
+        {onOpenReview && <Button variant="secondary" size="sm" onClick={() => onOpenReview(review.id)}>Open in review ↗</Button>}
       </p>
     );
   }
@@ -268,75 +271,70 @@ export function CommentInbox({
   const displayGroups = unreadCounts === undefined ? groups : actionableGroups;
 
   return (
-    <div className="inbox-root" style={{ padding: "24px", maxWidth: 900, margin: "0 auto" }}>
-      <div className="inbox-page-header panel">
-        <div>
-          <p className="eyebrow">Educator</p>
-          <h1 style={{ marginBottom: 2 }}>Comment Inbox</h1>
-          <p className="hint" style={{ margin: 0 }}>
-            Threads where referees are waiting for your response
-          </p>
+    <PageFrame
+      className="mx-auto max-w-[900px]"
+      eyebrow="Educator"
+      title="Comment Inbox"
+      description="Threads where referees are waiting for your response"
+      actions={
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={load}>Refresh</Button>
+          <Button variant="secondary" size="sm" onClick={onHome}>← Back</Button>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={load}>Refresh</button>
-          <button onClick={onHome}>← Back</button>
+      }
+    >
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted">
+          <Spinner size={16} /> Loading…
         </div>
-      </div>
-
-      {loading && <div className="loading-state"><span className="loading-spinner" />Loading…</div>}
-      {error && <p className="danger-text" style={{ padding: "20px 0" }}>{error}</p>}
+      )}
+      {error && <p className="text-[13px] text-red-300">{error}</p>}
 
       {!loading && !error && groups.length === 0 && (
-        <div className="empty-state">No clip comments yet. Comments will appear here when referees add feedback to clips.</div>
+        <EmptyState icon={<MessageSquare size={28} />} title="No clip comments yet" description="Comments will appear here when referees add feedback to clips." />
       )}
       {!loading && !error && groups.length > 0 && unreadCounts !== undefined && displayGroups.length === 0 && (
-        <div className="empty-state inbox-clear-state">
-          <strong>Inbox clear.</strong> All threads are up to date — no replies needed.
-        </div>
+        <EmptyState icon={<MessageSquare size={28} />} title="Inbox clear" description="All threads are up to date — no replies needed." />
       )}
 
       {displayGroups.map(({ review, clips }) => {
         const isCollapsed = collapsed.has(review.id);
         return (
-          <div key={review.id} className="inbox-review-group">
-            <button className="inbox-review-header" onClick={() => toggleCollapse(review.id)}>
-              <div className="inbox-review-header-info">
-                <span className="inbox-review-name">{review.game}</span>
+          <Card key={review.id} className="!p-0 overflow-hidden">
+            <button className="flex w-full items-center justify-between gap-3 p-4 text-left" onClick={() => toggleCollapse(review.id)}>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <span className="font-bold text-text">{review.game}</span>
                 {review.gameDate && (
-                  <span className="hint inbox-review-date">
+                  <span className="text-xs text-muted">
                     {new Date(review.gameDate).toLocaleDateString(undefined, { dateStyle: "medium" })}
                   </span>
                 )}
-                <span className="hint inbox-review-refs">{refNames(review)}</span>
+                <span className="text-xs text-muted">{refNames(review)}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div className="flex shrink-0 items-center gap-1.5">
                 <span className="chip">{clips.length} clip{clips.length !== 1 ? "s" : ""}</span>
-                {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                {isCollapsed ? <ChevronDown size={16} className="text-muted" /> : <ChevronUp size={16} className="text-muted" />}
               </div>
             </button>
 
             {!isCollapsed && (
-              <div className="inbox-clip-list">
+              <div className="grid gap-3 border-t border-border p-4">
                 {clips.map(({ clip, comments }) => {
                   const key = `${review.id}::${clip.id}`;
                   const isReplying = replyKey === key;
                   const isVideoOpen = openVideoKey === key;
                   const embed = review.videoLink ? videoEmbed(review, clip) : null;
                   return (
-                    <div key={clip.id} className="inbox-clip-thread">
-                      <div className="inbox-clip-meta">
-                        <span className="inbox-clip-time">{clip.adjustedTime}</span>
-                        {clip.outcome && (
-                          <span className={`status ${outcomeClass(clip.outcome)}`} style={{ fontSize: 11, padding: "2px 7px" }}>
-                            {clip.outcome}
-                          </span>
-                        )}
-                        {clip.category && <span className="hint">{clip.category}</span>}
-                        {clip.refereeTarget && <span className="hint">· {clip.refereeTarget}</span>}
+                    <div key={clip.id} className="grid gap-2.5 rounded-xl border border-border bg-panel-2 p-3.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold text-text">{clip.adjustedTime}</span>
+                        {clip.outcome && <Badge tone={outcomeTone(clip.outcome)}>{clip.outcome}</Badge>}
+                        {clip.category && <span className="text-xs text-muted">{clip.category}</span>}
+                        {clip.refereeTarget && <span className="text-xs text-muted">· {clip.refereeTarget}</span>}
                         {embed && (
-                          <button className="clip-action-btn" onClick={() => setOpenVideoKey(k => k === key ? null : key)}>
+                          <Button variant="secondary" size="sm" className="gap-1" onClick={() => setOpenVideoKey(k => k === key ? null : key)}>
                             <Play size={11} /> {isVideoOpen ? "Hide video" : "Watch clip"}
-                          </button>
+                          </Button>
                         )}
                       </div>
 
@@ -344,23 +342,34 @@ export function CommentInbox({
                         <div className="inbox-video-preview">{embed}</div>
                       )}
 
-                      <div className="inbox-thread">
-                        {comments.map(c => (
-                          <div key={c.id} className={"disc-message" + (c.userId === session?.user.id ? " disc-mine" : "")}>
-                            <div className="disc-meta">
-                              <span className="disc-author">{c.authorName}</span>
-                              <span className="disc-time">{formatTs(c.createdAt)}</span>
+                      <div className="grid gap-2">
+                        {comments.map(c => {
+                          const isMe = c.userId === session?.user.id;
+                          return (
+                            <div key={c.id} className={cn("flex flex-col gap-0.5", isMe ? "items-end" : "items-start")}>
+                              <div className="flex items-center gap-2 text-[11px] text-muted">
+                                <span className="font-semibold text-text">{c.authorName}</span>
+                                <span>{formatTs(c.createdAt)}</span>
+                              </div>
+                              <div
+                                className={cn(
+                                  "max-w-[85%] border px-3 py-2",
+                                  isMe
+                                    ? "rounded-[12px_12px_2px_12px] border-accent/30 bg-accent/[.14]"
+                                    : "rounded-[12px_12px_12px_2px] border-border bg-panel"
+                                )}
+                              >
+                                <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-text">{c.message}</p>
+                              </div>
                             </div>
-                            <div className="disc-bubble"><p className="disc-text">{c.message}</p></div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       {isReplying ? (
-                        <div className="inbox-reply-compose">
-                          <div className="disc-compose">
-                            <textarea
-                              className="disc-textarea"
+                        <div className="grid gap-1.5">
+                          <div className="flex items-end gap-2">
+                            <Textarea
                               placeholder="Write a reply…"
                               value={replyDraft}
                               autoFocus
@@ -368,21 +377,22 @@ export function CommentInbox({
                               onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) sendReply(review.id, clip.id); }}
                               rows={3}
                               disabled={replySending}
+                              className="flex-1 resize-none"
                             />
-                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                              <button className="primary disc-send" onClick={() => sendReply(review.id, clip.id)} disabled={!replyDraft.trim() || replySending}>
+                            <div className="grid shrink-0 gap-1.5">
+                              <Button variant="primary" className="gap-1.5" onClick={() => sendReply(review.id, clip.id)} disabled={!replyDraft.trim() || replySending}>
                                 <Send size={15} />{replySending ? "Sending…" : "Send"}
-                              </button>
-                              <button onClick={() => { setReplyKey(null); setReplyDraft(""); }}>Cancel</button>
+                              </Button>
+                              <Button variant="secondary" onClick={() => { setReplyKey(null); setReplyDraft(""); }}>Cancel</Button>
                             </div>
                           </div>
-                          {replyError && <p className="danger-text" style={{ marginTop: 6 }}>{replyError}</p>}
-                          <p className="hint" style={{ marginTop: 4, fontSize: 11 }}>Ctrl+Enter / ⌘+Enter to send</p>
+                          {replyError && <p className="text-[13px] text-red-300">{replyError}</p>}
+                          <p className="text-[11px] text-muted">Ctrl+Enter / ⌘+Enter to send</p>
                         </div>
                       ) : (
-                        <div className="inbox-thread-actions">
-                          <button className="clip-action-btn" onClick={() => openReply(review.id, clip.id)}>Reply</button>
-                          <button className="clip-action-btn" onClick={() => clearThread(review.id, clip.id)}>No reply required</button>
+                        <div className="flex gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => openReply(review.id, clip.id)}>Reply</Button>
+                          <Button variant="secondary" size="sm" onClick={() => clearThread(review.id, clip.id)}>No reply required</Button>
                         </div>
                       )}
                     </div>
@@ -390,9 +400,9 @@ export function CommentInbox({
                 })}
               </div>
             )}
-          </div>
+          </Card>
         );
       })}
-    </div>
+    </PageFrame>
   );
 }
