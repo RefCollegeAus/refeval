@@ -6,6 +6,12 @@
 **Environment:** Local dev server (`localhost:3000`), Supabase DEV project (`eydvhyajgoiaursfhyon`)  
 **Branch:** `main` @ `297cc35`
 
+> **Still current as of RefEval Evolution — Phase 5** (commit `8ae919a`): the same missing-credential
+> blocker documented below (§"Educator/referee/super_admin dev passwords not available") applies to
+> authenticated QA of the review workspace's rebuilt presentation layer. See
+> `docs/REFEVAL_MODERNISATION_PLAN.md` → "Implementation status" for the current, phase-specific
+> pending-verification list.
+
 ---
 
 ## Testing Method Key

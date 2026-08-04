@@ -11,6 +11,48 @@ as they are today. Nothing here proposes removing or restructuring a feature.
 
 ---
 
+## Implementation status (updated as each phase ships)
+
+The phase numbering below is the actual delivery sequence used during implementation — it does
+not map 1:1 onto the "Phase 4–7" *proposed* roadmap in §9 below, which was written before any
+code was touched and has since been superseded by how the work was actually sequenced.
+
+| Phase | Scope | Status | Commit |
+|---|---|---|---|
+| 1 | Referee College Design System foundation — Tailwind token layer, `components/ui/*` primitives, `/style-guide` | Complete | `e53bb51` |
+| 2 | App shell alignment — persistent `Sidebar`, `BrandBlock`, `Header` rebuild | Complete | `310e2c7` |
+| 3 | Core dashboards — Educator Dashboard, Referee Home, Organisation Dashboard | Complete | `229c853` |
+| 4 | Referee development experience — My Learning, review history/summary, My Goals, Development Timeline, My Comments | Complete | `3ef9451` |
+| 5 | Review workspace (video/tagging chrome, sidebar, coded-clips table, modals) | **Code Complete — Authenticated QA Pending** (see below) | `8ae919a` |
+| 6 | Educator and admin experience | In progress | — |
+
+### Phase 5 status detail
+
+- Implementation is complete: every planned surface (evaluation header, review setup bar, video
+  area chrome, timeline label, sidebar analytics/breakdowns, Development Goals panel, coded clips
+  table, `ReviewComments`, `ReviewDevelopmentPanel`, and the four review-workspace modals plus
+  `ConfirmModal`) was migrated onto the shared design system.
+- `npm run build` and `npx tsc --noEmit` both pass cleanly.
+- Static/code-level verification is complete: an automated diff of every function-call identifier
+  in the reviewer JSX before and after the change confirmed zero handler calls were dropped, and
+  manual construction preserved every prop/handler reference exactly.
+- **Live educator QA remains blocked.** No educator Supabase credentials are available in this
+  environment (confirmed against `docs/BETA_QA_REGISTER.md`, which documents the same blocker
+  from an earlier session, and against `.env.local`/`.env.dev`, which hold only project
+  URL/anon-key config, no user passwords). Per standing policy, credentials are not rotated or
+  reset to work around this.
+- **The following still require authenticated, in-browser verification before release sign-off:**
+  video playback (play/pause, seeking, ±5s), tagged-clip playback (start/end timestamp seeking,
+  Rewatch, switching between clips from different source videos), the timeline scrubber and
+  drag handles, the 8-step tagging wizard end-to-end (including edit/delete of an existing tag),
+  comment load/reply/unread-state behaviour, development-goal linking/creation from a review,
+  autosave and review-resume behaviour, and the final-summary/completion flow.
+- **Phase 5 must not be treated as fully verified until that authenticated pass has run.** The
+  review workspace will not be revisited or modified again until working educator credentials are
+  available to complete it.
+
+---
+
 ## How this audit was done
 
 Both codebases were read directly, not sampled from memory:

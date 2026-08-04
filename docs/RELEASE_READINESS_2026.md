@@ -4,6 +4,15 @@
 **Date:** July 2026  
 **Status:** See Executive Status below
 
+> **Update (RefEval Evolution — Phase 5):** the review workspace's presentation layer (video/tagging
+> chrome, sidebar, coded-clips table, modals) was rebuilt onto the shared design system in commit
+> `8ae919a`. Implementation is code-complete — `npm run build` and `npx tsc --noEmit` pass, and an
+> automated handler-diff confirmed no behaviour changed — but the "Video coding / tagging" row
+> below (originally verified by code review only, same limitation as this document's original
+> pass) still has **not** had an authenticated in-browser QA pass against the *current* UI. See
+> `docs/REFEVAL_MODERNISATION_PLAN.md` → "Implementation status" for the full list of scenarios
+> still pending educator credentials. Do not treat this row as re-verified until that pass runs.
+
 ---
 
 ## Executive Status
