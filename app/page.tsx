@@ -65,7 +65,9 @@ import {
   getVisibleUnreadCount,
 } from "@/lib/services/notifications";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, Pause, Play, Trash2, Eye, MessageSquare } from "lucide-react";
+import { Download, Pause, Play, Trash2, Eye, MessageSquare, BarChart3, Target, BookOpen, Inbox } from "lucide-react";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, Card, EmptyState, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui";
 import { AppToast } from "@/components/common/AppToast";
 import { showToast } from "@/lib/toast";
 import * as XLSX from "xlsx";
@@ -1911,155 +1913,210 @@ export default function Home() {
     });
     const myAnalytics = makeAnalytics(allMyTags);
 
+    const totalUnreadComments = allMyReviews.reduce((s, r) =>
+      s + Object.entries(counts ?? {}).filter(([k]) => k.startsWith(r.id + "::")).reduce((n, [, c]) => n + c, 0), 0);
+    const pendingLearningCount = myAssignments.filter(a => a.assignmentUsers.find(u => u.userId === session?.user.id)?.status !== "Completed").length;
+    const myGoals = session ? refereeGoalViewsForReferee(session.user.id) : [];
+    const sidebarTags = allMyReviews.flatMap(r => {
+      const slot = slotForUser(session?.user.id || "", r);
+      return tags.filter(t => t.reviewId === r.id && tagAppliesToSlot(t, slot));
+    });
+    const sidebarAnalytics = makeAnalytics(sidebarTags);
+    const barGroup = (label: string, counts: [string, number][]) => {
+      if (counts.length === 0) return null;
+      const max = Math.max(...counts.map(([, c]) => c), 1);
+      return (
+        <Card key={label} className="p-3.5">
+          <h3 className="ed-section-title mb-2">{label}</h3>
+          <div className="grid gap-1.5">
+            {counts.map(([n, c]) => (
+              <div key={n} className="flex items-center gap-2 text-xs">
+                <span className="w-20 shrink-0 truncate text-text">{n}</span>
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-panel-3">
+                  <div className="h-full rounded-full bg-accent" style={{ width: `${Math.round((c / max) * 100)}%` }} />
+                </div>
+                <strong className="w-6 shrink-0 text-right text-text">{c}</strong>
+              </div>
+            ))}
+          </div>
+        </Card>
+      );
+    };
+
     return (
       <main>
         <Header session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onSearch={() => setShowSearch(true)} onLogout={logout} />
         <div className="layout">
-          <section className="panel">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-              <div>
-                <p className="eyebrow">Referee Portal</p>
-                <h1 style={{ margin: "2px 0 0" }}>Welcome, {session?.profile.name}</h1>
-                <p className="hint" style={{ margin: "2px 0 0" }}>Only completed evaluations from your educator appear here.</p>
-              </div>
-            </div>
+          <div className="grid gap-4">
+            <PageFrame
+              className="p-0"
+              eyebrow="Referee Portal"
+              title={`Welcome, ${session?.profile.name}`}
+              description="Only completed evaluations from your educator appear here."
+            />
 
             {/* Onboarding */}
             {!onboardingDismissed && (
-              <div style={{ marginTop: 16 }}>
-                <OnboardingPanel
-                  role="referee"
-                  onDismiss={dismissOnboarding}
-                  onNavigate={setScreen}
-                  onNavigateDevelopment={session ? () => {
-                    setDevGoalRefereeId(session.user.id);
-                    setScreen("referee-development");
-                  } : undefined}
-                />
-              </div>
+              <OnboardingPanel
+                role="referee"
+                onDismiss={dismissOnboarding}
+                onNavigate={setScreen}
+                onNavigateDevelopment={session ? () => {
+                  setDevGoalRefereeId(session.user.id);
+                  setScreen("referee-development");
+                } : undefined}
+              />
             )}
 
-            {/* Compact date filter */}
-            <DateRangeFilter
-              value={refDateFilter}
-              onChange={setRefDateFilter}
-              totalCount={allMyReviews.length}
-              filteredCount={myReviews.length}
-            />
+            <Card>
+              {/* Compact date filter */}
+              <DateRangeFilter
+                value={refDateFilter}
+                onChange={setRefDateFilter}
+                totalCount={allMyReviews.length}
+                filteredCount={myReviews.length}
+              />
 
-            {myReviews.length === 0 ? (
-              <p className="hint" style={{ marginTop: 16 }}>
-                {allMyReviews.length === 0
-                  ? "No completed evaluations yet."
-                  : "No evaluations found for this date range."}
-              </p>
-            ) : (
-              <div className="ref-reviews-table">
-                <table>
-                  <thead><tr><th>Game</th><th>Status</th><th>Educator</th><th>Submitted</th><th>Clips</th><th>Accuracy</th><th></th></tr></thead>
-                  <tbody>
+              {myReviews.length === 0 ? (
+                <EmptyState
+                  className="mt-4"
+                  icon={<Inbox size={28} />}
+                  title={allMyReviews.length === 0 ? "No completed evaluations yet" : "No evaluations for this date range"}
+                  description={
+                    allMyReviews.length === 0
+                      ? "Completed evaluations from your educator will appear here."
+                      : "Try widening the date range above to see more results."
+                  }
+                />
+              ) : (
+                <Table className="mt-3">
+                  <TableHead>
+                    <TableRow>
+                      <TableHeaderCell>Game</TableHeaderCell>
+                      <TableHeaderCell>Status</TableHeaderCell>
+                      <TableHeaderCell>Educator</TableHeaderCell>
+                      <TableHeaderCell>Submitted</TableHeaderCell>
+                      <TableHeaderCell>Clips</TableHeaderCell>
+                      <TableHeaderCell>Accuracy</TableHeaderCell>
+                      <TableHeaderCell />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
                     {myReviews.map(review => {
                       const slot = slotForUser(session?.user.id || "", review);
                       const visible = tags.filter(t => t.reviewId === review.id && tagAppliesToSlot(t, slot));
+                      const unread = reviewUnread(review.id);
                       return (
-                        <tr key={review.id}>
-                          <td data-label="Game">{review.game}</td>
-                          <td data-label="Status"><span className="status done">{review.status}</span></td>
-                          <td data-label="Educator">{review.educatorName}</td>
-                          <td data-label="Submitted">{review.submittedAt ? new Date(review.submittedAt).toLocaleDateString() : "—"}</td>
-                          <td data-label="Clips">{visible.length}</td>
-                          <td data-label="Accuracy">{makeAnalytics(visible).accuracy}</td>
-                          <td data-label=""><div className="badge-wrap"><button className="primary" onClick={() => { setActiveReviewId(review.id); setScreen("refereeReview"); }}><Eye size={16} /> View Clips</button>{reviewUnread(review.id) > 0 && <span className="badge-count">{Math.min(reviewUnread(review.id), 99)}</span>}</div></td>
-                        </tr>
+                        <TableRow key={review.id}>
+                          <TableCell data-label="Game" className="font-semibold">{review.game}</TableCell>
+                          <TableCell data-label="Status"><Badge tone="good">{review.status}</Badge></TableCell>
+                          <TableCell data-label="Educator">{review.educatorName}</TableCell>
+                          <TableCell data-label="Submitted">{review.submittedAt ? new Date(review.submittedAt).toLocaleDateString() : "—"}</TableCell>
+                          <TableCell data-label="Clips">{visible.length}</TableCell>
+                          <TableCell data-label="Accuracy">{makeAnalytics(visible).accuracy}</TableCell>
+                          <TableCell data-label="">
+                            <div className="relative inline-flex">
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                className="gap-1.5"
+                                onClick={() => { setActiveReviewId(review.id); setScreen("refereeReview"); }}
+                              >
+                                <Eye size={14} /> View Clips
+                              </Button>
+                              {unread > 0 && (
+                                <span
+                                  aria-hidden="true"
+                                  className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white shadow-[0_0_0_2px_var(--bg)]"
+                                >
+                                  {Math.min(unread, 99)}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+                  </TableBody>
+                </Table>
+              )}
+            </Card>
+          </div>
 
           <aside className="panel side-panel">
-            <button className="primary" onClick={() => setScreen("referee-stats")} style={{ whiteSpace: "nowrap", width: "100%", marginBottom: 8 }}>📊 My Stats Hub</button>
-            {session?.activeRole === "referee" && (
-              <button style={{ whiteSpace: "nowrap", width: "100%", marginBottom: 8 }} onClick={() => setScreen("referee-goals")}>🎯 My Goals</button>
+            <div className="grid gap-2">
+              <Button variant="primary" onClick={() => setScreen("referee-stats")} className="w-full justify-start gap-2.5">
+                <BarChart3 size={16} /> My Stats Hub
+              </Button>
+              {session?.activeRole === "referee" && (
+                <Button variant="secondary" onClick={() => setScreen("referee-goals")} className="w-full justify-start gap-2.5">
+                  <Target size={16} /> My Goals
+                </Button>
+              )}
+              <div className="relative">
+                <Button variant="secondary" onClick={() => setScreen("referee-comments")} className="w-full justify-start gap-2.5">
+                  <MessageSquare size={16} /> My Comments
+                </Button>
+                {totalUnreadComments > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white shadow-[0_0_0_2px_var(--bg)]"
+                  >
+                    {Math.min(totalUnreadComments, 99)}
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <Button variant="secondary" onClick={() => setScreen("my-learning")} className="w-full justify-start gap-2.5">
+                  <BookOpen size={16} /> My Learning
+                </Button>
+                {pendingLearningCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white shadow-[0_0_0_2px_var(--bg)]"
+                  >
+                    {pendingLearningCount}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {myGoals.length > 0 && (
+              <div className="mt-3.5">
+                <RefereeGoalsPanel goalViews={myGoals} onViewAll={() => setScreen("referee-goals")} />
+              </div>
             )}
-            {(() => {
-              const totalUnreadComments = allMyReviews.reduce((s, r) =>
-                s + Object.entries(counts ?? {}).filter(([k]) => k.startsWith(r.id + "::")).reduce((n, [, c]) => n + c, 0), 0);
-              return (
-                <div className="badge-wrap" style={{ marginBottom: 8 }}>
-                  <button style={{ whiteSpace: "nowrap", width: "100%" }} onClick={() => setScreen("referee-comments")}>
-                    💬 My Comments
-                  </button>
-                  {totalUnreadComments > 0 && (
-                    <span className="badge-count" style={{ background: "#ff453a" }}>{Math.min(totalUnreadComments, 99)}</span>
+
+            {allMyReviews.length > 0 && (
+              <Card className="mt-3.5 p-3.5">
+                <h3 className="ed-section-title mb-2">Performance Summary</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-lg border border-border bg-panel2 p-2 text-center">
+                    <div className="text-xl font-black tracking-tight text-text">{allMyReviews.length}</div>
+                    <div className="text-[11px] text-muted">Evaluations</div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-panel2 p-2 text-center">
+                    <div className="text-xl font-black tracking-tight text-text">{sidebarTags.length}</div>
+                    <div className="text-[11px] text-muted">Clips</div>
+                  </div>
+                  {sidebarTags.length > 0 && (
+                    <div className="rounded-lg border border-border bg-panel2 p-2 text-center">
+                      <div className="text-xl font-black tracking-tight text-text">{sidebarAnalytics.accuracy}</div>
+                      <div className="text-[11px] text-muted">Accuracy</div>
+                    </div>
                   )}
                 </div>
-              );
-            })()}
-            <div className="badge-wrap" style={{ marginBottom: 14 }}>
-              <button style={{ whiteSpace: "nowrap", width: "100%" }} onClick={() => setScreen("my-learning")}>📚 My Learning</button>
-              {myAssignments.filter(a => a.assignmentUsers.find(u => u.userId === session?.user.id)?.status !== "Completed").length > 0 && (
-                <span className="badge-count">
-                  {myAssignments.filter(a => a.assignmentUsers.find(u => u.userId === session?.user.id)?.status !== "Completed").length}
-                </span>
-              )}
-            </div>
-            {session && (() => {
-              const myGoals = refereeGoalViewsForReferee(session.user.id);
-              return myGoals.length > 0 ? (
-                <RefereeGoalsPanel
-                  goalViews={myGoals}
-                  onViewAll={() => setScreen("referee-goals")}
-                />
-              ) : null;
-            })()}
-            {allMyReviews.length > 0 && (() => {
-              // Sidebar summary always shows all-time totals
-              const sidebarTags = allMyReviews.flatMap(r => {
-                const slot = slotForUser(session?.user.id || "", r);
-                return tags.filter(t => t.reviewId === r.id && tagAppliesToSlot(t, slot));
-              });
-              const sidebarAnalytics = makeAnalytics(sidebarTags);
-              return (
-              <div className="analytics-card">
-                <h3>Performance Summary</h3>
-                <div className="metric-grid">
-                  <div className="metric-tile"><div className="number">{allMyReviews.length}</div><div className="hint">Evaluations</div></div>
-                  <div className="metric-tile"><div className="number">{sidebarTags.length}</div><div className="hint">Clips</div></div>
-                  {sidebarTags.length > 0 && <div className="metric-tile"><div className="number">{sidebarAnalytics.accuracy}</div><div className="hint">Accuracy</div></div>}
-                </div>
+              </Card>
+            )}
+
+            {sidebarTags.length > 0 && (
+              <div className="mt-3.5 grid gap-3.5">
+                {barGroup("Outcome", sidebarAnalytics.outcomeCounts)}
+                {barGroup("Category", sidebarAnalytics.categoryCounts)}
+                {barGroup("Position", sidebarAnalytics.positionCounts)}
+                {barGroup("Coverage", sidebarAnalytics.coverageCounts)}
               </div>
-              );
-            })()}
-            {allMyReviews.length > 0 && (() => {
-              // Sidebar breakdown also uses all-time tags
-              const sidebarTags = allMyReviews.flatMap(r => {
-                const slot = slotForUser(session?.user.id || "", r);
-                return tags.filter(t => t.reviewId === r.id && tagAppliesToSlot(t, slot));
-              });
-              if (sidebarTags.length === 0) return null;
-              const sidebarAnalytics = makeAnalytics(sidebarTags);
-              const bars = (counts: [string, number][]) => {
-                const max = Math.max(...counts.map(([, c]) => c), 1);
-                return counts.map(([n, c]) => (
-                  <div className="metric-row" key={n}>
-                    <span>{n}</span>
-                    <div className="mini-bar"><div className="mini-bar-fill" style={{ width: `${Math.round((c / max) * 100)}%` }} /></div>
-                    <strong>{c}</strong>
-                  </div>
-                ));
-              };
-              return (
-                <>
-                  <div className="analytics-card"><h3>Outcome</h3>{bars(sidebarAnalytics.outcomeCounts)}</div>
-                  <div className="analytics-card"><h3>Category</h3>{bars(sidebarAnalytics.categoryCounts)}</div>
-                  <div className="analytics-card"><h3>Position</h3>{bars(sidebarAnalytics.positionCounts)}</div>
-                  <div className="analytics-card"><h3>Coverage</h3>{bars(sidebarAnalytics.coverageCounts)}</div>
-                </>
-              );
-            })()}
+            )}
           </aside>
         </div>
 

@@ -19,6 +19,9 @@ import { GroupsScreen } from "@/components/educator/GroupsScreen";
 import {
   SettingsPage, SettingsSection, SettingsCard, SettingsRow,
 } from "./SettingsLayout";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, Card, EmptyState } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 // ── Sub-page routing ──────────────────────────────────────────────────────────
 
@@ -246,25 +249,33 @@ function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
 
 // ── Dashboard page ────────────────────────────────────────────────────────────
 
-function RolePill({ color, label, count }: { color: string; label: string; count: number }) {
+// Referee College Design System — Phase 3. Role colours are kept distinct
+// (referee/educator/admin are a genuinely meaningful distinction, not
+// decorative) but mapped onto the shared token palette instead of four
+// unrelated hex values, per "do not flatten meaningful semantic
+// differences" while still satisfying "restrained colour usage."
+const ROLE_TONE: Record<string, { dot: string; text: string; bg: string; border: string }> = {
+  referee:     { dot: "bg-good",   text: "text-good",         bg: "bg-good/10",   border: "border-good/25" },
+  educator:    { dot: "bg-info",   text: "text-blue-300",     bg: "bg-info/10",   border: "border-info/25" },
+  admin:       { dot: "bg-accent", text: "text-amber-300",    bg: "bg-accent/10", border: "border-accent/25" },
+  super_admin: { dot: "bg-accent", text: "text-amber-300",    bg: "bg-accent/10", border: "border-accent/25" },
+  viewer:      { dot: "bg-muted",  text: "text-muted",        bg: "bg-panel-3",   border: "border-border" },
+};
+
+function RolePill({ role, label, count }: { role: string; label: string; count: number }) {
+  const tone = ROLE_TONE[role] ?? ROLE_TONE.viewer;
   return (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "10px 14px", borderRadius: 10,
-      background: `${color}0f`, border: `1px solid ${color}28`,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{
-          width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0,
-        }} />
-        <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
+    <div className={cn("flex items-center justify-between rounded-[10px] border px-3.5 py-2.5", tone.bg, tone.border)}>
+      <div className="flex items-center gap-2">
+        <span className={cn("h-2 w-2 shrink-0 rounded-full", tone.dot)} />
+        <span className="text-[13px] font-semibold text-text">{label}</span>
       </div>
-      <span style={{ fontSize: 16, fontWeight: 800, color }}>{count}</span>
+      <span className={cn("text-base font-extrabold", tone.text)}>{count}</span>
     </div>
   );
 }
 
-function SectionCard({
+function DashboardSectionCard({
   title, description, action, children,
 }: {
   title: string;
@@ -273,24 +284,20 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <div className="panel" style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+    <Card className="flex flex-col gap-3.5">
+      <div className="flex items-start justify-between gap-2.5">
         <div>
-          <p style={{ margin: 0, fontSize: 15, fontWeight: 800, letterSpacing: "-0.01em" }}>{title}</p>
-          {description && <p className="hint" style={{ margin: "3px 0 0", fontSize: 12 }}>{description}</p>}
+          <p className="text-[15px] font-extrabold tracking-tight text-text">{title}</p>
+          {description && <p className="hint mt-0.5 text-xs">{description}</p>}
         </div>
         {action && (
-          <button
-            className={action.primary ? "primary" : undefined}
-            style={{ fontSize: 12, padding: "5px 12px", flexShrink: 0 }}
-            onClick={action.onClick}
-          >
+          <Button variant={action.primary ? "primary" : "secondary"} size="sm" onClick={action.onClick} className="shrink-0">
             {action.label}
-          </button>
+          </Button>
         )}
       </div>
       {children}
-    </div>
+    </Card>
   );
 }
 
@@ -329,55 +336,59 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
   const setupPct  = Math.round((setupDone / setupItems.length) * 100);
 
   return (
-    <SettingsPage eyebrow="Organisation" title={org?.name ?? "Organisation"}>
+    <PageFrame eyebrow="Organisation" title={org?.name ?? "Organisation"} className="p-0">
 
       {/* ── Org identity header ── */}
-      <div className="panel" style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+      <Card className="flex flex-wrap items-center gap-[18px]">
         <OrgLogoMark name={org?.name ?? ""} branding={settings.branding} size={60} fontSize={22} borderRadius={16} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{org?.name ?? "—"}</h2>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-2.5">
+            <h2 className="text-xl font-extrabold text-text">{org?.name ?? "—"}</h2>
             {settings.profile.shortName && (
-              <span className="hint" style={{ fontSize: 13, fontWeight: 600 }}>{settings.profile.shortName}</span>
+              <span className="hint text-[13px] font-semibold">{settings.profile.shortName}</span>
             )}
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 14px", marginTop: 6 }}>
-            <span className="hint" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--accent)", display: "inline-block" }} />
+          <div className="mt-1.5 flex flex-wrap gap-x-3.5 gap-y-1">
+            <span className="hint flex items-center gap-1.5 text-xs">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
               {settings.profile.sport}
             </span>
-            <span className="hint" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
+            <span className="hint flex items-center gap-1.5 text-xs">
               <Clock size={11} />{settings.preferences.timezone}
             </span>
-            <span className="hint" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
+            <span className="hint flex items-center gap-1.5 text-xs">
               <Globe size={11} />{settings.preferences.locale} · {settings.preferences.country}
             </span>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("profile")}>Edit Profile</button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("branding")}>Branding</button>
+        <div className="flex shrink-0 gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setCurrentPage("profile")}>Edit Profile</Button>
+          <Button variant="secondary" size="sm" onClick={() => setCurrentPage("branding")}>Branding</Button>
         </div>
-      </div>
+      </Card>
 
       {/* ── Summary metrics ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         {[
-          { label: "Members",      value: members.length,   color: "var(--accent)", onClick: () => setCurrentPage("members") },
-          { label: "Referees",     value: refereeCount,     color: "#30d158",       onClick: () => setCurrentPage("members") },
-          { label: "Educators",    value: educatorCount,    color: "#0a84ff",       onClick: () => setCurrentPage("members") },
-          { label: "Groups",       value: groupCount,       color: "#8b5cf6",       onClick: () => setCurrentPage("groups") },
-          { label: "Reviews",      value: reviews.length,   color: "#bf5af2",       onClick: undefined },
-          { label: "Active Goals", value: activeGoalCount,  color: "#ff9f0a",       onClick: undefined },
-        ].map(({ label, value, color, onClick }) => (
+          { label: "Members",      value: members.length,   onClick: () => setCurrentPage("members") },
+          { label: "Referees",     value: refereeCount,     onClick: () => setCurrentPage("members") },
+          { label: "Educators",    value: educatorCount,    onClick: () => setCurrentPage("members") },
+          { label: "Groups",       value: groupCount,       onClick: () => setCurrentPage("groups") },
+          { label: "Reviews",      value: reviews.length,   onClick: undefined },
+          { label: "Active Goals", value: activeGoalCount,  onClick: undefined },
+        ].map(({ label, value, onClick }) => (
           onClick ? (
-            <button key={label} className="ed-summary-card" onClick={onClick} style={{ cursor: "pointer", textAlign: "left", width: "100%", background: "var(--panel)", border: "1px solid var(--border)" }}>
-              <div className="ed-summary-number" style={{ color }}>{value}</div>
+            <button
+              key={label}
+              onClick={onClick}
+              className="ed-summary-card w-full cursor-pointer border border-border bg-panel text-left transition-colors hover:border-accent"
+            >
+              <div className="ed-summary-number">{value}</div>
               <div className="ed-summary-label">{label}</div>
             </button>
           ) : (
             <div key={label} className="ed-summary-card">
-              <div className="ed-summary-number" style={{ color }}>{value}</div>
+              <div className="ed-summary-number">{value}</div>
               <div className="ed-summary-label">{label}</div>
             </div>
           )
@@ -385,273 +396,260 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
       </div>
 
       {/* ── Activity Overview ── */}
-      <SettingsSection title="Activity Overview" description="Review completions, learning progress, and group coverage across your organisation.">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+      <div>
+        <p className="ed-section-title mb-0.5">Activity Overview</p>
+        <p className="hint mb-3 text-xs">Review completions, learning progress, and group coverage across your organisation.</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 
           {/* Reviews */}
-          <SectionCard title="Reviews" description={reviews.length === 0 ? "No reviews yet" : `${reviews.length} total`}>
+          <DashboardSectionCard title="Reviews" description={reviews.length === 0 ? "No reviews yet" : `${reviews.length} total`}>
             {reviews.length === 0 ? (
-              <p className="hint" style={{ margin: 0, fontSize: 12 }}>Reviews created by educators will appear here.</p>
+              <p className="hint text-xs">Reviews created by educators will appear here.</p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)" }}>Completed</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#34c759" }}>{completedReviews}</span>
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted">Completed</span>
+                  <span className="text-[13px] font-bold text-good">{completedReviews}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)" }}>In Review</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#ff9f0a" }}>{inProgressReviews}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted">In Review</span>
+                  <span className="text-[13px] font-bold text-yellow-300">{inProgressReviews}</span>
                 </div>
-                <div style={{ height: 4, borderRadius: 999, background: "var(--panel3)", overflow: "hidden" }}>
-                  <div style={{ height: "100%", borderRadius: 999, width: `${reviewPct}%`, background: reviewPct === 100 ? "#34c759" : "var(--accent)", transition: "width .3s" }} />
+                <div className="h-1 overflow-hidden rounded-full bg-panel-3">
+                  <div className={cn("h-full rounded-full transition-[width] duration-300", reviewPct === 100 ? "bg-good" : "bg-accent")} style={{ width: `${reviewPct}%` }} />
                 </div>
-                <span style={{ fontSize: 11, color: "var(--muted)" }}>{reviewPct}% complete</span>
+                <span className="text-[11px] text-muted">{reviewPct}% complete</span>
               </div>
             )}
-          </SectionCard>
+          </DashboardSectionCard>
 
           {/* Assignments */}
-          <SectionCard title="Assignments" description={assignments.length === 0 ? "No assignments yet" : `${assignments.length} total`}>
+          <DashboardSectionCard title="Assignments" description={assignments.length === 0 ? "No assignments yet" : `${assignments.length} total`}>
             {assignments.length === 0 ? (
-              <p className="hint" style={{ margin: 0, fontSize: 12 }}>Learning assignments created by educators will appear here.</p>
+              <p className="hint text-xs">Learning assignments created by educators will appear here.</p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)" }}>Active</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#0a84ff" }}>{activeAssignments}</span>
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted">Active</span>
+                  <span className="text-[13px] font-bold text-blue-300">{activeAssignments}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)" }}>Completed</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#34c759" }}>{completedAssignments}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted">Completed</span>
+                  <span className="text-[13px] font-bold text-good">{completedAssignments}</span>
                 </div>
                 {activeGoalCount > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 12, color: "var(--muted)" }}>Active goals</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#ff9f0a" }}>{activeGoalCount}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted">Active goals</span>
+                    <span className="text-[13px] font-bold text-yellow-300">{activeGoalCount}</span>
                   </div>
                 )}
               </div>
             )}
-          </SectionCard>
+          </DashboardSectionCard>
 
           {/* Group coverage */}
-          <SectionCard
+          <DashboardSectionCard
             title="Group Coverage"
             description={members.length === 0 ? "No members yet" : `${coveragePct}% of members in a group`}
             action={groups.length > 0 && ungrouped > 0 ? { label: "Manage Groups", onClick: () => setCurrentPage("groups") } : undefined}
           >
             {members.length === 0 ? (
-              <p className="hint" style={{ margin: 0, fontSize: 12 }}>Invite members to start tracking group coverage.</p>
+              <p className="hint text-xs">Invite members to start tracking group coverage.</p>
             ) : groups.length === 0 ? (
-              <p className="hint" style={{ margin: 0, fontSize: 12 }}>
+              <p className="hint text-xs">
                 No groups created yet.{" "}
                 {canCreateGroups && (
-                  <button style={{ all: "unset", cursor: "pointer", color: "var(--accent)", textDecoration: "underline", fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
+                  <button className="text-accent underline" onClick={() => setCurrentPage("groups")}>
                     Create a group →
                   </button>
                 )}
               </p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)" }}>In a group</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#8b5cf6" }}>{inGroupCount}</span>
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted">In a group</span>
+                  <span className="text-[13px] font-bold text-accent">{inGroupCount}</span>
                 </div>
                 {ungrouped > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 12, color: "var(--muted)" }}>Ungrouped</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{ungrouped}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted">Ungrouped</span>
+                    <span className="text-[13px] font-bold text-muted">{ungrouped}</span>
                   </div>
                 )}
-                <div style={{ height: 4, borderRadius: 999, background: "var(--panel3)", overflow: "hidden" }}>
-                  <div style={{ height: "100%", borderRadius: 999, width: `${coveragePct}%`, background: coveragePct === 100 ? "#34c759" : "#8b5cf6", transition: "width .3s" }} />
+                <div className="h-1 overflow-hidden rounded-full bg-panel-3">
+                  <div className={cn("h-full rounded-full transition-[width] duration-300", coveragePct === 100 ? "bg-good" : "bg-accent")} style={{ width: `${coveragePct}%` }} />
                 </div>
-                <span style={{ fontSize: 11, color: coveragePct === 100 ? "#34c759" : "var(--muted)" }}>
+                <span className={cn("text-[11px]", coveragePct === 100 ? "text-good" : "text-muted")}>
                   {coveragePct === 100 ? "All members are in a group" : `${ungrouped} member${ungrouped !== 1 ? "s" : ""} not in any group`}
                 </span>
               </div>
             )}
-          </SectionCard>
+          </DashboardSectionCard>
 
         </div>
-      </SettingsSection>
+      </div>
 
       {/* ── Organisation Setup ── */}
-      <SettingsSection
-        title="Organisation Setup"
-        description={setupDone === setupItems.length
-          ? "All setup tasks are complete — your organisation is fully configured."
-          : `${setupDone} of ${setupItems.length} setup tasks complete. Complete the remaining items to get the most out of RefCoach.`
-        }
-      >
-        <div className="panel" style={{ padding: "18px 20px" }}>
+      <div>
+        <p className="ed-section-title mb-0.5">Organisation Setup</p>
+        <p className="hint mb-3 text-xs">
+          {setupDone === setupItems.length
+            ? "All setup tasks are complete — your organisation is fully configured."
+            : `${setupDone} of ${setupItems.length} setup tasks complete. Complete the remaining items to get the most out of RefCoach.`}
+        </p>
+        <Card>
           {/* Progress bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-            <div style={{ flex: 1, height: 6, borderRadius: 999, background: "var(--panel3)", overflow: "hidden" }}>
-              <div style={{
-                height: "100%", borderRadius: 999,
-                width: `${setupPct}%`,
-                background: setupPct === 100 ? "#34c759" : "var(--accent)",
-                transition: "width .3s",
-              }} />
+          <div className="mb-4 flex items-center gap-3">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-panel-3">
+              <div className={cn("h-full rounded-full transition-[width] duration-300", setupPct === 100 ? "bg-good" : "bg-accent")} style={{ width: `${setupPct}%` }} />
             </div>
-            <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", color: setupPct === 100 ? "#34c759" : "var(--text)" }}>
+            <span className={cn("whitespace-nowrap text-xs font-bold", setupPct === 100 ? "text-good" : "text-text")}>
               {setupPct}%
             </span>
           </div>
 
           {/* Checklist grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 8 }}>
+          <div className="grid gap-2 sm:grid-cols-2">
             {setupItems.map(({ label, done, page, actionLabel }) => (
-              <div key={label} style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "9px 12px", borderRadius: 9, gap: 10,
-                background: done ? "rgba(52,199,89,.06)" : "var(--panel2)",
-                border: `1px solid ${done ? "rgba(52,199,89,.2)" : "var(--border)"}`,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                  <span style={{
-                    width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: done ? "rgba(52,199,89,.15)" : "var(--panel3)",
-                    border: `1.5px solid ${done ? "rgba(52,199,89,.4)" : "var(--border)"}`,
-                    fontSize: 10, fontWeight: 900,
-                    color: done ? "#34c759" : "var(--muted)",
-                  }}>
+              <div
+                key={label}
+                className={cn(
+                  "flex items-center justify-between gap-2.5 rounded-[9px] border px-3 py-2.5",
+                  done ? "border-good/20 bg-good/[.06]" : "border-border bg-panel-2"
+                )}
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={cn(
+                      "grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border text-[10px] font-black",
+                      done ? "border-good/40 bg-good/15 text-good" : "border-border bg-panel-3 text-muted"
+                    )}
+                  >
                     {done ? "✓" : "·"}
                   </span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: done ? "var(--text)" : "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span className={cn("truncate text-xs font-semibold", done ? "text-text" : "text-muted")}>
                     {label}
                   </span>
                 </div>
                 {!done && (
-                  <button
-                    style={{ fontSize: 11, padding: "2px 8px", flexShrink: 0 }}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="shrink-0 px-2 py-0.5 text-[11px]"
                     onClick={page ? () => setCurrentPage(page) : onNavigateMembers}
                   >
                     {actionLabel} →
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
           </div>
-        </div>
-      </SettingsSection>
+        </Card>
+      </div>
 
       {/* ── Members ── */}
-      <SettingsSection title="Members">
-        <SectionCard
+      <div>
+        <p className="ed-section-title mb-3">Members</p>
+        <DashboardSectionCard
           title="Member Overview"
           description={`${members.length} user${members.length !== 1 ? "s" : ""} across all roles`}
           action={{ label: "Manage Members", onClick: onNavigateMembers, primary: true }}
         >
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-            <RolePill color="#30d158" label="Referees"  count={refereeCount} />
-            <RolePill color="#0a84ff" label="Educators" count={educatorCount} />
-            <RolePill color="#ff9f0a" label="Admins"    count={adminCount} />
+          <div className="grid gap-2 sm:grid-cols-3">
+            <RolePill role="referee" label="Referees" count={refereeCount} />
+            <RolePill role="educator" label="Educators" count={educatorCount} />
+            <RolePill role="admin" label="Admins" count={adminCount} />
           </div>
-          {members.length === 0 && (
-            <div style={{ padding: "24px 0", textAlign: "center" }}>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No members yet</p>
-              <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>Send your first invitation via Member Management to get your organisation up and running.</p>
-            </div>
-          )}
-          {members.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 0, borderRadius: 10, overflow: "hidden", border: "1px solid var(--border)" }}>
+          {members.length === 0 ? (
+            <EmptyState
+              className="mt-2"
+              title="No members yet"
+              description="Send your first invitation via Member Management to get your organisation up and running."
+            />
+          ) : (
+            <div className="mt-2 flex flex-col overflow-hidden rounded-[10px] border border-border">
               {members.slice(0, 5).map((m, i) => {
-                const roleColor: Record<string, string> = { referee: "#30d158", educator: "#0a84ff", admin: "#ff9f0a", super_admin: "#bf5af2", viewer: "var(--muted)" };
+                const tone = ROLE_TONE[m.role] ?? ROLE_TONE.viewer;
                 const roleLabel: Record<string, string> = { referee: "Referee", educator: "Educator", admin: "Administrator", super_admin: "Super Admin", viewer: "Viewer" };
                 const isLast = i === Math.min(members.length, 5) - 1;
                 return (
-                  <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderBottom: isLast ? "none" : "1px solid var(--border)", background: "var(--panel2)" }}>
-                    <div style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, background: `${roleColor[m.role] ?? "var(--muted)"}20`, border: `1.5px solid ${roleColor[m.role] ?? "var(--muted)"}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: roleColor[m.role] ?? "var(--muted)" }}>
+                  <div key={m.id} className={cn("flex items-center gap-3 bg-panel-2 px-3.5 py-2.5", !isLast && "border-b border-border")}>
+                    <div className={cn("grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full border text-xs font-extrabold", tone.bg, tone.border, tone.text)}>
                       {(m.name || m.email).slice(0, 1).toUpperCase()}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name || "—"}</p>
-                      <p className="hint" style={{ margin: 0, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-bold text-text">{m.name || "—"}</p>
+                      <p className="hint truncate text-[11px]">{m.email}</p>
                     </div>
-                    <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 5, background: `${roleColor[m.role] ?? "var(--muted)"}18`, border: `1px solid ${roleColor[m.role] ?? "var(--muted)"}30`, color: roleColor[m.role] ?? "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0 }}>
-                      {roleLabel[m.role] ?? m.role}
-                    </span>
+                    <Badge tone="neutral" className={cn(tone.text)}>{roleLabel[m.role] ?? m.role}</Badge>
                   </div>
                 );
               })}
               {members.length > 5 && (
-                <div style={{ padding: "10px 14px", background: "var(--panel2)", borderTop: "1px solid var(--border)" }}>
-                  <button
-                    style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}
-                    onClick={onNavigateMembers}
-                  >
+                <div className="border-t border-border bg-panel-2 px-3.5 py-2.5">
+                  <button className="text-xs font-semibold text-accent" onClick={onNavigateMembers}>
                     View all {members.length} members →
                   </button>
                 </div>
               )}
             </div>
           )}
-        </SectionCard>
-      </SettingsSection>
+        </DashboardSectionCard>
+      </div>
 
       {/* ── Groups ── */}
-      <SettingsSection title="Groups" description="Organise referees into cohorts for targeted learning and coaching.">
-        <div className="panel" style={{ padding: "18px 20px" }}>
+      <div>
+        <p className="ed-section-title mb-0.5">Groups</p>
+        <p className="hint mb-3 text-xs">Organise referees into cohorts for targeted learning and coaching.</p>
+        <Card>
           {groups.length === 0 ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 0" }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(139,92,246,.1)", border: "1px solid rgba(139,92,246,.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Layers size={20} style={{ color: "#8b5cf6" }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No groups yet</p>
-                <p className="hint" style={{ margin: "3px 0 0", fontSize: 12 }}>Create referee groups to target learning by cohort and track development progress.</p>
-              </div>
-              {canCreateGroups && (
-                <button style={{ fontSize: 12, flexShrink: 0 }} onClick={() => setCurrentPage("groups")}>
-                  Create Group
-                </button>
-              )}
-            </div>
+            <EmptyState
+              icon={<Layers size={24} />}
+              title="No groups yet"
+              description="Create referee groups to target learning by cohort and track development progress."
+              action={canCreateGroups ? <Button size="sm" onClick={() => setCurrentPage("groups")}>Create Group</Button> : undefined}
+            />
           ) : (
             <>
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              <div className="flex flex-col">
                 {groups.slice(0, 5).map((g, i) => (
-                  <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < Math.min(groups.length, 5) - 1 ? "1px solid var(--border)" : "none" }}>
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: g.colour, flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13 }}>{g.name}</span>
+                  <div key={g.id} className={cn("flex items-center gap-3 py-2.5", i < Math.min(groups.length, 5) - 1 && "border-b border-border")}>
+                    <div className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: g.colour }} />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[13px] font-bold text-text">{g.name}</span>
                       {g.description && (
-                        <span className="hint" style={{ fontSize: 12, marginLeft: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <span className="hint ml-2 truncate text-xs">
                           {g.description}
                         </span>
                       )}
                     </div>
-                    <span className="hint" style={{ fontSize: 12, flexShrink: 0 }}>
+                    <span className="hint shrink-0 text-xs">
                       {g.members.length} member{g.members.length !== 1 ? "s" : ""}
                     </span>
                   </div>
                 ))}
               </div>
               {groups.length > 5 && (
-                <p className="hint" style={{ margin: "8px 0 0", fontSize: 12 }}>
+                <p className="hint mt-2 text-xs">
                   +{groups.length - 5} more group{groups.length - 5 !== 1 ? "s" : ""}
                 </p>
               )}
-              <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", gap: 8 }}>
-                <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
-                  <Layers size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-                  Manage Groups
-                </button>
+              <div className="mt-3.5 flex gap-2 border-t border-border pt-3.5">
+                <Button variant="secondary" size="sm" onClick={() => setCurrentPage("groups")} className="gap-1.5">
+                  <Layers size={12} /> Manage Groups
+                </Button>
                 {canCreateGroups && (
-                  <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
+                  <Button variant="secondary" size="sm" onClick={() => setCurrentPage("groups")}>
                     + New Group
-                  </button>
+                  </Button>
                 )}
               </div>
             </>
           )}
-        </div>
-      </SettingsSection>
+        </Card>
+      </div>
 
-    </SettingsPage>
+    </PageFrame>
   );
 }
 
