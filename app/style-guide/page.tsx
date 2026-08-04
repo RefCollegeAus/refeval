@@ -10,6 +10,9 @@
 import { useState } from "react";
 import { Star, Inbox } from "lucide-react";
 import { showToast } from "@/lib/toast";
+import { Header } from "@/components/Header";
+import { PageFrame } from "@/components/shell/PageFrame";
+import type { RefEvalSession, Role, Screen } from "@/lib/types/auth";
 import {
   Badge,
   Button,
@@ -39,6 +42,18 @@ import {
 const BUTTON_VARIANTS = ["primary", "secondary", "danger", "good", "ghost"] as const;
 const BADGE_TONES = ["neutral", "accent", "good", "warn", "danger"] as const;
 
+const ROLES: Role[] = ["super_admin", "admin", "educator", "referee", "viewer"];
+
+function mockSession(role: Role): RefEvalSession {
+  return {
+    user: { id: "demo", email: "demo@refereecollegeofaustralia.com.au" },
+    profile: { id: "demo", email: "demo@refereecollegeofaustralia.com.au", name: "Jamie Smith" },
+    memberships: [{ organisationId: "org-demo", organisationName: "Demo Basketball Association", role }],
+    activeOrganisation: { id: "org-demo", name: "Demo Basketball Association" },
+    activeRole: role,
+  };
+}
+
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <section className="grid gap-4">
@@ -53,23 +68,74 @@ function Section({ title, description, children }: { title: string; description?
 
 export default function StyleGuidePage() {
   const [modalOpen, setModalOpen] = useState(false);
+  const [role, setRole] = useState<Role>("admin");
+  const [activeScreen, setActiveScreen] = useState<Screen>("educator");
 
   return (
-    <main className="mx-auto grid max-w-4xl gap-12 p-8">
+    <>
       <ToastViewport />
 
-      <header>
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">
-          Referee College Design System — Phase 1
-        </p>
-        <h1 className="text-2xl font-bold text-text">RefEval component library</h1>
-        <p className="mt-1 text-sm text-muted">
-          Every primitive in components/ui/*, rendered here for visual verification only — nothing
-          on this page is wired into a real RefEval screen yet.
-        </p>
-      </header>
+      {/* Real Header (Phase 2) — same component production screens use, with
+          a mock session so every role's sidebar visibility can be checked
+          without needing live Supabase credentials for each role. Rendered
+          at the top of the page (not nested inside <main> below) so the
+          `.rcds-sidebar ~ *` desktop offset behaves exactly as it does on a
+          real screen — this page IS the "screen content" sibling. */}
+      <Header
+        session={mockSession(role)}
+        activeScreen={activeScreen}
+        onHome={() => setActiveScreen("educator")}
+        onAdmin={() => setActiveScreen("database")}
+        onOrganisation={() => setActiveScreen("organisation")}
+        onLearning={() => setActiveScreen("learning-hub")}
+        onProfile={() => setActiveScreen("user-profile")}
+        onNotifications={() => setActiveScreen("notifications")}
+        onSearch={() => showToast("Search would open here (unchanged GlobalSearch overlay)", "info")}
+        onLogout={() => showToast("Sign out is unchanged — not wired in this demo", "info")}
+        unreadNotificationCount={3}
+      />
 
-      <Section title="Buttons">
+      <main className="mx-auto grid max-w-4xl gap-12 p-8">
+        <header>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">
+            Referee College Design System — Phase 1 + 2
+          </p>
+          <h1 className="text-2xl font-bold text-text">RefEval component library &amp; shell</h1>
+          <p className="mt-1 text-sm text-muted">
+            Every primitive in components/ui/*, plus the Phase 2 app shell (Header + Sidebar) above
+            using a mock session — nothing on this page is wired into a real RefEval screen.
+          </p>
+        </header>
+
+        <Section
+          title="Shell — role switcher"
+          description="Toggle role to verify sidebar visibility rules match the original Header.tsx exactly (Learning: educator/admin/super_admin; Organisation & Dashboard: admin/super_admin; Home: everyone). Resize below 1024px to see the mobile drawer."
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            {ROLES.map((r) => (
+              <Button key={r} variant={r === role ? "primary" : "secondary"} size="sm" onClick={() => setRole(r)}>
+                {r}
+              </Button>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="Page framing (PageFrame)" description="New primitive, not yet wired into any production screen.">
+          <div className="rounded-2xl border border-dashed border-border">
+            <PageFrame
+              title="Assignments"
+              description="Reviews assigned to you this fortnight."
+              actions={<Button size="sm">New assignment</Button>}
+            >
+              <p className="px-4 pb-4 text-sm text-muted sm:px-6 lg:px-8">
+                Page content would render here — this preview only demonstrates the title/description/
+                actions header pattern.
+              </p>
+            </PageFrame>
+          </div>
+        </Section>
+
+        <Section title="Buttons">
         <div className="flex flex-wrap items-center gap-3">
           {BUTTON_VARIANTS.map((variant) => (
             <Button key={variant} variant={variant} size="md">
@@ -230,13 +296,14 @@ export default function StyleGuidePage() {
         />
       </Section>
 
-      <Section title="Spinner & Skeleton">
-        <div className="flex items-center gap-6">
-          <Spinner />
-          <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-10 w-10 rounded-full" />
-        </div>
-      </Section>
-    </main>
+        <Section title="Spinner & Skeleton">
+          <div className="flex items-center gap-6">
+            <Spinner />
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-10 w-10 rounded-full" />
+          </div>
+        </Section>
+      </main>
+    </>
   );
 }

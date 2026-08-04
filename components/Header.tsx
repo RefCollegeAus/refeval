@@ -1,16 +1,32 @@
-import { LogOut, Home, GraduationCap, Building2, Bell, User, LayoutDashboard, Search } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { LogOut, Bell, Search, Menu } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
+import { BrandBlock } from "./shell/BrandBlock";
+import { Sidebar } from "./shell/Sidebar";
 
-const LEARNING_SCREENS: Screen[] = [
-  "learning-hub", "my-learning", "learning-progress", "playlists",
-  "playlist-detail", "clip-library", "assignments", "assignment-detail",
-  "groups",
-];
-
-const DASHBOARD_SCREENS: Screen[] = [
-  "database", "team-management",
-];
-
+// Referee College Design System — Phase 2 (shell alignment).
+//
+// Same exported name, same import path, same prop signature as before this
+// phase — every one of the ~25 call sites in app/page.tsx renders this
+// exactly as it did previously, with the exact same handlers. Nothing about
+// routing, permissions, session shape, or business logic changed; only what
+// this component renders internally did:
+//   - a slim sticky top bar (brand + org/notifications/account/search on the
+//     right) instead of the old flat single-row nav-pill layout, and
+//   - a persistent Sidebar (new, see ./shell/Sidebar.tsx) that now owns the
+//     primary navigation this component used to render inline as pills.
+// The sidebar is `position: fixed` (see Sidebar.tsx) rather than a normal
+// flex sibling, because every screen's own content renders as a JSX SIBLING
+// of this component (not a `children` slot it wraps) — there is no single
+// layout wrapper in this codebase to put a flex row around. Instead,
+// app/globals.css has a `.rcds-sidebar ~ *` rule (general sibling
+// combinator) that pushes whatever DOM sibling comes after the sidebar
+// clear of it on desktop — since Sidebar's `<aside>` and each screen's own
+// content div are always adjacent DOM siblings (React fragments don't
+// introduce a wrapping node), this works for every screen without touching
+// any of the ~25 call sites individually.
 export function Header({
   session,
   onHome,
@@ -36,92 +52,66 @@ export function Header({
   unreadNotificationCount?: number;
   activeScreen?: Screen;
 }) {
-  const isManagement = session?.activeRole === "educator" || session?.activeRole === "admin" || session?.activeRole === "super_admin";
-  const isAdmin = session?.activeRole === "admin" || session?.activeRole === "super_admin";
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const isActive = (screens: Screen[]) =>
-    activeScreen ? screens.includes(activeScreen) : false;
-
-  const homeScreens: Screen[] = ["educator", "referee", "viewer", "org-selector"];
-  const homeActive = isActive(homeScreens);
-  const learningActive = isActive(LEARNING_SCREENS);
-  const orgActive = isActive(["organisation"]);
-  const dashActive = isActive(DASHBOARD_SCREENS);
-  const notifActive = isActive(["notifications"]);
-  const profileActive = isActive(["user-profile"]);
+  const userInitials = session
+    ? session.profile.name
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join("") || session.profile.email[0]?.toUpperCase() || "?"
+    : "";
 
   return (
-    <header className="header">
-      <div className="brand">
-        <img src="/rca-logo.png" alt="Referee College of Australia logo" className="brand-logo" />
-        <div>
-          <p className="eyebrow">Referee College of Australia</p>
-          <h1>RefCoach</h1>
-        </div>
-      </div>
+    <>
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-panel/90 px-4 backdrop-blur-md sm:h-16 sm:gap-4 sm:px-6">
 
-      {session && (
-        <div className="header-nav">
-          {/* Primary navigation */}
-          <div className="header-nav-primary">
-            <button
-              className={homeActive ? "header-btn header-btn-active" : "header-btn"}
-              onClick={onHome}
-            >
-              <Home size={15} /> Home
-            </button>
+        {session && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open navigation"
+            className="-ml-1 rounded-lg p-1.5 text-muted transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent lg:hidden"
+          >
+            <Menu size={20} />
+          </button>
+        )}
 
-            {isManagement && onLearning && (
-              <button
-                className={learningActive ? "header-btn header-btn-active" : "header-btn"}
-                onClick={onLearning}
-              >
-                <GraduationCap size={15} /> Learning
-              </button>
-            )}
+        <BrandBlock />
 
-            {isAdmin && onOrganisation && (
-              <button
-                className={orgActive ? "header-btn header-btn-active" : "header-btn"}
-                onClick={onOrganisation}
-              >
-                <Building2 size={15} /> Organisation
-              </button>
-            )}
+        <div className="flex-1" />
 
-            {isAdmin && (
-              <button
-                className={dashActive ? "header-btn header-btn-active" : "header-btn"}
-                onClick={onAdmin}
-              >
-                <LayoutDashboard size={15} /> Dashboard
-              </button>
-            )}
-          </div>
-
-          {/* Utility cluster */}
-          <div className="header-nav-utility">
+        {session && (
+          <div className="flex items-center gap-1 sm:gap-1.5">
             {onSearch && (
               <button
-                className="header-btn header-btn-icon"
                 onClick={onSearch}
+                aria-label="Search"
                 title="Search"
-                aria-label="Open search"
+                className="rounded-lg p-2 text-muted transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
-                <Search size={15} />
+                <Search size={17} />
               </button>
             )}
 
             {onNotifications && (
               <button
-                className={notifActive ? "header-btn header-btn-icon header-btn-active" : "header-btn header-btn-icon"}
                 onClick={onNotifications}
+                aria-label={
+                  unreadNotificationCount > 0
+                    ? `Notifications, ${unreadNotificationCount} unread`
+                    : "Notifications"
+                }
                 title="Notifications"
-                style={{ position: "relative" }}
+                aria-current={activeScreen === "notifications" ? "page" : undefined}
+                className="relative rounded-lg p-2 text-muted transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
-                <Bell size={15} />
+                <Bell size={17} />
                 {unreadNotificationCount > 0 && (
-                  <span className="badge-count">
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold text-white"
+                  >
                     {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
                   </span>
                 )}
@@ -129,19 +119,37 @@ export function Header({
             )}
 
             <button
-              className={profileActive ? "header-btn header-btn-active" : "header-btn"}
               onClick={onProfile}
-              title={`Profile: ${session.profile.name}`}
+              aria-label={`Profile: ${session.profile.name}`}
+              title={session.profile.name}
+              aria-current={activeScreen === "user-profile" ? "page" : undefined}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent/20 text-xs font-bold text-amber-300 ring-1 ring-inset ring-accent/30 transition-colors hover:bg-accent/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              <User size={15} /> {session.profile.name}
+              {userInitials}
             </button>
 
-            <button className="header-btn" onClick={onLogout}>
-              <LogOut size={15} />
+            <button
+              onClick={onLogout}
+              aria-label="Sign out"
+              title="Sign out"
+              className="rounded-lg p-2 text-muted transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              <LogOut size={17} />
             </button>
           </div>
-        </div>
-      )}
-    </header>
+        )}
+      </header>
+
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        session={session}
+        activeScreen={activeScreen}
+        onHome={onHome}
+        onLearning={onLearning}
+        onOrganisation={onOrganisation}
+        onAdmin={onAdmin}
+      />
+    </>
   );
 }

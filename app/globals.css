@@ -115,6 +115,37 @@
   }
 }
 
+/*
+ * Referee College Design System — Phase 2 (shell alignment)
+ * ──────────────────────────────────────────────────────────────────────────
+ * The new persistent Sidebar (components/shell/Sidebar.tsx) is
+ * `position: fixed` rather than a normal flex sibling, because every
+ * screen's content in this codebase renders as a JSX SIBLING of <Header>
+ * (there is no single layout wrapper to put a flex row around — see
+ * Header.tsx's own comment). This general-sibling-combinator rule is what
+ * keeps that sibling content clear of the fixed sidebar on desktop, without
+ * editing any of the ~25 places Header is rendered: the sidebar's `<aside>`
+ * and each screen's own root content element are always adjacent DOM
+ * siblings (React fragments don't add a wrapping DOM node), so this matches
+ * every screen uniformly. Only applies at `lg:` (1024px) and up — below
+ * that the sidebar is an off-canvas drawer (translated fully off-screen when
+ * closed) and never needs a content offset.
+ */
+@media (min-width: 1024px) {
+  .rcds-sidebar ~ * {
+    padding-left: 232px;
+  }
+}
+
+/* Respect the OS-level reduced-motion preference across the shell's new
+   transitions (sidebar slide, hover states) — RefEval had no coverage for
+   this anywhere before Phase 1/2. */
+@media (prefers-reduced-motion: reduce) {
+  .rcds-sidebar {
+    transition: none !important;
+  }
+}
+
 @layer legacy {
 
 :root {
