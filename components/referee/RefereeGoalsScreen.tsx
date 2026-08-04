@@ -529,7 +529,7 @@ export function RefereeGoalsScreen({
       </div>
 
       {/* Sidebar */}
-      <aside className="panel side-panel grid gap-4">
+      <aside className="panel side-panel grid gap-4 border-0 bg-transparent p-0 shadow-none">
         <Card>
           <h3 className="mb-2.5 text-sm font-bold text-text">Overview</h3>
           <div className="grid grid-cols-2 gap-2.5">

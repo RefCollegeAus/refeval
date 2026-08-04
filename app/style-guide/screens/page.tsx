@@ -356,15 +356,15 @@ export default function ScreenFixturesPage() {
                 title={`Welcome, ${session.profile.name}`}
                 description="Only completed evaluations from your educator appear here."
               />
-              <Card>
-                {myReviews.length === 0 ? (
-                  <EmptyState
-                    icon={<Inbox size={28} />}
-                    title="No completed evaluations yet"
-                    description="Completed evaluations from your educator will appear here."
-                  />
-                ) : (
-                  <Table className="mt-3">
+              {myReviews.length === 0 ? (
+                <EmptyState
+                  icon={<Inbox size={28} />}
+                  title="No completed evaluations yet"
+                  description="Completed evaluations from your educator will appear here."
+                />
+              ) : (
+                <Card className="!p-0">
+                  <Table>
                     <TableHead>
                       <TableRow>
                         <TableHeaderCell>Game</TableHeaderCell>
@@ -395,10 +395,10 @@ export default function ScreenFixturesPage() {
                       })}
                     </TableBody>
                   </Table>
-                )}
-              </Card>
+                </Card>
+              )}
             </div>
-            <aside className="panel side-panel">
+            <aside className="panel side-panel border-0 bg-transparent p-0 shadow-none">
               <div className="grid gap-2">
                 <Button variant="primary" className="w-full justify-start gap-2.5"><BarChart3 size={16} /> My Stats Hub</Button>
                 <Button variant="secondary" className="w-full justify-start gap-2.5"><Target size={16} /> My Goals</Button>

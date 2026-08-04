@@ -484,7 +484,7 @@ export function EducatorDashboard({
 
         {/* ── Continue Review ── */}
         {continueReview && (
-          <Card className="border-l-[3px] border-l-accent p-4">
+          <Card className="border-l-[3px] border-l-accent">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="mb-1 flex items-center gap-2">
@@ -655,7 +655,7 @@ export function EducatorDashboard({
                 </button>
               </div>
 
-              {filteredReviews.length === 0 ? (
+              {filteredReviews.length === 0 && (
                 <EmptyState
                   className="mt-4"
                   icon={<Inbox size={28} />}
@@ -673,9 +673,15 @@ export function EducatorDashboard({
                     )
                   }
                 />
-              ) : (
-                <Table className="mt-3">
-                  <TableHead>
+              )}
+            </>
+          )}
+        </Card>
+
+        {showAllReviews && filteredReviews.length > 0 && (
+          <Card className="!p-0">
+            <Table>
+              <TableHead>
                     <TableRow>
                       <TableHeaderCell>Game</TableHeaderCell>
                       <TableHeaderCell>Date</TableHeaderCell>
@@ -720,12 +726,10 @@ export function EducatorDashboard({
                         </TableCell>
                       </TableRow>
                     ))}
-                  </TableBody>
-                </Table>
-              )}
-            </>
-          )}
-        </Card>
+              </TableBody>
+            </Table>
+          </Card>
+        )}
         {/* ── Coaching Queue (secondary / collapsible) ── */}
         <Card>
           <button

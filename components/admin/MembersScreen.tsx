@@ -245,41 +245,41 @@ export function MembersScreen({
       </Card>
 
       {/* ── Member list ── */}
-      <Card>
-        {/* Search + count */}
-        {members.length > 0 && (
-          <div className="mb-4 flex items-center gap-3">
-            <div className="relative max-w-[380px] flex-[1_1_260px]">
-              <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email…" className="pl-8" />
-            </div>
-            <span className="whitespace-nowrap text-xs text-muted">
-              {search
-                ? `${displayed.length} of ${members.length} member${members.length !== 1 ? "s" : ""}`
-                : `${members.length} member${members.length !== 1 ? "s" : ""}`}
-            </span>
+      {/* Search + count */}
+      {members.length > 0 && (
+        <div className="flex items-center gap-3">
+          <div className="relative max-w-[380px] flex-[1_1_260px]">
+            <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email…" className="pl-8" />
           </div>
-        )}
+          <span className="whitespace-nowrap text-xs text-muted">
+            {search
+              ? `${displayed.length} of ${members.length} member${members.length !== 1 ? "s" : ""}`
+              : `${members.length} member${members.length !== 1 ? "s" : ""}`}
+          </span>
+        </div>
+      )}
 
-        {loading && (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted">
-            <Spinner size={16} /> Loading members…
-          </div>
-        )}
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted">
+          <Spinner size={16} /> Loading members…
+        </div>
+      )}
 
-        {!loading && members.length === 0 && (
-          <EmptyState
-            icon={<UserPlus size={28} />}
-            title="No members yet"
-            description="Send the first invitation above to add people to your organisation."
-          />
-        )}
+      {!loading && members.length === 0 && (
+        <EmptyState
+          icon={<UserPlus size={28} />}
+          title="No members yet"
+          description="Send the first invitation above to add people to your organisation."
+        />
+      )}
 
-        {!loading && members.length > 0 && displayed.length === 0 && (
-          <EmptyState title="No members match your search" description="Try a different name or email." />
-        )}
+      {!loading && members.length > 0 && displayed.length === 0 && (
+        <EmptyState title="No members match your search" description="Try a different name or email." />
+      )}
 
-        {!loading && displayed.length > 0 && (
+      {!loading && displayed.length > 0 && (
+        <Card className="!p-0">
           <Table>
             <TableHead>
               <TableRow>
@@ -366,8 +366,8 @@ export function MembersScreen({
               })}
             </TableBody>
           </Table>
-        )}
-      </Card>
+        </Card>
+      )}
 
       {managingMember && (
         <ManageUserModal

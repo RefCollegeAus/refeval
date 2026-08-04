@@ -559,9 +559,13 @@ export function AssignmentDetailScreen({
           )}
         </div>
 
-        {assignment.assignmentUsers.length === 0 ? (
+        {assignment.assignmentUsers.length === 0 && (
           <p className="text-sm text-muted">No members assigned yet.</p>
-        ) : (
+        )}
+      </Card>
+
+      {assignment.assignmentUsers.length > 0 && (
+        <Card className="!p-0">
           <Table>
             <TableHead>
               <TableRow>
@@ -814,11 +818,13 @@ export function AssignmentDetailScreen({
               })}
             </TableBody>
           </Table>
-        )}
+        </Card>
+      )}
 
+      <Card>
         {/* Pending status change confirm */}
         {pendingStatus && (
-          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-warn/30 bg-warn/10 p-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-warn/30 bg-warn/10 p-3">
             <span className="min-w-0 flex-1 text-[13px] text-text">
               Set <strong>{pendingStatus.memberName}</strong>&apos;s status to <strong>{pendingStatus.status}</strong>? This overrides their recorded progress.
             </span>

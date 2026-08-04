@@ -126,11 +126,13 @@ export function UserProfileScreen({
       </div>
 
       {/* ── Organisations ── */}
-      <Card>
-        <h2 className="mb-3 text-sm font-bold text-text">Your Organisations</h2>
-        {session.memberships.length === 0 ? (
+      <h2 className="text-sm font-bold text-text">Your Organisations</h2>
+      {session.memberships.length === 0 ? (
+        <Card>
           <p className="text-sm text-muted">You are not a member of any organisations.</p>
-        ) : (
+        </Card>
+      ) : (
+        <Card className="!p-0">
           <Table>
             <TableHead>
               <TableRow>
@@ -165,8 +167,8 @@ export function UserProfileScreen({
               })}
             </TableBody>
           </Table>
-        )}
-      </Card>
+        </Card>
+      )}
     </PageFrame>
   );
 }
