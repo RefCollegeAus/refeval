@@ -45,6 +45,7 @@ export function Header({
   activeOrgPage,
   navContext,
   onNavigate,
+  orgLogoUrl,
 }: {
   session: RefEvalSession | null;
   onHome: () => void;
@@ -59,18 +60,13 @@ export function Header({
   activeOrgPage?: OrgPage;
   navContext?: NavContext;
   onNavigate?: (screen: Screen, orgPage?: OrgPage) => void;
+  orgLogoUrl?: string | null;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const userInitials = session ? initialsFor(session.profile.name, session.profile.email) : "";
   const orgName = session?.activeOrganisation?.name ?? null;
   const orgInitials = orgName ? initialsFor(orgName, null) : "";
-  // Real capability, not decorative: matches RefOps's org-context control
-  // visually, but only implies switching when the signed-in user actually
-  // has more than one membership to switch between (see
-  // components/admin/UserProfileScreen.tsx's "Switch to this org" list,
-  // which onProfile below opens).
-  const canSwitchOrg = (session?.memberships.length ?? 0) > 1;
 
   return (
     <>
@@ -96,17 +92,22 @@ export function Header({
               <button
                 onClick={onProfile}
                 title={orgName}
-                aria-label={canSwitchOrg ? `Organisation: ${orgName}. Switch organisation` : `Organisation: ${orgName}`}
+                aria-label={`Organisation: ${orgName}`}
                 className="hidden items-center gap-2 rounded-lg border border-border bg-panel-3/70 py-1.5 pl-1.5 pr-3 text-sm font-semibold text-text shadow-none transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:flex"
               >
-                <span
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-panel-2 text-[10px] font-bold text-muted"
-                  aria-hidden="true"
-                >
-                  {orgInitials}
-                </span>
+                {orgLogoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- org-uploaded logo of arbitrary origin
+                  <img src={orgLogoUrl} alt="" className="h-6 w-6 shrink-0 rounded-md object-contain" />
+                ) : (
+                  <span
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-panel-2 text-[10px] font-bold text-muted"
+                    aria-hidden="true"
+                  >
+                    {orgInitials}
+                  </span>
+                )}
                 <span className="max-w-[12rem] truncate lg:max-w-[16rem]">{orgName}</span>
-                {canSwitchOrg && <ChevronDown size={14} className="shrink-0 text-muted" />}
+                <ChevronDown size={14} className="shrink-0 text-muted" />
               </button>
             )}
 

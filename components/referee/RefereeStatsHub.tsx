@@ -22,6 +22,7 @@ type Props = {
   onLogout: () => void;
   navContext?: NavContext;
   onNavigate?: (screen: Screen, orgPage?: OrgPage) => void;
+  orgLogoUrl?: string | null;
 };
 
 type StatsTag = CodedTag & {
@@ -204,7 +205,7 @@ function AccuracyTrend({
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onProfile, onLogout, navContext, onNavigate }: Props) {
+export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onProfile, onLogout, navContext, onNavigate, orgLogoUrl }: Props) {
   const [dateFilter, setDateFilter] = useState<DateRangeValue>(DATE_RANGE_DEFAULT);
   const [facetFilters, setFacetFilters] = useState<FacetFilters>(EMPTY_FACETS);
   const [expandedCategoryGroup, setExpandedCategoryGroup] = useState<string | null>(null);
@@ -404,7 +405,7 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
   function goNext() { if (hasNext) selectClip(filteredTags[selectedIdx + 1]); }
 
   return (
-    <AppShell session={session} onHome={onBack} onAdmin={onAdmin} onProfile={onProfile} onLogout={onLogout} navContext={navContext} onNavigate={onNavigate}>
+    <AppShell session={session} onHome={onBack} onAdmin={onAdmin} onProfile={onProfile} onLogout={onLogout} navContext={navContext} onNavigate={onNavigate} orgLogoUrl={orgLogoUrl}>
       {/* This hub is a dense, full-bleed split-pane layout (see .sh-body's
           `height: calc(100vh - 200px)`) that predates AppShell — cancel
           AppShell's page gutter with matching negative margins rather than

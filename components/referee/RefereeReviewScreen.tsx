@@ -32,6 +32,7 @@ type Props = {
   onLogout: () => void;
   navContext?: NavContext;
   onNavigate?: (screen: Screen, orgPage?: OrgPage) => void;
+  orgLogoUrl?: string | null;
 };
 
 function displayName(slot: RefSlot, review?: ReviewRecord): string {
@@ -131,6 +132,7 @@ export function RefereeReviewScreen({
   onLogout,
   navContext,
   onNavigate,
+  orgLogoUrl,
 }: Props) {
   const [selectedIdx, setSelectedIdx] = useState(() => {
     if (!initialTagId) return 0;
@@ -305,6 +307,7 @@ export function RefereeReviewScreen({
       onLogout={onLogout}
       navContext={navContext}
       onNavigate={onNavigate}
+      orgLogoUrl={orgLogoUrl}
     >
       <div className="rv-layout p-0">
 
