@@ -76,7 +76,7 @@ export function Header({
           <button
             onClick={() => setSidebarOpen(true)}
             aria-label="Open navigation"
-            className="-ml-1 rounded-lg border-0 bg-transparent p-1.5 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent lg:hidden"
+            className="-ml-1 inline-flex items-center justify-center rounded-lg border-0 bg-transparent p-1.5 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent lg:hidden"
           >
             <Menu size={22} />
           </button>
@@ -121,7 +121,7 @@ export function Header({
                 }
                 title="Notifications"
                 aria-current={activeScreen === "notifications" ? "page" : undefined}
-                className="relative rounded-lg border-0 bg-transparent p-2 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="relative inline-flex items-center justify-center rounded-lg border-0 bg-transparent p-2 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 <Bell size={18} />
                 {unreadNotificationCount > 0 && (

@@ -33,8 +33,8 @@ export function BrandBlock({ variant = "header", className }: BrandBlockProps) {
         src="/rca-logo.png"
         alt="Referee College of Australia logo"
         className={cn(
-          "w-auto object-contain drop-shadow-[0_4px_16px_rgba(165,106,27,0.28)]",
-          isAuth ? "h-16" : "h-9 sm:h-[68px]"
+          "w-auto object-contain",
+          isAuth ? "h-[72px]" : "h-9 sm:h-[68px]"
         )}
       />
       <div className={cn("min-w-0", isAuth ? "leading-tight" : "leading-none")}>
