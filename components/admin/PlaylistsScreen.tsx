@@ -7,6 +7,12 @@ import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
 import type { Assignment } from "@/lib/types/assignments";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { PageFrame } from "@/components/shell/PageFrame";
+import {
+  Badge, Button, EmptyState, Input, Spinner,
+  Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow,
+} from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 interface Props {
   session: RefEvalSession;
@@ -97,162 +103,146 @@ export function PlaylistsScreen({
   function SortTh({ col, label, center }: { col: SortKey; label: string; center?: boolean }) {
     const active = sort === col;
     return (
-      <th
-        style={{ textAlign: center ? "center" : "left", padding: "8px 10px", fontWeight: 600, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+      <TableHeaderCell
+        className={cn("cursor-pointer select-none whitespace-nowrap", center && "text-center")}
         onClick={() => handleSort(col)}
       >
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <span className={cn("inline-flex items-center gap-1", center && "justify-center")}>
           {label}
-          <ArrowUpDown size={11} style={{ opacity: active ? 1 : 0.3, color: active ? "var(--accent)" : undefined }} />
+          <ArrowUpDown size={11} className={active ? "text-accent" : "opacity-30"} />
         </span>
-      </th>
+      </TableHeaderCell>
     );
   }
 
   return (
-    <div style={{ boxSizing: "border-box" }}>
-      <div className="panel">
-
-        {/* Header */}
-        <div className="table-head" style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <ListVideo size={20} style={{ color: "var(--muted)", flexShrink: 0 }} />
-            <div>
-              <p className="eyebrow" style={{ margin: 0 }}>Organisation</p>
-              <h1 style={{ margin: 0, fontSize: 22 }}>Playlists</h1>
-              <p className="hint" style={{ margin: "2px 0 0" }}>
-                Curated clip playlists for {session.activeOrganisation?.name}
-              </p>
-            </div>
-          </div>
-          <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <ChevronLeft size={15} /> Back
-          </button>
+    <PageFrame
+      className="p-0"
+      eyebrow="Organisation"
+      title="Playlists"
+      description={`Curated clip playlists for ${session.activeOrganisation?.name}`}
+      actions={
+        <Button variant="ghost" size="sm" className="gap-1" onClick={onBack}>
+          <ChevronLeft size={15} /> Back
+        </Button>
+      }
+    >
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-muted">
+          <Spinner /> Loading playlists…
         </div>
+      )}
+      {error && <p className="text-sm font-medium text-red-400">{error}</p>}
 
-        {loading && <div className="loading-state"><span className="loading-spinner" />Loading playlists…</div>}
-        {error && <p className="danger-text">{error}</p>}
+      {/* Empty state — no playlists at all */}
+      {!loading && playlists.length === 0 && (
+        <EmptyState
+          icon={<ListVideo size={32} />}
+          title="No playlists yet"
+          description="Select clips in the Clip Library and create your first playlist."
+        />
+      )}
 
-        {/* Empty state — no playlists at all */}
-        {!loading && playlists.length === 0 && (
-          <div className="empty-state">
-            <ListVideo size={32} style={{ opacity: 0.3, marginBottom: 10 }} />
-            <p style={{ margin: 0, fontWeight: 700 }}>No playlists yet</p>
-            <p className="hint" style={{ margin: "6px 0 0", fontSize: 13 }}>
-              Select clips in the Clip Library and create your first playlist.
-            </p>
+      {/* Search bar */}
+      {!loading && playlists.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full max-w-[380px] flex-1">
+            <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+            <Input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search by title, description or creator…"
+              className="pl-7 text-sm"
+            />
           </div>
-        )}
+          {query && (
+            <Button variant="ghost" size="sm" className="px-1.5" onClick={() => setQuery("")} aria-label="Clear search">
+              <X size={13} />
+            </Button>
+          )}
+          <span className="ml-auto whitespace-nowrap text-xs text-muted">
+            {filtered.length} of {playlists.length} playlist{playlists.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+      )}
 
-        {/* Search bar */}
-        {!loading && playlists.length > 0 && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14 }}>
-            <div style={{ position: "relative", flex: "1 1 200px", maxWidth: 380 }}>
-              <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-              <input
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder="Search by title, description or creator…"
-                style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
-              />
-            </div>
-            {query && (
-              <button onClick={() => setQuery("")} style={{ border: "none", background: "none", padding: "4px 6px", cursor: "pointer" }}>
-                <X size={13} />
-              </button>
-            )}
-            <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap", marginLeft: "auto" }}>
-              {filtered.length} of {playlists.length} playlist{playlists.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-        )}
+      {/* Empty state — search returns nothing */}
+      {!loading && playlists.length > 0 && filtered.length === 0 && (
+        <EmptyState
+          icon={<Search size={28} />}
+          title="No playlists match your search"
+          action={<Button variant="secondary" size="sm" onClick={() => setQuery("")}>Clear search</Button>}
+        />
+      )}
 
-        {/* Empty state — search returns nothing */}
-        {!loading && playlists.length > 0 && filtered.length === 0 && (
-          <div className="empty-state">
-            <Search size={28} style={{ opacity: 0.3, marginBottom: 10 }} />
-            <p style={{ margin: 0, fontWeight: 700 }}>No playlists match your search</p>
-            <button style={{ marginTop: 10, fontSize: 13 }} onClick={() => setQuery("")}>Clear search</button>
-          </div>
-        )}
-
-        {/* Table */}
-        {filtered.length > 0 && (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  <SortTh col="title"       label="Title" />
-                  <th style={{ textAlign: "left", padding: "8px 10px", fontWeight: 600 }}>Description</th>
-                  <SortTh col="clips"       label="Clips"       center />
-                  <SortTh col="assignments" label="Assignments" center />
-                  <SortTh col="creator"     label="Created by" />
-                  <SortTh col="created"     label="Created" />
-                  <th style={{ padding: "8px 10px" }} />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(pl => {
-                  const aCount = assignmentCounts.get(pl.id) ?? 0;
-                  return (
-                    <tr key={pl.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "10px 10px", maxWidth: 220 }}>
-                        <button
-                          onClick={() => onViewPlaylist(pl.id)}
-                          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--accent)", fontWeight: 700, textAlign: "left", fontSize: 13 }}
+      {/* Table */}
+      {filtered.length > 0 && (
+        <Table>
+          <TableHead>
+            <TableRow>
+              <SortTh col="title"       label="Title" />
+              <TableHeaderCell>Description</TableHeaderCell>
+              <SortTh col="clips"       label="Clips"       center />
+              <SortTh col="assignments" label="Assignments" center />
+              <SortTh col="creator"     label="Created by" />
+              <SortTh col="created"     label="Created" />
+              <TableHeaderCell aria-hidden="true" />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.map(pl => {
+              const aCount = assignmentCounts.get(pl.id) ?? 0;
+              return (
+                <TableRow key={pl.id}>
+                  <TableCell data-label="Title" className="max-w-[220px]">
+                    <button
+                      onClick={() => onViewPlaylist(pl.id)}
+                      className="text-left text-sm font-semibold text-accent hover:underline"
+                    >
+                      {pl.title}
+                    </button>
+                  </TableCell>
+                  <TableCell data-label="Description" className="max-w-[240px] text-muted">
+                    {pl.description ? (
+                      <span className="block truncate" title={pl.description}>{pl.description}</span>
+                    ) : <span className="text-muted">—</span>}
+                  </TableCell>
+                  <TableCell data-label="Clips" className="text-center">
+                    <Badge>{pl.items.length}</Badge>
+                  </TableCell>
+                  <TableCell data-label="Assignments" className="text-center">
+                    {aCount > 0 ? <Badge>{aCount}</Badge> : <span className="text-muted">—</span>}
+                  </TableCell>
+                  <TableCell data-label="Created by" className="whitespace-nowrap text-muted">
+                    {creatorName(pl.createdBy, members)}
+                  </TableCell>
+                  <TableCell data-label="Created" className="whitespace-nowrap text-muted">
+                    {fmt(pl.createdAt)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <div className="flex justify-end gap-1.5">
+                      <Button variant="secondary" size="sm" className="gap-1" onClick={() => onViewPlaylist(pl.id)}>
+                        <Eye size={12} /> View
+                      </Button>
+                      {canDelete && (
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => setPendingDeleteId(pl.id)}
+                          disabled={deleting === pl.id}
                         >
-                          {pl.title}
-                        </button>
-                      </td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", maxWidth: 240 }}>
-                        {pl.description ? (
-                          <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={pl.description}>
-                            {pl.description}
-                          </span>
-                        ) : <span className="hint">—</span>}
-                      </td>
-                      <td style={{ padding: "10px 10px", textAlign: "center" }}>
-                        <span className="chip" style={{ fontSize: 11 }}>{pl.items.length}</span>
-                      </td>
-                      <td style={{ padding: "10px 10px", textAlign: "center" }}>
-                        {aCount > 0 ? (
-                          <span className="chip" style={{ fontSize: 11 }}>{aCount}</span>
-                        ) : <span className="hint">—</span>}
-                      </td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                        {creatorName(pl.createdBy, members)}
-                      </td>
-                      <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                        {fmt(pl.createdAt)}
-                      </td>
-                      <td style={{ padding: "10px 10px", whiteSpace: "nowrap" }}>
-                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                          <button
-                            style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
-                            onClick={() => onViewPlaylist(pl.id)}
-                          >
-                            <Eye size={12} /> View
-                          </button>
-                          {canDelete && (
-                            <button
-                              className="danger"
-                              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "4px 10px" }}
-                              onClick={() => setPendingDeleteId(pl.id)}
-                              disabled={deleting === pl.id}
-                            >
-                              <Trash2 size={12} /> {deleting === pl.id ? "…" : "Delete"}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                          <Trash2 size={12} /> {deleting === pl.id ? "…" : "Delete"}
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
 
       {pendingDeleteId && (() => {
         const pl = playlists.find(p => p.id === pendingDeleteId);
@@ -273,6 +263,6 @@ export function PlaylistsScreen({
           />
         );
       })()}
-    </div>
+    </PageFrame>
   );
 }

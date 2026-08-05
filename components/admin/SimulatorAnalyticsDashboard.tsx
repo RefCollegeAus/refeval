@@ -8,7 +8,12 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import type { SimulatorSessionWithEvents, SimulatorAttempt, SimulatorResponse } from "@/lib/types/simulator";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { MemberRecord } from "@/lib/types/members";
-import { learningPctColor } from "@/lib/types/assignments";
+import { PageFrame } from "@/components/shell/PageFrame";
+import {
+  Button, Card, EmptyState, Select,
+  Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow,
+} from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -49,19 +54,11 @@ function mapResponse(r: any): SimulatorResponse {
 
 function StatChip({ label, value, color }: { label: string; value: string | number | null; color?: string }) {
   return (
-    <div style={{
-      flex: "1 1 120px",
-      background: "var(--panel2)",
-      border: "1px solid var(--border)",
-      borderRadius: 10,
-      padding: "12px 14px",
-      textAlign: "center",
-      minWidth: 100,
-    }}>
-      <div style={{ fontSize: 22, fontWeight: 800, color: color ?? "var(--text)" }}>
+    <div className="min-w-[100px] flex-1 basis-[120px] rounded-lg border border-border bg-panel-2 p-3 text-center">
+      <div className="text-xl font-extrabold" style={{ color: color ?? "var(--text)" }}>
         {value === null ? "—" : value}
       </div>
-      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{label}</div>
+      <div className="mt-0.5 text-[11px] text-muted">{label}</div>
     </div>
   );
 }
@@ -70,15 +67,13 @@ function StatChip({ label, value, color }: { label: string; value: string | numb
 
 function HBar({ pct, color, label, count }: { pct: number; color: string; label: string; count: number }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-      <div style={{ width: 130, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text)" }}>
-        {label}
+    <div className="flex items-center gap-2 text-sm">
+      <div className="w-[130px] shrink-0 truncate text-text">{label}</div>
+      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-panel-3">
+        <div className="h-full rounded-full transition-[width]" style={{ width: `${pct}%`, background: color }} />
       </div>
-      <div style={{ flex: 1, height: 10, background: "var(--panel3, var(--border))", borderRadius: 5, overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 5, transition: "width .3s" }} />
-      </div>
-      <div style={{ width: 42, textAlign: "right", fontWeight: 700, color, flexShrink: 0 }}>{pct}%</div>
-      <div style={{ width: 50, textAlign: "right", color: "var(--muted)", fontSize: 12, flexShrink: 0 }}>{count} resp</div>
+      <div className="w-[42px] shrink-0 text-right font-semibold" style={{ color }}>{pct}%</div>
+      <div className="w-[50px] shrink-0 text-right text-xs text-muted">{count} resp</div>
     </div>
   );
 }
@@ -359,34 +354,34 @@ export function SimulatorAnalyticsDashboard({
   function SortTh({ col, label, right, refTable }: { col: string; label: string; right?: boolean; refTable?: boolean }) {
     const active = refTable ? (refSort === col) : (decSort === col);
     return (
-      <th
-        style={{ textAlign: right ? "right" : "left", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", padding: "8px 10px", fontWeight: 600 }}
+      <TableHeaderCell
+        className={cn("cursor-pointer select-none whitespace-nowrap", right && "text-right")}
         onClick={() => refTable ? handleRefSort(col as RefSort) : handleDecSort(col as DecSort)}
       >
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <span className={cn("inline-flex items-center gap-1", right && "justify-end")}>
           {label}
-          <ArrowUpDown size={10} style={{ opacity: active ? 1 : 0.3, color: active ? "var(--accent)" : undefined }} />
+          <ArrowUpDown size={10} className={active ? "text-accent" : "opacity-30"} />
         </span>
-      </th>
+      </TableHeaderCell>
     );
   }
 
   // ── Trend badge ────────────────────────────────────────────────────────────
 
   function TrendBadge({ trend }: { trend: "improving" | "declining" | "stable" | null }) {
-    if (!trend) return <span style={{ color: "var(--muted)", fontSize: 12 }}>—</span>;
+    if (!trend) return <span className="text-xs text-muted">—</span>;
     if (trend === "improving") return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, color: "#22c55e", fontWeight: 700 }}>
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-good">
         <TrendingUp size={13} /> Improving
       </span>
     );
     if (trend === "declining") return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, color: "#ef4444", fontWeight: 700 }}>
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-400">
         <TrendingDown size={13} /> Declining
       </span>
     );
     return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, color: "var(--muted)" }}>
+      <span className="inline-flex items-center gap-1 text-xs text-muted">
         <Minus size={13} /> Stable
       </span>
     );
@@ -396,90 +391,77 @@ export function SimulatorAnalyticsDashboard({
 
   if (!publishedSessions.length) {
     return (
-      <div style={{ boxSizing: "border-box" }}>
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <div className="table-head">
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <BarChart2 size={20} style={{ color: "#fbbf24", flexShrink: 0 }} />
-              <div>
-                <p className="eyebrow" style={{ margin: 0 }}>Simulator</p>
-                <h1 style={{ margin: 0, fontSize: 22 }}>Analytics</h1>
-              </div>
-            </div>
-            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <ChevronLeft size={15} /> Back
-            </button>
-          </div>
-        </div>
-        <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-          <BarChart2 size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
-          <p style={{ margin: 0, fontWeight: 700 }}>No published simulators</p>
-          <p className="hint" style={{ margin: "6px 0 0" }}>Publish a simulator session to see analytics.</p>
-        </div>
-      </div>
+      <PageFrame
+        className="p-0"
+        eyebrow="Simulator"
+        title="Analytics"
+        actions={
+          <Button variant="ghost" size="sm" className="gap-1" onClick={onBack}>
+            <ChevronLeft size={15} /> Back
+          </Button>
+        }
+      >
+        <EmptyState
+          icon={<BarChart2 size={36} />}
+          title="No published simulators"
+          description="Publish a simulator session to see analytics."
+        />
+      </PageFrame>
     );
   }
 
   // ── Main render ────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ boxSizing: "border-box", maxWidth: 1100, margin: "0 auto" }}>
-
-      {/* Header */}
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <div className="table-head" style={{ flexWrap: "wrap", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <BarChart2 size={20} style={{ color: "#fbbf24", flexShrink: 0 }} />
-            <div>
-              <p className="eyebrow" style={{ margin: 0 }}>Simulator</p>
-              <h1 style={{ margin: 0, fontSize: 22 }}>Analytics</h1>
-              <p className="hint" style={{ margin: "2px 0 0" }}>Referee performance and decision-making insights</p>
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {/* Session selector */}
-            {publishedSessions.length > 1 && (
-              <select
-                value={selectedId}
-                onChange={e => setSelectedId(e.target.value)}
-                style={{ fontSize: 13, padding: "5px 10px", maxWidth: 240 }}
-              >
-                {publishedSessions.map(s => (
-                  <option key={s.id} value={s.id}>{s.title}</option>
-                ))}
-              </select>
-            )}
-            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <ChevronLeft size={15} /> Back
-            </button>
-          </div>
+    <PageFrame
+      className="p-0 mx-auto max-w-[1100px]"
+      eyebrow="Simulator"
+      title="Analytics"
+      description="Referee performance and decision-making insights"
+      actions={
+        <>
+          {publishedSessions.length > 1 && (
+            <Select
+              value={selectedId}
+              onChange={e => setSelectedId(e.target.value)}
+              className="w-auto max-w-[240px] text-sm"
+            >
+              {publishedSessions.map(s => (
+                <option key={s.id} value={s.id}>{s.title}</option>
+              ))}
+            </Select>
+          )}
+          <Button variant="ghost" size="sm" className="gap-1" onClick={onBack}>
+            <ChevronLeft size={15} /> Back
+          </Button>
+        </>
+      }
+    >
+      {publishedSessions.length === 1 && (
+        <div className="-mt-2 flex items-center gap-2 rounded-lg bg-panel-2 px-3 py-2">
+          <Zap size={13} className="shrink-0 text-yellow-300" />
+          <span className="text-sm font-semibold text-text">{selectedSession?.title}</span>
+          {selectedSession?.description && (
+            <span className="text-sm text-muted">— {selectedSession.description}</span>
+          )}
         </div>
-        {publishedSessions.length === 1 && (
-          <div style={{ marginTop: 8, padding: "8px 12px", background: "var(--panel2)", borderRadius: 8, display: "flex", alignItems: "center", gap: 8 }}>
-            <Zap size={13} style={{ color: "#fde68a", flexShrink: 0 }} />
-            <span style={{ fontWeight: 700, fontSize: 14 }}>{selectedSession?.title}</span>
-            {selectedSession?.description && (
-              <span className="hint" style={{ fontSize: 13 }}>— {selectedSession.description}</span>
-            )}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* No attempts yet */}
       {!sessionAttempts.length && (
-        <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-          <Zap size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
-          <p style={{ margin: 0, fontWeight: 700 }}>No attempts yet</p>
-          <p className="hint" style={{ margin: "6px 0 0" }}>Assign this simulator to referees to start collecting data.</p>
-        </div>
+        <EmptyState
+          icon={<Zap size={36} />}
+          title="No attempts yet"
+          description="Assign this simulator to referees to start collecting data."
+        />
       )}
 
       {!!sessionAttempts.length && (
         <>
           {/* ── 1. Overview ─────────────────────────────────────────────────── */}
-          <div style={{ marginBottom: 20 }}>
-            <h2 className="ed-section-title">Overview</h2>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div>
+            <h2 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">Overview</h2>
+            <div className="flex flex-wrap gap-2.5">
               <StatChip label="Total Attempts"   value={overview.totalAttempts} />
               <StatChip label="Unique Referees"  value={overview.uniqueRefs} />
               <StatChip
@@ -506,72 +488,66 @@ export function SimulatorAnalyticsDashboard({
           </div>
 
           {/* ── 2. Referee Breakdown ────────────────────────────────────────── */}
-          <div style={{ marginBottom: 20 }}>
-            <h2 className="ed-section-title">Referee Breakdown</h2>
-            <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                      <SortTh col="name"     label="Referee"       refTable />
-                      <SortTh col="attempts" label="Attempts"      refTable right />
-                      <SortTh col="latest"   label="Latest Score"  refTable right />
-                      <SortTh col="best"     label="Best Score"    refTable right />
-                      <SortTh col="avg"      label="Avg Score"     refTable right />
-                      <SortTh col="last"     label="Last Attempt"  refTable right />
-                      <th style={{ padding: "8px 10px", fontWeight: 600 }}>Trend</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedRefereeRows.map(row => (
-                      <tr key={row.userId} style={{ borderBottom: "1px solid var(--border)" }}>
-                        <td style={{ padding: "10px 10px" }}>
-                          <div style={{ fontWeight: 600 }}>{row.member?.name || "Unknown"}</div>
-                          <div style={{ fontSize: 11, color: "var(--muted)" }}>{row.member?.email || "—"}</div>
-                        </td>
-                        <td style={{ padding: "10px 10px", textAlign: "right" }}>
-                          <strong>{row.attemptCount}</strong>
-                        </td>
-                        <td style={{ padding: "10px 10px", textAlign: "right" }}>
-                          {row.latest !== null
-                            ? <span style={{ fontWeight: 700, color: pctColor(row.latest) }}>{row.latest}%</span>
-                            : <span className="hint">—</span>}
-                        </td>
-                        <td style={{ padding: "10px 10px", textAlign: "right" }}>
-                          {row.best !== null
-                            ? <span style={{ fontWeight: 700, color: "#22c55e" }}>{row.best}%</span>
-                            : <span className="hint">—</span>}
-                        </td>
-                        <td style={{ padding: "10px 10px", textAlign: "right" }}>
-                          {row.avg !== null
-                            ? <span style={{ fontWeight: 700, color: pctColor(row.avg) }}>{row.avg}%</span>
-                            : <span className="hint">—</span>}
-                        </td>
-                        <td style={{ padding: "10px 10px", textAlign: "right", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                          {fmt(row.lastCompleted)}
-                        </td>
-                        <td style={{ padding: "10px 10px" }}>
-                          <TrendBadge trend={row.trend} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          <div>
+            <h2 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">Referee Breakdown</h2>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <SortTh col="name"     label="Referee"       refTable />
+                  <SortTh col="attempts" label="Attempts"      refTable right />
+                  <SortTh col="latest"   label="Latest Score"  refTable right />
+                  <SortTh col="best"     label="Best Score"    refTable right />
+                  <SortTh col="avg"      label="Avg Score"     refTable right />
+                  <SortTh col="last"     label="Last Attempt"  refTable right />
+                  <TableHeaderCell>Trend</TableHeaderCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {sortedRefereeRows.map(row => (
+                  <TableRow key={row.userId}>
+                    <TableCell data-label="Referee">
+                      <div className="font-semibold text-text">{row.member?.name || "Unknown"}</div>
+                      <div className="text-[11px] text-muted">{row.member?.email || "—"}</div>
+                    </TableCell>
+                    <TableCell data-label="Attempts" className="text-right">
+                      <strong>{row.attemptCount}</strong>
+                    </TableCell>
+                    <TableCell data-label="Latest Score" className="text-right">
+                      {row.latest !== null
+                        ? <span className="font-semibold" style={{ color: pctColor(row.latest) }}>{row.latest}%</span>
+                        : <span className="text-muted">—</span>}
+                    </TableCell>
+                    <TableCell data-label="Best Score" className="text-right">
+                      {row.best !== null
+                        ? <span className="font-semibold text-good">{row.best}%</span>
+                        : <span className="text-muted">—</span>}
+                    </TableCell>
+                    <TableCell data-label="Avg Score" className="text-right">
+                      {row.avg !== null
+                        ? <span className="font-semibold" style={{ color: pctColor(row.avg) }}>{row.avg}%</span>
+                        : <span className="text-muted">—</span>}
+                    </TableCell>
+                    <TableCell data-label="Last Attempt" className="whitespace-nowrap text-right text-muted">
+                      {fmt(row.lastCompleted)}
+                    </TableCell>
+                    <TableCell data-label="Trend">
+                      <TrendBadge trend={row.trend} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
 
           {/* ── 3. Category Performance ─────────────────────────────────────── */}
           {loadingResp && (
-            <div className="panel" style={{ padding: 20, textAlign: "center", color: "var(--muted)", marginBottom: 20 }}>
-              Loading decision data…
-            </div>
+            <Card className="py-5 text-center text-sm text-muted">Loading decision data…</Card>
           )}
 
           {!loadingResp && categoryStats.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <h2 className="ed-section-title">Category Performance</h2>
-              <div className="panel" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div>
+              <h2 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">Category Performance</h2>
+              <Card className="grid grid-cols-1 gap-2.5">
                 {/* Sort by accuracy to show worst → best */}
                 {[...categoryStats].sort((a, b) => a.pct - b.pct).map(cat => (
                   <HBar
@@ -582,23 +558,23 @@ export function SimulatorAnalyticsDashboard({
                     count={cat.total}
                   />
                 ))}
-              </div>
+              </Card>
               {/* Summary callouts */}
               {categoryStats.length > 1 && (() => {
                 const sorted = [...categoryStats].sort((a, b) => a.pct - b.pct);
                 const worst  = sorted[0];
                 const best   = sorted[sorted.length - 1];
                 return (
-                  <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-                    <div style={{ flex: 1, minWidth: 200, padding: "10px 14px", background: "rgba(239,68,68,.07)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 8, fontSize: 13 }}>
-                      <div style={{ fontSize: 11, color: "#fca5a5", fontWeight: 700, marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.05em" }}>Weakest Area</div>
+                  <div className="mt-2.5 flex flex-wrap gap-2.5">
+                    <div className="min-w-[200px] flex-1 rounded-lg border border-danger/25 bg-danger/5 px-3.5 py-2.5 text-sm">
+                      <div className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-red-300">Weakest Area</div>
                       <strong>{worst.category}</strong>
-                      <span style={{ color: "var(--muted)", marginLeft: 8 }}>{worst.pct}% correct ({worst.total} responses)</span>
+                      <span className="ml-2 text-muted">{worst.pct}% correct ({worst.total} responses)</span>
                     </div>
-                    <div style={{ flex: 1, minWidth: 200, padding: "10px 14px", background: "rgba(34,197,94,.07)", border: "1px solid rgba(34,197,94,.25)", borderRadius: 8, fontSize: 13 }}>
-                      <div style={{ fontSize: 11, color: "#86efac", fontWeight: 700, marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.05em" }}>Strongest Area</div>
+                    <div className="min-w-[200px] flex-1 rounded-lg border border-good/25 bg-good/5 px-3.5 py-2.5 text-sm">
+                      <div className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-green-300">Strongest Area</div>
                       <strong>{best.category}</strong>
-                      <span style={{ color: "var(--muted)", marginLeft: 8 }}>{best.pct}% correct ({best.total} responses)</span>
+                      <span className="ml-2 text-muted">{best.pct}% correct ({best.total} responses)</span>
                     </div>
                   </div>
                 );
@@ -609,66 +585,60 @@ export function SimulatorAnalyticsDashboard({
           {/* ── 4. Decision Analysis ────────────────────────────────────────── */}
           {!loadingResp && decisionStats.length > 0 && (
             <div>
-              <h2 className="ed-section-title">Decision Analysis</h2>
-              <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                        <SortTh col="label" label="Decision" />
-                        <th style={{ padding: "8px 10px", fontWeight: 600 }}>Category</th>
-                        <SortTh col="pct"   label="Correct %"      right />
-                        <SortTh col="total" label="Responses"      right />
-                        <SortTh col="time"  label="Avg Time (s)"   right />
-                        <th style={{ padding: "8px 10px", fontWeight: 600 }}>Top Wrong Answer</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedDecisionRows.map(row => (
-                        <tr key={row.key} style={{ borderBottom: "1px solid var(--border)" }}>
-                          <td style={{ padding: "10px 10px", maxWidth: 220 }}>
-                            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {row.label}
-                            </div>
-                          </td>
-                          <td style={{ padding: "10px 10px", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                            {row.category}
-                          </td>
-                          <td style={{ padding: "10px 10px", textAlign: "right" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
-                              <div style={{ width: 50, height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
-                                <div style={{ width: `${row.pct}%`, height: "100%", background: pctColor(row.pct), borderRadius: 3 }} />
-                              </div>
-                              <span style={{ fontWeight: 700, color: pctColor(row.pct), minWidth: 36, textAlign: "right" }}>{row.pct}%</span>
-                            </div>
-                          </td>
-                          <td style={{ padding: "10px 10px", textAlign: "right" }}>
-                            <span>{row.correct}</span>
-                            <span style={{ color: "var(--muted)" }}>/{row.total}</span>
-                          </td>
-                          <td style={{ padding: "10px 10px", textAlign: "right", color: "var(--muted)" }}>
-                            {row.avgTime !== null ? `${row.avgTime}s` : "—"}
-                          </td>
-                          <td style={{ padding: "10px 10px", color: row.topIncorrect ? "#fca5a5" : "var(--muted)" }}>
-                            {row.topIncorrect ?? "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <h2 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">Decision Analysis</h2>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <SortTh col="label" label="Decision" />
+                    <TableHeaderCell>Category</TableHeaderCell>
+                    <SortTh col="pct"   label="Correct %"      right />
+                    <SortTh col="total" label="Responses"      right />
+                    <SortTh col="time"  label="Avg Time (s)"   right />
+                    <TableHeaderCell>Top Wrong Answer</TableHeaderCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sortedDecisionRows.map(row => (
+                    <TableRow key={row.key}>
+                      <TableCell data-label="Decision" className="max-w-[220px]">
+                        <div className="truncate">{row.label}</div>
+                      </TableCell>
+                      <TableCell data-label="Category" className="whitespace-nowrap text-muted">
+                        {row.category}
+                      </TableCell>
+                      <TableCell data-label="Correct %" className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <div className="h-1.5 w-[50px] overflow-hidden rounded-full bg-border">
+                            <div className="h-full rounded-full" style={{ width: `${row.pct}%`, background: pctColor(row.pct) }} />
+                          </div>
+                          <span className="min-w-[36px] text-right font-semibold" style={{ color: pctColor(row.pct) }}>{row.pct}%</span>
+                        </div>
+                      </TableCell>
+                      <TableCell data-label="Responses" className="text-right">
+                        <span>{row.correct}</span>
+                        <span className="text-muted">/{row.total}</span>
+                      </TableCell>
+                      <TableCell data-label="Avg Time (s)" className="text-right text-muted">
+                        {row.avgTime !== null ? `${row.avgTime}s` : "—"}
+                      </TableCell>
+                      <TableCell data-label="Top Wrong Answer" className={row.topIncorrect ? "text-red-300" : "text-muted"}>
+                        {row.topIncorrect ?? "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
 
           {/* No response data yet */}
           {!loadingResp && !categoryStats.length && (
-            <div className="panel" style={{ padding: "24px", textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+            <Card className="py-5 text-center text-sm text-muted">
               Detailed decision data will appear once referees complete attempts.
-            </div>
+            </Card>
           )}
         </>
       )}
-    </div>
+    </PageFrame>
   );
 }

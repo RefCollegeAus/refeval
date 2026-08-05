@@ -13,6 +13,9 @@ import { RecipientPicker } from "@/components/common/RecipientPicker";
 import type { AssignTab } from "@/components/common/RecipientPicker";
 import { ClipPreview, ClipRow, splitCategory, slotName, outcomeClass } from "@/components/common/ClipPreview";
 import QuizEditor from "@/components/learning/QuizEditor";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, Card, EmptyState, FormField, Input, Textarea } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 interface Props {
   playlist: Playlist;
@@ -38,6 +41,36 @@ interface Props {
   onViewAssignment?: (assignmentId: string) => void;
   // Per-clip learning note editing
   onUpdateItemNote?: (itemId: string, note: string | null) => Promise<void>;
+}
+
+// ── Modal shell ───────────────────────────────────────────────────────────────
+// Shared visual shell for this screen's local modals — deliberately custom
+// (not the shared Modal component) since none of them close on backdrop
+// click, and that behaviour is preserved as-is.
+
+function ModalShell({ maxWidth, children }: { maxWidth: number; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4">
+      <div
+        className="flex max-h-[90vh] w-full flex-col rounded-2xl border border-border bg-panel p-5 shadow-xl"
+        style={{ maxWidth }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ModalTitle({ eyebrow, title, onClose }: { eyebrow: string; title: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="mb-1 flex shrink-0 items-start justify-between gap-3">
+      <div>
+        <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">{eyebrow}</p>
+        <h1 className="text-lg font-semibold text-text">{title}</h1>
+      </div>
+      <button onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted hover:bg-panel-3 hover:text-text">✕</button>
+    </div>
+  );
 }
 
 // ── Edit metadata modal ───────────────────────────────────────────────────────
@@ -70,47 +103,30 @@ function EditMetaModal({
   }
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 460 }}>
-        <div className="modal-title">
-          <div>
-            <p className="eyebrow">Edit Playlist</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>Update details</h1>
-          </div>
-          <button onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
-          <label>
-            Title *
-            <input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
-          </label>
-          <label>
-            Description <span className="hint">(optional)</span>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              rows={3}
-              style={{ width: "100%", boxSizing: "border-box", resize: "vertical" }}
-            />
-          </label>
-          {err && <p className="danger-text">{err}</p>}
-        </div>
-        <div className="action-row" style={{ marginTop: 20 }}>
-          <button onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save Changes"}
-          </button>
-        </div>
+    <ModalShell maxWidth={460}>
+      <ModalTitle eyebrow="Edit Playlist" title="Update details" onClose={onClose} />
+      <div className="mt-4 grid gap-3.5">
+        <FormField label="Title" required>
+          <Input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
+        </FormField>
+        <FormField label="Description" hint="Optional">
+          <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} />
+        </FormField>
+        {err && <p className="text-xs font-medium text-red-400">{err}</p>}
       </div>
-    </div>
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? "Saving…" : "Save Changes"}
+        </Button>
+      </div>
+    </ModalShell>
   );
 }
 
 // ── Assign Playlist Modal ─────────────────────────────────────────────────────
 
 type AssignMode = "new" | "existing";
-
-
 
 function AssignModal({
   playlist,
@@ -251,188 +267,191 @@ function AssignModal({
   const resolvedCount = resolveUserIds().length;
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 560, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-        <div className="modal-title" style={{ flexShrink: 0 }}>
-          <div>
-            <p className="eyebrow">Playlist</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>Assign Playlist</h1>
-          </div>
-          <button onClick={onClose} aria-label="Close">✕</button>
+    <ModalShell maxWidth={560}>
+      <ModalTitle eyebrow="Playlist" title="Assign Playlist" onClose={onClose} />
+
+      {/* Mode toggle — only shown when existing assignments exist */}
+      {hasExisting && (
+        <div className="mb-1 mt-3 flex shrink-0 gap-1.5">
+          <Button
+            size="sm"
+            variant={mode === "new" ? "primary" : "secondary"}
+            onClick={() => switchMode("new")}
+          >
+            Create new assignment
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === "existing" ? "primary" : "secondary"}
+            onClick={() => switchMode("existing")}
+          >
+            Add to existing assignment
+          </Button>
         </div>
+      )}
 
-        {/* Mode toggle — only shown when existing assignments exist */}
-        {hasExisting && (
-          <div style={{ flexShrink: 0, display: "flex", gap: 6, marginTop: 12, marginBottom: 4 }}>
-            <button
-              style={{ fontSize: 12, padding: "5px 14px", background: mode === "new" ? "var(--accent)" : undefined, color: mode === "new" ? "#fff" : undefined }}
-              onClick={() => switchMode("new")}
-            >
-              Create new assignment
-            </button>
-            <button
-              style={{ fontSize: 12, padding: "5px 14px", background: mode === "existing" ? "var(--accent)" : undefined, color: mode === "existing" ? "#fff" : undefined }}
-              onClick={() => switchMode("existing")}
-            >
-              Add to existing assignment
-            </button>
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto pt-1">
+        <div className="mt-3 grid gap-3.5">
 
-        <div style={{ overflowY: "auto", flex: 1, paddingTop: 4 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12 }}>
-
-            {/* ── Create new mode ── */}
-            {mode === "new" && (
-              <>
-                <label>
-                  Assignment Title *
-                  <input value={title} onChange={e => setTitle(e.target.value)} autoFocus={!hasExisting} />
+          {/* ── Create new mode ── */}
+          {mode === "new" && (
+            <>
+              <FormField label="Assignment Title" required>
+                <Input value={title} onChange={e => setTitle(e.target.value)} autoFocus={!hasExisting} />
+              </FormField>
+              <FormField label="Instructions" hint="Optional">
+                <Textarea value={instructions} onChange={e => setInst(e.target.value)} rows={3} placeholder="What should the referee focus on?" />
+              </FormField>
+              <div className="grid grid-cols-[1fr_auto] items-end gap-3.5">
+                <FormField label="Due Date" hint="Optional">
+                  <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+                </FormField>
+                <label className="flex cursor-pointer items-center gap-2 pb-2 text-sm text-text">
+                  <input type="checkbox" checked={required} onChange={e => setRequired(e.target.checked)} className="h-3.5 w-3.5 cursor-pointer accent-accent" />
+                  <span className="whitespace-nowrap">Required</span>
                 </label>
-                <label>
-                  Instructions <span className="hint">(optional)</span>
-                  <textarea value={instructions} onChange={e => setInst(e.target.value)} rows={3} placeholder="What should the referee focus on?" style={{ width: "100%", boxSizing: "border-box", resize: "vertical" }} />
-                </label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "end" }}>
-                  <label>
-                    Due Date <span className="hint">(optional)</span>
-                    <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
-                  </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", paddingBottom: 8 }}>
-                    <input type="checkbox" checked={required} onChange={e => setRequired(e.target.checked)} style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer" }} />
-                    <span style={{ fontSize: 13, whiteSpace: "nowrap" }}>Required</span>
-                  </label>
-                </div>
-                {/* Reflection questions */}
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>
-                      Reflection Questions <span className="hint" style={{ fontWeight: 400 }}>(optional)</span>
-                    </div>
-                    <button type="button" style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 4 }} onClick={addQuestion}>
-                      + Add
-                    </button>
-                  </div>
-                  {questions.length === 0 ? (
-                    <p className="hint" style={{ fontSize: 12, margin: 0 }}>No questions — referees complete after watching all clips.</p>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {questions.map((q, i) => (
-                        <div key={q.id} style={{ display: "flex", gap: 5, alignItems: "center" }}>
-                          {/* Reorder */}
-                          <div style={{ display: "flex", flexDirection: "column", gap: 0, flexShrink: 0 }}>
-                            <button type="button" onClick={() => moveQuestion(q.id, -1)} disabled={i === 0} style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", padding: "1px 2px", color: "var(--muted)", opacity: i === 0 ? 0.3 : 1 }} title="Move up"><ChevronUp size={11} /></button>
-                            <button type="button" onClick={() => moveQuestion(q.id, 1)} disabled={i === questions.length - 1} style={{ background: "none", border: "none", cursor: i === questions.length - 1 ? "default" : "pointer", padding: "1px 2px", color: "var(--muted)", opacity: i === questions.length - 1 ? 0.3 : 1 }} title="Move down"><ChevronDown size={11} /></button>
-                          </div>
-                          <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 14, textAlign: "right", flexShrink: 0 }}>{i + 1}.</span>
-                          <input
-                            value={q.text}
-                            onChange={e => updateQuestion(q.id, e.target.value)}
-                            placeholder={`Question ${i + 1}…`}
-                            style={{ flex: 1, fontSize: 13 }}
-                          />
-                          {/* Required toggle */}
-                          <label style={{ display: "flex", alignItems: "center", gap: 3, cursor: "pointer", flexShrink: 0, fontSize: 11, color: q.required ? "#fca5a5" : "var(--muted)", whiteSpace: "nowrap" }} title="Mark as required">
-                            <input type="checkbox" checked={q.required} onChange={() => toggleRequired(q.id)} style={{ width: 11, height: 11, accentColor: "var(--accent)", cursor: "pointer" }} />
-                            Req
-                          </label>
-                          <button type="button" onClick={() => removeQuestion(q.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "4px", flexShrink: 0 }}>✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {/* Knowledge quiz */}
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
-                    <HelpCircle size={13} /> Knowledge Quiz <span className="hint" style={{ fontWeight: 400 }}>(optional)</span>
-                  </div>
-                  <QuizEditor questions={quizQuestions} onChange={setQuizQuestions} />
-                </div>
-              </>
-            )}
-
-            {/* ── Add to existing mode ── */}
-            {mode === "existing" && (
+              </div>
+              {/* Reflection questions */}
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Select Assignment *</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto", marginBottom: 4, paddingRight: 2 }}>
-                  {assignments.map(a => {
-                    const completedCount = a.assignmentUsers.filter(u => u.status === "Completed").length;
-                    const totalUsers     = a.assignmentUsers.length;
-                    const isSelected     = selAssignment === a.id;
-                    const displayTitle   = a.title.trim() || `Assignment created ${fmtShort(a.createdAt)}`;
-                    return (
-                      <div
-                        key={a.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => { setSelAssignment(a.id); resetRecipients(); setErr(""); setSuccess(""); }}
-                        onKeyDown={e => e.key === "Enter" && setSelAssignment(a.id)}
-                        style={{
-                          border: `1px solid ${isSelected ? "var(--accent)" : "var(--border)"}`,
-                          borderRadius: 10,
-                          padding: "10px 14px",
-                          cursor: "pointer",
-                          background: isSelected ? "rgba(165,106,27,.06)" : "var(--panel2)",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 4,
-                          outline: "none",
-                        }}
-                      >
-                        <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayTitle}</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px", fontSize: 11, color: "var(--muted)" }}>
-                          <span>{totalUsers} user{totalUsers !== 1 ? "s" : ""} assigned</span>
-                          <span>{completedCount}/{totalUsers} completed</span>
-                          {a.dueDate && <span>Due {fmtShort(a.dueDate)}</span>}
-                          <span>Created {fmtShort(a.createdAt)}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="mb-1.5 flex items-center justify-between">
+                  <div className="text-sm font-semibold text-text">
+                    Reflection Questions <span className="font-normal text-muted">(optional)</span>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={addQuestion}>
+                    + Add
+                  </Button>
                 </div>
-                {success && (
-                  <div style={{ background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.3)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#22c55e", marginTop: 4 }}>
-                    {success}
+                {questions.length === 0 ? (
+                  <p className="text-xs text-muted">No questions — referees complete after watching all clips.</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {questions.map((q, i) => (
+                      <div key={q.id} className="flex items-center gap-1.5">
+                        {/* Reorder */}
+                        <div className="flex shrink-0 flex-col">
+                          <button
+                            type="button"
+                            onClick={() => moveQuestion(q.id, -1)}
+                            disabled={i === 0}
+                            className={cn("px-0.5 py-px text-muted", i === 0 ? "cursor-default opacity-30" : "cursor-pointer")}
+                            title="Move up"
+                          >
+                            <ChevronUp size={11} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveQuestion(q.id, 1)}
+                            disabled={i === questions.length - 1}
+                            className={cn("px-0.5 py-px text-muted", i === questions.length - 1 ? "cursor-default opacity-30" : "cursor-pointer")}
+                            title="Move down"
+                          >
+                            <ChevronDown size={11} />
+                          </button>
+                        </div>
+                        <span className="w-3.5 shrink-0 text-right text-xs text-muted">{i + 1}.</span>
+                        <Input
+                          value={q.text}
+                          onChange={e => updateQuestion(q.id, e.target.value)}
+                          placeholder={`Question ${i + 1}…`}
+                          className="flex-1 text-sm"
+                        />
+                        {/* Required toggle */}
+                        <label
+                          className={cn("flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap text-[11px]", q.required ? "text-red-300" : "text-muted")}
+                          title="Mark as required"
+                        >
+                          <input type="checkbox" checked={q.required} onChange={() => toggleRequired(q.id)} className="h-[11px] w-[11px] cursor-pointer accent-accent" />
+                          Req
+                        </label>
+                        <button type="button" onClick={() => removeQuestion(q.id)} className="shrink-0 p-1 text-muted hover:text-text">✕</button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            )}
+              {/* Knowledge quiz */}
+              <div>
+                <div className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-text">
+                  <HelpCircle size={13} /> Knowledge Quiz <span className="font-normal text-muted">(optional)</span>
+                </div>
+                <QuizEditor questions={quizQuestions} onChange={setQuizQuestions} />
+              </div>
+            </>
+          )}
 
-            {/* Recipient picker — shared by both modes; in existing mode filters to eligible only */}
-            <RecipientPicker
-              members={members}
-              groups={groups}
-              tab={tab}
-              setTab={setTab}
-              selected={selected}
-              setSelected={setSelected}
-              selGroups={selGroups}
-              setSelGroups={setSelGroups}
-              alreadyAssignedIds={alreadyAssignedIds}
-            />
-          </div>
-        </div>
+          {/* ── Add to existing mode ── */}
+          {mode === "existing" && (
+            <div>
+              <div className="mb-1.5 text-sm font-semibold text-text">Select Assignment *</div>
+              <div className="mb-1 grid max-h-[220px] gap-1.5 overflow-y-auto pr-0.5">
+                {assignments.map(a => {
+                  const completedCount = a.assignmentUsers.filter(u => u.status === "Completed").length;
+                  const totalUsers     = a.assignmentUsers.length;
+                  const isSelected     = selAssignment === a.id;
+                  const displayTitle   = a.title.trim() || `Assignment created ${fmtShort(a.createdAt)}`;
+                  return (
+                    <div
+                      key={a.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => { setSelAssignment(a.id); resetRecipients(); setErr(""); setSuccess(""); }}
+                      onKeyDown={e => e.key === "Enter" && setSelAssignment(a.id)}
+                      className={cn(
+                        "grid gap-1 rounded-lg border px-3.5 py-2.5 outline-none",
+                        isSelected ? "border-accent bg-accent/5" : "border-border bg-panel-2"
+                      )}
+                    >
+                      <div className="truncate text-sm font-semibold text-text">{displayTitle}</div>
+                      <div className="flex flex-wrap gap-x-3.5 gap-y-0.5 text-[11px] text-muted">
+                        <span>{totalUsers} user{totalUsers !== 1 ? "s" : ""} assigned</span>
+                        <span>{completedCount}/{totalUsers} completed</span>
+                        {a.dueDate && <span>Due {fmtShort(a.dueDate)}</span>}
+                        <span>Created {fmtShort(a.createdAt)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {success && (
+                <div className="mt-1 rounded-lg border border-good/30 bg-good/10 px-3 py-2 text-sm text-good">
+                  {success}
+                </div>
+              )}
+            </div>
+          )}
 
-        <div style={{ flexShrink: 0, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-          {err && <p className="danger-text" style={{ margin: "0 0 10px" }}>{err}</p>}
-          <div className="action-row">
-            <button onClick={onClose}>{success ? "Done" : "Cancel"}</button>
-            {!success && (
-              <button className="primary" onClick={handleSave} disabled={saving}>
-                {saving
-                  ? mode === "new" ? "Assigning…" : "Adding…"
-                  : mode === "new"
-                    ? `Assign to ${resolvedCount > 0 ? resolvedCount : ""} referee${resolvedCount !== 1 ? "s" : ""}`
-                    : `Add ${resolvedCount > 0 ? resolvedCount : ""} referee${resolvedCount !== 1 ? "s" : ""}`
-                }
-              </button>
-            )}
-          </div>
+          {/* Recipient picker — shared by both modes; in existing mode filters to eligible only */}
+          <RecipientPicker
+            members={members}
+            groups={groups}
+            tab={tab}
+            setTab={setTab}
+            selected={selected}
+            setSelected={setSelected}
+            selGroups={selGroups}
+            setSelGroups={setSelGroups}
+            alreadyAssignedIds={alreadyAssignedIds}
+          />
         </div>
       </div>
-    </div>
+
+      <div className="mt-4 shrink-0 border-t border-border pt-3">
+        {err && <p className="mb-2.5 text-xs font-medium text-red-400">{err}</p>}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>{success ? "Done" : "Cancel"}</Button>
+          {!success && (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving
+                ? mode === "new" ? "Assigning…" : "Adding…"
+                : mode === "new"
+                  ? `Assign to ${resolvedCount > 0 ? resolvedCount : ""} referee${resolvedCount !== 1 ? "s" : ""}`
+                  : `Add ${resolvedCount > 0 ? resolvedCount : ""} referee${resolvedCount !== 1 ? "s" : ""}`
+              }
+            </Button>
+          )}
+        </div>
+      </div>
+    </ModalShell>
   );
 }
 
@@ -466,81 +485,70 @@ function AssignmentsHistoryModal({
   );
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 640, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-        <div className="modal-title" style={{ flexShrink: 0 }}>
-          <div>
-            <p className="eyebrow">Playlist</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>Assignments — {playlistTitle}</h1>
-            <p className="hint" style={{ margin: "2px 0 0" }}>
-              {assignments.length} assignment{assignments.length !== 1 ? "s" : ""} created from this playlist
-            </p>
-          </div>
-          <button onClick={onClose} aria-label="Close">✕</button>
+    <ModalShell maxWidth={640}>
+      <div className="flex shrink-0 items-start justify-between gap-3">
+        <div>
+          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Playlist</p>
+          <h1 className="text-lg font-semibold text-text">Assignments — {playlistTitle}</h1>
+          <p className="mt-0.5 text-xs text-muted">
+            {assignments.length} assignment{assignments.length !== 1 ? "s" : ""} created from this playlist
+          </p>
         </div>
-
-        <div style={{ flex: 1, overflowY: "auto", marginTop: 12 }}>
-          {sorted.length === 0 ? (
-            <p className="hint" style={{ padding: "16px 0", margin: 0 }}>No assignments yet.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {sorted.map(a => {
-                const completedCount = a.assignmentUsers.filter(u => u.status === "Completed").length;
-                const totalUsers     = a.assignmentUsers.length;
-                const allDone        = totalUsers > 0 && completedCount === totalUsers;
-                return (
-                  <div
-                    key={a.id}
-                    style={{
-                      background: "var(--panel2)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 10,
-                      padding: "12px 14px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 14,
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {a.title}
-                        {a.required && (
-                          <span style={{ ...REQUIRED_BADGE_STYLE, marginLeft: 6, verticalAlign: "middle" }}>Required</span>
-                        )}
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 16px", marginTop: 4 }}>
-                        <span className="hint" style={{ fontSize: 11 }}>
-                          {totalUsers} user{totalUsers !== 1 ? "s" : ""}
-                        </span>
-                        <span style={{ fontSize: 11, color: allDone ? "#22c55e" : "var(--muted)" }}>
-                          {completedCount}/{totalUsers} completed
-                        </span>
-                        {a.dueDate && (
-                          <span className="hint" style={{ fontSize: 11 }}>Due {fmt(a.dueDate)}</span>
-                        )}
-                        <span className="hint" style={{ fontSize: 11 }}>Created {fmt(a.createdAt)}</span>
-                      </div>
-                    </div>
-                    {onViewAssignment && (
-                      <button
-                        style={{ fontSize: 12, padding: "5px 12px", flexShrink: 0, whiteSpace: "nowrap" }}
-                        onClick={() => { onViewAssignment(a.id); onClose(); }}
-                      >
-                        View Assignment
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="action-row" style={{ flexShrink: 0, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-          <button onClick={onClose}>Close</button>
-        </div>
+        <button onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted hover:bg-panel-3 hover:text-text">✕</button>
       </div>
-    </div>
+
+      <div className="mt-3 flex-1 overflow-y-auto">
+        {sorted.length === 0 ? (
+          <p className="py-4 text-sm text-muted">No assignments yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-2">
+            {sorted.map(a => {
+              const completedCount = a.assignmentUsers.filter(u => u.status === "Completed").length;
+              const totalUsers     = a.assignmentUsers.length;
+              const allDone        = totalUsers > 0 && completedCount === totalUsers;
+              return (
+                <div key={a.id} className="flex items-center gap-3.5 rounded-lg border border-border bg-panel-2 px-3.5 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-text">
+                      {a.title}
+                      {a.required && (
+                        <Badge className="ml-1.5 align-middle" style={REQUIRED_BADGE_STYLE}>Required</Badge>
+                      )}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
+                      <span className="text-[11px] text-muted">
+                        {totalUsers} user{totalUsers !== 1 ? "s" : ""}
+                      </span>
+                      <span className={cn("text-[11px]", allDone ? "text-good" : "text-muted")}>
+                        {completedCount}/{totalUsers} completed
+                      </span>
+                      {a.dueDate && (
+                        <span className="text-[11px] text-muted">Due {fmt(a.dueDate)}</span>
+                      )}
+                      <span className="text-[11px] text-muted">Created {fmt(a.createdAt)}</span>
+                    </div>
+                  </div>
+                  {onViewAssignment && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="shrink-0 whitespace-nowrap"
+                      onClick={() => { onViewAssignment(a.id); onClose(); }}
+                    >
+                      View Assignment
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 flex shrink-0 justify-end border-t border-border pt-3">
+        <Button variant="ghost" onClick={onClose}>Close</Button>
+      </div>
+    </ModalShell>
   );
 }
 
@@ -677,97 +685,73 @@ export function PlaylistDetailScreen({
   }
 
   return (
-    <div style={{ boxSizing: "border-box" }}>
-
-      {/* Header */}
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <div className="table-head">
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <ListVideo size={20} style={{ color: "var(--muted)", flexShrink: 0 }} />
-            <div>
-              <p className="eyebrow" style={{ margin: 0 }}>Playlist</p>
-              <h1 style={{ margin: 0, fontSize: 22 }}>{playlist.title}</h1>
-              <p className="hint" style={{ margin: "2px 0 0" }}>
-                {clipRows.length} clip{clipRows.length !== 1 ? "s" : ""}
-                {playlist.description ? ` · ${playlist.description}` : ""}
-              </p>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {saving && <span className="hint" style={{ fontSize: 12 }}>Saving…</span>}
-            {assignments.length > 0 && (
-              <button
-                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
-                onClick={() => setAssignedUsersOpen(true)}
-              >
-                <BookOpen size={13} />
-                Assignments ({assignments.length})
-              </button>
-            )}
-            {canAssign && members && onCreateAssignment && onAddToAssignment && (
-              <button
-                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
-                onClick={() => setAssignModalOpen(true)}
-              >
-                <Users size={13} /> Assign Playlist
-              </button>
-            )}
-            {canEdit && (
-              <button
-                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
-                onClick={() => setEditModalOpen(true)}
-              >
-                <Edit2 size={13} /> Edit
-              </button>
-            )}
-            {canDelete && (
-              <button
-                className="danger"
-                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}
-                onClick={() => setConfirmDelete(true)}
-                disabled={saving}
-              >
-                <Trash2 size={13} /> {activeAssignmentCount > 0 ? "Archive" : "Delete"}
-              </button>
-            )}
-            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}><ChevronLeft size={15} /> Back</button>
-          </div>
-        </div>
-      </div>
+    <PageFrame
+      className="p-0"
+      eyebrow="Playlist"
+      title={playlist.title}
+      description={`${clipRows.length} clip${clipRows.length !== 1 ? "s" : ""}${playlist.description ? ` · ${playlist.description}` : ""}`}
+      actions={
+        <>
+          {saving && <span className="self-center text-xs text-muted">Saving…</span>}
+          {assignments.length > 0 && (
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setAssignedUsersOpen(true)}>
+              <BookOpen size={13} />
+              Assignments ({assignments.length})
+            </Button>
+          )}
+          {canAssign && members && onCreateAssignment && onAddToAssignment && (
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setAssignModalOpen(true)}>
+              <Users size={13} /> Assign Playlist
+            </Button>
+          )}
+          {canEdit && (
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setEditModalOpen(true)}>
+              <Edit2 size={13} /> Edit
+            </Button>
+          )}
+          {canDelete && (
+            <Button variant="danger" size="sm" className="gap-1.5" onClick={() => setConfirmDelete(true)} disabled={saving}>
+              <Trash2 size={13} /> {activeAssignmentCount > 0 ? "Archive" : "Delete"}
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" className="gap-1" onClick={onBack}>
+            <ChevronLeft size={15} /> Back
+          </Button>
+        </>
+      }
+    >
 
       {/* Duplicate clip warning */}
       {duplicateTagIds.size > 0 && canEdit && (
-        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 8, background: "rgba(245,158,11,.1)", border: "1px solid rgba(245,158,11,.3)", color: "#fde68a", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
-          <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+        <div className="flex items-center gap-2 rounded-lg border border-warn/30 bg-warn/10 px-4 py-2.5 text-sm text-yellow-200">
+          <AlertTriangle size={14} className="shrink-0" />
           This playlist contains {duplicateTagIds.size} duplicate clip{duplicateTagIds.size !== 1 ? "s" : ""}. Consider removing the duplicates to avoid repetition.
         </div>
       )}
 
       {/* Assignment success banner */}
       {assignSuccess && (
-        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 8, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.3)", color: STATUS_COLORS.Completed, fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-          <CheckCircle2 size={14} style={{ flexShrink: 0 }} /> Assignment created successfully. Assigned referees will see it in My Learning.
+        <div className="flex items-center gap-2 rounded-lg border border-good/30 bg-good/15 px-4 py-2.5 text-sm font-semibold" style={{ color: STATUS_COLORS.Completed }}>
+          <CheckCircle2 size={14} className="shrink-0" /> Assignment created successfully. Assigned referees will see it in My Learning.
         </div>
       )}
 
       {/* Empty state */}
       {clipRows.length === 0 && (
-        <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-          <ListVideo size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
-          <p style={{ margin: 0, fontWeight: 700 }}>This playlist is empty</p>
-          <p className="hint" style={{ margin: "6px 0 0" }}>
-            Clips may have been removed from their source reviews, or none have been added yet.
-          </p>
-        </div>
+        <EmptyState
+          icon={<ListVideo size={36} />}
+          title="This playlist is empty"
+          description="Clips may have been removed from their source reviews, or none have been added yet."
+        />
       )}
 
       {/* Master–detail split */}
       {clipRows.length > 0 && (
-        <div className="lh-clip-split">
+        <div className="flex items-start gap-4">
 
           {/* Left: ordered clip list */}
-          <div className="lh-clip-split__list" style={{ maxHeight: "72vh", overflowY: "auto", borderRadius: 8, border: "1px solid var(--border)", background: "var(--panel)" }}>
-            <div style={{ position: "sticky", top: 0, zIndex: 1, padding: "8px 10px", background: "var(--panel2)", borderBottom: "1px solid var(--border)", fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <div className="max-h-[72vh] flex-[0_0_38%] overflow-y-auto rounded-lg border border-border bg-panel">
+            <div className="sticky top-0 z-10 border-b border-border bg-panel-2 px-2.5 py-2 text-xs uppercase tracking-wide text-muted">
               {clipRows.length} clip{clipRows.length !== 1 ? "s" : ""}
             </div>
 
@@ -782,18 +766,18 @@ export function PlaylistDetailScreen({
                   aria-label={`Clip ${i + 1}: ${row.categoryGroup}${row.subtype ? ` – ${row.subtype}` : ""}`}
                   onClick={() => setPreviewIndex(i)}
                   onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPreviewIndex(i); } }}
-                  style={{ display: "flex", gap: 8, padding: "10px 8px 10px 10px", borderBottom: "1px solid var(--border)", cursor: "pointer", background: isPreviewing ? "var(--panel2)" : undefined, borderLeft: isPreviewing ? "3px solid var(--accent)" : "3px solid transparent" }}
+                  className={cn(
+                    "flex cursor-pointer gap-2 border-b border-border border-l-[3px] py-2.5 pl-2.5 pr-2",
+                    isPreviewing ? "border-l-accent bg-panel-2" : "border-l-transparent"
+                  )}
                 >
                   {/* Reorder controls */}
                   {canEdit && (
-                    <div
-                      onClick={e => e.stopPropagation()}
-                      style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}
-                    >
+                    <div onClick={e => e.stopPropagation()} className="flex shrink-0 flex-col gap-0.5">
                       <button
                         onClick={e => { e.stopPropagation(); moveItem(i, -1); }}
                         disabled={i === 0 || saving}
-                        style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", padding: "1px 2px", color: "var(--muted)", opacity: i === 0 ? 0.3 : 1 }}
+                        className={cn("px-0.5 py-px text-muted", i === 0 ? "cursor-default opacity-30" : "cursor-pointer")}
                         title="Move up"
                       >
                         <ChevronUp size={14} />
@@ -801,7 +785,7 @@ export function PlaylistDetailScreen({
                       <button
                         onClick={e => { e.stopPropagation(); moveItem(i, 1); }}
                         disabled={i === clipRows.length - 1 || saving}
-                        style={{ background: "none", border: "none", cursor: i === clipRows.length - 1 ? "default" : "pointer", padding: "1px 2px", color: "var(--muted)", opacity: i === clipRows.length - 1 ? 0.3 : 1 }}
+                        className={cn("px-0.5 py-px text-muted", i === clipRows.length - 1 ? "cursor-default opacity-30" : "cursor-pointer")}
                         title="Move down"
                       >
                         <ChevronDown size={14} />
@@ -810,20 +794,18 @@ export function PlaylistDetailScreen({
                   )}
 
                   {/* Clip info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", marginBottom: 2 }}>
-                      {row.tag.outcome && <span className={outcomeClass(row.tag.outcome)} style={{ fontSize: 11, padding: "1px 6px" }}>{row.tag.outcome}</span>}
-                      {row.categoryGroup && <span className="chip" style={{ fontSize: 11 }}>{row.categoryGroup}</span>}
-                      {duplicateTagIds.has(row.tag.id) && (
-                        <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 999, background: "rgba(245,158,11,.15)", color: "#fde68a", border: "1px solid rgba(245,158,11,.3)", fontWeight: 700 }}>Dup</span>
-                      )}
-                      <span style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", color: "var(--muted)", marginLeft: "auto" }}>{row.tag.adjustedTime}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-0.5 flex flex-wrap items-center gap-1.5">
+                      {row.tag.outcome && <span className={outcomeClass(row.tag.outcome)}>{row.tag.outcome}</span>}
+                      {row.categoryGroup && <Badge>{row.categoryGroup}</Badge>}
+                      {duplicateTagIds.has(row.tag.id) && <Badge tone="warn">Dup</Badge>}
+                      <span className="ml-auto text-[11px] tabular-nums text-muted">{row.tag.adjustedTime}</span>
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.refereeName}</div>
-                    <div style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.review.game || "Untitled game"}</div>
-                    {row.subtype && <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{row.subtype}</div>}
+                    <div className="truncate text-sm font-semibold text-text">{row.refereeName}</div>
+                    <div className="truncate text-xs text-muted">{row.review.game || "Untitled game"}</div>
+                    {row.subtype && <div className="mt-px truncate text-[11px] text-muted">{row.subtype}</div>}
                     {row.creatorNote && (
-                      <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 2, display: "flex", alignItems: "center", gap: 3 }}>
+                      <div className="mt-0.5 flex items-center gap-1 text-[11px] text-accent">
                         <MessageSquare size={10} /> Note
                       </div>
                     )}
@@ -834,7 +816,7 @@ export function PlaylistDetailScreen({
                     <button
                       onClick={e => { e.stopPropagation(); setPendingRemoveItem({ itemId: row.itemId, idx: i }); }}
                       disabled={saving}
-                      style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", alignSelf: "center" }}
+                      className="shrink-0 self-center p-1 text-muted hover:text-text"
                       title="Remove from playlist"
                     >
                       <Trash2 size={14} />
@@ -846,8 +828,8 @@ export function PlaylistDetailScreen({
           </div>
 
           {/* Right: sticky preview */}
-          <div style={{ flex: 1, position: "sticky", top: 20 }}>
-            <div className="panel">
+          <div className="sticky top-5 flex-1">
+            <Card>
               <ClipPreview
                 clip={previewClip}
                 index={safePreviewIndex}
@@ -859,44 +841,41 @@ export function PlaylistDetailScreen({
               />
 
               {/* Learning note (editable for educators) */}
-              {canEdit && onUpdateItemNote ? (
-                <div style={{ borderTop: "1px solid var(--border)", marginTop: 12, paddingTop: 12 }}>
-                  <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {canEdit && onUpdateItemNote && (
+                <div className="mt-3 border-t border-border pt-3">
+                  <p className="mb-1.5 text-[11px] uppercase tracking-wide text-muted">
                     Learning Note
                   </p>
-                  {canEdit && onUpdateItemNote ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      <textarea
-                        value={noteText}
-                        onChange={e => setNoteText(e.target.value)}
-                        placeholder="Add a focus note for referees viewing this clip…"
-                        rows={3}
-                        style={{ width: "100%", boxSizing: "border-box", fontSize: 13, resize: "vertical" }}
-                      />
-                      {noteText !== (previewClip?.creatorNote ?? "") && (
-                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                          <button style={{ fontSize: 12 }} onClick={() => setNoteText(previewClip?.creatorNote ?? "")}>
-                            Cancel
-                          </button>
-                          <button
-                            className="primary"
-                            style={{ fontSize: 12 }}
-                            disabled={noteSaving || !previewClip}
-                            onClick={async () => {
-                              if (!previewClip) return;
-                              setNoteSaving(true);
-                              try { await onUpdateItemNote(previewClip.itemId, noteText.trim() || null); } finally { setNoteSaving(false); }
-                            }}
-                          >
-                            {noteSaving ? "Saving…" : "Save Note"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
+                  <div className="grid grid-cols-1 gap-1.5">
+                    <Textarea
+                      value={noteText}
+                      onChange={e => setNoteText(e.target.value)}
+                      placeholder="Add a focus note for referees viewing this clip…"
+                      rows={3}
+                      className="text-sm"
+                    />
+                    {noteText !== (previewClip?.creatorNote ?? "") && (
+                      <div className="flex justify-end gap-1.5">
+                        <Button variant="ghost" size="sm" onClick={() => setNoteText(previewClip?.creatorNote ?? "")}>
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={noteSaving || !previewClip}
+                          onClick={async () => {
+                            if (!previewClip) return;
+                            setNoteSaving(true);
+                            try { await onUpdateItemNote(previewClip.itemId, noteText.trim() || null); } finally { setNoteSaving(false); }
+                          }}
+                        >
+                          {noteSaving ? "Saving…" : "Save Note"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : null}
-            </div>
+              )}
+            </Card>
           </div>
         </div>
       )}
@@ -963,6 +942,6 @@ export function PlaylistDetailScreen({
           onCancel={() => setPendingRemoveItem(null)}
         />
       )}
-    </div>
+    </PageFrame>
   );
 }

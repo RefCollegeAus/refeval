@@ -12,6 +12,9 @@ import type { Assignment } from "@/lib/types/assignments";
 import type { MemberRecord } from "@/lib/types/members";
 import type { RefereeGoalView } from "@/lib/types/developmentGoals";
 import { fmtRel } from "@/lib/utils/time";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, Card, EmptyState } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 interface Props {
   session: RefEvalSession;
@@ -99,29 +102,18 @@ export function LearningHub({
     return items.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 16);
   }, [assignments, playlists]);
 
-  const activityColor = (type: ActivityItem["icon"]) => {
-    switch (type) {
-      case "completed":  return "#22c55e";
-      case "assignment": return "#3b82f6";
-      case "playlist":   return "#8b5cf6";
-      case "overdue":    return "#ef4444";
-    }
-  };
-
   type NavCard = {
     icon: React.ReactNode;
     label: string;
     hint: string;
     screen: Screen;
     show: boolean;
-    accent?: boolean;
-    green?: boolean;
     description?: string;
   };
 
   const navCards: NavCard[] = [
     {
-      icon: <Film size={22} />,
+      icon: <Film size={20} />,
       label: "Clip Library",
       hint: `${tags.length} clip${tags.length !== 1 ? "s" : ""} from completed reviews`,
       description: "Browse and filter all coded review clips",
@@ -129,16 +121,15 @@ export function LearningHub({
       show: canViewClipLibrary,
     },
     {
-      icon: <Library size={22} />,
+      icon: <Library size={20} />,
       label: "Learning Library",
       hint: (() => { const n = tags.filter(t => t.isLearningClip).length; return n > 0 ? `${n} clip${n !== 1 ? "s" : ""} marked for learning` : "No clips marked yet"; })(),
       description: "Curated clips for education and quiz resources",
       screen: "learning-library",
       show: canViewClipLibrary,
-      green: true,
     },
     {
-      icon: <ListChecks size={22} />,
+      icon: <ListChecks size={20} />,
       label: "Playlists",
       hint: playlists.length > 0
         ? `${playlists.length} playlist${playlists.length !== 1 ? "s" : ""}`
@@ -148,7 +139,7 @@ export function LearningHub({
       show: canAccessPlaylists,
     },
     {
-      icon: <BookOpen size={22} />,
+      icon: <BookOpen size={20} />,
       label: "Assignments",
       hint: assignments.length > 0
         ? `${assignments.length} assignment${assignments.length !== 1 ? "s" : ""}`
@@ -158,16 +149,15 @@ export function LearningHub({
       show: canViewAssignments,
     },
     {
-      icon: <BarChart2 size={22} />,
+      icon: <BarChart2 size={20} />,
       label: "Learning Progress",
       hint: totalUsers > 0 ? `${completionPct}% completion rate` : "Track referee progress",
       description: "Completion rates and assignment status",
       screen: "learning-progress",
       show: canViewAssignments,
-      accent: true,
     },
     {
-      icon: <Users size={22} />,
+      icon: <Users size={20} />,
       label: "Groups",
       hint: groupCount > 0
         ? `${groupCount} group${groupCount !== 1 ? "s" : ""}`
@@ -177,7 +167,7 @@ export function LearningHub({
       show: canViewGroups,
     },
     {
-      icon: <Zap size={22} />,
+      icon: <Zap size={20} />,
       label: "Referee Simulator",
       hint: simulatorCount > 0
         ? `${simulatorCount} simulation${simulatorCount !== 1 ? "s" : ""} available`
@@ -185,7 +175,6 @@ export function LearningHub({
       description: "Decision-making simulations from real game video",
       screen: "simulator-builder",
       show: canAccessSimulator,
-      accent: true,
     },
   ];
 
@@ -193,264 +182,230 @@ export function LearningHub({
   const learningClipCount = tags.filter(t => t.isLearningClip).length;
 
   return (
-    <div className="lh-layout">
+    <PageFrame
+      className="p-0"
+      eyebrow="Learning Hub"
+      title={session.activeOrganisation?.name ?? "Referee Learning"}
+    >
+      <div className="grid items-start gap-4 lg:grid-cols-[1fr_300px]">
 
-      {/* ── Main column ── */}
-      <div className="lh-main">
+        {/* ── Main column ── */}
+        <div className="grid grid-cols-1 gap-3.5">
 
-        {/* Compact page header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 10,
-            background: "rgba(165,106,27,.12)", border: "1px solid rgba(165,106,27,.3)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--accent)", flexShrink: 0,
-          }}>
-            <GraduationCap size={18} strokeWidth={1.5} />
-          </div>
-          <div>
-            <p className="eyebrow" style={{ margin: 0 }}>Learning Hub</p>
-            <h1 style={{ margin: 0, fontSize: 20 }}>
-              {session.activeOrganisation?.name ?? "Referee Learning"}
-            </h1>
-          </div>
-        </div>
+          {/* Attention: overdue assignments */}
+          {canViewAssignments && snapshot.overdueAssignments > 0 && (
+            <button
+              onClick={() => setScreen("learning-progress")}
+              className="flex w-full items-center gap-2 rounded-xl border border-danger/25 bg-danger/5 px-3.5 py-2.5 text-left text-sm text-red-300 transition-colors hover:bg-danger/10"
+            >
+              <AlertCircle size={14} className="shrink-0 text-red-400" />
+              <span>
+                <strong>{snapshot.overdueAssignments}</strong> overdue assignment{snapshot.overdueAssignments !== 1 ? "s" : ""} — some referees are behind on required work
+              </span>
+              <ChevronRight size={13} className="ml-auto shrink-0 opacity-50" />
+            </button>
+          )}
 
-        {/* Attention: overdue assignments */}
-        {canViewAssignments && snapshot.overdueAssignments > 0 && (
-          <button className="lh-attention-row" onClick={() => setScreen("learning-progress")}>
-            <AlertCircle size={14} style={{ color: "#ef4444", flexShrink: 0 }} />
-            <span>
-              <strong>{snapshot.overdueAssignments}</strong> overdue assignment{snapshot.overdueAssignments !== 1 ? "s" : ""} — some referees are behind on required work
-            </span>
-            <ChevronRight size={13} style={{ marginLeft: "auto", flexShrink: 0, opacity: 0.5 }} />
-          </button>
-        )}
-
-        {/* PRIMARY: Learning tools nav */}
-        {visibleCards.length > 0 && (
-          <div>
-            <h2 className="lh-section-title">Learning Tools</h2>
-            <div className="lh-nav-grid">
-              {visibleCards.map(card => (
-                <button
-                  key={card.screen}
-                  className={"lh-nav-card" + (card.accent ? " lh-nav-card--accent" : "") + (card.green ? " lh-nav-card--green" : "")}
-                  onClick={() => setScreen(card.screen)}
-                >
-                  <div className="lh-nav-card-icon">{card.icon}</div>
-                  <div className="lh-nav-card-body">
-                    <div className="lh-nav-card-label">{card.label}</div>
-                    {card.description && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>{card.description}</div>}
-                    <div className="lh-nav-card-hint" style={{ marginTop: card.description ? 3 : undefined }}>{card.hint}</div>
-                  </div>
-                  <ChevronRight size={15} className="lh-nav-chevron" />
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Empty state if no tools available */}
-        {visibleCards.length === 0 && (
-          <div className="empty-state">
-            <GraduationCap size={32} style={{ opacity: 0.3, marginBottom: 10 }} />
-            <p>No learning tools are enabled for your account.</p>
-            <p className="hint" style={{ fontSize: 13 }}>
-              Contact your administrator to enable Clip Library, Playlists or Assignments.
-            </p>
-          </div>
-        )}
-
-        {/* SECONDARY: Compact stats strip */}
-        {visibleCards.length > 0 && (
-          <div className="lh-compact-stats">
-            {canViewClipLibrary && (
-              <span className="lh-compact-stat">
-                <Film size={12} /> <strong>{tags.length}</strong> Clips
-              </span>
-            )}
-            {canViewClipLibrary && (
-              <span className="lh-compact-stat lh-compact-stat--green">
-                <Library size={12} /> <strong>{learningClipCount}</strong> Learning clips
-              </span>
-            )}
-            {canAccessPlaylists && (
-              <span className="lh-compact-stat">
-                <ListChecks size={12} /> <strong>{playlists.length}</strong> Playlist{playlists.length !== 1 ? "s" : ""}
-              </span>
-            )}
-            {canViewAssignments && (
-              <span className="lh-compact-stat">
-                <BookOpen size={12} /> <strong>{assignments.length}</strong> Assignment{assignments.length !== 1 ? "s" : ""}
-              </span>
-            )}
-            {canViewAssignments && totalUsers > 0 && (
-              <span className="lh-compact-stat lh-compact-stat--good">
-                <CheckCircle2 size={12} /> <strong>{completionPct}%</strong> Completion
-              </span>
-            )}
-            {canViewAssignments && overdueCount > 0 && (
-              <span className="lh-compact-stat lh-compact-stat--danger">
-                <AlertCircle size={12} /> <strong>{overdueCount}</strong> Overdue
-              </span>
-            )}
-            {canAccessSimulator && (
-              <span className="lh-compact-stat">
-                <Zap size={12} /> <strong>{simulatorCount}</strong> Simulator{simulatorCount !== 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Referee Development */}
-        {refereeMembers.length > 0 && onNavigateDevelopment && (
-          <div>
-            <h2 className="lh-section-title">Referee Development</h2>
-            <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-              {refereeMembers.map((m, idx) => {
-                const mGoals = allRefereeGoalViews.filter(v => v.refereeId === m.id);
-                const active  = mGoals.filter(v => v.status === "Active").length;
-                const highPri = mGoals.filter(v => v.status === "Active" && v.priority === "High").length;
-                const isLast  = idx === refereeMembers.length - 1;
-                return (
-                  <div
-                    key={m.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "10px 14px",
-                      borderBottom: isLast ? "none" : "1px solid var(--border)",
-                    }}
+          {/* PRIMARY: Learning tools nav */}
+          {visibleCards.length > 0 && (
+            <div>
+              <h2 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">Learning Tools</h2>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {visibleCards.map(card => (
+                  <button
+                    key={card.screen}
+                    onClick={() => setScreen(card.screen)}
+                    className="flex items-center gap-3.5 rounded-2xl border border-border bg-panel p-4 text-left shadow-sm transition-colors hover:border-accent"
                   >
-                    <button
-                      onClick={() => onNavigateDevelopment(m.id)}
-                      style={{
-                        background: "none", border: "none", boxShadow: "none",
-                        padding: 0, cursor: "pointer", textAlign: "left",
-                        display: "flex", alignItems: "center", gap: 10, minWidth: 0,
-                      }}
-                      title={`View ${m.name}'s development`}
-                    >
-                      <span style={{
-                        width: 30, height: 30, borderRadius: "50%",
-                        background: "var(--panel3)", border: "1px solid var(--border)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        flexShrink: 0, fontSize: 12, fontWeight: 700, color: "var(--muted)",
-                      }}>
-                        {(m.name || "?")[0].toUpperCase()}
-                      </span>
-                      <span style={{
-                        fontSize: 14, fontWeight: 600, color: "var(--text)",
-                        textDecoration: "underline", textDecorationColor: "transparent",
-                        textUnderlineOffset: 2, transition: "text-decoration-color 0.15s",
-                      }}
-                        onMouseEnter={e => (e.currentTarget.style.textDecorationColor = "var(--muted)")}
-                        onMouseLeave={e => (e.currentTarget.style.textDecorationColor = "transparent")}
-                      >
-                        {m.name || m.email}
-                      </span>
-                    </button>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                      {active > 0
-                        ? <span className="hint" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-                            <Target size={11} />
-                            {active} active goal{active !== 1 ? "s" : ""}
-                            {highPri > 0 && <span style={{ color: "#f59e0b", marginLeft: 2 }}>· {highPri} high</span>}
-                          </span>
-                        : <span className="hint" style={{ fontSize: 12 }}>No active goals</span>
-                      }
-                      <button
-                        onClick={() => onNavigateDevelopment(m.id)}
-                        style={{ fontSize: 11, padding: "3px 10px", flexShrink: 0 }}
-                      >
-                        View →
-                      </button>
+                    <div className="shrink-0 text-accent">{card.icon}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-text">{card.label}</div>
+                      {card.description && <div className="mt-0.5 text-[11px] text-muted">{card.description}</div>}
+                      <div className="mt-0.5 truncate text-xs text-muted">{card.hint}</div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      {/* ── Sidebar ── */}
-      <aside className="lh-sidebar">
-
-        {/* Learning Snapshot widget */}
-        {canViewAssignments && (
-          <div className="panel">
-            <h3 className="ed-section-title" style={{ marginBottom: 12 }}>Learning Snapshot</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-
-              <button className="lh-snapshot-row" onClick={() => setScreen("assignments")}>
-                <span className="lh-snapshot-dot" style={{ background: "#3b82f6" }} />
-                <span className="lh-snapshot-label">Active assignments</span>
-                <strong className="lh-snapshot-value">{snapshot.activeAssignments}</strong>
-                <ChevronRight size={13} style={{ opacity: 0.4, flexShrink: 0 }} />
-              </button>
-
-              <button
-                className="lh-snapshot-row"
-                onClick={() => setScreen("learning-progress")}
-                style={snapshot.overdueAssignments > 0 ? { color: "#fca5a5" } : undefined}
-              >
-                <span className="lh-snapshot-dot" style={{ background: snapshot.overdueAssignments > 0 ? "#ef4444" : "var(--border)" }} />
-                <span className="lh-snapshot-label">Overdue assignments</span>
-                <strong className="lh-snapshot-value" style={snapshot.overdueAssignments > 0 ? { color: "#ef4444" } : undefined}>
-                  {snapshot.overdueAssignments}
-                </strong>
-                <ChevronRight size={13} style={{ opacity: 0.4, flexShrink: 0 }} />
-              </button>
-
-              <button className="lh-snapshot-row" onClick={() => setScreen("learning-progress")}>
-                <span className="lh-snapshot-dot" style={{ background: "#22c55e" }} />
-                <span className="lh-snapshot-label">Referees learning now</span>
-                <strong className="lh-snapshot-value">{snapshot.learningNow}</strong>
-                <ChevronRight size={13} style={{ opacity: 0.4, flexShrink: 0 }} />
-              </button>
-
-              <button className="lh-snapshot-row lh-snapshot-row--last" onClick={() => setScreen("learning-progress")}>
-                <span className="lh-snapshot-dot" style={{ background: "#8b5cf6" }} />
-                <span className="lh-snapshot-label">Completed this week</span>
-                <strong className="lh-snapshot-value">{snapshot.completedThisWeek}</strong>
-                <ChevronRight size={13} style={{ opacity: 0.4, flexShrink: 0 }} />
-              </button>
-
-            </div>
-          </div>
-        )}
-
-        {/* Recent activity */}
-        <div className="panel">
-          <h3 className="ed-section-title" style={{ marginBottom: 10 }}>Recent Activity</h3>
-          {recentActivity.length === 0 ? (
-            <div className="empty-state" style={{ padding: "20px 12px" }}>
-              <p className="hint" style={{ fontSize: 13, margin: 0 }}>No learning activity yet.</p>
-              <p className="hint" style={{ fontSize: 12, margin: "4px 0 0" }}>
-                {canAccessPlaylists ? "Create a playlist to get started." : ""}
-              </p>
-            </div>
-          ) : (
-            <div className="ed-activity-list">
-              {recentActivity.map(item => (
-                <div key={`${item.icon}::${item.ts}::${item.detail}`} className="ed-activity-item">
-                  <div className="ed-activity-dot" style={{ background: activityColor(item.icon) }} />
-                  <div className="ed-activity-body">
-                    <p className="ed-activity-label">{item.label}</p>
-                    <p className="ed-activity-detail">{item.detail}</p>
-                    <p className="ed-activity-time">{fmtRel(item.ts)}</p>
-                  </div>
-                </div>
-              ))}
+                    <ChevronRight size={15} className="shrink-0 text-muted opacity-50" />
+                  </button>
+                ))}
+              </div>
             </div>
           )}
+
+          {/* Empty state if no tools available */}
+          {visibleCards.length === 0 && (
+            <EmptyState
+              icon={<GraduationCap size={32} />}
+              title="No learning tools are enabled for your account."
+              description="Contact your administrator to enable Clip Library, Playlists or Assignments."
+            />
+          )}
+
+          {/* SECONDARY: Compact stats strip */}
+          {visibleCards.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {canViewClipLibrary && (
+                <Badge className="gap-1.5 py-1">
+                  <Film size={12} /> <strong>{tags.length}</strong> Clips
+                </Badge>
+              )}
+              {canViewClipLibrary && (
+                <Badge className="gap-1.5 py-1">
+                  <Library size={12} /> <strong>{learningClipCount}</strong> Learning clips
+                </Badge>
+              )}
+              {canAccessPlaylists && (
+                <Badge className="gap-1.5 py-1">
+                  <ListChecks size={12} /> <strong>{playlists.length}</strong> Playlist{playlists.length !== 1 ? "s" : ""}
+                </Badge>
+              )}
+              {canViewAssignments && (
+                <Badge className="gap-1.5 py-1">
+                  <BookOpen size={12} /> <strong>{assignments.length}</strong> Assignment{assignments.length !== 1 ? "s" : ""}
+                </Badge>
+              )}
+              {canViewAssignments && totalUsers > 0 && (
+                <Badge tone="good" className="gap-1.5 py-1">
+                  <CheckCircle2 size={12} /> <strong>{completionPct}%</strong> Completion
+                </Badge>
+              )}
+              {canViewAssignments && overdueCount > 0 && (
+                <Badge tone="danger" className="gap-1.5 py-1">
+                  <AlertCircle size={12} /> <strong>{overdueCount}</strong> Overdue
+                </Badge>
+              )}
+              {canAccessSimulator && (
+                <Badge className="gap-1.5 py-1">
+                  <Zap size={12} /> <strong>{simulatorCount}</strong> Simulator{simulatorCount !== 1 ? "s" : ""}
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Referee Development */}
+          {refereeMembers.length > 0 && onNavigateDevelopment && (
+            <div>
+              <h2 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">Referee Development</h2>
+              <Card className="divide-y divide-border p-0">
+                {refereeMembers.map(m => {
+                  const mGoals = allRefereeGoalViews.filter(v => v.refereeId === m.id);
+                  const active  = mGoals.filter(v => v.status === "Active").length;
+                  const highPri = mGoals.filter(v => v.status === "Active" && v.priority === "High").length;
+                  return (
+                    <div key={m.id} className="flex items-center justify-between gap-2 px-3.5 py-2.5">
+                      <button
+                        onClick={() => onNavigateDevelopment(m.id)}
+                        className="flex min-w-0 items-center gap-2.5 text-left"
+                        title={`View ${m.name}'s development`}
+                      >
+                        <span className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full border border-border bg-panel-3 text-xs font-bold text-muted">
+                          {(m.name || "?")[0].toUpperCase()}
+                        </span>
+                        <span className="truncate text-sm font-semibold text-text hover:underline">
+                          {m.name || m.email}
+                        </span>
+                      </button>
+                      <div className="flex shrink-0 items-center gap-2.5">
+                        {active > 0
+                          ? <span className="flex items-center gap-1 text-xs text-muted">
+                              <Target size={11} />
+                              {active} active goal{active !== 1 ? "s" : ""}
+                              {highPri > 0 && <span className="ml-0.5 text-yellow-400">· {highPri} high</span>}
+                            </span>
+                          : <span className="text-xs text-muted">No active goals</span>
+                        }
+                        <Button variant="ghost" size="sm" className="px-2.5" onClick={() => onNavigateDevelopment(m.id)}>
+                          View →
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </Card>
+            </div>
+          )}
+
         </div>
 
-      </aside>
-    </div>
+        {/* ── Sidebar ── */}
+        <aside className="grid grid-cols-1 gap-3.5">
+
+          {/* Learning Snapshot widget */}
+          {canViewAssignments && (
+            <Card>
+              <h3 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-muted">Learning Snapshot</h3>
+              <div className="grid divide-y divide-border">
+
+                <button
+                  className="flex items-center gap-2.5 py-2.5 text-left text-sm text-text transition-colors first:pt-0 last:pb-0 hover:text-accent"
+                  onClick={() => setScreen("assignments")}
+                >
+                  <span className="flex-1 text-xs text-muted">Active assignments</span>
+                  <strong className="min-w-[24px] text-right text-text">{snapshot.activeAssignments}</strong>
+                  <ChevronRight size={13} className="shrink-0 opacity-40" />
+                </button>
+
+                <button
+                  className={cn(
+                    "flex items-center gap-2.5 py-2.5 text-left text-sm transition-colors first:pt-0 last:pb-0 hover:text-accent",
+                    snapshot.overdueAssignments > 0 ? "text-red-300" : "text-text"
+                  )}
+                  onClick={() => setScreen("learning-progress")}
+                >
+                  <span className="flex-1 text-xs text-muted">Overdue assignments</span>
+                  <strong className={cn("min-w-[24px] text-right", snapshot.overdueAssignments > 0 ? "text-red-400" : "text-text")}>
+                    {snapshot.overdueAssignments}
+                  </strong>
+                  <ChevronRight size={13} className="shrink-0 opacity-40" />
+                </button>
+
+                <button
+                  className="flex items-center gap-2.5 py-2.5 text-left text-sm text-text transition-colors first:pt-0 last:pb-0 hover:text-accent"
+                  onClick={() => setScreen("learning-progress")}
+                >
+                  <span className="flex-1 text-xs text-muted">Referees learning now</span>
+                  <strong className="min-w-[24px] text-right text-text">{snapshot.learningNow}</strong>
+                  <ChevronRight size={13} className="shrink-0 opacity-40" />
+                </button>
+
+                <button
+                  className="flex items-center gap-2.5 py-2.5 text-left text-sm text-text transition-colors first:pt-0 last:pb-0 hover:text-accent"
+                  onClick={() => setScreen("learning-progress")}
+                >
+                  <span className="flex-1 text-xs text-muted">Completed this week</span>
+                  <strong className="min-w-[24px] text-right text-text">{snapshot.completedThisWeek}</strong>
+                  <ChevronRight size={13} className="shrink-0 opacity-40" />
+                </button>
+
+              </div>
+            </Card>
+          )}
+
+          {/* Recent activity */}
+          <Card>
+            <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">Recent Activity</h3>
+            {recentActivity.length === 0 ? (
+              <EmptyState
+                className="px-3 py-5"
+                title="No learning activity yet."
+                description={canAccessPlaylists ? "Create a playlist to get started." : undefined}
+              />
+            ) : (
+              <div className="grid divide-y divide-border">
+                {recentActivity.map(item => (
+                  <div key={`${item.icon}::${item.ts}::${item.detail}`} className="flex gap-2.5 py-2 first:pt-0 last:pb-0">
+                    <div className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                    <div className="min-w-0 flex-1">
+                      <p className="mb-px text-xs font-semibold text-text">{item.label}</p>
+                      <p className="mb-px truncate text-xs text-muted">{item.detail}</p>
+                      <p className="text-[11px] text-muted opacity-70">{fmtRel(item.ts)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+        </aside>
+      </div>
+    </PageFrame>
   );
 }

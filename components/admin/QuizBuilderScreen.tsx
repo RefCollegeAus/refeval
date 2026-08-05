@@ -10,6 +10,8 @@ import { RecipientPicker } from "@/components/common/RecipientPicker";
 import type { AssignTab } from "@/components/common/RecipientPicker";
 import QuizEditor from "@/components/learning/QuizEditor";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Button, Card, CardTitle, FormField, Input, Textarea } from "@/components/ui";
 
 interface Props {
   session: RefEvalSession;
@@ -83,105 +85,91 @@ export function QuizBuilderScreen({ members, groups, reviews = [], tags = [], on
   const resolvedCount = resolveUserIds().length;
 
   return (
-    <div style={{ boxSizing: "border-box", maxWidth: 1100, margin: "0 auto" }}>
-
-      {/* Page header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <HelpCircle size={22} style={{ color: "var(--muted)", flexShrink: 0 }} />
-          <div>
-            <p className="eyebrow" style={{ margin: 0 }}>New Assignment</p>
-            <h1 style={{ margin: 0, fontSize: 22 }}>Build a Knowledge Quiz</h1>
-          </div>
-        </div>
-        <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+    <PageFrame
+      className="p-0 mx-auto max-w-[1100px]"
+      eyebrow="New Assignment"
+      title="Build a Knowledge Quiz"
+      actions={
+        <Button variant="ghost" size="sm" className="gap-1" onClick={onBack} disabled={saving}>
           <ChevronLeft size={15} /> Back
-        </button>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, alignItems: "start" }}>
+        </Button>
+      }
+    >
+      <div className="grid items-start gap-4 lg:grid-cols-[1fr_320px]">
 
         {/* Left column: details + question builder */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="grid grid-cols-1 gap-3.5">
 
           {/* Assignment metadata */}
-          <div className="panel" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
-            <h2 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Assignment Details</h2>
-            <label>
-              Title *
-              <input
+          <Card className="grid grid-cols-1 gap-3.5">
+            <CardTitle>Assignment Details</CardTitle>
+            <FormField label="Title" required>
+              <Input
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 placeholder="e.g. Offside Rule Quiz"
                 autoFocus
               />
-            </label>
-            <label>
-              Instructions <span className="hint">(optional)</span>
-              <textarea
+            </FormField>
+            <FormField label="Instructions" hint="Optional">
+              <Textarea
                 value={instructions}
                 onChange={e => setInstructions(e.target.value)}
                 rows={3}
                 placeholder="What should the referee focus on?"
-                style={{ width: "100%", boxSizing: "border-box" }}
               />
-            </label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "end" }}>
-              <label>
-                Due Date <span className="hint">(optional)</span>
-                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", paddingBottom: 10 }}>
+            </FormField>
+            <div className="grid grid-cols-[1fr_auto] items-end gap-3.5">
+              <FormField label="Due Date" hint="Optional">
+                <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+              </FormField>
+              <label className="flex cursor-pointer items-center gap-2 pb-2.5 text-sm text-text">
                 <input
                   type="checkbox"
                   checked={required}
                   onChange={e => setRequired(e.target.checked)}
-                  style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer" }}
+                  className="h-3.5 w-3.5 cursor-pointer accent-accent"
                 />
-                <span style={{ fontSize: 13, whiteSpace: "nowrap" }}>Required</span>
+                <span className="whitespace-nowrap">Required</span>
               </label>
             </div>
 
             {/* Quiz settings */}
-            <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
-                <input
-                  type="checkbox"
-                  checked={allowRetakes}
-                  onChange={e => setAllowRetakes(e.target.checked)}
-                  style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer" }}
-                />
-                <span>Allow retakes</span>
-                <span className="hint" style={{ fontSize: 12 }}>(referee can retry after submission)</span>
-              </label>
-            </div>
-          </div>
+            <label className="flex flex-wrap items-center gap-2 text-sm text-text">
+              <input
+                type="checkbox"
+                checked={allowRetakes}
+                onChange={e => setAllowRetakes(e.target.checked)}
+                className="h-3.5 w-3.5 cursor-pointer accent-accent"
+              />
+              <span>Allow retakes</span>
+              <span className="text-xs text-muted">(referee can retry after submission)</span>
+            </label>
+          </Card>
 
           {/* Quiz question builder */}
-          <div className="panel" style={{ padding: 18 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <HelpCircle size={15} style={{ color: "var(--muted)" }} />
-              <h2 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>
+          <Card>
+            <div className="mb-4 flex items-center gap-2">
+              <HelpCircle size={15} className="text-muted" />
+              <CardTitle>
                 Quiz Questions
                 {quizQuestions.length > 0 && (
-                  <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 400, marginLeft: 6 }}>
-                    ({quizQuestions.length})
-                  </span>
+                  <span className="ml-1.5 font-normal text-muted">({quizQuestions.length})</span>
                 )}
-              </h2>
+              </CardTitle>
             </div>
             {quizQuestions.length === 0 && (
-              <p className="hint" style={{ fontSize: 13, margin: "0 0 12px" }}>
+              <p className="mb-3 text-xs text-muted">
                 Add questions below. Each question needs a prompt, at least two answers, and a correct answer selected.
               </p>
             )}
             <QuizEditor questions={quizQuestions} onChange={setQuizQuestions} reviews={reviews} tags={tags} />
-          </div>
+          </Card>
         </div>
 
         {/* Right column: recipients + save — sticky */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, position: "sticky", top: 20 }}>
-          <div className="panel" style={{ padding: 18 }}>
+        <div className="sticky top-5 grid gap-3.5">
+          <Card>
             <RecipientPicker
               members={members}
               groups={groups}
@@ -192,20 +180,11 @@ export function QuizBuilderScreen({ members, groups, reviews = [], tags = [], on
               selGroups={selGroups}
               setSelGroups={setSelGroups}
             />
-          </div>
+          </Card>
 
-          <div className="panel" style={{ padding: 18 }}>
-            {err && (
-              <p className="danger-text" style={{ marginTop: 0, marginBottom: 10, fontSize: 13 }}>
-                {err}
-              </p>
-            )}
-            <button
-              className="primary"
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}
-              disabled={saving}
-              onClick={handleSave}
-            >
+          <Card className="grid grid-cols-1 gap-2">
+            {err && <p className="text-xs font-medium text-red-400">{err}</p>}
+            <Button className="w-full gap-1.5" disabled={saving} onClick={handleSave}>
               <Save size={14} />
               {saving
                 ? "Creating…"
@@ -213,17 +192,13 @@ export function QuizBuilderScreen({ members, groups, reviews = [], tags = [], on
                   ? `Assign to ${resolvedCount} referee${resolvedCount !== 1 ? "s" : ""}`
                   : "Assign to referees"
               }
-            </button>
-            <button
-              style={{ width: "100%", marginTop: 8, fontSize: 13 }}
-              onClick={onBack}
-              disabled={saving}
-            >
+            </Button>
+            <Button variant="ghost" size="sm" className="w-full" onClick={onBack} disabled={saving}>
               Cancel
-            </button>
-          </div>
+            </Button>
+          </Card>
         </div>
       </div>
-    </div>
+    </PageFrame>
   );
 }

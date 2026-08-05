@@ -6,6 +6,9 @@ import type { RefEvalSession } from "@/lib/types/auth";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import { ClipPreview, ClipRow, splitCategory, slotName, outcomeClass } from "@/components/common/ClipPreview";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, Card, EmptyState, FormField, Input, Select, Textarea } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 type LibraryTab = "all" | "learning";
 
@@ -48,18 +51,16 @@ function RemoveFromLibraryButton({ tagId, onRemove }: { tagId: string; onRemove:
         onConfirm={doRemove}
       />
     )}
-    <button
-      onClick={handle}
-      disabled={removing}
-      style={{ fontSize: 13, padding: "6px 14px", border: "1px solid rgba(239,68,68,.35)", background: "rgba(239,68,68,.08)", color: "#fca5a5", borderRadius: 7, cursor: "pointer" }}
-    >
+    <Button variant="danger" size="sm" onClick={handle} disabled={removing}>
       {removing ? "Removing…" : "Remove from Library"}
-    </button>
+    </Button>
     </>
   );
 }
 
 // ── Create Playlist Modal ─────────────────────────────────────────────────────
+// Custom shell (not the shared Modal component) — deliberately does not close
+// on backdrop click, matching this modal's existing behaviour.
 
 interface CreateModalProps {
   clipCount: number;
@@ -86,44 +87,41 @@ function CreatePlaylistModal({ clipCount, onSave, onClose }: CreateModalProps) {
   }
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 460 }}>
-        <div className="modal-title">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4">
+      <div className="w-full max-w-[460px] rounded-2xl border border-border bg-panel p-5 shadow-xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="eyebrow">New Playlist</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>Create playlist from {clipCount} clip{clipCount !== 1 ? "s" : ""}</h1>
+            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">New Playlist</p>
+            <h1 className="text-lg font-semibold text-text">Create playlist from {clipCount} clip{clipCount !== 1 ? "s" : ""}</h1>
           </div>
-          <button onClick={onClose}>✕</button>
+          <button onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-muted hover:bg-panel-3 hover:text-text">✕</button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
-          <label>
-            Title *
-            <input
+        <div className="grid grid-cols-1 gap-3.5">
+          <FormField label="Title" required>
+            <Input
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="e.g. Foul Calls — Round 5"
               autoFocus
             />
-          </label>
-          <label>
-            Description <span className="hint">(optional)</span>
-            <textarea
+          </FormField>
+          <FormField label="Description" hint="Optional">
+            <Textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="What is this playlist about?"
               rows={3}
-              style={{ width: "100%", boxSizing: "border-box", resize: "vertical" }}
             />
-          </label>
-          {err && <p className="danger-text">{err}</p>}
+          </FormField>
+          {err && <p className="text-xs font-medium text-red-400">{err}</p>}
         </div>
 
-        <div className="action-row" style={{ marginTop: 20 }}>
-          <button onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={handleSave} disabled={saving}>
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>
             {saving ? "Creating…" : "Create Playlist"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -136,7 +134,7 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
   const orgId = session.activeOrganisation?.id ?? "";
 
   // ── Tab ───────────────────────────────────────────────────────────────────────
-  const [tab, setTab] = useState<LibraryTab>(initialTab);
+  const [tab] = useState<LibraryTab>(initialTab);
 
   // ── Filters ──────────────────────────────────────────────────────────────────
   const [fOutcome, setFOutcome] = useState("");
@@ -327,274 +325,243 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
   }
 
   return (
-    <div style={{ boxSizing: "border-box" }}>
+    <PageFrame
+      className="p-0"
+      eyebrow={tab === "learning" ? "Learning Hub" : "Organisation"}
+      title={tab === "learning" ? "Learning Library" : "Clip Library"}
+      description={
+        tab === "learning"
+          ? "Clips marked for learning and education"
+          : `Clips from completed evaluations · ${allRows.length} total`
+      }
+      actions={
+        <>
+          {tab === "all" && onNavigateToLearningLibrary && (
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={onNavigateToLearningLibrary}>
+              <Library size={12} /> Learning Library
+            </Button>
+          )}
+          {canCreatePlaylists && tab === "all" && (
+            <Button
+              size="sm"
+              variant={selected.size > 0 ? "primary" : "secondary"}
+              disabled={selected.size === 0}
+              onClick={() => setCreateModalOpen(true)}
+              title={selected.size === 0 ? "Select clips to create a playlist" : `Create playlist from ${selected.size} clip${selected.size !== 1 ? "s" : ""}`}
+              className="gap-1.5"
+            >
+              <ListVideo size={14} />
+              Create Playlist{selected.size > 0 ? ` (${selected.size})` : ""}
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" className="gap-1" onClick={onBack}>
+            <ChevronLeft size={15} /> Back
+          </Button>
+        </>
+      }
+    >
 
-      {/* ── Header & filters ── */}
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <div className="table-head" style={{ marginBottom: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {tab === "learning"
-              ? <Library size={20} style={{ color: "#86efac", flexShrink: 0 }} />
-              : <ListVideo size={20} style={{ color: "var(--muted)", flexShrink: 0 }} />
-            }
-            <div>
-              <p className="eyebrow" style={{ margin: 0 }}>
-                {tab === "learning" ? "Learning Hub" : "Organisation"}
-              </p>
-              <h1 style={{ margin: 0, fontSize: 22 }}>
-                {tab === "learning" ? "Learning Library" : "Clip Library"}
-              </h1>
-              <p className="hint" style={{ margin: "2px 0 0" }}>
-                {tab === "learning"
-                  ? "Clips marked for learning and education"
-                  : `Clips from completed evaluations · ${allRows.length} total`
-                }
-              </p>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {tab === "all" && onNavigateToLearningLibrary && (
-              <button
-                onClick={onNavigateToLearningLibrary}
-                style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "5px 11px", color: "#86efac", border: "1px solid rgba(34,197,94,.3)", background: "rgba(34,197,94,.07)", borderRadius: 7, cursor: "pointer" }}
-              >
-                <Library size={12} /> Learning Library
-              </button>
-            )}
-            {canCreatePlaylists && tab === "all" && (
-              <button
-                className={selected.size > 0 ? "primary" : ""}
-                disabled={selected.size === 0}
-                onClick={() => setCreateModalOpen(true)}
-                title={selected.size === 0 ? "Select clips to create a playlist" : `Create playlist from ${selected.size} clip${selected.size !== 1 ? "s" : ""}`}
-                style={{ whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}
-              >
-                <ListVideo size={14} />
-                Create Playlist{selected.size > 0 ? ` (${selected.size})` : ""}
-              </button>
-            )}
-            <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <ChevronLeft size={15} /> Back
-            </button>
-          </div>
+      {/* Learning Library stat chips */}
+      {tab === "learning" && learningStats && (
+        <div className="flex flex-wrap gap-1.5">
+          <Badge className="gap-1.5 py-1">
+            <Library size={13} /> <strong>{learningStats.total}</strong> clip{learningStats.total !== 1 ? "s" : ""}
+          </Badge>
+          <Badge className="gap-1.5 py-1">
+            <Users2 size={13} /> <strong>{learningStats.reviewCount}</strong> review{learningStats.reviewCount !== 1 ? "s" : ""}
+          </Badge>
+          <Badge className="gap-1.5 py-1">
+            <LayoutGrid size={13} /> <strong>{learningStats.categoryCount}</strong> categor{learningStats.categoryCount !== 1 ? "ies" : "y"}
+          </Badge>
+          <Badge className="gap-1.5 py-1">
+            <FileText size={13} /> <strong>{learningStats.withNotesCount}</strong> with notes
+          </Badge>
         </div>
+      )}
 
-        {/* Learning Library stat chips */}
-        {tab === "learning" && learningStats && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-            {[
-              { icon: <Library size={13} />, value: learningStats.total, label: `clip${learningStats.total !== 1 ? "s" : ""}` },
-              { icon: <Users2 size={13} />, value: learningStats.reviewCount, label: `review${learningStats.reviewCount !== 1 ? "s" : ""}` },
-              { icon: <LayoutGrid size={13} />, value: learningStats.categoryCount, label: `categor${learningStats.categoryCount !== 1 ? "ies" : "y"}` },
-              { icon: <FileText size={13} />, value: learningStats.withNotesCount, label: "with notes" },
-            ].map((s, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 999, background: "rgba(34,197,94,.07)", border: "1px solid rgba(34,197,94,.2)", fontSize: 12, color: "#86efac" }}>
-                {s.icon}
-                <strong style={{ fontVariantNumeric: "tabular-nums" }}>{s.value}</strong>
-                <span style={{ color: "rgba(134,239,172,.7)" }}>{s.label}</span>
-              </div>
-            ))}
+      {/* Filters */}
+      <Card className="grid grid-cols-1 gap-2.5">
+        {/* Search + Sort row */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+            <Input
+              value={fText}
+              onChange={e => setFText(e.target.value)}
+              placeholder="Search notes, game, referee…"
+              className="pl-7 text-sm"
+            />
           </div>
-        )}
-
-        {/* Filters */}
-        <div className="cl-filter-bar">
-          {/* Search + Sort row */}
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div className="cl-filter-search" style={{ flex: 1 }}>
-              <Search size={13} />
-              <input
-                value={fText}
-                onChange={e => setFText(e.target.value)}
-                placeholder="Search notes, game, referee…"
-              />
-            </div>
-            <label className="cl-field" style={{ flexShrink: 0, minWidth: 160 }}>
-              <span className="cl-field-label" style={{ display: "flex", alignItems: "center", gap: 4 }}><ArrowUpDown size={11} /> Sort</span>
-              <select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)}>
-                <option value="newest">Newest first</option>
-                <option value="oldest">Oldest first</option>
-                <option value="category">Category</option>
-                <option value="referee">Referee</option>
-                <option value="game">Game</option>
-              </select>
-            </label>
-          </div>
-          {/* Field grid — 4 columns × 2 rows */}
-          <div className="cl-filter-grid">
-            {/* Row 1: classification */}
-            <label className="cl-field">
-              <span className="cl-field-label">Outcome</span>
-              <select value={fOutcome} onChange={e => setFOutcome(e.target.value)}>
-                <option value="">All outcomes</option>
-                {outcomes.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </label>
-            <label className="cl-field">
-              <span className="cl-field-label">Category</span>
-              <select value={fCatGroup} onChange={e => { setFCatGroup(e.target.value); setFSubtype(""); }}>
-                <option value="">All categories</option>
-                {catGroups.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </label>
-            <label className="cl-field">
-              <span className="cl-field-label">Subtype</span>
-              <select value={fSubtype} onChange={e => setFSubtype(e.target.value)}>
-                <option value="">All subtypes</option>
-                {subtypes.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </label>
-            <label className="cl-field">
-              <span className="cl-field-label">Game / Review</span>
-              <select value={fGame} onChange={e => setFGame(e.target.value)}>
-                <option value="">All games</option>
-                {games.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
-            </label>
-            {/* Row 2: people + date range */}
-            <label className="cl-field">
-              <span className="cl-field-label">Referee</span>
-              <select value={fReferee} onChange={e => setFReferee(e.target.value)}>
-                <option value="">All referees</option>
-                {referees.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </label>
-            <label className="cl-field">
-              <span className="cl-field-label">Educator</span>
-              <select value={fEducator} onChange={e => setFEducator(e.target.value)}>
-                <option value="">All educators</option>
-                {educators.map(e => <option key={e} value={e}>{e}</option>)}
-              </select>
-            </label>
-            <label className="cl-field cl-field--date">
-              <span className="cl-field-label">From</span>
-              <input type="date" value={fDateFrom} onChange={e => setFDateFrom(e.target.value)} />
-            </label>
-            <label className="cl-field cl-field--date">
-              <span className="cl-field-label">To</span>
-              <input type="date" value={fDateTo} onChange={e => setFDateTo(e.target.value)} />
-            </label>
-          </div>
-          {/* Has Notes + Clear row */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)", cursor: "pointer", userSelect: "none" }}>
-              <input type="checkbox" checked={fHasNotes} onChange={e => setFHasNotes(e.target.checked)} style={{ cursor: "pointer" }} />
-              Has notes only
-            </label>
-            {activeFilterCount > 0 && (
-              <button style={{ fontSize: 12, padding: "5px 10px", display: "flex", alignItems: "center", gap: 4 }} onClick={clearFilters}>
-                <X size={12} /> Clear ({activeFilterCount})
-              </button>
-            )}
-          </div>
+          <label className="flex shrink-0 flex-col gap-1 text-xs">
+            <span className="flex items-center gap-1 font-bold uppercase tracking-wide text-muted"><ArrowUpDown size={11} /> Sort</span>
+            <Select value={sortBy} onChange={e => setSortBy(e.target.value as SortBy)} className="w-auto text-xs">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="category">Category</option>
+              <option value="referee">Referee</option>
+              <option value="game">Game</option>
+            </Select>
+          </label>
         </div>
-
-        {/* Selection bar */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, fontSize: 13, color: "var(--muted)", flexWrap: "wrap", gap: 6 }}>
-          <span>
-            <strong style={{ color: "var(--text)" }}>{visibleRows.length}</strong> clip{visibleRows.length !== 1 ? "s" : ""} shown
-            {canCreatePlaylists && selected.size > 0 && (
-              <span style={{ marginLeft: 10, color: "var(--accent)", fontWeight: 700 }}>
-                · {selected.size} selected
-              </span>
-            )}
-          </span>
-          {canCreatePlaylists && visibleRows.length > 0 && (
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              {selected.size > 0 && (
-                <>
-                  {tab === "all" && (
-                    <button
-                      className="primary"
-                      style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 5 }}
-                      onClick={() => setCreateModalOpen(true)}
-                    >
-                      <ListVideo size={12} /> Create Playlist ({selected.size})
-                    </button>
-                  )}
-                  {tab === "learning" && onRemoveFromLearningLibrary && (
-                    <button
-                      style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 5, border: "1px solid rgba(239,68,68,.35)", background: "rgba(239,68,68,.08)", color: "#fca5a5", borderRadius: 7, cursor: "pointer" }}
-                      onClick={handleBulkRemoveFromLibrary}
-                    >
-                      <Trash2 size={12} /> Remove ({effectiveSelCount})
-                    </button>
-                  )}
-                  <button
-                    style={{ fontSize: 12, padding: "4px 10px", display: "flex", alignItems: "center", gap: 4 }}
-                    onClick={() => setSelected(new Set())}
-                    title="Clear all selected clips"
-                  >
-                    <X size={12} /> Clear all
-                  </button>
-                </>
-              )}
-              <button
-                style={{ fontSize: 12, padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }}
-                onClick={toggleSelectAll}
-                title={allVisibleSelected ? "Deselect visible clips (hidden selections are kept)" : "Select all visible clips"}
-              >
-                {allVisibleSelected ? <><CheckSquare size={13} /> Deselect visible</> : <><Square size={13} /> Select visible</>}
-              </button>
-            </div>
+        {/* Field grid — 4 columns × 2 rows */}
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {/* Row 1: classification */}
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Outcome</span>
+            <Select value={fOutcome} onChange={e => setFOutcome(e.target.value)} className="text-xs">
+              <option value="">All outcomes</option>
+              {outcomes.map(o => <option key={o} value={o}>{o}</option>)}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Category</span>
+            <Select value={fCatGroup} onChange={e => { setFCatGroup(e.target.value); setFSubtype(""); }} className="text-xs">
+              <option value="">All categories</option>
+              {catGroups.map(c => <option key={c} value={c}>{c}</option>)}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Subtype</span>
+            <Select value={fSubtype} onChange={e => setFSubtype(e.target.value)} className="text-xs">
+              <option value="">All subtypes</option>
+              {subtypes.map(s => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Game / Review</span>
+            <Select value={fGame} onChange={e => setFGame(e.target.value)} className="text-xs">
+              <option value="">All games</option>
+              {games.map(g => <option key={g} value={g}>{g}</option>)}
+            </Select>
+          </label>
+          {/* Row 2: people + date range */}
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Referee</span>
+            <Select value={fReferee} onChange={e => setFReferee(e.target.value)} className="text-xs">
+              <option value="">All referees</option>
+              {referees.map(r => <option key={r} value={r}>{r}</option>)}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Educator</span>
+            <Select value={fEducator} onChange={e => setFEducator(e.target.value)} className="text-xs">
+              <option value="">All educators</option>
+              {educators.map(e => <option key={e} value={e}>{e}</option>)}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted">From</span>
+            <Input type="date" value={fDateFrom} onChange={e => setFDateFrom(e.target.value)} className="text-xs" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-muted">To</span>
+            <Input type="date" value={fDateTo} onChange={e => setFDateTo(e.target.value)} className="text-xs" />
+          </label>
+        </div>
+        {/* Has Notes + Clear row */}
+        <div className="flex items-center justify-between gap-2">
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
+            <input type="checkbox" checked={fHasNotes} onChange={e => setFHasNotes(e.target.checked)} className="cursor-pointer accent-accent" />
+            Has notes only
+          </label>
+          {activeFilterCount > 0 && (
+            <Button variant="ghost" size="sm" className="gap-1" onClick={clearFilters}>
+              <X size={12} /> Clear ({activeFilterCount})
+            </Button>
           )}
         </div>
-        {/* Hidden-selection info — hidden clips are still included in the playlist */}
-        {canCreatePlaylists && hiddenSelCount > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, padding: "7px 10px", background: "rgba(165,106,27,.08)", border: "1px solid rgba(165,106,27,.25)", borderRadius: 6, fontSize: 12, color: "var(--text)" }}>
-            <AlertTriangle size={13} style={{ color: "var(--accent)", flexShrink: 0 }} />
-            <span>
-              <strong>{hiddenSelCount}</strong> selected clip{hiddenSelCount !== 1 ? "s are" : " is"} hidden by current filters but will still be included in the playlist.{" "}
-              <button style={{ padding: 0, background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline" }} onClick={clearFilters}>
-                Clear filters
-              </button>{" "}to see them, or{" "}
-              <button style={{ padding: 0, background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline" }} onClick={() => setSelected(prev => { const n = new Set(prev); Array.from(prev).filter(id => !visibleIdSet.has(id)).forEach(id => n.delete(id)); return n; })}>
-                deselect hidden
-              </button>.
+      </Card>
+
+      {/* Selection bar */}
+      <div className="flex flex-wrap items-center justify-between gap-1.5 text-sm text-muted">
+        <span>
+          <strong className="text-text">{visibleRows.length}</strong> clip{visibleRows.length !== 1 ? "s" : ""} shown
+          {canCreatePlaylists && selected.size > 0 && (
+            <span className="ml-2.5 font-semibold text-accent">
+              · {selected.size} selected
             </span>
+          )}
+        </span>
+        {canCreatePlaylists && visibleRows.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            {selected.size > 0 && (
+              <>
+                {tab === "all" && (
+                  <Button size="sm" className="gap-1" onClick={() => setCreateModalOpen(true)}>
+                    <ListVideo size={12} /> Create Playlist ({selected.size})
+                  </Button>
+                )}
+                {tab === "learning" && onRemoveFromLearningLibrary && (
+                  <Button variant="danger" size="sm" className="gap-1" onClick={handleBulkRemoveFromLibrary}>
+                    <Trash2 size={12} /> Remove ({effectiveSelCount})
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" className="gap-1" onClick={() => setSelected(new Set())} title="Clear all selected clips">
+                  <X size={12} /> Clear all
+                </Button>
+              </>
+            )}
+            <Button variant="ghost" size="sm" className="gap-1" onClick={toggleSelectAll} title={allVisibleSelected ? "Deselect visible clips (hidden selections are kept)" : "Select all visible clips"}>
+              {allVisibleSelected ? <><CheckSquare size={13} /> Deselect visible</> : <><Square size={13} /> Select visible</>}
+            </Button>
           </div>
         )}
       </div>
+      {/* Hidden-selection info — hidden clips are still included in the playlist */}
+      {canCreatePlaylists && hiddenSelCount > 0 && (
+        <div className="flex items-center gap-1.5 rounded-lg border border-accent/25 bg-accent/5 px-2.5 py-2 text-xs text-text">
+          <AlertTriangle size={13} className="shrink-0 text-accent" />
+          <span>
+            <strong>{hiddenSelCount}</strong> selected clip{hiddenSelCount !== 1 ? "s are" : " is"} hidden by current filters but will still be included in the playlist.{" "}
+            <button className="p-0 text-accent underline" onClick={clearFilters}>
+              Clear filters
+            </button>{" "}to see them, or{" "}
+            <button className="p-0 text-accent underline" onClick={() => setSelected(prev => { const n = new Set(prev); Array.from(prev).filter(id => !visibleIdSet.has(id)).forEach(id => n.delete(id)); return n; })}>
+              deselect hidden
+            </button>.
+          </span>
+        </div>
+      )}
 
       {/* ── Empty states ── */}
       {allRows.length === 0 && tab === "all" && (
-        <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-          <ListVideo size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
-          <p style={{ margin: 0, fontWeight: 700 }}>No clips yet</p>
-          <p className="hint" style={{ margin: "6px 0 0" }}>Clips appear here once evaluations are completed and tagged.</p>
-        </div>
+        <EmptyState
+          icon={<ListVideo size={36} />}
+          title="No clips yet"
+          description="Clips appear here once evaluations are completed and tagged."
+        />
       )}
       {allRows.length === 0 && tab === "learning" && (
-        <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-          <BookOpen size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
-          <p style={{ margin: 0, fontWeight: 700 }}>No learning clips yet</p>
-          <p className="hint" style={{ margin: "6px 0 0" }}>Mark clips as &quot;Add to Learning Library&quot; in step 7 of the review coding wizard.</p>
-        </div>
+        <EmptyState
+          icon={<BookOpen size={36} />}
+          title="No learning clips yet"
+          description='Mark clips as "Add to Learning Library" in step 7 of the review coding wizard.'
+        />
       )}
       {allRows.length > 0 && visibleRows.length === 0 && (
-        <div className="panel" style={{ padding: "32px 24px", textAlign: "center", color: "var(--muted)" }}>
-          <p style={{ margin: 0, fontWeight: 700 }}>No clips match the current filters</p>
-          <button style={{ marginTop: 10, fontSize: 13 }} onClick={clearFilters}>Clear filters</button>
-        </div>
+        <EmptyState
+          title="No clips match the current filters"
+          action={<Button variant="secondary" size="sm" onClick={clearFilters}>Clear filters</Button>}
+        />
       )}
 
       {/* ── Master–detail split ── */}
       {visibleRows.length > 0 && (
-        <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        <div className="flex items-start gap-4">
 
           {/* Left: scrollable clip list */}
-          <div style={{ flex: "0 0 38%", maxHeight: "72vh", overflowY: "auto", borderRadius: 8, border: "1px solid var(--border)", background: "var(--panel)" }}>
-            <div style={{ position: "sticky", top: 0, zIndex: 1, display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "var(--panel2)", borderBottom: "1px solid var(--border)", fontSize: 12, color: "var(--muted)" }}>
+          <div className="max-h-[72vh] flex-[0_0_38%] overflow-y-auto rounded-lg border border-border bg-panel">
+            <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-panel-2 px-2.5 py-2 text-xs text-muted">
               {canCreatePlaylists && (
                 <button
                   onClick={toggleSelectAll}
-                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", color: "var(--muted)" }}
+                  className="flex p-0 text-muted"
                   title={allVisibleSelected ? "Deselect all" : "Select all visible"}
                 >
-                  {allVisibleSelected ? <CheckSquare size={14} /> : someVisibleSelected ? <CheckSquare size={14} style={{ opacity: 0.5 }} /> : <Square size={14} />}
+                  {allVisibleSelected ? <CheckSquare size={14} /> : someVisibleSelected ? <CheckSquare size={14} className="opacity-50" /> : <Square size={14} />}
                 </button>
               )}
-              <span style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              <span className="uppercase tracking-wide">
                 {visibleRows.length} clip{visibleRows.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -606,27 +573,30 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
                 <div
                   key={row.tag.id}
                   onClick={() => setPreviewIndex(i)}
-                  style={{ display: "flex", gap: 8, padding: "10px 10px", borderBottom: "1px solid var(--border)", cursor: "pointer", background: isPreviewing ? "var(--panel2)" : undefined, borderLeft: isPreviewing ? "3px solid var(--accent)" : "3px solid transparent" }}
+                  className={cn(
+                    "flex cursor-pointer gap-2 border-b border-border border-l-[3px] px-2.5 py-2.5",
+                    isPreviewing ? "border-l-accent bg-panel-2" : "border-l-transparent"
+                  )}
                 >
                   {canCreatePlaylists && (
                     <div
                       onClick={e => { e.stopPropagation(); toggleRow(row.tag.id); }}
-                      style={{ flexShrink: 0, paddingTop: 1, cursor: "pointer", color: isChecked ? "var(--accent)" : "var(--muted)" }}
+                      className={cn("shrink-0 pt-px", isChecked ? "text-accent" : "text-muted")}
                     >
                       {isChecked ? <CheckSquare size={15} /> : <Square size={15} />}
                     </div>
                   )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", marginBottom: 2 }}>
-                      {row.tag.outcome && <span className={outcomeClass(row.tag.outcome)} style={{ fontSize: 11, padding: "1px 6px" }}>{row.tag.outcome}</span>}
-                      {row.categoryGroup && <span className="chip" style={{ fontSize: 11 }}>{row.categoryGroup}</span>}
-                      <span style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", color: "var(--muted)", marginLeft: "auto" }}>{row.tag.adjustedTime}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-0.5 flex flex-wrap items-center gap-1.5">
+                      {row.tag.outcome && <span className={outcomeClass(row.tag.outcome)}>{row.tag.outcome}</span>}
+                      {row.categoryGroup && <Badge>{row.categoryGroup}</Badge>}
+                      <span className="ml-auto text-[11px] tabular-nums text-muted">{row.tag.adjustedTime}</span>
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.refereeName}</div>
-                    <div style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.review.game || "Untitled game"}</div>
-                    {row.subtype && <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{row.subtype}</div>}
+                    <div className="truncate text-sm font-semibold text-text">{row.refereeName}</div>
+                    <div className="truncate text-xs text-muted">{row.review.game || "Untitled game"}</div>
+                    {row.subtype && <div className="mt-px truncate text-[11px] text-muted">{row.subtype}</div>}
                     {row.tag.notes?.trim() && (
-                      <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2, fontStyle: "italic", opacity: 0.75 }}>
+                      <div className="mt-0.5 truncate text-[11px] italic text-muted opacity-75">
                         {row.tag.notes.trim()}
                       </div>
                     )}
@@ -637,8 +607,8 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
           </div>
 
           {/* Right: sticky preview */}
-          <div style={{ flex: 1, position: "sticky", top: 20 }}>
-            <div className="panel">
+          <div className="sticky top-5 flex-1">
+            <Card>
               <ClipPreview
                 clip={previewClip}
                 index={safePreviewIndex}
@@ -647,32 +617,26 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
                 onNext={() => setPreviewIndex(i => Math.min(visibleRows.length - 1, i + 1))}
                 onOpenReview={onOpenReview}
                 extraActions={previewClip && tab === "learning" ? (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", width: "100%" }}>
+                  <div className="flex w-full flex-wrap items-center gap-2">
                     {onNavigateToQuizBuilder && (
-                      <button
-                        onClick={onNavigateToQuizBuilder}
-                        style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, padding: "6px 13px" }}
-                      >
+                      <Button variant="secondary" size="sm" className="gap-1.5" onClick={onNavigateToQuizBuilder}>
                         <BookOpen size={13} /> Use in Quiz
-                      </button>
+                      </Button>
                     )}
                     {canCreatePlaylists && (
-                      <button
-                        onClick={handleAddToPlaylistFromPreview}
-                        style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, padding: "6px 13px" }}
-                      >
+                      <Button variant="secondary" size="sm" className="gap-1.5" onClick={handleAddToPlaylistFromPreview}>
                         <ListVideo size={13} /> Add to Playlist
-                      </button>
+                      </Button>
                     )}
                     {onRemoveFromLearningLibrary && (
-                      <div style={{ marginLeft: "auto" }}>
+                      <div className="ml-auto">
                         <RemoveFromLibraryButton tagId={previewClip.tag.id} onRemove={onRemoveFromLearningLibrary} />
                       </div>
                     )}
                   </div>
                 ) : undefined}
               />
-            </div>
+            </Card>
           </div>
         </div>
       )}
@@ -696,6 +660,6 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
           onConfirm={doBulkRemoveFromLibrary}
         />
       )}
-    </div>
+    </PageFrame>
   );
 }

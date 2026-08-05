@@ -11,6 +11,12 @@ import { STATUS_COLORS, STATUS_BG, STATUS_BORDER, learningPctColor } from "@/lib
 import type { MemberRecord } from "@/lib/types/members";
 import type { Group } from "@/lib/types/groups";
 import { fmtDate, fmtRel } from "@/lib/utils/time";
+import { PageFrame } from "@/components/shell/PageFrame";
+import {
+  Badge, Button, Card, EmptyState, Input, Select,
+  Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow,
+} from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 interface Props {
   session: RefEvalSession;
@@ -115,15 +121,15 @@ export function LearningProgress({ session, assignments, members, groups, setScr
   function SortTh({ col, label, right }: { col: SortKey; label: string; right?: boolean }) {
     const active = sort === col;
     return (
-      <th
-        style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", textAlign: right ? "right" : undefined }}
+      <TableHeaderCell
+        className={cn("cursor-pointer select-none whitespace-nowrap", right && "text-right")}
         onClick={() => handleSortTh(col)}
       >
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <span className={cn("inline-flex items-center gap-1", right && "justify-end")}>
           {label}
-          <ArrowUpDown size={11} style={{ opacity: active ? 1 : 0.3, color: active ? "var(--accent)" : undefined }} />
+          <ArrowUpDown size={11} className={active ? "text-accent" : "opacity-30"} />
         </span>
-      </th>
+      </TableHeaderCell>
     );
   }
 
@@ -144,294 +150,278 @@ export function LearningProgress({ session, assignments, members, groups, setScr
   const completedThisMonth = selectedRows.filter(r => r.completedAt && r.completedAt >= monthAgo).length;
 
   return (
-    <div className="lh-layout">
+    <PageFrame
+      className="p-0"
+      eyebrow="Learning Hub"
+      title="Learning Progress"
+      actions={
+        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setScreen("learning-hub")}>
+          <ChevronLeft size={15} /> Back
+        </Button>
+      }
+    >
+      <div className="grid items-start gap-4 lg:grid-cols-[1fr_300px]">
 
-      {/* ── Main column ── */}
-      <div className="lh-main">
+        {/* ── Main column ── */}
+        <div className="grid grid-cols-1 gap-3.5">
 
-        {/* Page header */}
-        <div className="panel" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
-          <div>
-            <p className="eyebrow" style={{ margin: 0 }}>Learning Hub</p>
-            <h1 style={{ margin: 0, fontSize: 22 }}>Learning Progress</h1>
-          </div>
-          <button
-            style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
-            onClick={() => setScreen("learning-hub")}
-          >
-            <ChevronLeft size={15} /> Back
-          </button>
-        </div>
-
-        {/* Filter bar */}
-        <div className="panel" style={{ padding: "10px 14px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          {/* Search */}
-          <div style={{ position: "relative", flex: "1 1 160px", minWidth: 140 }}>
-            <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-            <input
-              style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
-              placeholder="Search referees…"
-              aria-label="Search referees"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          {search && (
-            <button onClick={() => setSearch("")} aria-label="Clear search" style={{ border: "none", background: "none", padding: "4px 6px", cursor: "pointer", flexShrink: 0 }}>
-              <X size={13} />
-            </button>
-          )}
-          {groups.length > 0 && (
-            <select
-              value={groupFilter}
-              onChange={e => setGroupFilter(e.target.value)}
-              aria-label="Filter by group"
-              style={{ fontSize: 12, padding: "6px 10px", width: "auto", flexShrink: 0, borderRadius: 8 }}
-            >
-              <option value="all">All Groups</option>
-              {groups.map(g => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-          )}
-          {/* Overdue filter toggle */}
-          <button
-            onClick={() => setShowOverdue(v => !v)}
-            className={showOverdue ? "selected" : ""}
-            style={{
-              fontSize: 12, padding: "6px 10px", display: "flex", alignItems: "center", gap: 5,
-              flexShrink: 0, borderRadius: 8,
-              ...(showOverdue ? {} : {}),
-            }}
-          >
-            <AlertCircle size={13} style={{ color: showOverdue ? "#ef4444" : undefined }} />
-            Overdue{overdueTotal > 0 ? ` (${overdueTotal})` : ""}
-          </button>
-        </div>
-
-        {/* Progress table */}
-        {refereeMembers.length === 0 ? (
-          <div className="empty-state panel">
-            <BookOpen size={28} style={{ opacity: 0.3, marginBottom: 8 }} />
-            <p style={{ margin: 0, fontWeight: 700 }}>No referees in this organisation</p>
-            <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>Add referee members to start tracking learning progress.</p>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="empty-state panel">
-            {showOverdue ? (
-              <>
-                <CheckCircle2 size={28} style={{ opacity: 0.3, marginBottom: 8, color: "#22c55e" }} />
-                <p style={{ margin: 0, fontWeight: 700 }}>No overdue referees</p>
-                <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>All referees are up to date with their learning.</p>
-              </>
-            ) : (
-              <p style={{ margin: 0 }}>No referees match your search.</p>
+          {/* Filter bar */}
+          <Card className="flex flex-wrap items-center gap-2 p-3">
+            {/* Search */}
+            <div className="relative min-w-[140px] flex-1">
+              <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+              <Input
+                className="pl-7 text-sm"
+                placeholder="Search referees…"
+                aria-label="Search referees"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            {search && (
+              <Button variant="ghost" size="sm" className="shrink-0 px-1.5" onClick={() => setSearch("")} aria-label="Clear search">
+                <X size={13} />
+              </Button>
             )}
-          </div>
-        ) : (
-          <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-            <div className="ref-reviews-table">
-              <table>
-                <thead>
-                  <tr>
-                    <SortTh col="name"       label="Referee" />
-                    <SortTh col="assigned"   label="Assigned"   right />
-                    <SortTh col="started"    label="Started"    right />
-                    <SortTh col="completed"  label="Completed"  right />
-                    <SortTh col="pct"        label="Progress"   />
-                    <SortTh col="overdue"    label="Overdue"    right />
-                    <SortTh col="lastActive" label="Last Active" />
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(s => {
-                    const pctColor = learningPctColor(s.pct);
-                    return (
-                      <tr
-                        key={s.id}
-                        className={"ed-review-row" + (selectedMemberId === s.id ? " lh-row--selected" : "")}
-                        onClick={() => setSelectedMemberId(prev => prev === s.id ? null : s.id)}
-                        tabIndex={0}
-                        aria-label={`${s.name} — view learning profile`}
-                        aria-selected={selectedMemberId === s.id}
-                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedMemberId(prev => prev === s.id ? null : s.id); } }}
-                      >
-                        <td data-label="Referee">
-                          <div style={{ fontWeight: 700 }}>{s.name}</div>
-                          <div style={{ fontSize: 11, color: "var(--muted)" }}>{s.email}</div>
-                        </td>
-                        <td data-label="Assigned" style={{ textAlign: "right" }}>
-                          {s.assigned || <span className="hint">—</span>}
-                        </td>
-                        <td data-label="Started" style={{ textAlign: "right" }}>
-                          {s.started > 0 ? (
-                            <span style={{ color: STATUS_COLORS.Started, fontWeight: 700 }}>{s.started}</span>
-                          ) : <span className="hint">—</span>}
-                        </td>
-                        <td data-label="Completed" style={{ textAlign: "right" }}>
-                          {s.completed > 0 ? (
-                            <span style={{ color: STATUS_COLORS.Completed, fontWeight: 700 }}>{s.completed}</span>
-                          ) : <span className="hint">—</span>}
-                        </td>
-                        <td data-label="Progress" style={{ minWidth: 120 }}>
-                          {s.assigned > 0 ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <div className="lh-progress-bar" style={{ flex: 1 }} aria-hidden="true">
-                                <div className="lh-progress-fill" style={{ width: `${s.pct}%`, background: pctColor }} />
-                              </div>
-                              <span style={{ fontSize: 12, fontWeight: 700, minWidth: 34, color: pctColor }}>{s.pct}%</span>
+            {groups.length > 0 && (
+              <Select
+                value={groupFilter}
+                onChange={e => setGroupFilter(e.target.value)}
+                aria-label="Filter by group"
+                className="w-auto shrink-0 text-xs"
+              >
+                <option value="all">All Groups</option>
+                {groups.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </Select>
+            )}
+            {/* Overdue filter toggle */}
+            <Button
+              variant={showOverdue ? "primary" : "secondary"}
+              size="sm"
+              className="shrink-0 gap-1.5"
+              onClick={() => setShowOverdue(v => !v)}
+            >
+              <AlertCircle size={13} />
+              Overdue{overdueTotal > 0 ? ` (${overdueTotal})` : ""}
+            </Button>
+          </Card>
+
+          {/* Progress table */}
+          {refereeMembers.length === 0 ? (
+            <EmptyState
+              icon={<BookOpen size={28} />}
+              title="No referees in this organisation"
+              description="Add referee members to start tracking learning progress."
+            />
+          ) : filtered.length === 0 ? (
+            showOverdue ? (
+              <EmptyState
+                icon={<CheckCircle2 size={28} className="text-good" />}
+                title="No overdue referees"
+                description="All referees are up to date with their learning."
+              />
+            ) : (
+              <EmptyState title="No referees match your search." />
+            )
+          ) : (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <SortTh col="name"       label="Referee" />
+                  <SortTh col="assigned"   label="Assigned"   right />
+                  <SortTh col="started"    label="Started"    right />
+                  <SortTh col="completed"  label="Completed"  right />
+                  <SortTh col="pct"        label="Progress"   />
+                  <SortTh col="overdue"    label="Overdue"    right />
+                  <SortTh col="lastActive" label="Last Active" />
+                  <TableHeaderCell aria-hidden="true" />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filtered.map(s => {
+                  const pctColor = learningPctColor(s.pct);
+                  return (
+                    <TableRow
+                      key={s.id}
+                      className={cn(
+                        "cursor-pointer transition-colors hover:bg-accent/5",
+                        selectedMemberId === s.id && "bg-accent/10"
+                      )}
+                      onClick={() => setSelectedMemberId(prev => prev === s.id ? null : s.id)}
+                      tabIndex={0}
+                      aria-label={`${s.name} — view learning profile`}
+                      aria-selected={selectedMemberId === s.id}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedMemberId(prev => prev === s.id ? null : s.id); } }}
+                    >
+                      <TableCell data-label="Referee">
+                        <div className="font-semibold text-text">{s.name}</div>
+                        <div className="text-[11px] text-muted">{s.email}</div>
+                      </TableCell>
+                      <TableCell data-label="Assigned" className="text-right">
+                        {s.assigned || <span className="text-muted">—</span>}
+                      </TableCell>
+                      <TableCell data-label="Started" className="text-right">
+                        {s.started > 0 ? (
+                          <span className="font-semibold" style={{ color: STATUS_COLORS.Started }}>{s.started}</span>
+                        ) : <span className="text-muted">—</span>}
+                      </TableCell>
+                      <TableCell data-label="Completed" className="text-right">
+                        {s.completed > 0 ? (
+                          <span className="font-semibold" style={{ color: STATUS_COLORS.Completed }}>{s.completed}</span>
+                        ) : <span className="text-muted">—</span>}
+                      </TableCell>
+                      <TableCell data-label="Progress" className="min-w-[120px]">
+                        {s.assigned > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-1.5 min-w-[40px] max-w-[80px] flex-1 overflow-hidden rounded-full bg-accent/15" aria-hidden="true">
+                              <div className="h-full rounded-full transition-[width]" style={{ width: `${s.pct}%`, background: pctColor }} />
                             </div>
-                          ) : <span className="hint">—</span>}
-                        </td>
-                        <td data-label="Overdue" style={{ textAlign: "right" }}>
-                          {s.overdue > 0 ? (
-                            <span style={{ color: "#ef4444", fontWeight: 700 }}>{s.overdue}</span>
-                          ) : (
-                            s.assigned > 0
-                              ? <CheckCircle2 size={14} style={{ color: "#22c55e" }} />
-                              : <span className="hint">—</span>
-                          )}
-                        </td>
-                        <td data-label="Last Active" style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
-                          {s.lastActivity ? fmtRel(s.lastActivity) : <span className="hint">—</span>}
-                        </td>
-                        <td>
-                          <ChevronRight size={14} style={{ opacity: 0.4 }} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+                            <span className="min-w-[34px] text-xs font-semibold" style={{ color: pctColor }}>{s.pct}%</span>
+                          </div>
+                        ) : <span className="text-muted">—</span>}
+                      </TableCell>
+                      <TableCell data-label="Overdue" className="text-right">
+                        {s.overdue > 0 ? (
+                          <span className="font-semibold text-red-400">{s.overdue}</span>
+                        ) : (
+                          s.assigned > 0
+                            ? <CheckCircle2 size={14} className="ml-auto text-good" />
+                            : <span className="text-muted">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell data-label="Last Active" className="whitespace-nowrap text-xs text-muted">
+                        {s.lastActivity ? fmtRel(s.lastActivity) : <span className="text-muted">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        <ChevronRight size={14} className="opacity-40" />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
 
-      </div>
+        </div>
 
-      {/* ── Sidebar / Referee Profile ── */}
-      <aside className="lh-sidebar">
-        {selectedStat ? (
-          <>
-            {/* Profile header */}
-            <div className="panel">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 14 }}>
-                <div>
-                  <p className="eyebrow" style={{ margin: "0 0 2px" }}>Referee Profile</p>
-                  <h2 style={{ margin: 0, fontSize: 18 }}>{selectedStat.name}</h2>
-                  <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>{selectedStat.email}</p>
-                </div>
-                <button
-                  style={{ padding: "4px 8px", flexShrink: 0 }}
-                  onClick={() => setSelectedMemberId(null)}
-                  title="Close profile"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-
-              {/* Summary stats */}
-              <div className="lh-profile-stats">
-                <div className="lh-profile-stat">
-                  <div className="lh-profile-stat-num">{selectedStat.assigned}</div>
-                  <div className="lh-profile-stat-lbl">Assigned</div>
-                </div>
-                <div className="lh-profile-stat lh-profile-stat--good">
-                  <div className="lh-profile-stat-num">{selectedStat.completed}</div>
-                  <div className="lh-profile-stat-lbl">Completed</div>
-                </div>
-                <div className="lh-profile-stat" style={selectedStat.overdue > 0 ? { borderColor: "rgba(239,68,68,.35)" } : {}}>
-                  <div className="lh-profile-stat-num" style={selectedStat.overdue > 0 ? { color: "#ef4444" } : { color: "var(--muted)" }}>
-                    {selectedStat.overdue}
+        {/* ── Sidebar / Referee Profile ── */}
+        <aside className="grid grid-cols-1 gap-3.5">
+          {selectedStat ? (
+            <>
+              {/* Profile header */}
+              <Card>
+                <div className="mb-3.5 flex items-start justify-between gap-2">
+                  <div>
+                    <p className="mb-0.5 text-xs font-bold uppercase tracking-wide text-accent">Referee Profile</p>
+                    <h2 className="text-lg font-bold text-text">{selectedStat.name}</h2>
+                    <p className="mt-0.5 text-xs text-muted">{selectedStat.email}</p>
                   </div>
-                  <div className="lh-profile-stat-lbl">Overdue</div>
+                  <Button variant="ghost" size="sm" className="shrink-0 px-1.5" onClick={() => setSelectedMemberId(null)} title="Close profile">
+                    <X size={14} />
+                  </Button>
                 </div>
-              </div>
 
-              {/* Activity cadence */}
-              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                <div className="lh-cadence-chip">
-                  <Clock size={11} />
-                  <span>{completedThisWeek} this week</span>
+                {/* Summary stats */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-lg border border-border bg-panel-2 p-2.5 text-center">
+                    <div className="text-xl font-extrabold leading-none tracking-tight text-text">{selectedStat.assigned}</div>
+                    <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">Assigned</div>
+                  </div>
+                  <div className="rounded-lg border border-good/25 bg-panel-2 p-2.5 text-center">
+                    <div className="text-xl font-extrabold leading-none tracking-tight text-text">{selectedStat.completed}</div>
+                    <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">Completed</div>
+                  </div>
+                  <div className={cn("rounded-lg border bg-panel-2 p-2.5 text-center", selectedStat.overdue > 0 ? "border-danger/35" : "border-border")}>
+                    <div className={cn("text-xl font-extrabold leading-none tracking-tight", selectedStat.overdue > 0 ? "text-red-400" : "text-muted")}>
+                      {selectedStat.overdue}
+                    </div>
+                    <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">Overdue</div>
+                  </div>
                 </div>
-                <div className="lh-cadence-chip">
-                  <CheckCircle2 size={11} />
-                  <span>{completedThisMonth} this month</span>
-                </div>
-              </div>
 
-              {/* Last active */}
-              {selectedStat.lastActivity && (
-                <p className="hint" style={{ margin: "10px 0 0", fontSize: 12 }}>
-                  Last active {fmtRel(selectedStat.lastActivity)}
-                </p>
-              )}
-            </div>
-
-            {/* Assignment history */}
-            <div className="panel">
-              <h3 className="ed-section-title" style={{ marginBottom: 10 }}>Assignment History</h3>
-              {selectedRows.length === 0 ? (
-                <div className="empty-state" style={{ padding: "16px 10px" }}>
-                  <p className="hint" style={{ margin: 0, fontSize: 13 }}>No assignments yet.</p>
-                  <p className="hint" style={{ margin: "3px 0 0", fontSize: 12 }}>Assign a playlist to begin tracking their learning.</p>
+                {/* Activity cadence */}
+                <div className="mt-3 flex gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold text-accent">
+                    <Clock size={11} />
+                    {completedThisWeek} this week
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold text-accent">
+                    <CheckCircle2 size={11} />
+                    {completedThisMonth} this month
+                  </span>
                 </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {selectedRows.map(row => {
-                    const isOverdue = row.status !== "Completed" && row.assignment.dueDate && row.assignment.dueDate < now;
-                    return (
-                      <div key={row.id} className={"lh-assignment-row" + (isOverdue ? " lh-assignment-row--overdue" : "")}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
-                          <span style={{ fontWeight: 700, fontSize: 13, flex: 1 }}>{row.assignment.title}</span>
-                          <span
-                            style={{
-                              display: "inline-block",
-                              fontSize: 11,
-                              fontWeight: 700,
-                              padding: "2px 7px",
-                              borderRadius: 999,
-                              whiteSpace: "nowrap",
-                              background: STATUS_BG[row.status],
-                              color: STATUS_COLORS[row.status],
-                              border: `1px solid ${STATUS_BORDER[row.status]}`,
-                              flexShrink: 0,
-                            }}
-                          >
-                            {row.status}
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 12px", marginTop: 4 }}>
-                          <span className="hint" style={{ fontSize: 11 }}>Assigned {fmtDate(row.assignedAt)}</span>
-                          {row.assignment.dueDate && (
-                            <span className="hint" style={{ fontSize: 11, color: isOverdue ? "#ef4444" : undefined }}>
-                              Due {fmtDate(row.assignment.dueDate)}{isOverdue ? " · Overdue" : ""}
-                            </span>
+
+                {/* Last active */}
+                {selectedStat.lastActivity && (
+                  <p className="mt-2.5 text-xs text-muted">
+                    Last active {fmtRel(selectedStat.lastActivity)}
+                  </p>
+                )}
+              </Card>
+
+              {/* Assignment history */}
+              <Card>
+                <h3 className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">Assignment History</h3>
+                {selectedRows.length === 0 ? (
+                  <EmptyState
+                    className="px-2.5 py-4"
+                    title="No assignments yet."
+                    description="Assign a playlist to begin tracking their learning."
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {selectedRows.map(row => {
+                      const isOverdue = row.status !== "Completed" && row.assignment.dueDate && row.assignment.dueDate < now;
+                      return (
+                        <div
+                          key={row.id}
+                          className={cn(
+                            "rounded-lg border bg-panel-2 p-2.5 transition-colors",
+                            isOverdue ? "border-danger/35" : "border-border"
                           )}
-                          {row.completedAt && (
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, color: "#22c55e" }}>
-                              <CheckCircle2 size={11} /> {fmtDate(row.completedAt)}
-                            </span>
-                          )}
+                        >
+                          <div className="flex items-start justify-between gap-1.5">
+                            <span className="flex-1 text-sm font-semibold text-text">{row.assignment.title}</span>
+                            <Badge
+                              className="shrink-0"
+                              style={{ background: STATUS_BG[row.status], color: STATUS_COLORS[row.status], borderColor: STATUS_BORDER[row.status] }}
+                            >
+                              {row.status}
+                            </Badge>
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                            <span className="text-[11px] text-muted">Assigned {fmtDate(row.assignedAt)}</span>
+                            {row.assignment.dueDate && (
+                              <span className={cn("text-[11px]", isOverdue ? "text-red-400" : "text-muted")}>
+                                Due {fmtDate(row.assignment.dueDate)}{isOverdue ? " · Overdue" : ""}
+                              </span>
+                            )}
+                            {row.completedAt && (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-good">
+                                <CheckCircle2 size={11} /> {fmtDate(row.completedAt)}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="panel" style={{ textAlign: "center", padding: "32px 20px" }}>
-            <BookOpen size={28} style={{ opacity: 0.25, marginBottom: 10 }} />
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>Select a referee</p>
-            <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
-              Click any row to view their learning history and progress summary.
-            </p>
-          </div>
-        )}
-      </aside>
-    </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            </>
+          ) : (
+            <Card className="py-8 text-center">
+              <BookOpen size={28} className="mx-auto mb-2.5 opacity-25" />
+              <p className="text-sm font-semibold text-text">Select a referee</p>
+              <p className="mt-1 text-xs text-muted">
+                Click any row to view their learning history and progress summary.
+              </p>
+            </Card>
+          )}
+        </aside>
+      </div>
+    </PageFrame>
   );
 }

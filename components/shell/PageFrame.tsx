@@ -23,7 +23,7 @@ interface PageFrameProps {
 //     of double-padding.
 export function PageFrame({ eyebrow, title, description, actions, children, className }: PageFrameProps) {
   return (
-    <div className={cn("grid gap-6 p-4 sm:p-6 lg:p-8", className)}>
+    <div className={cn("grid grid-cols-1 gap-6 p-4 sm:p-6 lg:p-8", className)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           {eyebrow && (

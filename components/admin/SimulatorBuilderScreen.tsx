@@ -8,6 +8,8 @@ import type { CodedTag, ReviewRecord } from "@/lib/types/reviews";
 import type { MemberRecord } from "@/lib/types/members";
 import type { SessionFormData } from "@/lib/hooks/useSimulatorSessions";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Badge, Button, Card, EmptyState, FormField, Input, Spinner, Textarea } from "@/components/ui";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -179,62 +181,60 @@ export function SimulatorBuilderScreen({
 
   if (view === "list") {
     return (
-      <div style={{ boxSizing: "border-box" }}>
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <div className="table-head">
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Zap size={20} style={{ color: "#fbbf24", flexShrink: 0 }} />
-              <div>
-                <p className="eyebrow" style={{ margin: 0 }}>Learning Hub</p>
-                <h1 style={{ margin: 0, fontSize: 22 }}>Simulator Builder</h1>
-                <p className="hint" style={{ margin: "2px 0 0" }}>Create decision-making simulations from video</p>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {onAnalytics && attempts.length > 0 && (
-                <button
-                  onClick={() => {
-                    const firstPublished = sessions.find(s => reviewForSession(s, reviews)?.status === "Completed");
-                    if (firstPublished) onAnalytics(firstPublished.id);
-                  }}
-                  style={{ display: "flex", alignItems: "center", gap: 6 }}
-                  title="View simulator analytics"
-                >
-                  <BarChart2 size={14} /> Analytics
-                </button>
-              )}
-              <button className="primary" onClick={openNew} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Plus size={14} /> New Simulator
-              </button>
-              <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <ChevronLeft size={15} /> Back
-              </button>
-            </div>
-          </div>
-        </div>
-
+      <PageFrame
+        className="p-0"
+        eyebrow="Learning Hub"
+        title="Simulator Builder"
+        description="Create decision-making simulations from video"
+        actions={
+          <>
+            {onAnalytics && attempts.length > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="gap-1.5"
+                title="View simulator analytics"
+                onClick={() => {
+                  const firstPublished = sessions.find(s => reviewForSession(s, reviews)?.status === "Completed");
+                  if (firstPublished) onAnalytics(firstPublished.id);
+                }}
+              >
+                <BarChart2 size={14} /> Analytics
+              </Button>
+            )}
+            <Button size="sm" className="gap-1.5" onClick={openNew}>
+              <Plus size={14} /> New Simulator
+            </Button>
+            <Button variant="ghost" size="sm" className="gap-1" onClick={onBack}>
+              <ChevronLeft size={15} /> Back
+            </Button>
+          </>
+        }
+      >
         {loading && (
-          <div className="panel" style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>
-            Loading simulators…
+          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-panel p-8 text-sm text-muted">
+            <Spinner /> Loading simulators…
           </div>
         )}
 
         {!loading && sessions.length === 0 && (
-          <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-            <Zap size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
-            <p style={{ margin: 0, fontWeight: 700 }}>No simulators yet</p>
-            <p className="hint" style={{ margin: "6px 0 16px" }}>Create your first simulation from a game video.</p>
-            <button className="primary" onClick={openNew} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Plus size={14} /> Create Simulator
-            </button>
-          </div>
+          <EmptyState
+            icon={<Zap size={36} />}
+            title="No simulators yet"
+            description="Create your first simulation from a game video."
+            action={
+              <Button size="sm" className="gap-1.5" onClick={openNew}>
+                <Plus size={14} /> Create Simulator
+              </Button>
+            }
+          />
         )}
 
         {!loading && sessions.length > 0 && (() => {
           const publishedSessions = sessions.filter(s => reviewForSession(s, reviews)?.status === "Completed");
           const draftSessions = sessions.filter(s => reviewForSession(s, reviews)?.status !== "Completed");
 
-          function SimRow({ s, isLast }: { s: SimulatorSessionWithEvents; isLast: boolean }) {
+          function SimRow({ s }: { s: SimulatorSessionWithEvents }) {
             const clipCount = clipCountForSession(s, tags);
             const isPublished = reviewForSession(s, reviews)?.status === "Completed";
             const dateStr = s.createdAt ? new Date(s.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "";
@@ -257,64 +257,54 @@ export function SimulatorBuilderScreen({
               : null;
 
             return (
-              <div
-                style={{
-                  padding: "12px 16px",
-                  borderBottom: !isLast ? "1px solid var(--border)" : "none",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
-                      <span style={{ fontWeight: 700, fontSize: 15 }}>{s.title}</span>
-                      {isPublished
-                        ? <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#22c55e", background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.35)" }}>Published</span>
-                        : <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#f59e0b", background: "rgba(245,158,11,.12)", border: "1px solid rgba(245,158,11,.35)" }}>Draft</span>
-                      }
-                      <span className="hint" style={{ fontSize: 12 }}>{clipCount} decision{clipCount !== 1 ? "s" : ""}</span>
-                      {dateStr && <span className="hint" style={{ fontSize: 12 }}>· Created {dateStr}</span>}
+              <div className="px-4 py-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-0.5 flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-text">{s.title}</span>
+                      <Badge tone={isPublished ? "good" : "warn"}>{isPublished ? "Published" : "Draft"}</Badge>
+                      <span className="text-xs text-muted">{clipCount} decision{clipCount !== 1 ? "s" : ""}</span>
+                      {dateStr && <span className="text-xs text-muted">· Created {dateStr}</span>}
                     </div>
                     {s.description && (
-                      <p className="hint" style={{ margin: "0 0 6px", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {s.description}
-                      </p>
+                      <p className="mb-1.5 truncate text-xs text-muted">{s.description}</p>
                     )}
                     {/* Attempt stats — published sessions only */}
                     {isPublished && attemptCount > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 6, fontSize: 12, color: "var(--muted)" }}>
-                        <span><strong style={{ color: "var(--text)" }}>{uniqueRefs}</strong> referee{uniqueRefs !== 1 ? "s" : ""}</span>
-                        <span><strong style={{ color: "var(--text)" }}>{attemptCount}</strong> attempt{attemptCount !== 1 ? "s" : ""}</span>
-                        {avgPct !== null && <span>Avg <strong style={{ color: "var(--accent)" }}>{avgPct}%</strong></span>}
-                        {bestPct !== null && <span>Best <strong style={{ color: "#22c55e" }}>{bestPct}%</strong></span>}
+                      <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-muted">
+                        <span><strong className="text-text">{uniqueRefs}</strong> referee{uniqueRefs !== 1 ? "s" : ""}</span>
+                        <span><strong className="text-text">{attemptCount}</strong> attempt{attemptCount !== 1 ? "s" : ""}</span>
+                        {avgPct !== null && <span>Avg <strong className="text-accent">{avgPct}%</strong></span>}
+                        {bestPct !== null && <span>Best <strong className="text-good">{bestPct}%</strong></span>}
                         {latestAttempt?.completedAt && (
                           <span>Latest {fmtDate(latestAttempt.completedAt)}{latestRef ? ` · ${latestRef.name || latestRef.email}` : ""}</span>
                         )}
                       </div>
                     )}
                     {isPublished && attemptCount === 0 && (
-                      <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>No attempts yet</p>
+                      <p className="mt-1 text-xs text-muted">No attempts yet</p>
                     )}
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <div className="flex flex-wrap gap-1.5">
                     {isPublished && onAnalytics && attemptCount > 0 && (
-                      <button onClick={() => onAnalytics(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="View analytics for this simulator">
+                      <Button variant="secondary" size="sm" className="gap-1" title="View analytics for this simulator" onClick={() => onAnalytics(s.id)}>
                         <BarChart2 size={12} /> Analytics
-                      </button>
+                      </Button>
                     )}
                     {isPublished && onAssignSession && (
-                      <button onClick={() => onAssignSession(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="Assign this simulator to referees">
+                      <Button variant="secondary" size="sm" title="Assign this simulator to referees" onClick={() => onAssignSession(s.id)}>
                         Assign
-                      </button>
+                      </Button>
                     )}
-                    <button onClick={() => onRunSession(s.id)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }} title="Preview this simulator">
+                    <Button variant="secondary" size="sm" className="gap-1" title="Preview this simulator" onClick={() => onRunSession(s.id)}>
                       <Play size={12} /> Preview
-                    </button>
-                    <button onClick={() => openEdit(s)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px" }}>
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => openEdit(s)}>
                       Edit
-                    </button>
-                    <button onClick={() => handleDelete(s.id, s.title)} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "5px 11px", color: "#fca5a5", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 7 }}>
+                    </Button>
+                    <Button variant="danger" size="sm" className="gap-1" onClick={() => handleDelete(s.id, s.title)}>
                       <Trash2 size={12} /> Delete
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -322,37 +312,33 @@ export function SimulatorBuilderScreen({
           }
 
           return (
-            <>
+            <div className="grid grid-cols-1 gap-3">
               {publishedSessions.length > 0 && (
-                <div className="panel" style={{ padding: 0, overflow: "hidden", marginBottom: 12 }}>
-                  <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", background: "rgba(34,197,94,.04)" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", textTransform: "uppercase", letterSpacing: ".07em" }}>
+                <Card className="divide-y divide-border p-0">
+                  <div className="border-b border-border bg-good/5 px-4 py-2.5">
+                    <span className="text-xs font-bold uppercase tracking-wide text-good">
                       Published — {publishedSessions.length}
                     </span>
                   </div>
-                  {publishedSessions.map((s, idx) => (
-                    <SimRow key={s.id} s={s} isLast={idx === publishedSessions.length - 1} />
-                  ))}
-                </div>
+                  {publishedSessions.map(s => <SimRow key={s.id} s={s} />)}
+                </Card>
               )}
               {draftSessions.length > 0 && (
-                <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-                  <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".07em" }}>
+                <Card className="divide-y divide-border p-0">
+                  <div className="border-b border-border px-4 py-2.5">
+                    <span className="text-xs font-bold uppercase tracking-wide text-muted">
                       Drafts — {draftSessions.length}
                     </span>
                   </div>
-                  {draftSessions.map((s, idx) => (
-                    <SimRow key={s.id} s={s} isLast={idx === draftSessions.length - 1} />
-                  ))}
-                </div>
+                  {draftSessions.map(s => <SimRow key={s.id} s={s} />)}
+                </Card>
               )}
-            </>
+            </div>
           );
         })()}
         {confirmModals}
-      </div>
-  );
+      </PageFrame>
+    );
   }
 
   // ── Edit / Create view ──────────────────────────────────────────────────────
@@ -363,124 +349,94 @@ export function SimulatorBuilderScreen({
   const isPublished = linkedReview?.status === "Completed";
 
   return (
-    <>
-    <div style={{ boxSizing: "border-box" }}>
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <div className="table-head">
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Zap size={20} style={{ color: "#fbbf24", flexShrink: 0 }} />
-            <div>
-              <p className="eyebrow" style={{ margin: 0 }}>Simulator Builder</p>
-              <h1 style={{ margin: 0, fontSize: 22 }}>{editId ? "Edit Simulator" : "New Simulator"}</h1>
-            </div>
-          </div>
-          <button onClick={() => setView("list")} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <ChevronLeft size={15} /> All Simulators
-          </button>
-        </div>
-      </div>
-
+    <PageFrame
+      className="p-0"
+      eyebrow="Simulator Builder"
+      title={editId ? "Edit Simulator" : "New Simulator"}
+      actions={
+        <Button variant="ghost" size="sm" className="gap-1" onClick={() => setView("list")}>
+          <ChevronLeft size={15} /> All Simulators
+        </Button>
+      }
+    >
       {/* Session details */}
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>Simulator Details</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <label htmlFor={`${uid}-title`}>
-            Title *
-            <input
-              id={`${uid}-title`}
-              value={fTitle}
-              onChange={e => setFTitle(e.target.value)}
-              placeholder="e.g. NBL Round 5 — Foul Decisions"
-              autoFocus
-            />
-          </label>
-          <label htmlFor={`${uid}-desc`}>
-            Instructions <span className="hint">(optional)</span>
-            <textarea
-              id={`${uid}-desc`}
-              value={fDescription}
-              onChange={e => setFDescription(e.target.value)}
-              placeholder="Instructions shown to referees before starting…"
-              rows={2}
-              style={{ width: "100%", boxSizing: "border-box", resize: "vertical" }}
-            />
-          </label>
-          <label htmlFor={`${uid}-url`}>
-            Video URL *
-            <input
-              id={`${uid}-url`}
-              value={fVideoUrl}
-              onChange={e => setFVideoUrl(e.target.value)}
-              placeholder="YouTube or direct MP4/WebM URL"
-            />
-          </label>
-        </div>
-      </div>
+      <Card className="grid grid-cols-1 gap-3">
+        <h2 className="text-sm font-semibold text-text">Simulator Details</h2>
+        <FormField label="Title" htmlFor={`${uid}-title`} required>
+          <Input
+            id={`${uid}-title`}
+            value={fTitle}
+            onChange={e => setFTitle(e.target.value)}
+            placeholder="e.g. NBL Round 5 — Foul Decisions"
+            autoFocus
+          />
+        </FormField>
+        <FormField label="Instructions" htmlFor={`${uid}-desc`} hint="Optional">
+          <Textarea
+            id={`${uid}-desc`}
+            value={fDescription}
+            onChange={e => setFDescription(e.target.value)}
+            placeholder="Instructions shown to referees before starting…"
+            rows={2}
+          />
+        </FormField>
+        <FormField label="Video URL" htmlFor={`${uid}-url`} required>
+          <Input
+            id={`${uid}-url`}
+            value={fVideoUrl}
+            onChange={e => setFVideoUrl(e.target.value)}
+            placeholder="YouTube or direct MP4/WebM URL"
+          />
+        </FormField>
+      </Card>
 
       {/* Decision coding (only when editing a saved session with a linked review) */}
       {editId && editReviewId && (
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <Card className="grid grid-cols-1 gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 style={{ margin: "0 0 2px", fontSize: 15, fontWeight: 700 }}>Coded Decisions</h2>
-              <p className="hint" style={{ margin: 0, fontSize: 12 }}>
+              <h2 className="text-sm font-semibold text-text">Coded Decisions</h2>
+              <p className="mt-0.5 text-xs text-muted">
                 Code decisions through the review wizard — each tagged clip becomes a decision point.
               </p>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{
-                fontSize: 13, fontWeight: 700,
-                padding: "4px 12px", borderRadius: 999,
-                background: clipCount > 0 ? "rgba(34,197,94,.12)" : "var(--panel2)",
-                color: clipCount > 0 ? "#22c55e" : "var(--muted)",
-                border: `1px solid ${clipCount > 0 ? "rgba(34,197,94,.35)" : "var(--border)"}`,
-              }}>
+            <div className="flex items-center gap-2">
+              <Badge tone={clipCount > 0 ? "good" : "neutral"}>
                 {clipCount} decision{clipCount !== 1 ? "s" : ""} coded
-              </span>
-              <button
-                className="primary"
-                onClick={() => onOpenReview(editReviewId)}
-                style={{ display: "flex", alignItems: "center", gap: 6 }}
-              >
+              </Badge>
+              <Button size="sm" className="gap-1.5" onClick={() => onOpenReview(editReviewId)}>
                 <BookOpen size={14} /> Code Decisions
-              </button>
+              </Button>
             </div>
           </div>
 
           {clipCount === 0 && (
-            <div style={{ padding: "12px 14px", background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.2)", borderRadius: 8, fontSize: 13, color: "var(--muted)" }}>
+            <div className="rounded-lg border border-warn/25 bg-warn/5 px-3.5 py-3 text-sm text-muted">
               No decisions coded yet. Click <strong>Code Decisions</strong> to open the review wizard and tag decision moments in the video.
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Save / Publish */}
-      {formError && (
-        <p className="danger-text" style={{ marginBottom: 10 }}>{formError}</p>
-      )}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <button onClick={() => setView("list")}>Cancel</button>
-        <button className="primary" onClick={handleSave} disabled={saving} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {formError && <p className="text-sm font-medium text-red-400">{formError}</p>}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="ghost" onClick={() => setView("list")}>Cancel</Button>
+        <Button className="gap-1.5" onClick={handleSave} disabled={saving}>
           <Save size={14} /> {saving ? "Saving…" : editId ? "Save Changes" : "Create Simulator"}
-        </button>
+        </Button>
         {editId && editReviewId && !isPublished && clipCount > 0 && (
-          <button
-            onClick={handlePublish}
-            disabled={publishing}
-            style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", color: "#22c55e", background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.35)", borderRadius: 8, padding: "7px 16px" }}
-          >
+          <Button variant="good" className="ml-auto gap-1.5" onClick={handlePublish} disabled={publishing}>
             <CheckCircle2 size={14} /> {publishing ? "Publishing…" : "Publish Simulator"}
-          </button>
+          </Button>
         )}
         {editId && isPublished && (
-          <span style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto", fontSize: 13, color: "#22c55e" }}>
+          <span className="ml-auto flex items-center gap-1.5 text-sm text-good">
             <CheckCircle2 size={14} /> Published
           </span>
         )}
       </div>
-    </div>
-    {confirmModals}
-    </>
+      {confirmModals}
+    </PageFrame>
   );
 }
