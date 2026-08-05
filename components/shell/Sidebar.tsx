@@ -22,7 +22,7 @@ interface SidebarProps {
   onAdmin: () => void;
 }
 
-const SIDEBAR_WIDTH_PX = 232;
+const SIDEBAR_WIDTH_PX = 256;
 
 function isItemActive(item: NavItem, activeScreen: Screen | undefined, activeOrgPage: OrgPage | undefined): boolean {
   if (!activeScreen) return false;
@@ -122,7 +122,7 @@ export function Sidebar({
           open ? "max-lg:translate-x-0" : "max-lg:-translate-x-full"
         )}
       >
-        <div className="flex h-16 shrink-0 items-center justify-end px-3 lg:hidden">
+        <div className="flex h-14 shrink-0 items-center justify-end px-3 lg:hidden">
           <button
             onClick={onClose}
             aria-label="Close navigation"
@@ -155,9 +155,9 @@ export function Sidebar({
               </div>
             </>
           ) : (
-            <div className="grid gap-4">
+            <>
               {groups!.map((group) => (
-                <div key={group.label}>
+                <div key={group.label} className="mb-5">
                   <p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
                     {group.label}
                   </p>
@@ -252,7 +252,7 @@ export function Sidebar({
                   </div>
                 </div>
               ))}
-            </div>
+            </>
           )}
         </nav>
       </aside>

@@ -133,7 +133,7 @@
  */
 @media (min-width: 1024px) {
   .rcds-sidebar ~ * {
-    padding-left: 232px;
+    padding-left: 256px;
   }
 }
 
