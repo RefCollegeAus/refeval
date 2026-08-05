@@ -17,13 +17,17 @@
 // RefereeCommentsScreen fetches its own comment threads from Supabase (no
 // prop injection for thread data), so its fixture below only verifies the
 // header/filter chrome and empty state deterministically — not a populated
-// thread list.
+// thread list. The Reviewer Workspace section's "Comments" toggle opens the
+// same real ReviewComments component, which will similarly try (and fail) to
+// fetch from a non-existent review — its own loading/empty state is what you
+// see, which is enough to check its position within the clip row.
 
 import { useState } from "react";
-import { Inbox, Eye, BarChart3, Target, MessageSquare, BookOpen } from "lucide-react";
+import { Inbox, Eye, BarChart3, Target, MessageSquare, BookOpen, Play, Pause, Tag as TagIcon, Download, Trash2 } from "lucide-react";
 import { EducatorDashboard } from "@/components/educator/EducatorDashboard";
 import { OrganisationScreen } from "@/components/organisation/OrganisationScreen";
 import { RefereeDevelopmentScreen } from "@/components/educator/RefereeDevelopmentScreen";
+import { ReviewDevelopmentPanel } from "@/components/educator/ReviewDevelopmentPanel";
 import { MyLearningScreen } from "@/components/referee/MyLearningScreen";
 import { RefereeReviewScreen } from "@/components/referee/RefereeReviewScreen";
 import { RefereeGoalsScreen } from "@/components/referee/RefereeGoalsScreen";
@@ -37,11 +41,12 @@ import { CommentInbox } from "@/components/educator/CommentInbox";
 import { TeamManagementScreen } from "@/components/admin/TeamManagementScreen";
 import { UserProfileScreen } from "@/components/admin/UserProfileScreen";
 import { PageFrame } from "@/components/shell/PageFrame";
-import { Badge, Button, Card, EmptyState, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui";
+import { TaggedClipsModal } from "@/components/reviewer/TaggedClipsModal";
+import { Badge, Button, Card, EmptyState, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tabs } from "@/components/ui";
 import { makeAnalytics } from "@/lib/utils/analytics";
 import { makeDefaultSettings } from "@/lib/types/organisationSettings";
 import type { RefEvalSession } from "@/lib/types/auth";
-import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
+import type { ReviewRecord, CodedTag, RefSlot } from "@/lib/types/reviews";
 import type { Assignment } from "@/lib/types/assignments";
 import type { Playlist } from "@/lib/types/playlists";
 import type { MemberRecord } from "@/lib/types/members";
@@ -181,6 +186,58 @@ const CLIP_GOAL_LINKS: ClipGoalLink[] = [
   { id: "cgl-1", organisationId: ORG_ID, clipId: "tag-1", reviewId: "rev-2", goalDefId: "def-1", refereeId: "user-alex" },
 ];
 
+// ── Reviewer Workspace fixture (duplicated JSX — see file header note) ──────
+// Three officials assigned so the header/participants text and per-official
+// Development Goals panels are all exercised. Tags cover every outcome tone,
+// mixed note lengths (short/long/none), and one with an extra review official
+// so the condensed clip row and the referee-filter both have something to
+// show.
+const REVIEWER_REVIEW: ReviewRecord = {
+  id: "rev-reviewer-fixture", organisationId: ORG_ID, game: "Kings vs Breakers", educatorId: "user-jamie", educatorName: "Jamie Smith",
+  referee1Id: "user-alex", referee2Id: "user-sam", referee3Id: "user-morgan", referee1Name: "Alex Referee", referee2Name: "Sam Official", referee3Name: "Morgan Alexander Fitzgerald-Whitfield",
+  videoLink: "", timestampOffset: -10, status: "In Review", gameDate: daysAgo(2).slice(0, 10), createdAt: daysAgo(2),
+};
+
+// Multiple goals across officials, distinct priorities, one with notes, one
+// without — exercises the Development tabs' per-official goal rows and the
+// read-only goal.notes preview.
+const REVIEWER_GOALS: RefereeGoalView[] = [
+  {
+    id: "rvgoal-1", goalId: "rvdef-1", refereeId: "user-alex", organisationId: ORG_ID, status: "Active",
+    notes: "Two clips this game where trail spacing tightened up nicely under pressure.",
+    targetReviewDate: daysAgo(-5).slice(0, 10), createdAt: daysAgo(18), updatedAt: daysAgo(2), completedAt: null, archivedAt: null,
+    title: "Improve trail positioning", description: "Focus on staying wide on transition.", category: "Positioning", priority: "High",
+  },
+  {
+    id: "rvgoal-2", goalId: "rvdef-2", refereeId: "user-sam", organisationId: ORG_ID, status: "Active",
+    notes: "",
+    targetReviewDate: daysAgo(-10).slice(0, 10), createdAt: daysAgo(9), updatedAt: daysAgo(9), completedAt: null, archivedAt: null,
+    title: "Tighten travel calls on baseline drives", description: "Watch pivot foot on baseline penetration.", category: "Rules", priority: "Medium",
+  },
+  {
+    id: "rvgoal-3", goalId: "rvdef-3", refereeId: "user-sam", organisationId: ORG_ID, status: "Active",
+    notes: "Communicate primary/secondary coverage earlier in transition.",
+    targetReviewDate: null, createdAt: daysAgo(3), updatedAt: daysAgo(3), completedAt: null, archivedAt: null,
+    title: "Faster transition communication", description: "", category: "Communication", priority: "Low",
+  },
+];
+
+const REVIEWER_TAGS: CodedTag[] = [
+  { id: "rtag-1", reviewId: REVIEWER_REVIEW.id, organisationId: ORG_ID, time: "01:20", seconds: 80, adjustedSeconds: 70, adjustedTime: "01:10", mode: "video", refereeTarget: "Referee 1", extraReviewOfficials: [], clipOfficials: [], outcome: "Correct Call", category: "Foul - Personal", position: "Trail", coverage: "Primary", notes: "Strong trail positioning, clean read on contact.", createdAt: daysAgo(2) },
+  { id: "rtag-2", reviewId: REVIEWER_REVIEW.id, organisationId: ORG_ID, time: "04:02", seconds: 242, adjustedSeconds: 232, adjustedTime: "03:52", mode: "video", refereeTarget: "Referee 2", extraReviewOfficials: ["Referee 1"], clipOfficials: [], outcome: "Incorrect No Call", category: "Violation - Travel", position: "Lead", coverage: "Secondary", notes: "Missed the pivot foot lift from the baseline angle — worth a group discussion since Referee 1 also had a look from trail.", createdAt: daysAgo(2) },
+  { id: "rtag-3", reviewId: REVIEWER_REVIEW.id, organisationId: ORG_ID, time: "07:41", seconds: 461, adjustedSeconds: 451, adjustedTime: "07:31", mode: "video", refereeTarget: "Referee 3", extraReviewOfficials: [], clipOfficials: [], outcome: "Correct No Call", category: "Foul - Disruptive", position: "Centre", coverage: "Extended", createdAt: daysAgo(2) },
+  { id: "rtag-4", reviewId: REVIEWER_REVIEW.id, organisationId: ORG_ID, time: "11:05", seconds: 665, adjustedSeconds: 655, adjustedTime: "10:55", mode: "video", refereeTarget: "Referee 1", extraReviewOfficials: [], clipOfficials: [], outcome: "Incorrect Call", category: "Foul - Flagrant", position: "Trail", coverage: "Primary", notes: "Called flagrant on incidental contact.", createdAt: daysAgo(2) },
+  { id: "rtag-5", reviewId: REVIEWER_REVIEW.id, organisationId: ORG_ID, time: "14:30", seconds: 870, adjustedSeconds: 860, adjustedTime: "14:20", mode: "video", refereeTarget: "Referee 2", extraReviewOfficials: [], clipOfficials: [], outcome: "Review", category: "Game Administration", position: "Lead", coverage: "Primary", createdAt: daysAgo(2) },
+];
+
+const REVIEWER_COMMENT_COUNTS: Record<string, number> = {
+  [`${REVIEWER_REVIEW.id}::rtag-2`]: 3,
+};
+
+const REVIEWER_GOAL_LINKS: ReviewGoalLink[] = [
+  { id: "rvrgl-1", organisationId: ORG_ID, reviewId: REVIEWER_REVIEW.id, goalDefId: "rvdef-1", refereeId: "user-alex", linkedAt: daysAgo(2), linkedBy: "user-jamie", createdGoalFromReview: false },
+];
+
 const ORG: OrganisationRecord = { id: ORG_ID, name: "Demo Basketball Association", createdAt: daysAgo(200), timezone: "Australia/Sydney", brandColour: "#a56a1b", logoUrl: null };
 
 const ORG_SETTINGS = makeDefaultSettings("Demo Basketball Association");
@@ -229,6 +286,43 @@ function Section({ title, description, children }: { title: string; description?
 
 export default function ScreenFixturesPage() {
   const [onboardingDismissed] = useState(true);
+
+  // ── Reviewer Workspace fixture (duplicated JSX — see file header note) ────
+  const [rvMode, setRvMode] = useState<"video" | "non-video">("video");
+  const [rvAnalyticsTarget, setRvAnalyticsTarget] = useState<RefSlot>("All Referees");
+  const [rvSelectedTagId, setRvSelectedTagId] = useState<string | null>(null);
+  const [rvActiveCommentTagId, setRvActiveCommentTagId] = useState<string | null>(null);
+  const [rvClipsModalOpen, setRvClipsModalOpen] = useState(false);
+
+  function rvSlotName(slot: RefSlot, r?: ReviewRecord) {
+    if (!r) return slot;
+    if (slot === "Referee 1") return r.referee1Name || "Crew Chief";
+    if (slot === "Referee 2") return r.referee2Name || "Umpire 1";
+    if (slot === "Referee 3") return r.referee3Name || "Umpire 2";
+    return "All Referees";
+  }
+  function rvTagAppliesToSlot(tag: CodedTag, slot: RefSlot) {
+    if (tag.refereeTarget === "All Referees" || slot === "All Referees") return slot === "All Referees" || tag.refereeTarget === "All Referees";
+    if (tag.refereeTarget === slot) return true;
+    return (tag.extraReviewOfficials || []).includes(slot);
+  }
+  const RV_REF_SLOTS: RefSlot[] = ["All Referees", "Referee 1", "Referee 2", "Referee 3"];
+  const rvSummarySlots: [string, string, string][] = (
+    [
+      [REVIEWER_REVIEW.referee1Id, REVIEWER_REVIEW.referee1Name || "Crew Chief", "Crew Chief"],
+      [REVIEWER_REVIEW.referee2Id, REVIEWER_REVIEW.referee2Name || "Umpire 1", "Umpire 1"],
+      [REVIEWER_REVIEW.referee3Id, REVIEWER_REVIEW.referee3Name || "Umpire 2", "Umpire 2"],
+    ] as [string, string, string][]
+  ).filter(([id]) => !!id);
+  const rvAnalyticsTags = rvAnalyticsTarget === "All Referees" ? REVIEWER_TAGS : REVIEWER_TAGS.filter(t => rvTagAppliesToSlot(t, rvAnalyticsTarget));
+  const rvAnalytics = makeAnalytics(rvAnalyticsTags);
+  const rvTimelineMarkers = REVIEWER_TAGS.map(t => ({
+    id: t.id,
+    seconds: t.adjustedSeconds,
+    left: Math.min(100, (t.adjustedSeconds / 900) * 100),
+    color: t.outcome?.startsWith("Correct") ? "var(--good)" : t.outcome?.startsWith("Incorrect") ? "var(--danger)" : "var(--warn)",
+    label: `${t.adjustedTime} · ${rvSlotName(t.refereeTarget, REVIEWER_REVIEW)} · ${t.outcome ?? ""}`,
+  }));
 
   // ── Referee Home fixture (duplicated JSX — see file header note) ──────────
   const session = SESSION_REFEREE;
@@ -447,7 +541,237 @@ export default function ScreenFixturesPage() {
         </div>
       </Section>
 
-      <Section title="My Learning" description='screen === "my-learning" → components/referee/MyLearningScreen.tsx'>
+      <Section title="Reviewer Workspace (Educator)" description='screen === "reviewer" (inline in app/page.tsx) — fixture duplicate, see file header. Video area is a labelled placeholder box (no real playback simulated); every other control, including the Development tabs (real ReviewDevelopmentPanel in compact mode), is the real markup.'>
+        <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
+          <div className="grid grid-cols-1 gap-6">
+
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Evaluation</p>
+                <h1 className="truncate text-xl font-bold text-text">{REVIEWER_REVIEW.game}</h1>
+                <div className="mt-1.5 flex flex-wrap gap-x-6 gap-y-1.5 text-sm">
+                  <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.educatorName}</span></div>
+                  {rvSummarySlots.length > 0 && (
+                    <div>
+                      <span className="font-semibold text-text">Officials</span>
+                      <div className="mt-0.5 grid gap-0.5">
+                        {rvSummarySlots.map(([id, name, role]) => (
+                          <div key={id} className="text-muted">{name} <span className="text-muted/70">— {role}</span></div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-muted">Status: {REVIEWER_REVIEW.status}</div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Button variant="secondary" size="sm">✏️ Edit Game Details</Button>
+                <Button variant="secondary" size="sm">← Back</Button>
+                <Button variant="secondary" size="sm" className="text-yellow-300">Save &amp; Complete Later</Button>
+                <Button variant="good" size="sm">Submit Review</Button>
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
+                <div className="mode-switch">
+                  <button className={rvMode === "video" ? "primary" : ""} onClick={() => setRvMode("video")}>Video Review</button>
+                  <button className={rvMode === "non-video" ? "primary" : ""} onClick={() => setRvMode("non-video")}>Non-Video Mode</button>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                  <span className="truncate font-semibold text-text">{REVIEWER_REVIEW.game}</span>
+                  <span>· {REVIEWER_REVIEW.gameDate}</span>
+                  <span className="text-yellow-300/70">· No video</span>
+                </div>
+              </div>
+
+              {rvMode === "video" ? (
+                <>
+                  <div className="reviewer-controls">
+                    <div className="review-mode-group">
+                      <label className="file-picker">Upload Local Video<input type="file" accept="video/*" readOnly /></label>
+                    </div>
+                    <div className="playback-group">
+                      <button className="playback-btn">← 5s</button>
+                      <button className="playback-btn play-pause-btn"><Play size={15} /><Pause size={15} /></button>
+                      <button className="playback-btn">5s →</button>
+                    </div>
+                    <Button variant="primary" className="gap-1.5"><TagIcon size={14} /> Tag Moment</Button>
+                  </div>
+
+                  <div className="mx-auto w-full overflow-hidden rounded-2xl border border-border bg-panel" style={{ maxWidth: "calc(66vh * 16 / 9)" }}>
+                    <div style={{ aspectRatio: "16/9" }}>
+                      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>
+                        Video preview area (fixture — playback not simulated)
+                      </div>
+                    </div>
+                    <div className="border-t border-border px-3 py-2">
+                      <div className="timeline" style={{ margin: "8px 0" }}>
+                        <div className="progress" style={{ width: "62%" }} />
+                        {rvTimelineMarkers.map(m => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            className={"marker-hit" + (rvSelectedTagId === m.id ? " marker-hit--active" : "")}
+                            title={m.label}
+                            aria-label={m.label}
+                            style={{ left: `${m.left}%` }}
+                            onClick={() => setRvSelectedTagId(m.id)}
+                          >
+                            <span className="marker-bar" style={{ background: m.color }} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="timer-card">
+                    <div className="timer">00:00</div>
+                    <div className="toolbar">
+                      <button className="primary">Start Timer</button>
+                      <button>Reset</button>
+                      <button>-10s</button>
+                      <button>+10s</button>
+                    </div>
+                    <p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p>
+                  </div>
+                  <div className="mt-3 rounded-2xl border border-border bg-panel px-3 py-2">
+                    <div className="timeline" style={{ margin: "8px 0" }}>
+                      <div className="progress" style={{ width: "62%" }} />
+                      {rvTimelineMarkers.map(m => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          className={"marker-hit" + (rvSelectedTagId === m.id ? " marker-hit--active" : "")}
+                          title={m.label}
+                          aria-label={m.label}
+                          style={{ left: `${m.left}%` }}
+                          onClick={() => setRvSelectedTagId(m.id)}
+                        >
+                          <span className="marker-bar" style={{ background: m.color }} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 border-y border-border py-3.5">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <label className="flex items-center gap-2 text-xs text-muted">
+                  Statistics for
+                  <Select className="h-8 w-auto min-w-[150px] py-0 text-sm" value={rvAnalyticsTarget} onChange={e => setRvAnalyticsTarget(e.target.value as RefSlot)}>
+                    {RV_REF_SLOTS.map(s => <option key={s} value={s}>{rvSlotName(s, REVIEWER_REVIEW)}</option>)}
+                  </Select>
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button variant="secondary" size="sm" className="gap-1.5"><Download size={14} /> CSV</Button>
+                  <Button variant="primary" size="sm" className="gap-1.5"><Download size={14} /> Excel</Button>
+                  <Button variant="danger" size="sm" className="gap-1.5"><Trash2 size={14} /> Clear Tags</Button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-baseline gap-x-7 gap-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => setRvClipsModalOpen(true)}
+                  aria-label={`View ${rvAnalytics.total} tagged clips for ${rvSlotName(rvAnalyticsTarget, REVIEWER_REVIEW)}`}
+                  className="rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  <span className="text-lg font-extrabold text-text hover:text-accent">{rvAnalytics.total}</span> <span className="text-xs text-muted">Total clips</span>
+                </button>
+                <span><span className="text-lg font-extrabold text-accent">{rvAnalytics.accuracy}</span> <span className="text-xs text-muted">Coded accuracy</span></span>
+                <span><span className="text-lg font-extrabold text-good">{rvAnalytics.correctCalls + rvAnalytics.correctNoCalls}</span> <span className="text-xs text-muted">Correct decisions</span></span>
+                <span><span className="text-lg font-extrabold text-red-300">{rvAnalytics.incorrectCalls + rvAnalytics.incorrectNoCalls}</span> <span className="text-xs text-muted">Incorrect decisions</span></span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-3 sm:grid-cols-4">
+                <div>
+                  <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Outcome</h3>
+                  <div className="grid gap-0.5">{rvAnalytics.outcomeCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+                </div>
+                <div>
+                  <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Category</h3>
+                  <div className="grid gap-0.5">{rvAnalytics.categoryCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+                </div>
+                <div>
+                  <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Position</h3>
+                  <div className="grid gap-0.5">{rvAnalytics.positionCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+                </div>
+                <div>
+                  <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Coverage</h3>
+                  <div className="grid gap-0.5">{rvAnalytics.coverageCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+                </div>
+              </div>
+            </div>
+
+            <Card className="grid gap-3 shadow-none">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted">Development</p>
+              {rvSummarySlots.length > 1 ? (
+                <Tabs
+                  ariaLabel="Development by official"
+                  tabs={rvSummarySlots.map(([id, name]) => ({
+                    id,
+                    label: name,
+                    content: (
+                      <ReviewDevelopmentPanel
+                        key={id}
+                        compact
+                        session={SESSION_EDUCATOR}
+                        review={REVIEWER_REVIEW}
+                        refereeId={id}
+                        refereeName={name}
+                        activeGoals={REVIEWER_GOALS.filter(g => g.refereeId === id && g.status === "Active")}
+                        reviewGoalLinks={REVIEWER_GOAL_LINKS}
+                        onCreateGoalFromReview={() => {}}
+                        onLinkReviewToGoal={() => {}}
+                        onUnlinkReviewFromGoal={() => {}}
+                      />
+                    ),
+                  }))}
+                />
+              ) : rvSummarySlots.length === 1 ? (
+                <ReviewDevelopmentPanel
+                  compact
+                  session={SESSION_EDUCATOR}
+                  review={REVIEWER_REVIEW}
+                  refereeId={rvSummarySlots[0][0]}
+                  refereeName={rvSummarySlots[0][1]}
+                  activeGoals={REVIEWER_GOALS.filter(g => g.refereeId === rvSummarySlots[0][0] && g.status === "Active")}
+                  reviewGoalLinks={REVIEWER_GOAL_LINKS}
+                  onCreateGoalFromReview={() => {}}
+                  onLinkReviewToGoal={() => {}}
+                  onUnlinkReviewFromGoal={() => {}}
+                />
+              ) : null}
+            </Card>
+
+          </div>
+
+          <TaggedClipsModal
+            open={rvClipsModalOpen}
+            onClose={() => setRvClipsModalOpen(false)}
+            tags={rvAnalyticsTags}
+            filterLabel={rvSlotName(rvAnalyticsTarget, REVIEWER_REVIEW)}
+            getRefereeName={s => rvSlotName(s, REVIEWER_REVIEW)}
+            selectedTagId={rvSelectedTagId}
+            onJump={(_seconds, tagId) => setRvSelectedTagId(tagId)}
+            onEdit={() => {}}
+            onDelete={() => {}}
+            activeCommentTagId={rvActiveCommentTagId}
+            onToggleComments={tagId => { setRvSelectedTagId(tagId); setRvActiveCommentTagId(t => t === tagId ? null : tagId); }}
+            commentCounts={REVIEWER_COMMENT_COUNTS}
+            activeReviewId={REVIEWER_REVIEW.id}
+            session={SESSION_EDUCATOR}
+            onCommentsRead={() => {}}
+          />
+        </div>
+      </Section>
+
+<Section title="My Learning" description='screen === "my-learning" → components/referee/MyLearningScreen.tsx'>
         <div className="rounded-2xl border border-border">
           <MyLearningScreen
             session={SESSION_REFEREE}

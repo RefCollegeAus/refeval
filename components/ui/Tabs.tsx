@@ -38,8 +38,8 @@ export function Tabs({
   const active = tabs.find((t) => t.id === activeId) ?? tabs[0];
 
   return (
-    <div className="grid gap-4">
-      <div role="tablist" aria-label={ariaLabel} className="flex gap-1 overflow-x-auto border-b border-border">
+    <div className="grid min-w-0 gap-4">
+      <div role="tablist" aria-label={ariaLabel} className="flex min-w-0 gap-1 overflow-x-auto border-b border-border">
         {tabs.map((tab) => {
           const isActive = tab.id === active?.id;
           return (
@@ -71,6 +71,7 @@ export function Tabs({
           role="tabpanel"
           aria-labelledby={`tab-${tab.id}`}
           hidden={tab.id !== active?.id}
+          className="min-w-0"
         >
           {tab.id === active?.id ? tab.content : null}
         </div>

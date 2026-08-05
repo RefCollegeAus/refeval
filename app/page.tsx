@@ -70,7 +70,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Pause, Play, Trash2, Eye, MessageSquare, BarChart3, Target, BookOpen, Inbox, Tag } from "lucide-react";
 import { PageFrame } from "@/components/shell/PageFrame";
-import { Badge, Button, Card, EmptyState, Input, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Textarea } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Input, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tabs, Textarea } from "@/components/ui";
 import { AppToast } from "@/components/common/AppToast";
 import { showToast } from "@/lib/toast";
 import * as XLSX from "xlsx";
@@ -2383,30 +2383,30 @@ export default function Home() {
         <div className="min-w-0">
           <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Evaluation</p>
           <h1 className="truncate text-xl font-bold text-text">{reviewGame || "Untitled Review"}</h1>
-          <p className="mt-1.5 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm">
-            <span><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{activeReview?.educatorName || session?.profile.name || "—"}</span></span>
+          <div className="mt-1.5 flex flex-wrap gap-x-6 gap-y-1.5 text-sm">
+            <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{activeReview?.educatorName || session?.profile.name || "—"}</span></div>
             {summarySlots.length > 0 && (
-              <span>
-                <span className="font-semibold text-text">Officials</span>{" "}
-                <span className="text-muted">
-                  {summarySlots.map(([id, name, role], i) => (
-                    <span key={id} title={role}>{name}{i < summarySlots.length - 1 ? " · " : ""}</span>
+              <div>
+                <span className="font-semibold text-text">Officials</span>
+                <div className="mt-0.5 grid gap-0.5">
+                  {summarySlots.map(([id, name, role]) => (
+                    <div key={id} className="text-muted">{name} <span className="text-muted/70">— {role}</span></div>
                   ))}
-                </span>
-              </span>
+                </div>
+              </div>
             )}
-            <span className="text-muted">Status: {activeReview?.status || "In Review"}</span>
-          </p>
+            <div className="text-muted">Status: {activeReview?.status || "In Review"}</div>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <Button variant="secondary" size="sm" onClick={() => setSetupModalOpen(true)}>✏️ Edit Game Details</Button>
-          <Button variant="secondary" size="sm" onClick={() => setConfirmDiscardReview(true)}>{isNewReview ? "Discard Review" : "← Back"}</Button>
+          <Button variant="secondary" size="sm" onClick={()=>setSetupModalOpen(true)}>✏️ Edit Game Details</Button>
+          <Button variant="secondary" size="sm" onClick={()=>setConfirmDiscardReview(true)}>{isNewReview ? "Discard Review" : "← Back"}</Button>
           <Button variant="secondary" size="sm" className="text-yellow-300" onClick={saveCompleteLater}>Save &amp; Complete Later</Button>
           <Button variant="good" size="sm" onClick={submitReview}>Submit Review</Button>
         </div>
       </div>
 
-      {/* Video + timeline — the dominant surface */}
+      {/* Video + timeline — one connected analysis surface */}
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
           <div className="mode-switch">
@@ -2420,36 +2420,87 @@ export default function Home() {
           </div>
         </div>
 
-        {mode === "video" ? <><div className="reviewer-controls"><div className="review-mode-group"><label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label></div><div className="playback-group"><button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button><button className="playback-btn play-pause-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button><button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button></div><Button variant="primary" className="gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button></div><div className="mx-auto w-full" style={{ aspectRatio: "16/9", maxWidth: "calc(72vh * 16 / 9)" }}><div className="video-placeholder shadow-lg h-full" style={{margin:0,overflow:"hidden",padding:0}}>{usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} className="video-frame" onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}</div></div>{usingYouTubeVideo&&<p className="hint mt-1 text-center" style={{fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}</> : <div className="timer-card"><div className="timer">{formatTime(timerSeconds)}</div><div className="toolbar"><button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button><button onClick={() => setTimerSeconds(0)}>Reset</button><button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button><button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button></div><p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p></div>}
+        {mode === "video" ? (
+          <>
+            <div className="reviewer-controls">
+              <div className="review-mode-group">
+                <label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label>
+              </div>
+              <div className="playback-group">
+                <button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button>
+                <button className="playback-btn play-pause-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button>
+                <button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button>
+              </div>
+              <Button variant="primary" className="gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button>
+            </div>
 
-        <div className="mt-4">
-          <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">Timeline</p>
-          <div className="timeline">
-            <div className="progress" style={{ width: `${progressPct}%` }} />
-            {timelineMarkers.map(m => (
-              <button
-                key={m.id}
-                type="button"
-                className={"marker-hit" + (selectedTagId === m.id ? " marker-hit--active" : "")}
-                title={m.label}
-                aria-label={m.label}
-                style={{ left: `${m.left}%` }}
-                onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }}
-                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }}
-              >
-                <span className="marker-bar" style={{ background: m.color }} />
-              </button>
-            ))}
-          </div>
-        </div>
+            <div className="mx-auto w-full overflow-hidden rounded-2xl border border-border bg-panel" style={{ maxWidth: "calc(66vh * 16 / 9)" }}>
+              <div style={{ aspectRatio: "16/9" }}>
+                {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block"}} onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
+              </div>
+              <div className="border-t border-border px-3 py-2">
+                <div className="timeline" style={{ margin: "8px 0" }}>
+                  <div className="progress" style={{ width: `${progressPct}%` }} />
+                  {timelineMarkers.map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={"marker-hit" + (selectedTagId === m.id ? " marker-hit--active" : "")}
+                      title={m.label}
+                      aria-label={m.label}
+                      style={{ left: `${m.left}%` }}
+                      onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }}
+                    >
+                      <span className="marker-bar" style={{ background: m.color }} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {usingYouTubeVideo && <p className="hint mt-1 text-center" style={{fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}
+          </>
+        ) : (
+          <>
+            <div className="timer-card">
+              <div className="timer">{formatTime(timerSeconds)}</div>
+              <div className="toolbar">
+                <button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button>
+                <button onClick={() => setTimerSeconds(0)}>Reset</button>
+                <button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button>
+                <button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button>
+              </div>
+              <p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p>
+            </div>
+            <div className="mt-3 rounded-2xl border border-border bg-panel px-3 py-2">
+              <div className="timeline" style={{ margin: "8px 0" }}>
+                <div className="progress" style={{ width: `${progressPct}%` }} />
+                {timelineMarkers.map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={"marker-hit" + (selectedTagId === m.id ? " marker-hit--active" : "")}
+                    title={m.label}
+                    aria-label={m.label}
+                    style={{ left: `${m.left}%` }}
+                    onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }}
+                  >
+                    <span className="marker-bar" style={{ background: m.color }} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Compact stats/actions row */}
-      <Card className="grid gap-3.5">
+      {/* Lightweight statistics/action bar */}
+      <div className="grid grid-cols-1 gap-3 border-y border-border py-3.5">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <label className="grid gap-1 text-xs text-muted">
+          <label className="flex items-center gap-2 text-xs text-muted">
             Statistics for
-            <Select className="w-auto min-w-[160px]" value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>
+            <Select className="h-8 w-auto min-w-[150px] py-0 text-sm" value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>
               {REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}
             </Select>
           </label>
@@ -2460,63 +2511,53 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="flex flex-wrap items-baseline gap-x-7 gap-y-1.5">
           <button
             type="button"
             onClick={() => setClipsModalOpen(true)}
-            aria-label={`View ${analytics.total} tagged clips`}
-            className="rounded-lg border border-border bg-panel-2 p-3 text-center transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            aria-label={`View ${analytics.total} tagged clips for ${slotName(analyticsTarget, activeReview)}`}
+            className="rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            <div className="text-xl font-extrabold text-text">{analytics.total}</div>
-            <div className="text-xs text-muted">Total clips</div>
+            <span className="text-lg font-extrabold text-text hover:text-accent">{analytics.total}</span> <span className="text-xs text-muted">Total clips</span>
           </button>
-          <div className="rounded-lg border border-border bg-panel-2 p-3 text-center">
-            <div className="text-xl font-extrabold text-accent">{analytics.accuracy}</div>
-            <div className="text-xs text-muted">Coded accuracy</div>
-          </div>
-          <div className="rounded-lg border border-border bg-panel-2 p-3 text-center">
-            <div className="text-xl font-extrabold text-good">{analytics.correctCalls + analytics.correctNoCalls}</div>
-            <div className="text-xs text-muted">Correct decisions</div>
-          </div>
-          <div className="rounded-lg border border-border bg-panel-2 p-3 text-center">
-            <div className="text-xl font-extrabold text-red-300">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div>
-            <div className="text-xs text-muted">Incorrect decisions</div>
-          </div>
+          <span><span className="text-lg font-extrabold text-accent">{analytics.accuracy}</span> <span className="text-xs text-muted">Coded accuracy</span></span>
+          <span><span className="text-lg font-extrabold text-good">{analytics.correctCalls + analytics.correctNoCalls}</span> <span className="text-xs text-muted">Correct decisions</span></span>
+          <span><span className="text-lg font-extrabold text-red-300">{analytics.incorrectCalls + analytics.incorrectNoCalls}</span> <span className="text-xs text-muted">Incorrect decisions</span></span>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 border-t border-border pt-3.5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-3 sm:grid-cols-4">
           <div>
-            <h3 className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">Outcome</h3>
-            <div className="grid gap-1">{analytics.outcomeCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+            <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Outcome</h3>
+            <div className="grid gap-0.5">{analytics.outcomeCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
           </div>
           <div>
-            <h3 className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">Category</h3>
-            <div className="grid gap-1">{analytics.categoryCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+            <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Category</h3>
+            <div className="grid gap-0.5">{analytics.categoryCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
           </div>
           <div>
-            <h3 className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">Position</h3>
-            <div className="grid gap-1">{analytics.positionCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+            <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Position</h3>
+            <div className="grid gap-0.5">{analytics.positionCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
           </div>
           <div>
-            <h3 className="mb-1.5 text-xs font-bold uppercase tracking-wide text-muted">Coverage</h3>
-            <div className="grid gap-1">{analytics.coverageCounts.map(([n, c]) => <div className="flex items-center justify-between text-[13px] text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+            <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Coverage</h3>
+            <div className="grid gap-0.5">{analytics.coverageCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* Secondary panels */}
       {mode === "non-video" && (
-        <Card>
+        <Card className="shadow-none">
           <h2 className="mb-2 text-sm font-bold text-text">Non-video hotkeys</h2>
           <div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div>
         </Card>
       )}
 
       {summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&Object.values(activeReview.officialSummaries[id]).some(Boolean)) && (
-        <Card className="grid gap-3">
+        <div className="grid gap-3 rounded-2xl border border-border p-4">
           <h3 className="text-sm font-bold text-text">Final Summaries</h3>
           {summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&(s.positives||s.workOns||s.nextFocus)?<div key={id} className="border-b border-border pb-3 last:border-b-0 last:pb-0"><p className="mb-1.5 font-bold text-text">{name} <span className="font-normal text-muted">· {role}</span></p>{s.positives&&<><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="mb-1.5 whitespace-pre-wrap text-[13px] text-text">{s.positives}</p></>}{s.workOns&&<><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-[13px] text-text">{s.workOns}</p></>}</div>:null})}
-        </Card>
+        </div>
       )}
 
       {activeReview && session && (()=>{
@@ -2526,30 +2567,38 @@ export default function Home() {
           {id: activeReview.referee3Id, name: activeReview.referee3Name},
         ].filter(s => s.id);
         const allRefereeIds = refereeMembers.map(m => m.id);
-        return slots.length > 0 ? (
-          <div>
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Development Goals</h3>
-            <div className="grid gap-2">
-              {slots.map(slot => (
-                <ReviewDevelopmentPanel
-                  key={slot.id}
-                  session={session}
-                  review={activeReview}
-                  refereeId={slot.id}
-                  refereeName={slot.name}
-                  activeGoals={refereeGoalViewsForReferee(slot.id).filter(v => v.status === "Active")}
-                  reviewGoalLinks={reviewGoalLinks.filter(l => l.refereeId === slot.id && l.reviewId === activeReview.id)}
-                  onCreateGoalFromReview={async (input, reviewId) => {
-                    const defId = await assignGoal(input, allRefereeIds);
-                    if (defId) createReviewGoalLink({reviewId, goalDefId: defId, refereeId: slot.id, createdGoalFromReview: true});
-                  }}
-                  onLinkReviewToGoal={createReviewGoalLink}
-                  onUnlinkReviewFromGoal={removeReviewGoalLink}
-                />
-              ))}
-            </div>
-          </div>
-        ) : null;
+        if (slots.length === 0) return null;
+        const panelFor = (slot: {id:string; name:string}) => (
+          <ReviewDevelopmentPanel
+            key={slot.id}
+            compact
+            session={session}
+            review={activeReview}
+            refereeId={slot.id}
+            refereeName={slot.name}
+            activeGoals={refereeGoalViewsForReferee(slot.id).filter(v => v.status === "Active")}
+            reviewGoalLinks={reviewGoalLinks.filter(l => l.refereeId === slot.id && l.reviewId === activeReview.id)}
+            onCreateGoalFromReview={async (input, reviewId) => {
+              const defId = await assignGoal(input, allRefereeIds);
+              if (defId) createReviewGoalLink({reviewId, goalDefId: defId, refereeId: slot.id, createdGoalFromReview: true});
+            }}
+            onLinkReviewToGoal={createReviewGoalLink}
+            onUnlinkReviewFromGoal={removeReviewGoalLink}
+          />
+        );
+        return (
+          <Card className="grid gap-3 shadow-none">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Development</p>
+            {slots.length > 1 ? (
+              <Tabs
+                ariaLabel="Development by official"
+                tabs={slots.map(slot => ({ id: slot.id, label: slot.name, content: panelFor(slot) }))}
+              />
+            ) : (
+              panelFor(slots[0])
+            )}
+          </Card>
+        );
       })()}
 
     </div>

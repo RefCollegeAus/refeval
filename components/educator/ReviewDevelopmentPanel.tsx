@@ -22,6 +22,12 @@ export interface ReviewDevelopmentPanelProps {
   onCreateGoalFromReview: (input: AssignGoalInput, reviewId: string) => void;
   onLinkReviewToGoal: (input: CreateReviewGoalLinkInput) => void;
   onUnlinkReviewFromGoal: (linkId: string) => void;
+  /** When true, renders just the body (goals list + quick-add form) with no
+   *  collapsible header or outer bordered wrapper — for embedding inside an
+   *  already-labelled container such as a per-official Tabs panel, where the
+   *  tab itself is the "which official" affordance this panel's own header
+   *  would otherwise duplicate. */
+  compact?: boolean;
 }
 
 // ── Quick goal creation form ──────────────────────────────────────────────────
@@ -104,6 +110,7 @@ export function ReviewDevelopmentPanel({
   onCreateGoalFromReview,
   onLinkReviewToGoal,
   onUnlinkReviewFromGoal,
+  compact = false,
 }: ReviewDevelopmentPanelProps) {
   const [showQuickForm, setShowQuickForm] = useState(false);
   const [expanded, setExpanded]           = useState(true);
@@ -134,6 +141,70 @@ export function ReviewDevelopmentPanel({
     [linkedGoalDefIds, linksForThisReview, review.id, refereeId, onLinkReviewToGoal, onUnlinkReviewFromGoal],
   );
 
+  const body = (
+    <>
+      {/* Active goals list */}
+      {activeGoals.length === 0 && !showQuickForm ? (
+        <p className="mb-2.5 text-[13px] text-muted">No active development goals for {refereeName}.</p>
+      ) : (
+        <div className="mb-2.5 grid gap-1.5">
+          {activeGoals.map(goal => {
+            const linked = linkedGoalDefIds.has(goal.goalId);
+            return (
+              <div
+                key={goal.id}
+                className={cn(
+                  "flex items-center justify-between gap-2.5 rounded-lg border px-2.5 py-2",
+                  linked ? "border-accent/50 bg-accent/[.1]" : "border-border bg-panel",
+                )}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px] font-semibold text-text">{goal.title}</div>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted">{goal.category}</span>
+                    <Badge tone={PRIORITY_TONE[goal.priority] ?? "neutral"} className="text-[10px]">{goal.priority}</Badge>
+                  </div>
+                  {goal.notes && <p className="mt-1 truncate text-[11px] text-muted" title={goal.notes}>{goal.notes}</p>}
+                </div>
+                <Button
+                  variant={linked ? "primary" : "secondary"}
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => toggleLink(goal)}
+                >
+                  {linked ? "Linked ✓" : "Link"}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Quick goal creation form */}
+      {showQuickForm ? (
+        <QuickGoalForm
+          refereeId={refereeId}
+          reviewId={review.id}
+          refereeName={refereeName}
+          onSubmit={handleCreateGoal}
+          onCancel={() => setShowQuickForm(false)}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowQuickForm(true)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-[13px] text-muted hover:border-accent/40 hover:text-text"
+        >
+          <Plus size={13} /> Create Goal from this Review
+        </button>
+      )}
+    </>
+  );
+
+  if (compact) {
+    return <div>{body}</div>;
+  }
+
   return (
     <div className="mt-2 overflow-hidden rounded-xl border border-border bg-panel-2">
       {/* Collapsible header */}
@@ -151,64 +222,7 @@ export function ReviewDevelopmentPanel({
         {expanded ? <ChevronUp size={14} className="text-muted" /> : <ChevronDown size={14} className="text-muted" />}
       </button>
 
-      {expanded && (
-        <div className="px-3.5 pb-3.5">
-          {/* Active goals list */}
-          {activeGoals.length === 0 && !showQuickForm ? (
-            <p className="mb-2.5 text-[13px] text-muted">No active development goals for {refereeName}.</p>
-          ) : (
-            <div className="mb-2.5 grid gap-1.5">
-              {activeGoals.map(goal => {
-                const linked = linkedGoalDefIds.has(goal.goalId);
-                return (
-                  <div
-                    key={goal.id}
-                    className={cn(
-                      "flex items-center justify-between gap-2.5 rounded-lg border px-2.5 py-2",
-                      linked ? "border-accent/50 bg-accent/[.1]" : "border-border bg-panel",
-                    )}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-semibold text-text">{goal.title}</div>
-                      <div className="mt-0.5 flex items-center gap-1.5">
-                        <span className="text-[11px] text-muted">{goal.category}</span>
-                        <Badge tone={PRIORITY_TONE[goal.priority] ?? "neutral"} className="text-[10px]">{goal.priority}</Badge>
-                      </div>
-                    </div>
-                    <Button
-                      variant={linked ? "primary" : "secondary"}
-                      size="sm"
-                      className="shrink-0"
-                      onClick={() => toggleLink(goal)}
-                    >
-                      {linked ? "Linked ✓" : "Link"}
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Quick goal creation form */}
-          {showQuickForm ? (
-            <QuickGoalForm
-              refereeId={refereeId}
-              reviewId={review.id}
-              refereeName={refereeName}
-              onSubmit={handleCreateGoal}
-              onCancel={() => setShowQuickForm(false)}
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowQuickForm(true)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-[13px] text-muted hover:border-accent/40 hover:text-text"
-            >
-              <Plus size={13} /> Create Goal from this Review
-            </button>
-          )}
-        </div>
-      )}
+      {expanded && <div className="px-3.5 pb-3.5">{body}</div>}
     </div>
   );
 }
