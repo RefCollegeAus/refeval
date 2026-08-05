@@ -40,7 +40,7 @@ export function BrandBlock({ variant = "header", className }: BrandBlockProps) {
       <div className={cn("min-w-0", isAuth ? "leading-tight" : "leading-none")}>
         <p
           className={cn(
-            "font-bold uppercase text-accent",
+            "m-0 font-bold uppercase text-accent",
             isAuth ? "text-[11px] font-black tracking-wider" : "hidden text-[11px] tracking-[0.2em] sm:block"
           )}
         >
@@ -48,7 +48,7 @@ export function BrandBlock({ variant = "header", className }: BrandBlockProps) {
         </p>
         <p
           className={cn(
-            "font-bold tracking-tight text-text",
+            "m-0 font-bold tracking-tight text-text",
             isAuth ? "text-lg" : "text-lg leading-none sm:mt-2 sm:text-[30px]"
           )}
         >

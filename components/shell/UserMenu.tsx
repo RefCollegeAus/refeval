@@ -31,7 +31,7 @@ export function UserMenu({ userInitials, userName, onProfile, onLogout, isProfil
         aria-expanded={open}
         aria-current={isProfileActive ? "page" : undefined}
         title={userName}
-        className="grid h-9 w-9 place-items-center rounded-full border-0 bg-accent/20 text-xs font-bold text-amber-300 shadow-none ring-1 ring-inset ring-accent/30 transition-colors hover:bg-accent/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="grid h-9 w-9 place-items-center rounded-full border-0 bg-accent/20 p-0 text-xs font-bold text-amber-300 shadow-none ring-1 ring-inset ring-accent/30 transition-colors hover:bg-accent/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         {userInitials}
       </button>
