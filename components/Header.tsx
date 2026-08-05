@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, Bell, Search, Menu } from "lucide-react";
+import { LogOut, Bell, Search, Menu, Building2, ChevronDown } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
 import type { OrgPage } from "@/components/organisation/OrganisationScreen";
 import type { NavContext } from "./shell/nav";
 import { BrandBlock } from "./shell/BrandBlock";
 import { Sidebar } from "./shell/Sidebar";
+import { initialsFor } from "@/lib/utils/initials";
 
 // Referee College Design System — Phase 2 (shell alignment).
 //
@@ -62,24 +63,25 @@ export function Header({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const userInitials = session
-    ? session.profile.name
-        .trim()
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase())
-        .join("") || session.profile.email[0]?.toUpperCase() || "?"
-    : "";
+  const userInitials = session ? initialsFor(session.profile.name, session.profile.email) : "";
+  const orgName = session?.activeOrganisation?.name ?? null;
+  const orgInitials = orgName ? initialsFor(orgName, null) : "";
+  // Real capability, not decorative: matches RefOps's org-context control
+  // visually, but only implies switching when the signed-in user actually
+  // has more than one membership to switch between (see
+  // components/admin/UserProfileScreen.tsx's "Switch to this org" list,
+  // which onProfile below opens).
+  const canSwitchOrg = (session?.memberships.length ?? 0) > 1;
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-panel/90 px-4 backdrop-blur-md sm:h-[104px] sm:gap-5 sm:px-6">
+      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-panel/90 px-4 backdrop-blur-md sm:h-[104px] sm:gap-5 sm:px-6">
 
         {session && (
           <button
             onClick={() => setSidebarOpen(true)}
             aria-label="Open navigation"
-            className="-ml-1 rounded-lg p-1.5 text-muted transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent lg:hidden"
+            className="-ml-1 rounded-lg border-0 bg-transparent p-1.5 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent lg:hidden"
           >
             <Menu size={20} />
           </button>
@@ -90,13 +92,31 @@ export function Header({
         <div className="flex-1" />
 
         {session && (
-          <div className="flex items-center gap-1 sm:gap-1.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            {orgName && (
+              <button
+                onClick={onProfile}
+                title={orgName}
+                aria-label={canSwitchOrg ? `Organisation: ${orgName}. Switch organisation` : `Organisation: ${orgName}`}
+                className="hidden items-center gap-2 rounded-lg border border-border bg-panel-3/70 py-1.5 pl-1.5 pr-3 text-sm font-semibold text-text shadow-none transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:flex"
+              >
+                <span
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-panel-2 text-[10px] font-bold text-muted"
+                  aria-hidden="true"
+                >
+                  {orgInitials}
+                </span>
+                <span className="max-w-[9rem] truncate lg:max-w-[14rem]">{orgName}</span>
+                {canSwitchOrg && <ChevronDown size={14} className="shrink-0 text-muted" />}
+              </button>
+            )}
+
             {onSearch && (
               <button
                 onClick={onSearch}
                 aria-label="Search"
                 title="Search"
-                className="rounded-lg p-2 text-muted transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="rounded-lg border-0 bg-transparent p-2 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 <Search size={17} />
               </button>
@@ -112,7 +132,7 @@ export function Header({
                 }
                 title="Notifications"
                 aria-current={activeScreen === "notifications" ? "page" : undefined}
-                className="relative rounded-lg p-2 text-muted transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="relative rounded-lg border-0 bg-transparent p-2 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 <Bell size={17} />
                 {unreadNotificationCount > 0 && (
@@ -131,7 +151,7 @@ export function Header({
               aria-label={`Profile: ${session.profile.name}`}
               title={session.profile.name}
               aria-current={activeScreen === "user-profile" ? "page" : undefined}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent/20 text-xs font-bold text-amber-300 ring-1 ring-inset ring-accent/30 transition-colors hover:bg-accent/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full border-0 bg-accent/20 text-xs font-bold text-amber-300 ring-1 ring-inset ring-accent/30 transition-colors hover:bg-accent/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               {userInitials}
             </button>
@@ -140,7 +160,7 @@ export function Header({
               onClick={onLogout}
               aria-label="Sign out"
               title="Sign out"
-              className="rounded-lg p-2 text-muted transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="rounded-lg border-0 bg-transparent p-2 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <LogOut size={17} />
             </button>

@@ -9,15 +9,17 @@ interface BrandBlockProps {
 
 // Referee College of Australia brand lockup for RefEval's shell — mirrors
 // RefOps's BrandBlock (same eyebrow-then-product-name structure, same RCA
-// crest) so the two products read as the same family. Product name is
-// "RefCoach" — that's the name already shown consistently across RefEval's
-// login screen, browser tab title and (until now) Header.tsx; this
-// component intentionally does not introduce "RefEval" into the UI, which
-// would newly diverge from those existing surfaces. See the naming note in
-// the Phase 2 shell-alignment report for the one remaining out-of-shell
-// inconsistency (the set-password auth screen) left for a future pass.
+// crest) so the two products read as the same family.
+//
+// The authenticated app shell (this component's "header" variant) shows
+// "RefEval" as the product name. The "auth" variant (login/reset-password
+// screens) still shows "RefCoach", matching the browser tab title and every
+// other pre-authentication surface — deliberately out of scope for this
+// header-alignment pass, which only touches the visible authenticated-shell
+// label, not a repo-wide product rename.
 export function BrandBlock({ variant = "header", className }: BrandBlockProps) {
   const isAuth = variant === "auth";
+  const productName = isAuth ? "RefCoach" : "RefEval";
 
   return (
     <div
@@ -50,7 +52,7 @@ export function BrandBlock({ variant = "header", className }: BrandBlockProps) {
             isAuth ? "text-lg" : "text-lg leading-none sm:mt-2 sm:text-[30px]"
           )}
         >
-          RefCoach
+          {productName}
         </p>
       </div>
     </div>
