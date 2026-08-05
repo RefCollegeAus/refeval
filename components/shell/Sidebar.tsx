@@ -126,7 +126,7 @@ export function Sidebar({
           <button
             onClick={onClose}
             aria-label="Close navigation"
-            className="rounded-lg p-1.5 text-muted hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="rounded-lg border-0 bg-transparent p-1.5 text-muted shadow-none hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <X size={18} />
           </button>
@@ -144,9 +144,9 @@ export function Sidebar({
                     onClick={() => { item.onClick(); onClose(); }}
                     aria-current={item.active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors",
+                      "flex items-center gap-2.5 rounded-lg border-0 px-2.5 py-2 text-left text-sm font-medium shadow-none transition-colors",
                       "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-                      item.active ? "bg-accent/15 text-amber-300" : "text-muted hover:bg-panel-3 hover:text-text"
+                      item.active ? "bg-accent/15 text-amber-300" : "bg-transparent text-muted hover:bg-panel-3 hover:text-text"
                     )}
                   >
                     <span className="flex-1">{item.label}</span>
@@ -173,15 +173,15 @@ export function Sidebar({
                           <div key={item.label}>
                             <div
                               className={cn(
-                                "flex items-center gap-1 rounded-lg pr-1 text-sm font-medium transition-colors",
-                                active || childActive ? "bg-accent/15 text-amber-300" : "text-muted hover:bg-panel-3 hover:text-text"
+                                "flex items-center gap-1 rounded-lg border-0 pr-1 text-sm font-medium shadow-none transition-colors",
+                                active || childActive ? "bg-accent/15 text-amber-300" : "bg-transparent text-muted hover:bg-panel-3 hover:text-text"
                               )}
                             >
                               <button
                                 type="button"
                                 onClick={() => navigate(item)}
                                 aria-current={active ? "page" : undefined}
-                                className="flex flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                                className="flex flex-1 items-center gap-2.5 rounded-lg border-0 bg-transparent px-2.5 py-2 text-left shadow-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                               >
                                 <Icon size={16} className="shrink-0" />
                                 <span className="flex-1">{item.label}</span>
@@ -191,7 +191,7 @@ export function Sidebar({
                                 onClick={() => toggleExpanded(item.label)}
                                 aria-expanded={isExpanded}
                                 aria-label={`${isExpanded ? "Collapse" : "Expand"} ${item.label} section`}
-                                className="rounded-lg p-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                                className="rounded-lg border-0 bg-transparent p-1.5 shadow-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                               >
                                 <ChevronDown size={14} className={cn("transition-transform", isExpanded ? "rotate-180" : "")} />
                               </button>
@@ -207,9 +207,9 @@ export function Sidebar({
                                       onClick={() => navigate(child)}
                                       aria-current={childIsActive ? "page" : undefined}
                                       className={cn(
-                                        "flex items-center rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium transition-colors",
+                                        "flex items-center rounded-lg border-0 px-2.5 py-1.5 text-left text-[13px] font-medium shadow-none transition-colors",
                                         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-                                        childIsActive ? "bg-accent/15 text-amber-300" : "text-muted hover:bg-panel-3 hover:text-text"
+                                        childIsActive ? "bg-accent/15 text-amber-300" : "bg-transparent text-muted hover:bg-panel-3 hover:text-text"
                                       )}
                                     >
                                       <span className="flex-1">{child.label}</span>
@@ -231,9 +231,9 @@ export function Sidebar({
                           onClick={() => navigate(item)}
                           aria-current={active ? "page" : undefined}
                           className={cn(
-                            "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors",
+                            "flex items-center gap-2.5 rounded-lg border-0 px-2.5 py-2 text-left text-sm font-medium shadow-none transition-colors",
                             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-                            active ? "bg-accent/15 text-amber-300" : "text-muted hover:bg-panel-3 hover:text-text"
+                            active ? "bg-accent/15 text-amber-300" : "bg-transparent text-muted hover:bg-panel-3 hover:text-text"
                           )}
                         >
                           <Icon size={16} className="shrink-0" />
