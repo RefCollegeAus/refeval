@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, Bell, Search, Menu, Building2, ChevronDown } from "lucide-react";
+import { Bell, Menu, ChevronDown } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
 import type { OrgPage } from "@/components/organisation/OrganisationScreen";
 import type { NavContext } from "./shell/nav";
 import { BrandBlock } from "./shell/BrandBlock";
 import { Sidebar } from "./shell/Sidebar";
+import { UserMenu } from "./shell/UserMenu";
 import { initialsFor } from "@/lib/utils/initials";
 
 // Referee College Design System — Phase 2 (shell alignment).
@@ -37,7 +38,6 @@ export function Header({
   onLearning,
   onOrganisation,
   onNotifications,
-  onSearch,
   onProfile,
   onLogout,
   unreadNotificationCount = 0,
@@ -52,7 +52,6 @@ export function Header({
   onLearning?: () => void;
   onOrganisation?: () => void;
   onNotifications?: () => void;
-  onSearch?: () => void;
   onProfile: () => void;
   onLogout: () => void;
   unreadNotificationCount?: number;
@@ -75,7 +74,7 @@ export function Header({
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-panel/90 px-4 backdrop-blur-md sm:h-[104px] sm:gap-5 sm:px-6">
+      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-panel/85 px-4 backdrop-blur-md sm:h-[104px] sm:gap-5 sm:px-6">
 
         {session && (
           <button
@@ -83,7 +82,7 @@ export function Header({
             aria-label="Open navigation"
             className="-ml-1 rounded-lg border-0 bg-transparent p-1.5 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent lg:hidden"
           >
-            <Menu size={20} />
+            <Menu size={22} />
           </button>
         )}
 
@@ -106,19 +105,8 @@ export function Header({
                 >
                   {orgInitials}
                 </span>
-                <span className="max-w-[9rem] truncate lg:max-w-[14rem]">{orgName}</span>
+                <span className="max-w-[12rem] truncate lg:max-w-[16rem]">{orgName}</span>
                 {canSwitchOrg && <ChevronDown size={14} className="shrink-0 text-muted" />}
-              </button>
-            )}
-
-            {onSearch && (
-              <button
-                onClick={onSearch}
-                aria-label="Search"
-                title="Search"
-                className="rounded-lg border-0 bg-transparent p-2 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-              >
-                <Search size={17} />
               </button>
             )}
 
@@ -134,36 +122,25 @@ export function Header({
                 aria-current={activeScreen === "notifications" ? "page" : undefined}
                 className="relative rounded-lg border-0 bg-transparent p-2 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
-                <Bell size={17} />
+                <Bell size={18} />
                 {unreadNotificationCount > 0 && (
                   <span
                     aria-hidden="true"
-                    className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold text-white"
+                    className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-white"
                   >
-                    {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
                   </span>
                 )}
               </button>
             )}
 
-            <button
-              onClick={onProfile}
-              aria-label={`Profile: ${session.profile.name}`}
-              title={session.profile.name}
-              aria-current={activeScreen === "user-profile" ? "page" : undefined}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full border-0 bg-accent/20 text-xs font-bold text-amber-300 ring-1 ring-inset ring-accent/30 transition-colors hover:bg-accent/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              {userInitials}
-            </button>
-
-            <button
-              onClick={onLogout}
-              aria-label="Sign out"
-              title="Sign out"
-              className="rounded-lg border-0 bg-transparent p-2 text-muted shadow-none transition-colors hover:bg-panel-3 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              <LogOut size={17} />
-            </button>
+            <UserMenu
+              userInitials={userInitials}
+              userName={session.profile.name}
+              onProfile={onProfile}
+              onLogout={onLogout}
+              isProfileActive={activeScreen === "user-profile"}
+            />
           </div>
         )}
       </header>

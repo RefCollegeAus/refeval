@@ -24,7 +24,7 @@ export function BrandBlock({ variant = "header", className }: BrandBlockProps) {
   return (
     <div
       className={cn(
-        isAuth ? "flex flex-col items-center gap-2 text-center" : "flex items-center gap-3 sm:gap-3.5",
+        isAuth ? "flex flex-col items-center gap-2 text-center" : "flex items-center gap-3.5 sm:gap-4",
         className
       )}
     >

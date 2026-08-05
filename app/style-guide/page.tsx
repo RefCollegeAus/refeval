@@ -110,7 +110,6 @@ export default function StyleGuidePage() {
         onLearning={() => setActiveScreen("learning-hub")}
         onProfile={() => setActiveScreen("user-profile")}
         onNotifications={() => setActiveScreen("notifications")}
-        onSearch={() => showToast("Search would open here (unchanged GlobalSearch overlay)", "info")}
         onLogout={() => showToast("Sign out is unchanged — not wired in this demo", "info")}
         unreadNotificationCount={3}
       />
