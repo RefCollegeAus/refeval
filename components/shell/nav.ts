@@ -199,13 +199,6 @@ const NAV_GROUPS: NavGroup[] = [
         isVisible: (ctx) => ctx.isAdmin,
       },
       {
-        label: "Groups",
-        icon: Layers,
-        screen: "organisation",
-        orgPage: "groups",
-        isVisible: (ctx) => ctx.isAdmin,
-      },
-      {
         label: "Billing & Plan",
         icon: CreditCard,
         screen: "organisation",
