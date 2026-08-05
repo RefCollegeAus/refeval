@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { Button, Card, FormField, Input } from "@/components/ui";
 
 export function LoginScreen({
   loginName,
@@ -57,26 +58,26 @@ export function LoginScreen({
   if (showForgot) {
     return (
       <div className="login-wrap">
-        <section className="panel login-panel">
+        <Card className="w-full max-w-[540px]">
           <div className="login-logo-wrap">
             <img src="/rca-logo.png" alt="Referee College of Australia logo" className="login-logo" />
           </div>
 
-          <p className="eyebrow">Account Recovery</p>
-          <h1>Forgot Password</h1>
+          <p className="text-xs font-bold uppercase tracking-wide text-accent">Account Recovery</p>
+          <h1 className="text-xl font-bold tracking-tight text-text">Forgot Password</h1>
 
           {forgotStatus === "sent" ? (
-            <div className="form-stack" style={{ marginTop: 18 }}>
-              <p className="hint">
+            <div className="grid gap-3 mt-4">
+              <p className="mt-1 text-sm text-muted">
                 If an account exists for <strong>{forgotEmail}</strong>, a password reset link has been sent. Check your inbox.
               </p>
-              <button className="primary" onClick={backToLogin}>Back to Login</button>
+              <Button variant="secondary" onClick={backToLogin}>Back to Login</Button>
             </div>
           ) : (
-            <form className="form-stack" style={{ marginTop: 18 }} onSubmit={handleForgotPassword}>
-              <label>
-                Email
-                <input
+            <form className="grid gap-3 mt-4" onSubmit={handleForgotPassword}>
+              <FormField label="Email" htmlFor="forgot-email" error={forgotError} required>
+                <Input
+                  id="forgot-email"
                   type="email"
                   value={forgotEmail}
                   onChange={(e) => { setForgotEmail(e.target.value); setForgotError(""); }}
@@ -84,72 +85,78 @@ export function LoginScreen({
                   autoFocus
                   required
                 />
-              </label>
+              </FormField>
 
-              {forgotError && <p className="danger-text">{forgotError}</p>}
-
-              <button type="submit" className="primary" disabled={forgotStatus === "sending"}>
+              <Button type="submit" variant="primary" disabled={forgotStatus === "sending"}>
                 {forgotStatus === "sending" ? "Sending…" : "Send Reset Link"}
-              </button>
+              </Button>
 
-              <button type="button" onClick={backToLogin} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", textDecoration: "underline", fontSize: "0.875rem" }}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-fit justify-start px-0 h-auto underline"
+                onClick={backToLogin}
+              >
                 Back to Login
-              </button>
+              </Button>
             </form>
           )}
-        </section>
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="login-wrap">
-      <section className="panel login-panel">
+      <Card className="w-full max-w-[540px]">
         <div className="login-logo-wrap">
           <img src="/rca-logo.png" alt="Referee College of Australia logo" className="login-logo" />
         </div>
 
-        <p className="eyebrow">RefCoach</p>
-        <h1>Sign in to your account</h1>
+        <p className="text-xs font-bold uppercase tracking-wide text-accent">RefCoach</p>
+        <h1 className="text-xl font-bold tracking-tight text-text">Sign in to your account</h1>
 
-        <div className="form-stack" style={{ marginTop: 18 }}>
-          <label>
-            Email
-            <input
+        <div className="grid gap-3 mt-4">
+          <FormField label="Email" htmlFor="login-email">
+            <Input
+              id="login-email"
               value={loginName}
               onChange={(e) => setLoginName(e.target.value)}
               placeholder="Email address"
             />
-          </label>
+          </FormField>
 
-          <label>
-            Password
-            <input
+          <FormField label="Password" htmlFor="login-password">
+            <Input
+              id="login-password"
               type="password"
               value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)}
               placeholder="Password"
               onKeyDown={(e) => { if (e.key === "Enter") login(); }}
             />
-          </label>
+          </FormField>
 
-          <button className="primary" onClick={login}>Login</button>
+          <Button variant="primary" onClick={login}>Login</Button>
 
-          {loginError && <p className="danger-text">{loginError}</p>}
+          {loginError && <p className="text-xs font-medium text-red-400">{loginError}</p>}
 
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
+            className="w-fit justify-start px-0 h-auto underline"
             onClick={() => setShowForgot(true)}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", textDecoration: "underline", fontSize: "0.875rem", textAlign: "left", padding: 0 }}
           >
             Forgot password?
-          </button>
+          </Button>
 
-          <p className="hint">
+          <p className="mt-1 text-sm text-muted">
             Sign in using your RefCoach email and password.
           </p>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

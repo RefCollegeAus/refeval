@@ -12,7 +12,7 @@ import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import type { SimulatorAttempt } from "@/lib/types/simulator";
 import { useModalA11y } from "@/lib/hooks/useModalA11y";
 import { PageFrame } from "@/components/shell/PageFrame";
-import { Badge, Button, Card, Input, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Textarea } from "@/components/ui";
+import { Badge, Button, Card, Input, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Textarea } from "@/components/ui";
 import { ROLE_TONE } from "@/lib/utils/roleTone";
 import { cn } from "@/lib/utils/cn";
 
@@ -114,16 +114,32 @@ function EditModal({
   }
 
   return (
-    <div className="modal-backdrop">
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Edit Assignment" tabIndex={-1} className="modal flex flex-col" style={{ maxWidth: 520, maxHeight: "90vh" }}>
-        <div className="modal-title shrink-0">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit Assignment"
+        tabIndex={-1}
+        className="flex w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none"
+        style={{ maxHeight: "90vh" }}
+      >
+        <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
           <div>
             <p className="eyebrow">Edit Assignment</p>
             <h1 style={{ fontSize: 20, margin: 0 }}>Update details</h1>
           </div>
-          <button onClick={onClose} aria-label="Close">✕</button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            aria-label="Close"
+            className="shrink-0 px-1.5"
+          >
+            <X size={16} />
+          </Button>
         </div>
-        <div className="mt-4 flex flex-1 flex-col gap-3.5 overflow-y-auto">
+        <div className="min-h-0 flex flex-1 flex-col gap-3.5 overflow-y-auto">
           <label className="grid gap-1 text-sm font-semibold text-text">
             Title *
             <Input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
@@ -606,30 +622,24 @@ export function AssignmentDetailScreen({
                     <TableCell data-label="Status">
                       {canEdit && onUpdateStatus ? (
                         <div className="relative inline-block">
-                          <select
+                          <Select
                             value={pendingStatus?.auId === au.id ? pendingStatus.status : au.status}
                             disabled={isUpdating}
                             onChange={e => setPendingStatus({ auId: au.id, status: e.target.value as AssignmentStatus, memberName: m?.name || "this referee" })}
                             aria-label={`Learning status for ${m?.name || "this referee"}`}
+                            className="!w-auto appearance-none pr-7 font-bold"
                             style={{
-                              fontSize: 12,
-                              fontWeight: 700,
-                              padding: "4px 22px 4px 8px",
-                              borderRadius: 6,
-                              width: "auto",
                               color: statusColor,
                               background: statusBg,
-                              border: `1px solid ${STATUS_BORDER[au.status]}`,
+                              borderColor: STATUS_BORDER[au.status],
                               opacity: isUpdating ? 0.5 : 1,
                               cursor: isUpdating ? "default" : "pointer",
-                              appearance: "none",
-                              WebkitAppearance: "none",
                             }}
                           >
                             {ALL_STATUSES.map(s => (
                               <option key={s} value={s}>{s}</option>
                             ))}
-                          </select>
+                          </Select>
                           <ChevronDown
                             size={10}
                             className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 opacity-70"

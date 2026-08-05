@@ -12,6 +12,7 @@ import type { MemberRecord } from "@/lib/types/members";
 import { fmtDate } from "@/lib/utils/time";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { useModalA11y } from "@/lib/hooks/useModalA11y";
+import { PageFrame } from "@/components/shell/PageFrame";
 import { Badge, Button, Card, EmptyState, Input, Spinner, Textarea } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
 
@@ -163,8 +164,8 @@ function GroupModal({
   }
 
   return (
-    <div className="modal-backdrop">
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={mode === "create" ? "Create Group" : "Edit Group"} tabIndex={-1} className="modal flex flex-col" style={{ maxWidth: 520, maxHeight: "92vh" }}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={mode === "create" ? "Create Group" : "Edit Group"} tabIndex={-1} className="flex w-full max-w-lg flex-col rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none" style={{ maxHeight: "92vh" }}>
         <div className="modal-title shrink-0">
           <div>
             <p className="eyebrow">{mode === "create" ? "New Group" : "Edit Group"}</p>
@@ -483,163 +484,163 @@ export function GroupsScreen({
   }
 
   return (
-    <div className="lh-layout p-0">
+    <PageFrame
+      className="p-0"
+      eyebrow={eyebrow ?? "Learning Hub"}
+      title="Groups"
+      actions={
+        <>
+          {canCreate && (
+            <Button variant="primary" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+              <Plus size={14} /> New Group
+            </Button>
+          )}
+          <Button variant="secondary" className="gap-1.5" onClick={onBack}><ChevronLeft size={15} /> Back</Button>
+        </>
+      }
+    >
+      <div className="grid items-start gap-4 lg:grid-cols-[1fr_300px]">
 
-      {/* ── Main column ── */}
-      <div className="lh-main">
+          {/* ── Main column ── */}
+          <div className="grid grid-cols-1 gap-3.5">
 
-        {/* Header — plain, not boxed, matching PageFrame's title/action row */}
-        <div className="flex flex-wrap items-center justify-between gap-3.5">
-          <div>
-            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">{eyebrow ?? "Learning Hub"}</p>
-            <h1 className="text-xl font-bold text-text">Groups</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            {canCreate && (
-              <Button variant="primary" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-                <Plus size={14} /> New Group
-              </Button>
-            )}
-            <Button variant="secondary" className="gap-1.5" onClick={onBack}><ChevronLeft size={15} /> Back</Button>
-          </div>
-        </div>
-
-        {/* Search/sort toolbar — only when groups exist, kept outside any Card */}
-        {!loading && groups.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="relative flex-[1_1_200px]">
-              <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search groups…" aria-label="Search groups" className="pl-8" />
-            </div>
-            {search && (
-              <button onClick={() => setSearch("")} aria-label="Clear search" className="shrink-0 rounded-lg border-none bg-none p-1.5 text-muted">
-                <X size={13} />
-              </button>
-            )}
-            <span className="ml-auto whitespace-nowrap text-xs text-muted">
-              {search ? `${filtered.length} of ${groups.length}` : groups.length} group{groups.length !== 1 ? "s" : ""}
-            </span>
-            <div className="flex shrink-0 items-center gap-1">
-              <span className="text-xs text-muted">Sort:</span>
-              <SortBtn col="name" label="Name" />
-              <SortBtn col="members" label="Members" />
-              <SortBtn col="created" label="Date" />
-            </div>
-          </div>
-        )}
-
-        {/* Error */}
-        {error && <p className="text-[13px] text-red-300">{error}</p>}
-
-        {/* Loading */}
-        {loading && (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted">
-            <Spinner size={16} /> Loading groups…
-          </div>
-        )}
-
-        {/* Empty state — no groups yet */}
-        {!loading && groups.length === 0 && !error && (
-          <EmptyState
-            icon={<Users size={28} />}
-            title="No groups yet"
-            description="Create a group to organise referees into cohorts."
-            action={canCreate ? <Button variant="primary" className="gap-1.5" onClick={() => setCreateOpen(true)}><Plus size={14} /> New Group</Button> : undefined}
-          />
-        )}
-
-        {/* No search results */}
-        {!loading && groups.length > 0 && filtered.length === 0 && (
-          <EmptyState
-            icon={<Search size={28} />}
-            title="No groups match your search"
-            action={<Button variant="secondary" size="sm" onClick={() => setSearch("")}>Clear search</Button>}
-          />
-        )}
-
-        {/* Groups grid */}
-        {!loading && filtered.length > 0 && (
-          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
-            {filtered.map(g => (
-              <Card
-                key={g.id}
-                onClick={() => setSelectedId(prev => prev === g.id ? null : g.id)}
-                className={cn(
-                  "cursor-pointer border-t-[3px] transition-colors",
-                  selectedId === g.id ? "border-accent/60 bg-accent/[.05]" : "hover:bg-panel-2"
+            {/* Search/sort toolbar — only when groups exist, kept outside any Card */}
+            {!loading && groups.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="relative flex-[1_1_200px]">
+                  <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+                  <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search groups…" aria-label="Search groups" className="pl-8" />
+                </div>
+                {search && (
+                  <button onClick={() => setSearch("")} aria-label="Clear search" className="shrink-0 rounded-lg border-none bg-none p-1.5 text-muted">
+                    <X size={13} />
+                  </button>
                 )}
-                style={{ borderTopColor: g.colour }}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: g.colour }} />
-                  <div className="min-w-0 flex-1 truncate text-sm font-bold text-text">{g.name}</div>
-                  {g.members.length === 0 && <Badge tone="warn" className="shrink-0">Empty</Badge>}
+                <span className="ml-auto whitespace-nowrap text-xs text-muted">
+                  {search ? `${filtered.length} of ${groups.length}` : groups.length} group{groups.length !== 1 ? "s" : ""}
+                </span>
+                <div className="flex shrink-0 items-center gap-1">
+                  <span className="text-xs text-muted">Sort:</span>
+                  <SortBtn col="name" label="Name" />
+                  <SortBtn col="members" label="Members" />
+                  <SortBtn col="created" label="Date" />
                 </div>
-                {g.description && <p className="mt-1.5 line-clamp-2 text-xs text-muted">{g.description}</p>}
-                <div className="mt-2.5 flex items-center justify-between text-xs text-muted">
-                  <span className="flex items-center gap-1"><Users size={11} /> {g.members.length} member{g.members.length !== 1 ? "s" : ""}</span>
-                  <span>{fmtDate(g.createdAt)}</span>
-                </div>
-                <div className="mt-2.5 flex gap-1.5" onClick={e => e.stopPropagation()}>
-                  <Button variant="secondary" size="sm" className="gap-1" onClick={() => setSelectedId(prev => prev === g.id ? null : g.id)}>
-                    <ChevronRight size={12} /> View
-                  </Button>
-                  {canDelete && (
-                    <Button variant="danger" size="sm" className="gap-1" onClick={() => setPendingDeleteId(g.id)}>
-                      <Trash2 size={12} /> Delete
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+              </div>
+            )}
 
-      {/* ── Sidebar ── */}
-      <aside className="lh-sidebar">
-        {selectedGroup ? (
-          <GroupDetail
-            group={selectedGroup}
-            members={members}
-            canEdit={canEdit}
-            canDelete={canDelete}
-            onUpdate={onUpdateGroup}
-            onDelete={onDeleteGroup}
-            onSetMembers={onSetGroupMembers}
-            onClose={() => setSelectedId(null)}
-          />
-        ) : (
-          <EmptyState
-            icon={<Users size={26} />}
-            title="Select a group"
-            description="Click a group card to view members and manage the group."
-          />
-        )}
+            {/* Error */}
+            {error && <p className="text-[13px] text-red-300">{error}</p>}
 
-        {/* Summary */}
-        <Card className="shadow-none">
-          <h3 className="mb-2.5 text-sm font-bold text-text">Summary</h3>
-          <div className="grid">
-            <div className="flex items-center justify-between border-b border-border py-1.5 text-[13px]">
-              <span className="text-muted">Total Groups</span>
-              <strong className="text-text">{groups.length}</strong>
-            </div>
-            <div className="flex items-center justify-between border-b border-border py-1.5 text-[13px]">
-              <span className="text-muted">Unique Members</span>
-              <strong className="text-text">{new Set(groups.flatMap(g => g.members.map(m => m.userId))).size}</strong>
-            </div>
-            <div className="flex items-center justify-between py-1.5 text-[13px]">
-              <span className="text-muted">Avg Size</span>
-              <strong className="text-text">
-                {groups.length > 0
-                  ? Math.round(groups.reduce((s, g) => s + g.members.length, 0) / groups.length)
-                  : 0}
-              </strong>
-            </div>
+            {/* Loading */}
+            {loading && (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted">
+                <Spinner size={16} /> Loading groups…
+              </div>
+            )}
+
+            {/* Empty state — no groups yet */}
+            {!loading && groups.length === 0 && !error && (
+              <EmptyState
+                icon={<Users size={28} />}
+                title="No groups yet"
+                description="Create a group to organise referees into cohorts."
+                action={canCreate ? <Button variant="primary" className="gap-1.5" onClick={() => setCreateOpen(true)}><Plus size={14} /> New Group</Button> : undefined}
+              />
+            )}
+
+            {/* No search results */}
+            {!loading && groups.length > 0 && filtered.length === 0 && (
+              <EmptyState
+                icon={<Search size={28} />}
+                title="No groups match your search"
+                action={<Button variant="secondary" size="sm" onClick={() => setSearch("")}>Clear search</Button>}
+              />
+            )}
+
+            {/* Groups grid */}
+            {!loading && filtered.length > 0 && (
+              <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+                {filtered.map(g => (
+                  <Card
+                    key={g.id}
+                    onClick={() => setSelectedId(prev => prev === g.id ? null : g.id)}
+                    className={cn(
+                      "cursor-pointer border-t-[3px] transition-colors",
+                      selectedId === g.id ? "border-accent/60 bg-accent/[.05]" : "hover:bg-panel-2"
+                    )}
+                    style={{ borderTopColor: g.colour }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: g.colour }} />
+                      <div className="min-w-0 flex-1 truncate text-sm font-bold text-text">{g.name}</div>
+                      {g.members.length === 0 && <Badge tone="warn" className="shrink-0">Empty</Badge>}
+                    </div>
+                    {g.description && <p className="mt-1.5 line-clamp-2 text-xs text-muted">{g.description}</p>}
+                    <div className="mt-2.5 flex items-center justify-between text-xs text-muted">
+                      <span className="flex items-center gap-1"><Users size={11} /> {g.members.length} member{g.members.length !== 1 ? "s" : ""}</span>
+                      <span>{fmtDate(g.createdAt)}</span>
+                    </div>
+                    <div className="mt-2.5 flex gap-1.5" onClick={e => e.stopPropagation()}>
+                      <Button variant="secondary" size="sm" className="gap-1" onClick={() => setSelectedId(prev => prev === g.id ? null : g.id)}>
+                        <ChevronRight size={12} /> View
+                      </Button>
+                      {canDelete && (
+                        <Button variant="danger" size="sm" className="gap-1" onClick={() => setPendingDeleteId(g.id)}>
+                          <Trash2 size={12} /> Delete
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
-        </Card>
-      </aside>
+
+          {/* ── Sidebar ── */}
+          <aside className="grid grid-cols-1 gap-3.5">
+            {selectedGroup ? (
+              <GroupDetail
+                group={selectedGroup}
+                members={members}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                onUpdate={onUpdateGroup}
+                onDelete={onDeleteGroup}
+                onSetMembers={onSetGroupMembers}
+                onClose={() => setSelectedId(null)}
+              />
+            ) : (
+              <EmptyState
+                icon={<Users size={26} />}
+                title="Select a group"
+                description="Click a group card to view members and manage the group."
+              />
+            )}
+
+            {/* Summary */}
+            <Card className="shadow-none">
+              <h3 className="mb-2.5 text-sm font-bold text-text">Summary</h3>
+              <div className="grid">
+                <div className="flex items-center justify-between border-b border-border py-1.5 text-[13px]">
+                  <span className="text-muted">Total Groups</span>
+                  <strong className="text-text">{groups.length}</strong>
+                </div>
+                <div className="flex items-center justify-between border-b border-border py-1.5 text-[13px]">
+                  <span className="text-muted">Unique Members</span>
+                  <strong className="text-text">{new Set(groups.flatMap(g => g.members.map(m => m.userId))).size}</strong>
+                </div>
+                <div className="flex items-center justify-between py-1.5 text-[13px]">
+                  <span className="text-muted">Avg Size</span>
+                  <strong className="text-text">
+                    {groups.length > 0
+                      ? Math.round(groups.reduce((s, g) => s + g.members.length, 0) / groups.length)
+                      : 0}
+                  </strong>
+                </div>
+              </div>
+            </Card>
+          </aside>
+        </div>
 
       {/* Create modal */}
       {createOpen && (
@@ -675,6 +676,6 @@ export function GroupsScreen({
           />
         );
       })()}
-    </div>
+    </PageFrame>
   );
 }

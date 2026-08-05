@@ -1,4 +1,5 @@
 import type { RefEvalSession } from "@/lib/types/auth";
+import { Badge, Button, Card } from "@/components/ui";
 
 type Membership = RefEvalSession["memberships"][number];
 
@@ -19,32 +20,35 @@ export function OrganisationSelector({
 }) {
   return (
     <div className="login-wrap">
-      <section className="panel login-panel">
+      <Card className="w-full max-w-[540px]">
         <div className="login-logo-wrap">
           <img src="/rca-logo.png" alt="Referee College of Australia logo" className="login-logo" />
         </div>
 
-        <p className="eyebrow">Select Organisation</p>
-        <h1>Which organisation would you like to enter?</h1>
-        <p className="hint" style={{ marginTop: 8 }}>
+        <p className="text-xs font-bold uppercase tracking-wide text-accent">Select Organisation</p>
+        <h1 className="text-xl font-bold tracking-tight text-text">Which organisation would you like to enter?</h1>
+        <p className="mt-1 text-sm text-muted">
           Your account is linked to multiple organisations. Select one to continue.
         </p>
 
-        <div className="form-stack" style={{ marginTop: 18 }}>
+        <div className="grid gap-3 mt-4">
           {memberships.map((m) => (
-            <button key={m.organisationId} className="primary" onClick={() => onSelect(m)}>
+            <Button
+              key={m.organisationId}
+              variant="secondary"
+              className="w-full justify-between"
+              onClick={() => onSelect(m)}
+            >
               {m.organisationName}
-              <span className="hint" style={{ marginLeft: 8, fontWeight: "normal" }}>
-                — {roleLabel(m.role)}
-              </span>
-            </button>
+              <Badge tone="neutral">{roleLabel(m.role)}</Badge>
+            </Button>
           ))}
 
-          <button onClick={onLogout} style={{ marginTop: 8 }}>
+          <Button variant="ghost" className="mt-2" onClick={onLogout}>
             Back to Login
-          </button>
+          </Button>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

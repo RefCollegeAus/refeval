@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Shield, Search } from "lucide-react";
+import { Users, Shield, Search, X } from "lucide-react";
 import type { RefEvalSession, Role } from "@/lib/types/auth";
 import type { MemberRecord } from "@/lib/types/members";
 import { PERMISSION_GROUPS, ROLE_DEFAULT_PERMISSIONS } from "@/lib/types/permissions";
@@ -88,16 +88,32 @@ function EditPermissionsModal({ member, currentPerms, onSave, onClose }: EditMod
   const tone = ROLE_TONE[member.role] ?? ROLE_TONE.viewer;
 
   return (
-    <div className="modal-backdrop">
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={`Edit Permissions — ${member.name || member.email}`} tabIndex={-1} className="modal flex flex-col" style={{ maxWidth: 600, maxHeight: "90vh" }}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Edit Permissions — ${member.name || member.email}`}
+        tabIndex={-1}
+        className="flex w-full max-w-[600px] flex-col overflow-hidden rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none"
+        style={{ maxHeight: "90vh" }}
+      >
 
         {/* Modal header */}
-        <div className="modal-title shrink-0">
+        <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
           <div>
             <p className="eyebrow">Edit Permissions</p>
             <h1 style={{ fontSize: 20, margin: 0 }}>{member.name || member.email}</h1>
           </div>
-          <button onClick={onClose} aria-label="Close">✕</button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            aria-label="Close"
+            className="shrink-0 px-1.5"
+          >
+            <X size={16} />
+          </Button>
         </div>
 
         {/* Role + actions row */}
@@ -120,13 +136,15 @@ function EditPermissionsModal({ member, currentPerms, onSave, onClose }: EditMod
 
         {/* Custom indicator */}
         {!isDefaultState && (
-          <div className="shrink-0 pt-1.5 text-xs text-accent">
-            ✦ Custom permissions (differs from {ROLE_LABELS[member.role]} defaults)
+          <div className="shrink-0 pt-1.5">
+            <Badge tone="accent">
+              Custom permissions (differs from {ROLE_LABELS[member.role]} defaults)
+            </Badge>
           </div>
         )}
 
         {/* Permission groups — scrollable */}
-        <div className="flex-1 overflow-y-auto pb-1 pt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto pb-1 pt-3">
           {PERMISSION_GROUPS.map(group => (
             <div key={group.label} className="mb-4">
               <p className="mb-1.5 text-[13px] font-bold uppercase tracking-wide text-muted">

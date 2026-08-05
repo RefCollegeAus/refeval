@@ -22,9 +22,12 @@ export function FormField({
 }: FormFieldProps) {
   return (
     <div className={cn("grid gap-1.5", className)}>
-      <label htmlFor={htmlFor} className="text-xs font-semibold uppercase tracking-wide text-muted">
+      {/* flex overrides the legacy global `label{display:grid}` rule (app/globals.css),
+          which would otherwise stack the label text and the required asterisk onto
+          separate lines. */}
+      <label htmlFor={htmlFor} className="flex items-baseline gap-1 text-xs font-semibold uppercase tracking-wide text-muted">
         {label}
-        {required && <span className="text-accent"> *</span>}
+        {required && <span className="text-accent">*</span>}
       </label>
       {children}
       {error ? (

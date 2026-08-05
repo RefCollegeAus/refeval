@@ -1,7 +1,9 @@
 "use client";
 
 import { useId } from "react";
+import { X } from "lucide-react";
 import { useModalA11y } from "@/lib/hooks/useModalA11y";
+import { Button } from "@/components/ui/Button";
 
 interface Props {
   title: string;
@@ -26,20 +28,29 @@ export function ConfirmModal({
   const titleId = useId();
 
   return (
-    <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !busy) onCancel(); }}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="modal" style={{ maxWidth: 400 }}>
-        <div className="modal-title">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4" onClick={e => { if (e.target === e.currentTarget && !busy) onCancel(); }}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="w-full max-w-md rounded-2xl border border-border bg-panel p-5 shadow-xl"
+      >
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 id={titleId} style={{ fontSize: 18, margin: 0 }}>{title}</h1>
+            <h1 id={titleId} className="m-0 text-lg">{title}</h1>
           </div>
-          <button onClick={onCancel} aria-label="Close" disabled={busy}>✕</button>
+          <Button variant="ghost" size="sm" onClick={onCancel} aria-label="Close" disabled={busy}>
+            <X size={16} />
+          </Button>
         </div>
-        <p style={{ margin: "12px 0 0", fontSize: 14, color: "var(--muted)" }}>{message}</p>
-        <div className="action-row" style={{ marginTop: 20 }}>
-          <button onClick={onCancel} disabled={busy}>Cancel</button>
-          <button className="danger" onClick={onConfirm} disabled={busy}>
+        <p className="mt-3 text-sm text-muted">{message}</p>
+        <div className="action-row mt-5">
+          <Button variant="secondary" onClick={onCancel} disabled={busy}>Cancel</Button>
+          <Button variant="danger" onClick={onConfirm} disabled={busy}>
             {busy ? busyLabel : confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

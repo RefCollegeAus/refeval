@@ -11,6 +11,9 @@ import {
 } from "@/lib/services/memberships";
 import type { EnrichedMember } from "@/lib/types/members";
 import type { Role, RefEvalSession } from "@/lib/types/auth";
+import { useModalA11y } from "@/lib/hooks/useModalA11y";
+import { Badge, Button, FormField, Input, Select } from "@/components/ui";
+import { ROLE_TONE } from "@/lib/utils/roleTone";
 
 const ROLE_LABELS: Record<Role, string> = {
   viewer:      "Viewer",
@@ -55,6 +58,8 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [confirmingPassword, setConfirmingPassword] = useState(false);
+
+  const dialogRef = useModalA11y<HTMLDivElement>(true, onClose);
 
   // ── Profile save ───────────────────────────────────────────────────────────
   async function handleSaveProfile(e: React.FormEvent) {
@@ -137,10 +142,20 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
     ? ["viewer", "referee", "educator", "admin", "super_admin"]
     : ["viewer", "referee", "educator"];
 
+  const roleTone = ROLE_TONE[member.role] ?? ROLE_TONE.viewer;
+
   return (
     <>
     <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" style={{ maxWidth: 520 }}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Manage User — ${member.name}`}
+        tabIndex={-1}
+        className="modal"
+        style={{ maxWidth: 520 }}
+      >
 
         {/* Header */}
         <div className="modal-title">
@@ -149,7 +164,7 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
             <h1 style={{ fontSize: 20, margin: 0 }}>{member.name}</h1>
             <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>{member.email}</p>
           </div>
-          <button onClick={onClose}>✕</button>
+          <button onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         {/* Section tabs */}
@@ -179,30 +194,29 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
           <form onSubmit={handleSaveProfile}>
             <div className="form-stack">
 
-              <label>
-                Display name
-                <input
+              <FormField label="Display name" required>
+                <Input
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
                   placeholder="Full name"
                   required
                 />
-              </label>
+              </FormField>
 
               {isSuperAdmin ? (
-                <label>
-                  Email address
-                  <input
+                <FormField
+                  label="Email address"
+                  required
+                  hint="Changing email updates the user's login credential."
+                >
+                  <Input
                     type="email"
                     value={editEmail}
                     onChange={e => setEditEmail(e.target.value)}
                     placeholder="email@example.com"
                     required
                   />
-                  <span className="hint" style={{ fontSize: 11, marginTop: 2 }}>
-                    Changing email updates the user's login credential.
-                  </span>
-                </label>
+                </FormField>
               ) : (
                 <div>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", margin: "0 0 4px" }}>Email</p>
@@ -211,46 +225,41 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
                 </div>
               )}
 
-              <label>
-                Role
+              <FormField
+                label="Role"
+                hint={isSelf ? "You cannot change your own role." : ROLE_DESCRIPTIONS[editRole]}
+              >
                 {isSelf ? (
-                  <>
-                    <span className={`role-badge role-${member.role}`} style={{ display: "inline-block", marginTop: 4 }}>
-                      {ROLE_LABELS[member.role]}
-                    </span>
-                    <span className="hint" style={{ fontSize: 11, marginTop: 4, display: "block" }}>You cannot change your own role.</span>
-                  </>
+                  <Badge tone="neutral" className={roleTone.text}>{ROLE_LABELS[member.role]}</Badge>
                 ) : (
-                  <>
-                    <select
-                      value={editRole}
-                      onChange={e => setEditRole(e.target.value as Role)}
-                      style={{ width: "auto", padding: "7px 10px", fontSize: 13 }}
-                    >
-                      {assignableRoles.map(r => (
-                        <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-                      ))}
-                    </select>
-                    <span className="hint" style={{ fontSize: 11, marginTop: 4, display: "block" }}>
-                      {ROLE_DESCRIPTIONS[editRole]}
-                    </span>
-                  </>
+                  <Select
+                    value={editRole}
+                    onChange={e => setEditRole(e.target.value as Role)}
+                    className="w-auto py-1.5 text-[13px]"
+                  >
+                    {assignableRoles.map(r => (
+                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                    ))}
+                  </Select>
                 )}
-              </label>
+              </FormField>
 
               <div style={{ paddingTop: 4, borderTop: "1px solid var(--border)" }}>
                 <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted)" }}>
                   Member since {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString() : "—"} ·
                   Last sign-in {member.lastSignInAt ? new Date(member.lastSignInAt).toLocaleDateString() : "—"} ·
-                  Status <span className={`status-badge status-${member.invitationStatus}`}>{member.invitationStatus === "pending" ? "Pending" : "Active"}</span>
+                  Status{" "}
+                  <Badge tone={member.invitationStatus === "pending" ? "warn" : "good"}>
+                    {member.invitationStatus === "pending" ? "Pending" : "Active"}
+                  </Badge>
                 </p>
               </div>
 
               <div className="action-row" style={{ marginTop: 4 }}>
-                <button type="button" onClick={onClose}>Cancel</button>
-                <button type="submit" className="primary" disabled={profileLoading}>
+                <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+                <Button type="submit" variant="primary" disabled={profileLoading}>
                   {profileLoading ? "Saving…" : "Save Profile"}
-                </button>
+                </Button>
               </div>
             </div>
           </form>
@@ -261,16 +270,15 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
           <form onSubmit={handleSavePassword} autoComplete="off">
             <div className="form-stack">
 
-              <div style={{ background: "rgba(165,106,27,.07)", border: "1px solid rgba(165,106,27,.2)", borderRadius: 12, padding: "10px 14px" }}>
+              <div className="rounded-lg border border-warn/30 bg-warn/10 p-3">
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>Set new password for {member.name}</p>
                 <p className="hint" style={{ margin: "3px 0 0", fontSize: 12 }}>
                   The user will use this password on their next login. This action is logged.
                 </p>
               </div>
 
-              <label>
-                New password
-                <input
+              <FormField label="New password" required>
+                <Input
                   type="password"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
@@ -279,11 +287,10 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
                   placeholder="Minimum 8 characters"
                   required
                 />
-              </label>
+              </FormField>
 
-              <label>
-                Confirm new password
-                <input
+              <FormField label="Confirm new password" required>
+                <Input
                   type="password"
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
@@ -292,13 +299,13 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
                   placeholder="Re-enter password"
                   required
                 />
-              </label>
+              </FormField>
 
               <div className="action-row" style={{ marginTop: 4 }}>
-                <button type="button" onClick={onClose}>Cancel</button>
-                <button type="submit" className="warn" disabled={passwordLoading}>
+                <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+                <Button type="submit" variant="danger" disabled={passwordLoading}>
                   {passwordLoading ? "Saving…" : "Set Password"}
-                </button>
+                </Button>
               </div>
             </div>
           </form>

@@ -2094,16 +2094,16 @@ export default function Home() {
               <Card className="mt-3.5 p-3.5">
                 <h3 className="ed-section-title mb-2">Performance Summary</h3>
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-lg border border-border bg-panel2 p-2 text-center">
+                  <div className="rounded-lg border border-border bg-panel-2 p-2 text-center">
                     <div className="text-xl font-black tracking-tight text-text">{allMyReviews.length}</div>
                     <div className="text-[11px] text-muted">Evaluations</div>
                   </div>
-                  <div className="rounded-lg border border-border bg-panel2 p-2 text-center">
+                  <div className="rounded-lg border border-border bg-panel-2 p-2 text-center">
                     <div className="text-xl font-black tracking-tight text-text">{sidebarTags.length}</div>
                     <div className="text-[11px] text-muted">Clips</div>
                   </div>
                   {sidebarTags.length > 0 && (
-                    <div className="rounded-lg border border-border bg-panel2 p-2 text-center">
+                    <div className="rounded-lg border border-border bg-panel-2 p-2 text-center">
                       <div className="text-xl font-black tracking-tight text-text">{sidebarAnalytics.accuracy}</div>
                       <div className="text-[11px] text-muted">Accuracy</div>
                     </div>

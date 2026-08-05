@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Search, X, FileText, BookOpen, Layers, Users, Target, FolderOpen } from "lucide-react";
+import { useModalA11y } from "@/lib/hooks/useModalA11y";
 import type { RefEvalSession, Screen, Role } from "@/lib/types/auth";
 import type { ReviewRecord } from "@/lib/types/reviews";
 import type { Assignment } from "@/lib/types/assignments";
@@ -81,6 +82,7 @@ export function GlobalSearch({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useModalA11y<HTMLDivElement>(true, onClose);
   const isReferee = session.activeRole === "referee";
 
   useEffect(() => {
@@ -231,14 +233,13 @@ export function GlobalSearch({
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") { onClose(); return; }
       if (e.key === "ArrowDown") { setSelectedIndex(i => Math.min(i + 1, results.length - 1)); e.preventDefault(); return; }
       if (e.key === "ArrowUp") { setSelectedIndex(i => Math.max(i - 1, 0)); e.preventDefault(); return; }
       if (e.key === "Enter" && results.length > 0) { results[selectedIndex]?.onAction(); return; }
     }
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [results, selectedIndex, onClose]);
+  }, [results, selectedIndex]);
 
   const isEmptyQuery = query.trim().length < 2;
   const noResults = !isEmptyQuery && results.length === 0;
@@ -255,64 +256,33 @@ export function GlobalSearch({
 
   return (
     <div
-      className="modal-backdrop"
+      className="fixed inset-0 z-[9999] flex items-start justify-center bg-black/65 p-[18px] pt-20"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ zIndex: 9999, paddingTop: 80, alignItems: "flex-start" }}
     >
       <div
-        className="modal"
-        style={{
-          maxWidth: 600,
-          width: "90vw",
-          maxHeight: "72vh",
-          display: "flex",
-          flexDirection: "column",
-          padding: 0,
-          overflow: "hidden",
-        }}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="flex max-h-[72vh] w-[90vw] max-w-[600px] flex-col overflow-hidden rounded-3xl border border-border bg-panel p-0 shadow-xl"
       >
         {/* Input row */}
-        <div style={{
-          padding: "10px 14px",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          borderBottom: "1px solid var(--border)",
-          flexShrink: 0,
-        }}>
-          <Search size={15} style={{ color: "var(--muted)", flexShrink: 0 }} />
+        <div className="flex shrink-0 items-center gap-2.5 border-b border-border px-3.5 py-2.5">
+          <Search size={15} className="shrink-0 text-muted" />
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search reviews, assignments, members, goals…"
             aria-label="Search RefCoach"
-            style={{
-              flex: 1,
-              border: "none",
-              background: "transparent",
-              outline: "none",
-              fontSize: 14,
-              color: "var(--text)",
-              boxShadow: "none",
-              padding: 0,
-            }}
+            className="flex-1 border-none bg-transparent p-0 text-sm text-text shadow-none outline-none"
             autoComplete="off"
             spellCheck={false}
           />
           {query && (
             <button
               onClick={() => setQuery("")}
-              style={{
-                padding: "2px 4px",
-                color: "var(--muted)",
-                background: "none",
-                border: "none",
-                boxShadow: "none",
-                cursor: "pointer",
-                lineHeight: 1,
-                flexShrink: 0,
-              }}
+              className="shrink-0 cursor-pointer border-none bg-transparent p-0.5 leading-none text-muted shadow-none"
               aria-label="Clear search"
             >
               <X size={13} />
@@ -321,17 +291,17 @@ export function GlobalSearch({
         </div>
 
         {/* Results area */}
-        <div style={{ overflowY: "auto", flex: 1 }}>
+        <div className="flex-1 overflow-y-auto">
 
           {/* Empty / hint state */}
           {isEmptyQuery && (
-            <div style={{ padding: "32px 20px", textAlign: "center" }}>
-              <Search size={26} style={{ color: "var(--muted)", margin: "0 auto 10px", display: "block" }} />
-              <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>Quick Search</p>
-              <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
+            <div className="px-5 py-8 text-center">
+              <Search size={26} className="mx-auto mb-2.5 block text-muted" />
+              <p className="m-0 text-sm font-bold">Quick Search</p>
+              <p className="hint mt-1 text-[13px]">
                 Type at least 2 characters to search reviews, assignments{!isReferee ? ", members, groups," : ","} goals and more.
               </p>
-              <p className="hint" style={{ margin: "12px 0 0", fontSize: 12 }}>
+              <p className="hint mt-3 text-xs">
                 <kbd style={{ padding: "1px 6px", borderRadius: 4, background: "var(--panel3)", border: "1px solid var(--border)", fontSize: 11 }}>↑↓</kbd>
                 {" navigate · "}
                 <kbd style={{ padding: "1px 6px", borderRadius: 4, background: "var(--panel3)", border: "1px solid var(--border)", fontSize: 11 }}>Enter</kbd>
@@ -344,9 +314,9 @@ export function GlobalSearch({
 
           {/* No results */}
           {noResults && (
-            <div style={{ padding: "32px 20px", textAlign: "center" }}>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No results</p>
-              <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
+            <div className="px-5 py-8 text-center">
+              <p className="m-0 text-sm font-bold">No results</p>
+              <p className="hint mt-1 text-[13px]">
                 Nothing matched <strong>&ldquo;{query.trim()}&rdquo;</strong>. Try a different term.
               </p>
             </div>
@@ -355,15 +325,7 @@ export function GlobalSearch({
           {/* Grouped results */}
           {grouped.map(group => (
             <div key={group.type}>
-              <p style={{
-                margin: 0,
-                padding: "8px 14px 3px",
-                fontSize: 10,
-                fontWeight: 800,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                color: "var(--muted)",
-              }}>
+              <p className="m-0 px-3.5 pb-[3px] pt-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-muted">
                 {group.label}
               </p>
               {group.items.map(({ result, flatIdx: fi }) => {
@@ -373,36 +335,25 @@ export function GlobalSearch({
                     key={result.id}
                     onClick={result.onAction}
                     onMouseEnter={() => setSelectedIndex(fi)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "9px 14px",
-                      background: isSelected ? "rgba(165,106,27,.09)" : "transparent",
-                      border: "none",
-                      borderLeft: `3px solid ${isSelected ? "var(--accent)" : "transparent"}`,
-                      borderBottom: "1px solid var(--border)",
-                      boxShadow: "none",
-                      cursor: "pointer",
-                      borderRadius: 0,
-                    }}
+                    className={
+                      "flex w-full cursor-pointer items-center gap-3 rounded-none border-0 border-b border-l-[3px] border-border px-3.5 py-[9px] text-left shadow-none " +
+                      (isSelected ? "border-l-accent bg-accent/10" : "border-l-transparent bg-transparent")
+                    }
                   >
-                    <span style={{ color: isSelected ? "var(--accent)" : "var(--muted)", flexShrink: 0, display: "flex" }}>
+                    <span className={"flex shrink-0 " + (isSelected ? "text-accent" : "text-muted")}>
                       <TypeIcon type={result.type} />
                     </span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-bold">
                         {result.title}
                       </p>
                       {result.detail && (
-                        <p className="hint" style={{ margin: "1px 0 0", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <p className="hint mt-px overflow-hidden text-ellipsis whitespace-nowrap text-[11px]">
                           {result.detail}
                         </p>
                       )}
                     </div>
-                    <span style={{ fontSize: 11, color: isSelected ? "var(--accent)" : "var(--muted)", flexShrink: 0, fontWeight: 600 }}>
+                    <span className={"shrink-0 text-[11px] font-semibold " + (isSelected ? "text-accent" : "text-muted")}>
                       {result.actionLabel} →
                     </span>
                   </button>
@@ -414,18 +365,11 @@ export function GlobalSearch({
 
         {/* Footer */}
         {results.length > 0 && (
-          <div style={{
-            padding: "6px 14px",
-            borderTop: "1px solid var(--border)",
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}>
-            <span className="hint" style={{ fontSize: 11 }}>
+          <div className="flex shrink-0 items-center justify-between border-t border-border px-3.5 py-1.5">
+            <span className="hint text-[11px]">
               {results.length} result{results.length !== 1 ? "s" : ""}
             </span>
-            <span className="hint" style={{ fontSize: 11 }}>
+            <span className="hint text-[11px]">
               <kbd style={{ padding: "1px 5px", borderRadius: 3, background: "var(--panel3)", border: "1px solid var(--border)", fontSize: 10 }}>↑↓</kbd>
               {" · "}
               <kbd style={{ padding: "1px 5px", borderRadius: 3, background: "var(--panel3)", border: "1px solid var(--border)", fontSize: 10 }}>Enter</kbd>

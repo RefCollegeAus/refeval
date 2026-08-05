@@ -578,9 +578,9 @@ export function EducatorDashboard({
 
       {showAllReviews && (
         <>
-          <div className="ed-search-row">
+          <div className="flex flex-wrap items-center gap-2">
             <Input
-              className="ed-search-input"
+              className="min-w-[180px] flex-1"
               placeholder="Search by game or competition…"
               value={filterGame}
               onChange={e => { setFilterGame(e.target.value); setKpiFilter("all"); }}
@@ -592,8 +592,8 @@ export function EducatorDashboard({
             )}
           </div>
 
-          <div className="ed-filter-bar">
-            <div className="ed-filter-row">
+          <div className="flex flex-col gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               <Select
                 className="w-auto"
                 value={kpiFilter !== "all" ? "" : filterStatus}
@@ -608,28 +608,39 @@ export function EducatorDashboard({
                 <option value="">All referees</option>
                 {allReferees.map(n => <option key={n} value={n}>{n}</option>)}
               </Select>
-              <label className="ed-date-filter-label">
+              <label className="flex items-center gap-1.5 whitespace-nowrap text-xs font-extrabold text-muted">
                 Game date
-                <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+                <Input
+                  type="date"
+                  className="w-auto text-xs"
+                  value={filterDate}
+                  onChange={e => setFilterDate(e.target.value)}
+                />
               </label>
-              <label className="ed-video-toggle">
-                <input type="checkbox" checked={filterHasVideo} onChange={e => setFilterHasVideo(e.target.checked)} />
+              <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={filterHasVideo}
+                  onChange={e => setFilterHasVideo(e.target.checked)}
+                  className="w-auto cursor-pointer accent-accent"
+                />
                 Has video
               </label>
-              <div className="date-preset-row">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {(["all", "30", "90"] as const).map(range => (
-                  <button
+                  <Button
                     key={range}
-                    className={"date-preset-btn" + (kpiFilter === "all" && filterDateRange === range ? " active" : "")}
+                    variant={kpiFilter === "all" && filterDateRange === range ? "primary" : "secondary"}
+                    size="sm"
                     disabled={kpiFilter !== "all"}
                     onClick={() => setFilterDateRange(range)}
                   >
                     {range === "all" ? "All time" : range === "30" ? "30 days" : "90 days"}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
-            <div className="ed-filter-row justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="hint text-xs">Sort:</span>
                 <Select className="w-auto" value={sortOrder} onChange={e => setSortOrder(e.target.value as typeof sortOrder)}>
@@ -655,7 +666,7 @@ export function EducatorDashboard({
             </button>
             <button className="text-left" onClick={() => toggleKpi("in-review")}>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">In Review</p>
-              <p className={cn("text-xl font-bold", inProgressCount > 0 ? "text-yellow-300" : "text-text")}>{inProgressCount}</p>
+              <p className={cn("text-xl font-bold", inProgressCount > 0 ? "text-warn" : "text-text")}>{inProgressCount}</p>
             </button>
             <button className="text-left" onClick={() => toggleKpi("completed")}>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">Completed</p>
@@ -747,18 +758,21 @@ export function EducatorDashboard({
           equivalent of, kept but visually de-prioritised behind the
           review list above. ── */}
       <Card>
-        <h3 className="ed-section-title mb-2.5">Recent Activity</h3>
+        <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted">Recent Activity</h3>
         {recentActivity.length === 0 ? (
           <EmptyState title="No activity yet" description="Completed reviews and updates will appear here." />
         ) : (
-          <div className="ed-activity-list">
+          <div className="flex flex-col">
             {recentActivity.map((item, i) => (
-              <div key={i} className="ed-activity-item">
-                <div className={cn("ed-activity-dot", activityDotClass(item.type))} />
-                <div className="ed-activity-body">
-                  <p className="ed-activity-label">{item.label}</p>
-                  <p className="ed-activity-detail">{item.detail}</p>
-                  <p className="ed-activity-time">{fmtRel(item.ts)}</p>
+              <div
+                key={i}
+                className={cn("flex gap-2.5 py-2", i !== recentActivity.length - 1 && "border-b border-border")}
+              >
+                <div className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", activityDotClass(item.type))} />
+                <div className="min-w-0 flex-1">
+                  <p className="mb-0.5 text-xs font-extrabold text-text">{item.label}</p>
+                  <p className="mb-0.5 truncate text-xs text-muted">{item.detail}</p>
+                  <p className="text-[11px] text-muted opacity-70">{fmtRel(item.ts)}</p>
                 </div>
               </div>
             ))}

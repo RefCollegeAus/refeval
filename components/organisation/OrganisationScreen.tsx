@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useId } from "react";
 import type { ReactNode } from "react";
 import {
   Building2, User, Palette, SlidersHorizontal, Film, BookOpen,
@@ -20,7 +20,11 @@ import {
   SettingsPage, SettingsSection, SettingsCard, SettingsRow,
 } from "./SettingsLayout";
 import { PageFrame } from "@/components/shell/PageFrame";
-import { Badge, Button, Card, EmptyState, Tabs, type TabItem } from "@/components/ui";
+import {
+  Badge, Button, buttonClasses, Card, EmptyState, FormField, Input, Select, Table, TableBody,
+  TableCell, TableHead, TableHeaderCell, TableRow, Tabs, Textarea,
+  type TabItem, type BadgeTone,
+} from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
 import { ROLE_TONE } from "@/lib/utils/roleTone";
 
@@ -302,21 +306,7 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
           { label: "Reviews",      value: reviews.length,   onClick: undefined },
           { label: "Active Goals", value: activeGoalCount,  onClick: undefined },
         ].map(({ label, value, onClick }) => (
-          onClick ? (
-            <button
-              key={label}
-              onClick={onClick}
-              className="ed-summary-card w-full cursor-pointer border border-border bg-panel text-left transition-colors hover:border-accent"
-            >
-              <div className="ed-summary-number">{value}</div>
-              <div className="ed-summary-label">{label}</div>
-            </button>
-          ) : (
-            <div key={label} className="ed-summary-card">
-              <div className="ed-summary-number">{value}</div>
-              <div className="ed-summary-label">{label}</div>
-            </div>
-          )
+          <SummaryTile key={label} label={label} value={value} onClick={onClick} />
         ))}
       </div>
 
@@ -582,43 +572,68 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
 
 type SettingStatus = "active" | "saved-default" | "not-enforced" | "coming-soon";
 
+const SETTING_STATUS_TONE: Record<SettingStatus, { label: string; tone: BadgeTone }> = {
+  "active":        { label: "Active",           tone: "good" },
+  "saved-default": { label: "Saved default",    tone: "accent" },
+  "not-enforced":  { label: "Not enforced yet", tone: "warn" },
+  "coming-soon":   { label: "Coming soon",      tone: "neutral" },
+};
+
 function StatusBadge({ status }: { status: SettingStatus }) {
-  const styles: Record<SettingStatus, { label: string; bg: string; border: string; color: string }> = {
-    "active":        { label: "Active",           bg: "rgba(52,199,89,.1)",   border: "rgba(52,199,89,.28)",   color: "#34c759" },
-    "saved-default": { label: "Saved default",    bg: "rgba(10,132,255,.1)",  border: "rgba(10,132,255,.28)",  color: "#0a84ff" },
-    "not-enforced":  { label: "Not enforced yet", bg: "rgba(255,159,10,.1)",  border: "rgba(255,159,10,.28)",  color: "#ff9f0a" },
-    "coming-soon":   { label: "Coming soon",      bg: "rgba(165,106,27,.12)", border: "rgba(165,106,27,.28)",  color: "var(--accent)" },
-  };
-  const s = styles[status];
-  return (
-    <span style={{
-      display: "inline-block",
-      fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 5,
-      background: s.bg, border: `1px solid ${s.border}`, color: s.color,
-      textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0,
-      whiteSpace: "nowrap",
-    }}>
-      {s.label}
-    </span>
-  );
+  const s = SETTING_STATUS_TONE[status];
+  return <Badge tone={s.tone}>{s.label}</Badge>;
 }
 
 // ── Shared info note ──────────────────────────────────────────────────────────
 
 function InfoNote({ children }: { children: ReactNode }) {
   return (
-    <div style={{
-      background: "rgba(10,132,255,.06)",
-      border: "1px solid rgba(10,132,255,.2)",
-      borderRadius: 10,
-      padding: "10px 16px",
-      fontSize: 13,
-      color: "var(--muted)",
-      lineHeight: 1.55,
-    }}>
+    <div className="rounded-[10px] border border-info/20 bg-info/[.06] p-2.5 px-4 text-[13px] leading-relaxed text-muted">
       {children}
     </div>
   );
+}
+
+// ── Shared context banner (blue info box used at the top of most sub-pages) ────
+
+function InfoBanner({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-2.5 rounded-[10px] border border-info/[.22] bg-info/[.08] p-3 px-4 text-[13px] text-blue-300">
+      {icon && <span className="mt-px shrink-0">{icon}</span>}
+      <span>{children}</span>
+    </div>
+  );
+}
+
+// ── Shared summary/stat tile (repeated pattern across Dashboard/Members/Preferences/etc) ─
+
+function SummaryTile({
+  label, value, colourClassName, onClick,
+}: {
+  label: string;
+  value: ReactNode;
+  colourClassName?: string;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
+      <div className={cn("mb-1 text-[28px] font-black leading-none tracking-tight text-text", colourClassName)}>
+        {value}
+      </div>
+      <div className="text-[11px] font-bold uppercase tracking-wide text-muted">{label}</div>
+    </>
+  );
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className="w-full cursor-pointer rounded-[14px] border border-border bg-panel p-3.5 text-left shadow-sm transition-colors hover:border-accent"
+      >
+        {content}
+      </button>
+    );
+  }
+  return <div className="rounded-[14px] border border-border bg-panel p-3.5 shadow-sm">{content}</div>;
 }
 
 // ── Shared form feedback banner ───────────────────────────────────────────────
@@ -626,18 +641,10 @@ function InfoNote({ children }: { children: ReactNode }) {
 function FeedbackBanner({ type, message }: { type: "success" | "error"; message: string }) {
   return (
     <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: "10px 16px",
-        borderRadius: 10,
-        background: type === "success" ? "rgba(52,199,89,.12)" : "rgba(255,69,58,.12)",
-        border: `1px solid ${type === "success" ? "rgba(52,199,89,.3)" : "rgba(255,69,58,.3)"}`,
-        color: type === "success" ? "#34c759" : "#ff453a",
-        fontSize: 13,
-        fontWeight: 600,
-      }}
+      className={cn(
+        "flex items-center gap-2.5 rounded-[10px] border p-2.5 px-4 text-[13px] font-semibold",
+        type === "success" ? "border-good/30 bg-good/[.12] text-good" : "border-danger/30 bg-danger/[.12] text-red-400"
+      )}
     >
       {type === "success" ? <CheckCircle size={15} /> : <AlertCircle size={15} />}
       {message}
@@ -687,9 +694,6 @@ function ProfilePage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
     setFeedback(null);
   }, [saved]);
 
-  const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
-  const disabledInputStyle: React.CSSProperties = { ...inputStyle, opacity: 0.5, cursor: "not-allowed" };
-
   // Completeness: count filled contact fields
   const contactFields = [draft.contactEmail, draft.phone, draft.website, draft.address];
   const filledCount = contactFields.filter(v => v && v.trim()).length;
@@ -700,40 +704,23 @@ function ProfilePage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
       title="Organisation Profile"
       description="Identity and contact details for your organisation — used in reports, reviews, and platform-wide references."
       actions={
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
-          <button
-            className="primary"
-            onClick={save}
-            disabled={!dirty}
-            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
-          >
-            Save changes
-          </button>
+        <div className="flex items-center gap-2">
+          {dirty && <Button variant="ghost" size="sm" onClick={discard}>Discard</Button>}
+          <Button variant="primary" size="sm" onClick={save} disabled={!dirty}>Save changes</Button>
         </div>
       }
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      {/* ── Context note ── */}
-      <div style={{
-        padding: "12px 16px",
-        background: "rgba(10,132,255,.08)", borderRadius: 10,
-        border: "1px solid rgba(10,132,255,.22)",
-        fontSize: 13, color: "#6fb8ff",
-        display: "flex", alignItems: "flex-start", gap: 10,
-      }}>
-        <User size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>
-          Organisation name and contact details appear in reviews, reports, and member-facing screens.
-          Changes take effect immediately after saving.
-        </span>
-      </div>
+      <InfoBanner icon={<User size={15} />}>
+        Organisation name and contact details appear in reviews, reports, and member-facing screens.
+        Changes take effect immediately after saving.
+      </InfoBanner>
 
       {/* ── Live identity preview ── */}
       <SettingsSection title="Preview" description="Updates live as you edit. Reflects how this organisation appears across the platform.">
-        <div className="panel" style={{ padding: "18px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <Card className="p-4.5">
+          <div className="flex flex-wrap items-center gap-4">
             <OrgLogoMark
               name={draft.name}
               branding={settings.branding}
@@ -741,87 +728,65 @@ function ProfilePage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
               fontSize={20}
               borderRadius={14}
             />
-            <div style={{ flex: 1, minWidth: 160 }}>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontWeight: 800, fontSize: 18 }}>{draft.name || <span style={{ color: "var(--muted)" }}>Organisation name</span>}</span>
+            <div className="min-w-40 flex-1">
+              <div className="flex flex-wrap items-baseline gap-2.5">
+                <span className="text-lg font-extrabold text-text">{draft.name || <span className="text-muted">Organisation name</span>}</span>
                 {draft.shortName && (
-                  <span className="hint" style={{ fontSize: 13, fontWeight: 600 }}>{draft.shortName}</span>
+                  <span className="text-[13px] font-semibold text-muted">{draft.shortName}</span>
                 )}
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", marginTop: 6 }}>
-                <span style={{
-                  display: "inline-block", fontSize: 11, fontWeight: 800,
-                  padding: "2px 8px", borderRadius: 5,
-                  background: `${settings.branding.primaryColour}1a`,
-                  border: `1px solid ${settings.branding.primaryColour}33`,
-                  color: settings.branding.primaryColour,
-                  textTransform: "uppercase", letterSpacing: "0.05em",
-                }}>
-                  {draft.sport}
-                </span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3.5 gap-y-1">
+                <Badge tone="accent">{draft.sport}</Badge>
                 {draft.contactEmail && (
-                  <span className="hint" style={{ fontSize: 12 }}>{draft.contactEmail}</span>
+                  <span className="text-xs text-muted">{draft.contactEmail}</span>
                 )}
                 {draft.website && (
-                  <span className="hint" style={{ fontSize: 12 }}>{draft.website}</span>
+                  <span className="text-xs text-muted">{draft.website}</span>
                 )}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("branding")}>
-                Customise Branding →
-              </button>
-            </div>
+            <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setCurrentPage("branding")}>
+              Customise Branding →
+            </Button>
           </div>
           {/* Contact completeness bar */}
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ flex: 1, height: 4, borderRadius: 999, background: "var(--panel3)", overflow: "hidden" }}>
-              <div style={{
-                height: "100%", borderRadius: 999,
-                width: `${Math.round((filledCount / contactFields.length) * 100)}%`,
-                background: filledCount === contactFields.length ? "#34c759" : "var(--accent)",
-                transition: "width 0.3s",
-              }} />
+          <div className="mt-3.5 flex items-center gap-3 border-t border-border pt-3.5">
+            <div className="h-1 flex-1 overflow-hidden rounded-full bg-panel-3">
+              <div
+                className={cn("h-full rounded-full transition-[width]", filledCount === contactFields.length ? "bg-good" : "bg-accent")}
+                style={{ width: `${Math.round((filledCount / contactFields.length) * 100)}%` }}
+              />
             </div>
-            <span className="hint" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+            <span className="whitespace-nowrap text-xs text-muted">
               {filledCount}/{contactFields.length} contact fields filled
             </span>
           </div>
-        </div>
+        </Card>
       </SettingsSection>
 
       {/* ── Organisation identity ── */}
       <SettingsSection title="Organisation Identity" description="The name and short name appear in reviews, reports, and member-facing screens.">
         <SettingsCard>
-          <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-              <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
-                  Organisation name <span style={{ color: "#ff453a" }}>*</span>
-                </span>
-                <input
-                  style={inputStyle}
+          <div className="grid grid-cols-1 gap-3.5">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              <FormField label="Organisation name" required>
+                <Input
                   value={draft.name}
                   onChange={e => patch("name", e.target.value)}
                   placeholder="e.g. Basketball Australia"
                 />
-              </label>
-              <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>
-                  Short name
-                </span>
-                <input
-                  style={inputStyle}
+              </FormField>
+              <FormField label="Short name">
+                <Input
                   value={draft.shortName}
                   onChange={e => patch("shortName", e.target.value)}
                   placeholder="e.g. BA"
                 />
-              </label>
+              </FormField>
             </div>
-            <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Sport</span>
-              <input style={disabledInputStyle} value="Basketball" disabled />
-            </label>
+            <FormField label="Sport">
+              <Input value="Basketball" disabled />
+            </FormField>
           </div>
         </SettingsCard>
       </SettingsSection>
@@ -829,67 +794,57 @@ function ProfilePage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
       {/* ── Contact details ── */}
       <SettingsSection title="Contact Details" description="Used in referee-facing communications and organisation reports.">
         <SettingsCard>
-          <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-              <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Contact email</span>
-                <input
-                  style={inputStyle}
+          <div className="grid grid-cols-1 gap-3.5">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              <FormField label="Contact email">
+                <Input
                   type="email"
                   value={draft.contactEmail}
                   onChange={e => patch("contactEmail", e.target.value)}
                   placeholder="admin@example.com"
                 />
-              </label>
-              <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Phone</span>
-                <input
-                  style={inputStyle}
+              </FormField>
+              <FormField label="Phone">
+                <Input
                   type="tel"
                   value={draft.phone}
                   onChange={e => patch("phone", e.target.value)}
                   placeholder="+61 2 0000 0000"
                 />
-              </label>
+              </FormField>
             </div>
-            <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Website</span>
-              <input
-                style={inputStyle}
+            <FormField label="Website">
+              <Input
                 type="url"
                 value={draft.website}
                 onChange={e => patch("website", e.target.value)}
                 placeholder="https://example.com"
               />
-            </label>
-            <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Address</span>
-              <textarea
-                style={{ ...inputStyle, resize: "vertical", minHeight: 72 }}
+            </FormField>
+            <FormField label="Address">
+              <Textarea
                 value={draft.address}
                 onChange={e => patch("address", e.target.value)}
                 rows={2}
                 placeholder="123 Main Street, Sydney NSW 2000"
               />
-            </label>
+            </FormField>
           </div>
         </SettingsCard>
       </SettingsSection>
 
       {/* ── Related ── */}
       <SettingsSection title="Related">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("branding")}>
-            <Palette size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Branding & Colours
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("preferences")}>
-            <SlidersHorizontal size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Regional Preferences
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("branding")}>
+            <Palette size={13} /> Branding & Colours
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("preferences")}>
+            <SlidersHorizontal size={13} /> Regional Preferences
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentPage("dashboard")}>
             ← Dashboard
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
@@ -1259,38 +1214,25 @@ function BrandingPreview({
         </div>
       </div>
 
-      {/* Sample buttons */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+      {/* Sample buttons — reuse the real Button/Badge shape metrics (buttonClasses helper)
+          so this preview can't silently drift out of sync with the actual components;
+          only the brand colours are dynamic, so those are still applied inline. */}
+      <div className="flex flex-wrap items-center gap-2">
         <button
-          style={{
-            background: pc, color: "#fff",
-            border: "none", padding: "7px 16px",
-            borderRadius: 10, fontWeight: 700, fontSize: 12,
-            cursor: "default", boxShadow: "none",
-          }}
+          className={buttonClasses("primary", "sm", "cursor-default border-transparent shadow-none hover:brightness-100")}
+          style={{ background: pc, color: "#fff" }}
         >
           Primary action
         </button>
         <button
-          style={{
-            background: `${sc}33`, color: sc,
-            border: `1px solid ${sc}55`, padding: "7px 16px",
-            borderRadius: 10, fontWeight: 700, fontSize: 12,
-            cursor: "default", boxShadow: "none",
-          }}
+          className={buttonClasses("secondary", "sm", "cursor-default shadow-none hover:border-transparent")}
+          style={{ background: `${sc}33`, color: sc, borderColor: `${sc}55` }}
         >
           Secondary
         </button>
-        <span
-          style={{
-            background: `${ac}22`, color: ac,
-            border: `1px solid ${ac}44`,
-            borderRadius: 6, padding: "3px 10px",
-            fontSize: 11, fontWeight: 700,
-          }}
-        >
+        <Badge style={{ background: `${ac}22`, color: ac, borderColor: `${ac}44` }}>
           Accent badge
-        </span>
+        </Badge>
       </div>
     </div>
   );
@@ -1351,35 +1293,18 @@ function BrandingPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
       title="Branding"
       description="Visual identity applied across the RefCoach platform for your organisation — logo mark, colour palette, and badges."
       actions={
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
-          <button
-            className="primary"
-            onClick={save}
-            disabled={!dirty}
-            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
-          >
-            Save changes
-          </button>
+        <div className="flex items-center gap-2">
+          {dirty && <Button variant="ghost" size="sm" onClick={discard}>Discard</Button>}
+          <Button variant="primary" size="sm" onClick={save} disabled={!dirty}>Save changes</Button>
         </div>
       }
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      {/* ── Context note ── */}
-      <div style={{
-        padding: "12px 16px",
-        background: "rgba(10,132,255,.08)", borderRadius: 10,
-        border: "1px solid rgba(10,132,255,.22)",
-        fontSize: 13, color: "#6fb8ff",
-        display: "flex", alignItems: "flex-start", gap: 10,
-      }}>
-        <Palette size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>
+      <InfoBanner icon={<Palette size={15} />}>
           Branding is applied across the platform for your organisation — logo mark, colour palette, and badge styling.
           Changes take effect immediately after saving.
-        </span>
-      </div>
+      </InfoBanner>
 
       {/* ── Live preview (top) ── */}
       <SettingsSection title="Preview" description="Updates live as you make changes.">
@@ -1393,28 +1318,27 @@ function BrandingPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
 
       {/* ── Colour palette summary ── */}
       <SettingsSection title="Current Palette" description="Your three brand colours at a glance. Edit them in the Colours section below.">
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div className="flex flex-wrap gap-3">
           {[
             { label: "Primary",   color: draft.primaryColour,   valid: pcValid, usage: "Buttons, logo mark, key accents" },
             { label: "Secondary", color: draft.secondaryColour, valid: scValid, usage: "Secondary buttons, surface treatments" },
             { label: "Accent",    color: draft.accentColour,    valid: acValid, usage: "Badges, labels, tertiary highlights" },
           ].map(({ label, color, valid, usage }) => (
-            <div key={label} className="panel" style={{ padding: "14px 16px", flex: "1 1 160px", minWidth: 160 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                  background: valid ? color : "var(--panel3)",
-                  border: `1.5px solid ${valid ? `${color}66` : "var(--border)"}`,
-                }} />
+            <Card key={label} className="min-w-40 flex-1 p-3.5">
+              <div className="mb-2 flex items-center gap-2.5">
+                <div
+                  className="h-8 w-8 shrink-0 rounded-lg border-[1.5px]"
+                  style={{ background: valid ? color : "var(--panel-3)", borderColor: valid ? `${color}66` : "var(--border)" }}
+                />
                 <div>
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>{label}</p>
-                  <code style={{ fontSize: 11, color: valid ? "var(--text)" : "#ff453a", fontFamily: "monospace" }}>
+                  <p className="text-[13px] font-bold text-text">{label}</p>
+                  <code className={cn("font-mono text-[11px]", valid ? "text-text" : "text-red-400")}>
                     {color || "—"}
                   </code>
                 </div>
               </div>
-              <p className="hint" style={{ margin: 0, fontSize: 11, lineHeight: 1.5 }}>{usage}</p>
-            </div>
+              <p className="text-[11px] leading-relaxed text-muted">{usage}</p>
+            </Card>
           ))}
         </div>
       </SettingsSection>
@@ -1422,8 +1346,8 @@ function BrandingPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
       {/* ── Logo ── */}
       <SettingsSection title="Logo" description="Provide a publicly accessible logo URL, or set a short text fallback. The logo mark is shown in headers, dashboards, and reports.">
         <SettingsCard>
-          <div className="form-stack" style={{ paddingTop: 4 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+          <div className="grid grid-cols-1 gap-3.5">
+            <div className="flex items-start gap-4">
               <OrgLogoMark
                 name={settings.profile.name}
                 branding={draft}
@@ -1431,35 +1355,24 @@ function BrandingPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
                 fontSize={20}
                 borderRadius={14}
               />
-              <div style={{ flex: 1 }}>
-                <label>
-                  <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Logo URL</span>
-                  <span className="hint" style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
-                    Must be a publicly accessible image URL (PNG, SVG, or WebP recommended).
-                  </span>
-                  <input
-                    style={inputStyle}
-                    type="url"
-                    value={draft.logoUrl ?? ""}
-                    onChange={e => patch("logoUrl", e.target.value || null)}
-                    placeholder="https://example.com/logo.png"
-                  />
-                </label>
-              </div>
+              <FormField label="Logo URL" hint="Must be a publicly accessible image URL (PNG, SVG, or WebP recommended)." className="flex-1">
+                <Input
+                  type="url"
+                  value={draft.logoUrl ?? ""}
+                  onChange={e => patch("logoUrl", e.target.value || null)}
+                  placeholder="https://example.com/logo.png"
+                />
+              </FormField>
             </div>
-            <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Placeholder text</span>
-              <span className="hint" style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
-                Shown when no logo URL is set. Defaults to your organisation's initials (up to 3 characters).
-              </span>
-              <input
-                style={{ ...inputStyle, maxWidth: 120 }}
+            <FormField label="Placeholder text" hint="Shown when no logo URL is set. Defaults to your organisation's initials (up to 3 characters).">
+              <Input
+                className="max-w-[120px]"
                 value={draft.logoText}
                 onChange={e => patch("logoText", e.target.value)}
                 placeholder="e.g. RCA"
                 maxLength={3}
               />
-            </label>
+            </FormField>
           </div>
         </SettingsCard>
       </SettingsSection>
@@ -1492,14 +1405,13 @@ function BrandingPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
 
       {/* ── Related ── */}
       <SettingsSection title="Related">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("profile")}>
-            <User size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Organisation Profile
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("profile")}>
+            <User size={13} /> Organisation Profile
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentPage("dashboard")}>
             ← Dashboard
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
@@ -1647,21 +1559,11 @@ function ReviewsPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      {/* ── Context note ── */}
-      <div style={{
-        padding: "12px 16px",
-        background: "rgba(10,132,255,.08)", borderRadius: 10,
-        border: "1px solid rgba(10,132,255,.22)",
-        fontSize: 13, color: "#6fb8ff",
-        display: "flex", alignItems: "flex-start", gap: 10,
-      }}>
-        <Film size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>
-          These are <strong style={{ color: "#6fb8ff" }}>saved defaults</strong> — they pre-fill settings when a new review is created, but can be overridden per review.
+      <InfoBanner icon={<Film size={15} />}>
+          These are <strong className="text-blue-200">saved defaults</strong> — they pre-fill settings when a new review is created, but can be overridden per review.
           Tagging field requirements are enforced in the review coding tool.
           Auto-publish and notification preferences are saved and will take effect when the notification service is connected.
-        </span>
-      </div>
+      </InfoBanner>
 
       {/* ── Current Configuration summary ── */}
       <SettingsSection title="Current Configuration" description="A live snapshot of your saved review defaults.">
@@ -1921,20 +1823,10 @@ function LearningPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      {/* ── Context note ── */}
-      <div style={{
-        padding: "12px 16px",
-        background: "rgba(10,132,255,.08)", borderRadius: 10,
-        border: "1px solid rgba(10,132,255,.22)",
-        fontSize: 13, color: "#6fb8ff",
-        display: "flex", alignItems: "flex-start", gap: 10,
-      }}>
-        <BookOpen size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>
-          These are <strong style={{ color: "#6fb8ff" }}>saved defaults</strong> — they pre-fill settings when an educator assigns learning, but can be overridden per assignment.
+      <InfoBanner icon={<BookOpen size={15} />}>
+          These are <strong className="text-blue-200">saved defaults</strong> — they pre-fill settings when an educator assigns learning, but can be overridden per assignment.
           {draft.enableCertificates && " Certificate generation is not yet active; your preference is saved and will take effect when the feature launches."}
-        </span>
-      </div>
+      </InfoBanner>
 
       {/* ── Current configuration summary ── */}
       <SettingsSection title="Current Configuration" description="A live snapshot of your saved learning defaults.">
@@ -2192,20 +2084,10 @@ function NotificationsPage({ settings, onUpdateSettings, setCurrentPage }: PageC
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      {/* ── Pending activation note ── */}
-      <div style={{
-        padding: "12px 16px",
-        background: "rgba(10,132,255,.08)", borderRadius: 10,
-        border: "1px solid rgba(10,132,255,.22)",
-        fontSize: 13, color: "#6fb8ff",
-        display: "flex", alignItems: "flex-start", gap: 10,
-      }}>
-        <Bell size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>
+      <InfoBanner icon={<Bell size={15} />}>
           Preferences are saved now and will take effect when the notification delivery service is connected.
           No emails or in-app alerts are currently sent, but your configuration will be ready.
-        </span>
-      </div>
+      </InfoBanner>
 
       {/* ── Status summary ── */}
       <SettingsSection title="Current Configuration" description="A live snapshot of your saved notification preferences.">
@@ -2468,26 +2350,15 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      {/* ── Access context ── */}
-      <div style={{
-        padding: "12px 16px",
-        background: "rgba(10,132,255,.08)", borderRadius: 10,
-        border: "1px solid rgba(10,132,255,.22)",
-        fontSize: 13, color: "#6fb8ff",
-        display: "flex", alignItems: "flex-start", gap: 10,
-      }}>
-        <Shield size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>
+      <InfoBanner icon={<Shield size={15} />}>
           Only{" "}
-          <button style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "#6fb8ff" }}
-            onClick={() => setCurrentPage("roles")}>Admins and Super Admins</button>
+          <button className="cursor-pointer underline" onClick={() => setCurrentPage("roles")}>Admins and Super Admins</button>
           {" "}can change security settings.{" "}
           {adminCount > 0
             ? `${adminCount} admin${adminCount !== 1 ? "s" : ""} in your organisation.`
             : "No admins are currently assigned."}
           {!isSuperAdmin && " Some role assignments require a Super Admin."}
-        </span>
-      </div>
+      </InfoBanner>
 
       {/* ── Security overview ── */}
       <SettingsSection title="Current Configuration" description="A snapshot of your saved security preferences.">
@@ -2680,14 +2551,20 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
   );
 }
 
-const ROLE_COLOUR: Record<string, string> = {
-  referee: "#30d158", educator: "#0a84ff",
-  admin: "#ff9f0a", super_admin: "#bf5af2", viewer: "var(--muted)",
-};
 const ROLE_LABEL: Record<string, string> = {
   referee: "Referee", educator: "Educator",
   admin: "Administrator", super_admin: "Super Admin", viewer: "Viewer",
 };
+
+// Role badge tone derived from the single shared ROLE_TONE map (lib/utils/roleTone.ts)
+// so a member's role renders with the same colour on every settings tab.
+function roleBadgeTone(role: string): BadgeTone {
+  const tone = ROLE_TONE[role] ?? ROLE_TONE.viewer;
+  if (tone === ROLE_TONE.referee) return "good";
+  if (tone === ROLE_TONE.educator) return "accent";
+  if (tone === ROLE_TONE.admin) return "accent";
+  return "neutral";
+}
 
 function MembersPage({ members, org, onNavigateMembers, setCurrentPage }: PageCtx) {
   const [query, setQuery] = useState("");
@@ -2698,11 +2575,11 @@ function MembersPage({ members, org, onNavigateMembers, setCurrentPage }: PageCt
   const superAdminCount = members.filter(m => m.role === "super_admin").length;
 
   const roleCounts = [
-    { label: "Total",        count: members.length,  colour: "var(--accent)" },
-    { label: "Referees",     count: refereeCount,     colour: "#30d158" },
-    { label: "Educators",    count: educatorCount,    colour: "#0a84ff" },
-    { label: "Admins",       count: adminCount,       colour: "#ff9f0a" },
-    { label: "Super Admins", count: superAdminCount,  colour: "#bf5af2" },
+    { label: "Total",        count: members.length },
+    { label: "Referees",     count: refereeCount },
+    { label: "Educators",    count: educatorCount },
+    { label: "Admins",       count: adminCount },
+    { label: "Super Admins", count: superAdminCount },
   ];
 
   const q = query.trim().toLowerCase();
@@ -2720,28 +2597,17 @@ function MembersPage({ members, org, onNavigateMembers, setCurrentPage }: PageCt
       title="Members"
       description="Overview of users in your organisation. Full member management is available in the Admin Dashboard."
       actions={
-        <button className="primary" onClick={onNavigateMembers} style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+        <Button variant="primary" size="sm" className="gap-1.5" onClick={onNavigateMembers}>
           <Users size={14} /> Member Management
-        </button>
+        </Button>
       }
     >
 
       {/* ── Role Breakdown ── */}
       <SettingsSection title="Role Breakdown">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: 10 }}>
-          {roleCounts.map(({ label, count, colour }) => (
-            <div key={label} style={{
-              padding: "14px 16px", borderRadius: 14,
-              background: "var(--panel)", border: "1px solid var(--border)",
-              boxShadow: "0 2px 8px rgba(0,0,0,.2)",
-            }}>
-              <div style={{ fontSize: 28, fontWeight: 950, letterSpacing: "-.03em", lineHeight: 1, marginBottom: 4, color: colour }}>
-                {count}
-              </div>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--muted)" }}>
-                {label}
-              </div>
-            </div>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+          {roleCounts.map(({ label, count }) => (
+            <SummaryTile key={label} label={label} value={count} />
           ))}
         </div>
       </SettingsSection>
@@ -2752,115 +2618,82 @@ function MembersPage({ members, org, onNavigateMembers, setCurrentPage }: PageCt
         description={`${members.length} member${members.length !== 1 ? "s" : ""} in ${org?.name ?? "this organisation"}`}
       >
         {members.length === 0 ? (
-          <div className="panel" style={{ padding: "28px 20px", textAlign: "center" }}>
-            <Users size={28} style={{ color: "var(--muted)", margin: "0 auto 10px", display: "block" }} />
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>No members yet</p>
-            <p className="hint" style={{ margin: "4px 0 0", fontSize: 13 }}>
-              Use Member Management to send invitations and manage user roles.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Users size={28} />}
+            title="No members yet"
+            description="Use Member Management to send invitations and manage user roles."
+          />
         ) : (
           <>
             {/* Search */}
-            <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ position: "relative", flex: "1 1 280px", maxWidth: 360 }}>
-                <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-                <input
+            <div className="mb-2.5 flex items-center gap-3">
+              <div className="relative max-w-[360px] flex-1">
+                <Search size={12} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+                <Input
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   placeholder="Search by name, email, or role…"
-                  style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }}
+                  className="pl-7 text-sm"
                 />
               </div>
-              <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+              <span className="whitespace-nowrap text-xs text-muted">
                 {q ? `${filtered.length} of ${members.length}` : `${members.length} member${members.length !== 1 ? "s" : ""}`}
               </span>
             </div>
 
-            {/* Compact table */}
-            <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-              {filtered.length === 0 ? (
-                <p className="hint" style={{ padding: "14px 16px", margin: 0 }}>No members match your search.</p>
-              ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--panel2)" }}>
-                        <th style={{ textAlign: "left", padding: "7px 14px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                          Name
-                        </th>
-                        <th style={{ textAlign: "left", padding: "7px 14px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
-                          Email
-                        </th>
-                        <th style={{ textAlign: "left", padding: "7px 14px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                          Role
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((m, i) => {
-                        const colour = ROLE_COLOUR[m.role] ?? "var(--muted)";
-                        const isLast = i === filtered.length - 1;
-                        return (
-                          <tr key={m.id} style={{ borderBottom: isLast ? "none" : "1px solid var(--border)" }}>
-                            <td style={{ padding: "8px 14px" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <div style={{
-                                  width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
-                                  background: `${colour}22`, border: `1.5px solid ${colour}44`,
-                                  display: "flex", alignItems: "center", justifyContent: "center",
-                                  fontSize: 10, fontWeight: 800, color: colour,
-                                }}>
-                                  {(m.name || m.email).slice(0, 1).toUpperCase()}
-                                </div>
-                                <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>
-                                  {m.name || "—"}
-                                </span>
-                              </div>
-                            </td>
-                            <td style={{ padding: "8px 14px", color: "var(--muted)", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {m.email}
-                            </td>
-                            <td style={{ padding: "8px 14px", whiteSpace: "nowrap" }}>
-                              <span style={{
-                                fontSize: 10, fontWeight: 800,
-                                padding: "2px 7px", borderRadius: 5,
-                                background: `${colour}1a`, border: `1px solid ${colour}33`,
-                                color: colour, textTransform: "uppercase", letterSpacing: "0.05em",
-                              }}>
-                                {ROLE_LABEL[m.role] ?? m.role}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            {filtered.length === 0 ? (
+              <p className="text-sm text-muted">No members match your search.</p>
+            ) : (
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableHeaderCell>Name</TableHeaderCell>
+                    <TableHeaderCell>Email</TableHeaderCell>
+                    <TableHeaderCell>Role</TableHeaderCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filtered.map(m => {
+                    const tone = ROLE_TONE[m.role] ?? ROLE_TONE.viewer;
+                    return (
+                      <TableRow key={m.id}>
+                        <TableCell data-label="Name">
+                          <div className="flex items-center gap-2">
+                            <div className={cn("flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-full border text-[10px] font-extrabold", tone.bg, tone.border, tone.text)}>
+                              {(m.name || m.email).slice(0, 1).toUpperCase()}
+                            </div>
+                            <span className="max-w-[200px] truncate font-semibold">{m.name || "—"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell data-label="Email" className="max-w-[240px] truncate text-muted">{m.email}</TableCell>
+                        <TableCell data-label="Role">
+                          <Badge tone={roleBadgeTone(m.role)}>{ROLE_LABEL[m.role] ?? m.role}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </>
         )}
       </SettingsSection>
 
       {/* ── Related ── */}
       <SettingsSection title="Related">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={onNavigateMembers}>
-            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Member Management
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("roles")}>
-            <Key size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Roles & Permissions
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("security")}>
-            <Shield size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Security
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={onNavigateMembers}>
+            <Users size={13} /> Member Management
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("roles")}>
+            <Key size={13} /> Roles & Permissions
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("security")}>
+            <Shield size={13} /> Security
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentPage("dashboard")}>
             ← Dashboard
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
@@ -2901,7 +2734,6 @@ function GroupsPage({
 const ROLE_META: {
   role: Role;
   label: string;
-  color: string;
   tagline: string;
   description: string;
   capabilities: string[];
@@ -2909,7 +2741,6 @@ const ROLE_META: {
   {
     role: "super_admin",
     label: "Super Admin",
-    color: "#c4b5fd",
     tagline: "Full platform ownership",
     description: "Unrestricted access to every feature, setting, and data point in the platform. Typically the organisation owner or technical administrator.",
     capabilities: ["All admin capabilities", "Assign and revoke any role including Admin", "Override per-user permissions", "Manage organisation billing and branding"],
@@ -2917,7 +2748,6 @@ const ROLE_META: {
   {
     role: "admin",
     label: "Administrator",
-    color: "#ff9f0a",
     tagline: "Manages people, access, and settings",
     description: "Has full control over organisation management: invite members, assign educator and referee roles, configure settings, and access all analytics and tools.",
     capabilities: ["Invite and remove members", "Assign Referee and Educator roles", "Manage groups and assignments", "Configure organisation settings and learning defaults", "Access all reviews and analytics"],
@@ -2925,7 +2755,6 @@ const ROLE_META: {
   {
     role: "educator",
     label: "Educator",
-    color: "#6fb8ff",
     tagline: "Creates reviews and develops referees",
     description: "Coaches and develops referees through reviews, learning assignments, and group management. Cannot manage other users or change organisation settings.",
     capabilities: ["Create and assign video reviews", "Manage the clip library and playlists", "Create and manage referee groups", "Create and track learning assignments", "View analytics for their referees"],
@@ -2933,7 +2762,6 @@ const ROLE_META: {
   {
     role: "referee",
     label: "Referee",
-    color: "#30d158",
     tagline: "Views reviews and completes learning",
     description: "Access is limited to their own data. Can view reviews assigned to them and complete learning tasks set by educators.",
     capabilities: ["View their own reviews", "Complete assigned learning tasks", "Track their personal development goals"],
@@ -2941,7 +2769,6 @@ const ROLE_META: {
   {
     role: "viewer",
     label: "Viewer",
-    color: "#636366",
     tagline: "Read-only observer",
     description: "No active permissions by default. Viewer accounts can be granted specific access via per-user permission overrides in Members.",
     capabilities: ["No default access", "Can be granted specific permissions individually"],
@@ -2959,88 +2786,66 @@ function RolesPage({ members, session, setCurrentPage }: PageCtx) {
   }
 
   const isSuperAdmin = session.activeRole === "super_admin";
+  const accordionBaseId = useId();
 
   return (
     <SettingsPage eyebrow="Organisation" title="Roles & Permissions" description="Understand what each role can see and do, and how many members hold each role in your organisation.">
 
-      {/* ── Info note ── */}
-      <div style={{
-        padding: "12px 16px",
-        background: "rgba(10,132,255,.08)", borderRadius: 10,
-        border: "1px solid rgba(10,132,255,.22)",
-        fontSize: 13, color: "#6fb8ff",
-        display: "flex", alignItems: "flex-start", gap: 10,
-      }}>
-        <Shield size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>
-          Roles define what each user can see and do by default.
-          Individual permissions can be customised further in{" "}
-          <button
-            style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "#6fb8ff" }}
-            onClick={() => setCurrentPage("members")}
-          >
-            Members
-          </button>
-          .
-          {!isSuperAdmin && " Only Super Admins can assign Admin or Super Admin roles."}
-        </span>
-      </div>
+      <InfoBanner icon={<Shield size={15} />}>
+        Roles define what each user can see and do by default.
+        Individual permissions can be customised further in{" "}
+        <button className="cursor-pointer underline" onClick={() => setCurrentPage("members")}>
+          Members
+        </button>
+        .
+        {!isSuperAdmin && " Only Super Admins can assign Admin or Super Admin roles."}
+      </InfoBanner>
 
       {/* ── Role cards ── */}
       <SettingsSection title="Role Definitions" description="Expand a role to see what it covers and who holds it.">
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {ROLE_META.map(({ role, label, color, tagline, description, capabilities }) => {
+        <div className="grid grid-cols-1 gap-2.5">
+          {ROLE_META.map(({ role, label, tagline, description, capabilities }) => {
+            const tone = ROLE_TONE[role] ?? ROLE_TONE.viewer;
             const count = countByRole[role];
             const isExpanded = expandedRole === role;
             const membersWithRole = members.filter(m => m.role === role);
+            const panelId = `${accordionBaseId}-${role}`;
 
             return (
-              <div
-                key={role}
-                className="panel"
-                style={{ padding: 0, borderLeft: `3px solid ${color}`, overflow: "hidden" }}
-              >
+              <Card key={role} className={cn("overflow-hidden border-l-[3px] p-0", tone.border)}>
                 {/* Header row — always visible */}
                 <button
                   onClick={() => setExpandedRole(isExpanded ? null : role)}
-                  style={{
-                    all: "unset", cursor: "pointer", display: "flex",
-                    alignItems: "center", gap: 14, width: "100%",
-                    padding: "16px 20px", boxSizing: "border-box",
-                  }}
+                  aria-expanded={isExpanded}
+                  aria-controls={panelId}
+                  className="flex w-full items-center gap-3.5 px-5 py-4 text-left"
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 15, fontWeight: 800 }}>{label}</span>
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 5,
-                        background: `${color}18`, border: `1px solid ${color}38`, color,
-                        textTransform: "uppercase", letterSpacing: "0.05em",
-                      }}>
-                        {count} member{count !== 1 ? "s" : ""}
-                      </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="text-[15px] font-extrabold text-text">{label}</span>
+                      <Badge tone={roleBadgeTone(role)}>{count} member{count !== 1 ? "s" : ""}</Badge>
                     </div>
-                    <p className="hint" style={{ margin: "3px 0 0", fontSize: 12 }}>{tagline}</p>
+                    <p className="mt-1 text-xs text-muted">{tagline}</p>
                   </div>
-                  <span style={{ color: "var(--muted)", flexShrink: 0, fontSize: 18, lineHeight: 1 }}>
+                  <span aria-hidden="true" className="shrink-0 text-lg leading-none text-muted">
                     {isExpanded ? "−" : "+"}
                   </span>
                 </button>
 
                 {/* Expanded detail */}
                 {isExpanded && (
-                  <div style={{ padding: "0 20px 20px", borderTop: "1px solid var(--border)" }}>
-                    <p style={{ margin: "14px 0 10px", fontSize: 13, lineHeight: 1.6, color: "var(--muted)" }}>{description}</p>
+                  <div id={panelId} className="border-t border-border px-5 pb-5">
+                    <p className="mb-2.5 mt-3.5 text-[13px] leading-relaxed text-muted">{description}</p>
 
                     {/* Capabilities */}
-                    <div style={{ marginBottom: 16 }}>
-                      <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                    <div className="mb-4">
+                      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
                         Default capabilities
                       </p>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      <div className="grid grid-cols-1 gap-1.5">
                         {capabilities.map(cap => (
-                          <div key={cap} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13 }}>
-                            <span style={{ color, marginTop: 2, flexShrink: 0, fontSize: 14, lineHeight: 1 }}>✓</span>
+                          <div key={cap} className="flex items-start gap-2 text-[13px]">
+                            <span className={cn("mt-0.5 shrink-0 text-sm leading-none", tone.text)}>✓</span>
                             <span>{cap}</span>
                           </div>
                         ))}
@@ -3049,7 +2854,7 @@ function RolesPage({ members, session, setCurrentPage }: PageCtx) {
 
                     {/* Permission count from ROLE_DEFAULT_PERMISSIONS */}
                     {role !== "viewer" && (
-                      <p className="hint" style={{ margin: "0 0 14px", fontSize: 12 }}>
+                      <p className="mb-3.5 text-xs text-muted">
                         {ROLE_DEFAULT_PERMISSIONS[role].length} of {Object.values(ROLE_DEFAULT_PERMISSIONS).reduce((max, perms) => Math.max(max, perms.length), 0)} permissions granted by default
                       </p>
                     )}
@@ -3057,45 +2862,31 @@ function RolesPage({ members, session, setCurrentPage }: PageCtx) {
                     {/* Members with this role */}
                     {membersWithRole.length > 0 ? (
                       <div>
-                        <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
                           Members ({membersWithRole.length})
                         </p>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        <div className="flex flex-wrap gap-1.5">
                           {membersWithRole.slice(0, 12).map(m => (
-                            <div key={m.id} style={{
-                              display: "flex", alignItems: "center", gap: 6,
-                              padding: "5px 10px", borderRadius: 8,
-                              background: "var(--panel2)", border: "1px solid var(--border)",
-                              fontSize: 12, fontWeight: 600,
-                            }}>
-                              <div style={{
-                                width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
-                                background: `${color}20`, border: `1.5px solid ${color}40`,
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                fontSize: 9, fontWeight: 900, color,
-                              }}>
+                            <div key={m.id} className="flex items-center gap-1.5 rounded-lg border border-border bg-panel-2 px-2.5 py-1.5 text-xs font-semibold">
+                              <div className={cn("flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full border text-[9px] font-black", tone.bg, tone.border, tone.text)}>
                                 {m.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase() || "?"}
                               </div>
                               {m.name}
                             </div>
                           ))}
                           {membersWithRole.length > 12 && (
-                            <div style={{
-                              padding: "5px 10px", borderRadius: 8,
-                              background: "var(--panel2)", border: "1px solid var(--border)",
-                              fontSize: 12, color: "var(--muted)",
-                            }}>
+                            <div className="rounded-lg border border-border bg-panel-2 px-2.5 py-1.5 text-xs text-muted">
                               +{membersWithRole.length - 12} more
                             </div>
                           )}
                         </div>
                       </div>
                     ) : (
-                      <p className="hint" style={{ margin: 0, fontSize: 12 }}>No members currently hold this role.</p>
+                      <p className="text-xs text-muted">No members currently hold this role.</p>
                     )}
                   </div>
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -3103,68 +2894,56 @@ function RolesPage({ members, session, setCurrentPage }: PageCtx) {
 
       {/* ── Permission summary table ── */}
       <SettingsSection title="Permission Matrix" description="Default permissions granted per role. Individual overrides can be set in Members.">
-        <div className="panel" style={{ padding: "4px 0", overflowX: "auto" }}>
-          <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", minWidth: 560 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: "10px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                  Permission Area
-                </th>
-                {(["referee", "educator", "admin", "super_admin"] as Role[]).map(r => {
-                  const meta = ROLE_META.find(m => m.role === r)!;
-                  return (
-                    <th key={r} style={{ textAlign: "center", padding: "10px 12px", whiteSpace: "nowrap" }}>
-                      <span style={{
-                        fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 5,
-                        background: `${meta.color}18`, border: `1px solid ${meta.color}38`, color: meta.color,
-                      }}>
-                        {meta.label}
-                      </span>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {PERMISSION_GROUPS.map((group, gi) => (
-                group.permissions.map((perm, pi) => {
-                  const isFirstInGroup = pi === 0;
-                  return (
-                    <tr key={perm.key} style={{ borderTop: "1px solid var(--border)" }}>
-                      <td style={{ padding: "8px 16px", fontSize: 12 }}>
-                        {isFirstInGroup && (
-                          <span style={{ display: "block", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: 2 }}>
-                            {group.label}
-                          </span>
-                        )}
-                        {perm.label}
-                      </td>
-                      {(["referee", "educator", "admin", "super_admin"] as Role[]).map(r => {
-                        const has = ROLE_DEFAULT_PERMISSIONS[r].includes(perm.key);
-                        const meta = ROLE_META.find(m => m.role === r)!;
-                        return (
-                          <td key={r} style={{ textAlign: "center", padding: "8px 12px" }}>
-                            {has ? (
-                              <span style={{ color: meta.color, fontSize: 15, lineHeight: 1 }}>✓</span>
-                            ) : (
-                              <span style={{ color: "var(--border)", fontSize: 13, lineHeight: 1 }}>—</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="hint" style={{ margin: 0, fontSize: 12 }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Permission Area</TableHeaderCell>
+              {(["referee", "educator", "admin", "super_admin"] as Role[]).map(r => {
+                const meta = ROLE_META.find(m => m.role === r)!;
+                return (
+                  <TableHeaderCell key={r} className="text-center">
+                    <Badge tone={roleBadgeTone(r)}>{meta.label}</Badge>
+                  </TableHeaderCell>
+                );
+              })}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {PERMISSION_GROUPS.map(group => (
+              group.permissions.map((perm, pi) => {
+                const isFirstInGroup = pi === 0;
+                return (
+                  <TableRow key={perm.key}>
+                    <TableCell data-label="Permission Area">
+                      {isFirstInGroup && (
+                        <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wide text-muted">
+                          {group.label}
+                        </span>
+                      )}
+                      {perm.label}
+                    </TableCell>
+                    {(["referee", "educator", "admin", "super_admin"] as Role[]).map(r => {
+                      const has = ROLE_DEFAULT_PERMISSIONS[r].includes(perm.key);
+                      const tone = ROLE_TONE[r] ?? ROLE_TONE.viewer;
+                      return (
+                        <TableCell key={r} data-label={ROLE_META.find(m => m.role === r)!.label} className="text-center">
+                          {has ? (
+                            <span className={cn("text-base leading-none", tone.text)}>✓</span>
+                          ) : (
+                            <span className="text-sm leading-none text-border">—</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                );
+              })
+            ))}
+          </TableBody>
+        </Table>
+        <p className="mt-2.5 text-xs text-muted">
           Viewer role has no default permissions. Individual overrides are managed in{" "}
-          <button
-            style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "var(--muted)" }}
-            onClick={() => setCurrentPage("members")}
-          >
+          <button className="cursor-pointer underline" onClick={() => setCurrentPage("members")}>
             Members
           </button>
           .
@@ -3173,18 +2952,16 @@ function RolesPage({ members, session, setCurrentPage }: PageCtx) {
 
       {/* ── Related ── */}
       <SettingsSection title="Related">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
-            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Manage Members
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("security")}>
-            <Shield size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Security Settings
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("members")}>
+            <Users size={13} /> Manage Members
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("security")}>
+            <Shield size={13} /> Security Settings
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentPage("dashboard")}>
             ← Dashboard
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
@@ -3271,20 +3048,10 @@ function ResourcesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) 
     >
       {feedback && <FeedbackBanner {...feedback} />}
 
-      {/* ── Context note ── */}
-      <div style={{
-        padding: "12px 16px",
-        background: "rgba(10,132,255,.08)", borderRadius: 10,
-        border: "1px solid rgba(10,132,255,.22)",
-        fontSize: 13, color: "#6fb8ff",
-        display: "flex", alignItems: "flex-start", gap: 10,
-      }}>
-        <FolderOpen size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>
-          External video and article links are <strong style={{ color: "#6fb8ff" }}>available now</strong>.
+      <InfoBanner icon={<FolderOpen size={15} />}>
+          External video and article links are <strong className="text-blue-200">available now</strong>.
           Document upload (PDF, DOCX, PPTX, XLSX) is coming — enabling it here saves your preference and will take effect when document hosting launches.
-        </span>
-      </div>
+      </InfoBanner>
 
       {/* ── Current Configuration ── */}
       <SettingsSection title="Current Configuration" description="A live snapshot of your saved resource settings.">
@@ -3483,20 +3250,10 @@ function BillingPage({ org, members, reviews, assignments, session, setCurrentPa
       title="Billing & Plan"
       description="Your organisation's current plan and account usage. Billing management will be available in a future update."
     >
-      {/* ── Context note ── */}
-      <div style={{
-        padding: "12px 16px",
-        background: "rgba(10,132,255,.08)", borderRadius: 10,
-        border: "1px solid rgba(10,132,255,.22)",
-        fontSize: 13, color: "#6fb8ff",
-        display: "flex", alignItems: "flex-start", gap: 10,
-      }}>
-        <CreditCard size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>
+      <InfoBanner icon={<CreditCard size={15} />}>
           Billing and subscription management is coming to RefCoach. Your account details and usage are shown below.
           To discuss your plan or request changes, contact the RefCoach team directly.
-        </span>
-      </div>
+      </InfoBanner>
 
       {/* ── Current Plan ── */}
       <SettingsSection title="Current Plan" description="Your organisation's active plan and account standing.">

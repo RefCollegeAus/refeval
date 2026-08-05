@@ -2,6 +2,10 @@
 
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Tabs, type TabItem } from "@/components/ui/Tabs";
+import { cn } from "@/lib/utils/cn";
 import type { MemberRecord } from "@/lib/types/members";
 import type { Group } from "@/lib/types/groups";
 
@@ -46,115 +50,142 @@ export function RecipientPicker({
   const alreadyCount  = alreadyAssignedIds ? alreadyAssignedIds.size : 0;
   const eligibleCount = eligibleReferees.length;
 
+  const usersTabContent = (
+    <>
+      <div className="mb-1.5 flex items-center justify-end gap-2">
+        {selected.size > 0 && <span className="text-xs font-bold text-accent">{selected.size} selected</span>}
+        <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(new Set(filteredUsers.map(m => m.id)))}>Select All</Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Clear All</Button>
+      </div>
+      <div className="relative mb-1.5">
+        <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+        <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search referees…" className="pl-7 text-sm" />
+      </div>
+      <div className="max-h-[200px] overflow-y-auto rounded-lg border border-border">
+        {filteredUsers.length === 0 && (
+          <p className="m-0 px-3 py-2.5 text-xs text-muted">
+            {alreadyAssignedIds && eligibleReferees.length === 0 ? "All referees are already assigned." : "No referees found."}
+          </p>
+        )}
+        {filteredUsers.map(m => (
+          <label
+            key={m.id}
+            className={cn(
+              "flex cursor-pointer items-center gap-2.5 border-b border-border px-3 py-2",
+              selected.has(m.id) && "bg-panel-3"
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={selected.has(m.id)}
+              onChange={() => toggleUser(m.id)}
+              className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-accent"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold text-text">{m.name || m.email}</div>
+              <div className="text-[11px] text-muted">{m.email}</div>
+            </div>
+          </label>
+        ))}
+      </div>
+    </>
+  );
+
+  const groupsTabContent = (
+    <>
+      <div className="mb-1.5 flex items-center justify-end gap-2">
+        {selGroups.size > 0 && <span className="text-xs font-bold text-accent">{selGroups.size} group{selGroups.size !== 1 ? "s" : ""} selected</span>}
+        <Button type="button" variant="ghost" size="sm" onClick={() => setSelGroups(new Set(filteredGroups.map(g => g.id)))}>Select All</Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setSelGroups(new Set())}>Clear All</Button>
+      </div>
+      <div className="relative mb-1.5">
+        <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+        <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search groups…" className="pl-7 text-sm" />
+      </div>
+      <div className="max-h-[200px] overflow-y-auto rounded-lg border border-border">
+        {filteredGroups.length === 0 && <p className="m-0 px-3 py-2.5 text-xs text-muted">No groups found.</p>}
+        {filteredGroups.map(g => {
+          const totalMembers    = g.members.length;
+          const eligibleMembers = alreadyAssignedIds
+            ? g.members.filter(gm => !alreadyAssignedIds.has(gm.userId)).length
+            : totalMembers;
+          const assignedMembers = totalMembers - eligibleMembers;
+          return (
+            <label
+              key={g.id}
+              className={cn(
+                "flex cursor-pointer items-center gap-2.5 border-b border-border px-3 py-2",
+                selGroups.has(g.id) && "bg-panel-3"
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={selGroups.has(g.id)}
+                onChange={() => toggleGroup(g.id)}
+                className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-accent"
+              />
+              <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: g.colour }} />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-text">{g.name}</div>
+                {alreadyAssignedIds ? (
+                  <div className="text-[11px] text-muted">
+                    {totalMembers} member{totalMembers !== 1 ? "s" : ""}
+                    {" · "}<span className="text-accent">{eligibleMembers} eligible</span>
+                    {assignedMembers > 0 && ` · ${assignedMembers} already assigned`}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-muted">
+                    {totalMembers} member{totalMembers !== 1 ? "s" : ""}{g.description ? ` · ${g.description}` : ""}
+                  </div>
+                )}
+              </div>
+            </label>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  const orgTabContent = (
+    <div className="rounded-xl border border-border bg-panel-2 p-3.5">
+      <p className="m-0 text-sm font-bold text-text">Assign to entire organisation</p>
+      {alreadyAssignedIds ? (
+        <p className="mt-1 mb-0 text-xs text-muted">
+          {referees.length} referee{referees.length !== 1 ? "s" : ""} total
+          {" · "}<span className="text-accent">{eligibleCount} eligible</span>
+          {alreadyCount > 0 && ` · ${alreadyCount} already assigned`}
+        </p>
+      ) : (
+        <p className="mt-1 mb-0 text-xs text-muted">
+          All {referees.length} referee{referees.length !== 1 ? "s" : ""} in your organisation. Duplicates will be skipped automatically.
+        </p>
+      )}
+    </div>
+  );
+
+  const tabs: TabItem[] = [
+    { id: "users", label: "Users", content: usersTabContent },
+    ...(groups.length > 0 ? [{ id: "groups", label: "Groups", content: groupsTabContent }] : []),
+    { id: "org", label: "Organisation", content: orgTabContent },
+  ];
+
   return (
     <div>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Assign To *</div>
+      <div className="mb-2 text-sm font-semibold text-text">Assign To *</div>
 
       {alreadyAssignedIds && (
-        <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 12 }}>
-          <span style={{ color: "var(--muted)" }}>Already assigned: <strong>{alreadyCount}</strong></span>
-          <span style={{ color: "var(--accent)" }}>Available to add: <strong>{eligibleCount}</strong></span>
+        <div className="mb-2.5 flex gap-3.5 text-xs">
+          <span className="text-muted">Already assigned: <strong>{alreadyCount}</strong></span>
+          <span className="text-accent">Available to add: <strong>{eligibleCount}</strong></span>
         </div>
       )}
 
-      <div className="assign-tabs">
-        <button className={"assign-tab" + (tab === "users"  ? " assign-tab--active" : "")} onClick={() => { setTab("users");  setQuery(""); }}>Users</button>
-        {groups.length > 0 && (
-          <button className={"assign-tab" + (tab === "groups" ? " assign-tab--active" : "")} onClick={() => { setTab("groups"); setQuery(""); }}>Groups</button>
-        )}
-        <button className={"assign-tab" + (tab === "org"   ? " assign-tab--active" : "")} onClick={() => { setTab("org");   setQuery(""); }}>Organisation</button>
-      </div>
-
-      {tab === "users" && (
-        <>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 6, alignItems: "center" }}>
-            {selected.size > 0 && <span style={{ color: "var(--accent)", fontWeight: 700, fontSize: 12 }}>{selected.size} selected</span>}
-            <button type="button" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => setSelected(new Set(filteredUsers.map(m => m.id)))}>Select All</button>
-            <button type="button" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => setSelected(new Set())}>Clear All</button>
-          </div>
-          <div style={{ position: "relative", marginBottom: 6 }}>
-            <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search referees…" style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }} />
-          </div>
-          <div style={{ border: "1px solid var(--border)", borderRadius: 8, maxHeight: 200, overflowY: "auto" }}>
-            {filteredUsers.length === 0 && (
-              <p className="hint" style={{ padding: "10px 12px", margin: 0 }}>
-                {alreadyAssignedIds && eligibleReferees.length === 0 ? "All referees are already assigned." : "No referees found."}
-              </p>
-            )}
-            {filteredUsers.map(m => (
-              <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--border)", background: selected.has(m.id) ? "var(--panel2)" : undefined }}>
-                <input type="checkbox" checked={selected.has(m.id)} onChange={() => toggleUser(m.id)} style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name || m.email}</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)" }}>{m.email}</div>
-                </div>
-              </label>
-            ))}
-          </div>
-        </>
-      )}
-
-      {tab === "groups" && (
-        <>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 6, alignItems: "center" }}>
-            {selGroups.size > 0 && <span style={{ color: "var(--accent)", fontWeight: 700, fontSize: 12 }}>{selGroups.size} group{selGroups.size !== 1 ? "s" : ""} selected</span>}
-            <button type="button" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => setSelGroups(new Set(filteredGroups.map(g => g.id)))}>Select All</button>
-            <button type="button" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => setSelGroups(new Set())}>Clear All</button>
-          </div>
-          <div style={{ position: "relative", marginBottom: 6 }}>
-            <Search size={13} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search groups…" style={{ paddingLeft: 28, width: "100%", boxSizing: "border-box", fontSize: 13 }} />
-          </div>
-          <div style={{ border: "1px solid var(--border)", borderRadius: 8, maxHeight: 200, overflowY: "auto" }}>
-            {filteredGroups.length === 0 && <p className="hint" style={{ padding: "10px 12px", margin: 0 }}>No groups found.</p>}
-            {filteredGroups.map(g => {
-              const totalMembers    = g.members.length;
-              const eligibleMembers = alreadyAssignedIds
-                ? g.members.filter(gm => !alreadyAssignedIds.has(gm.userId)).length
-                : totalMembers;
-              const assignedMembers = totalMembers - eligibleMembers;
-              return (
-                <label key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--border)", background: selGroups.has(g.id) ? "var(--panel2)" : undefined }}>
-                  <input type="checkbox" checked={selGroups.has(g.id)} onChange={() => toggleGroup(g.id)} style={{ width: 14, height: 14, accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }} />
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: g.colour, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{g.name}</div>
-                    {alreadyAssignedIds ? (
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                        {totalMembers} member{totalMembers !== 1 ? "s" : ""}
-                        {" · "}<span style={{ color: "var(--accent)" }}>{eligibleMembers} eligible</span>
-                        {assignedMembers > 0 && ` · ${assignedMembers} already assigned`}
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                        {totalMembers} member{totalMembers !== 1 ? "s" : ""}{g.description ? ` · ${g.description}` : ""}
-                      </div>
-                    )}
-                  </div>
-                </label>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      {tab === "org" && (
-        <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px", background: "var(--panel2)" }}>
-          <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>Assign to entire organisation</p>
-          {alreadyAssignedIds ? (
-            <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
-              {referees.length} referee{referees.length !== 1 ? "s" : ""} total
-              {" · "}<span style={{ color: "var(--accent)" }}>{eligibleCount} eligible</span>
-              {alreadyCount > 0 && ` · ${alreadyCount} already assigned`}
-            </p>
-          ) : (
-            <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
-              All {referees.length} referee{referees.length !== 1 ? "s" : ""} in your organisation. Duplicates will be skipped automatically.
-            </p>
-          )}
-        </div>
-      )}
+      <Tabs
+        tabs={tabs}
+        ariaLabel="Assign to"
+        activeId={tab}
+        onChange={(id) => { setTab(id as AssignTab); setQuery(""); }}
+      />
     </div>
   );
 }

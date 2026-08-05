@@ -1,5 +1,8 @@
 "use client";
 
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+
 export type DateRangePreset = "all" | "7" | "30" | "custom";
 
 export interface DateRangeValue {
@@ -35,30 +38,32 @@ export function DateRangeFilter({ value, onChange, totalCount, filteredCount }: 
       <span className="ref-date-bar__label">Period</span>
       <div className="date-preset-row">
         {PRESETS.map(({ key, label }) => (
-          <button
+          <Button
             key={key}
-            className={"date-preset-btn" + (value.preset === key ? " active" : "")}
+            type="button"
+            variant={value.preset === key ? "primary" : "secondary"}
+            size="sm"
             onClick={() => setPreset(key)}
           >
             {label}
-          </button>
+          </Button>
         ))}
       </div>
       {value.preset === "custom" && (
         <>
-          <input
+          <Input
             type="date"
             value={value.from}
             onChange={e => onChange({ ...value, from: e.target.value })}
-            style={{ fontSize: 12, padding: "3px 6px", width: "auto", borderRadius: 8 }}
+            className="w-auto text-xs"
             title="From"
           />
           <span className="hint" style={{ fontSize: 12 }}>–</span>
-          <input
+          <Input
             type="date"
             value={value.to}
             onChange={e => onChange({ ...value, to: e.target.value })}
-            style={{ fontSize: 12, padding: "3px 6px", width: "auto", borderRadius: 8 }}
+            className="w-auto text-xs"
             title="To"
           />
         </>
