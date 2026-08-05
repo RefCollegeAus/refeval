@@ -46,6 +46,7 @@ export function Header({
   navContext,
   onNavigate,
   orgLogoUrl,
+  hideSidebar = false,
 }: {
   session: RefEvalSession | null;
   onHome: () => void;
@@ -61,6 +62,8 @@ export function Header({
   navContext?: NavContext;
   onNavigate?: (screen: Screen, orgPage?: OrgPage) => void;
   orgLogoUrl?: string | null;
+  /** Focus-mode screens (e.g. the review workspace) hide the sidebar and its hamburger entirely instead of just collapsing it — there is nothing to open on mobile in this mode. */
+  hideSidebar?: boolean;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -72,7 +75,7 @@ export function Header({
     <>
       <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-panel/85 px-4 backdrop-blur-md sm:h-[104px] sm:gap-5 sm:px-6">
 
-        {session && (
+        {session && !hideSidebar && (
           <button
             onClick={() => setSidebarOpen(true)}
             aria-label="Open navigation"
@@ -146,19 +149,21 @@ export function Header({
         )}
       </header>
 
-      <Sidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        session={session}
-        activeScreen={activeScreen}
-        activeOrgPage={activeOrgPage}
-        navContext={navContext}
-        onNavigate={onNavigate}
-        onHome={onHome}
-        onLearning={onLearning}
-        onOrganisation={onOrganisation}
-        onAdmin={onAdmin}
-      />
+      {!hideSidebar && (
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          session={session}
+          activeScreen={activeScreen}
+          activeOrgPage={activeOrgPage}
+          navContext={navContext}
+          onNavigate={onNavigate}
+          onHome={onHome}
+          onLearning={onLearning}
+          onOrganisation={onOrganisation}
+          onAdmin={onAdmin}
+        />
+      )}
     </>
   );
 }

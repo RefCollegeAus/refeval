@@ -12,6 +12,8 @@ interface ModalProps {
   onClose: () => void;
   children?: ReactNode;
   footer?: ReactNode;
+  /** Overrides the dialog's max-width class (default "max-w-lg") — e.g. a wider "max-w-3xl" for content-heavy overlays like a clip list. */
+  maxWidthClassName?: string;
 }
 
 const FOCUSABLE =
@@ -25,7 +27,7 @@ const FOCUSABLE =
 // the multi-step tagging wizard being the one shape RefOps's own app
 // doesn't have an equivalent of, so this is worth calling out explicitly
 // when this component is eventually wired into that screen.
-export function Modal({ open, title, description, onClose, children, footer }: ModalProps) {
+export function Modal({ open, title, description, onClose, children, footer, maxWidthClassName = "max-w-lg" }: ModalProps) {
   const mounted = useMounted();
   const dialogRef = useRef<HTMLDivElement>(null);
   const baseId = useId();
@@ -93,7 +95,7 @@ export function Modal({ open, title, description, onClose, children, footer }: M
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none"
+        className={`flex max-h-[88vh] w-full flex-col rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none ${maxWidthClassName}`}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -114,7 +116,7 @@ export function Modal({ open, title, description, onClose, children, footer }: M
             <X size={16} />
           </button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
         {footer && <div className="mt-5 flex flex-wrap justify-end gap-2">{footer}</div>}
       </div>
     </div>,
