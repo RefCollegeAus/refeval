@@ -20,7 +20,7 @@ import {
   SettingsPage, SettingsSection, SettingsCard, SettingsRow,
 } from "./SettingsLayout";
 import { PageFrame } from "@/components/shell/PageFrame";
-import { Badge, Button, Card, EmptyState } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Tabs, type TabItem } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
 import { ROLE_TONE } from "@/lib/utils/roleTone";
 
@@ -90,17 +90,43 @@ export function OrganisationScreen({
   canCreateGroups = false, canEditGroups = false, canDeleteGroups = false,
   onCreateGroup, onUpdateGroup, onDeleteGroup, onSetGroupMembers,
 }: Props) {
-  // Navigation for Organisation settings now lives entirely in the main
-  // app Sidebar (see components/shell/nav.ts) — this component only
-  // renders the active sub-page's content inside AppShell's canvas.
-  return renderPage(currentPage, {
+  const ctx: PageCtx = {
     session, org, members, reviews, assignments,
     settings, onUpdateSettings, setCurrentPage, onNavigateMembers,
     groupCount, activeGoalCount,
     groups, groupsLoading, groupsError,
     canCreateGroups, canEditGroups, canDeleteGroups,
     onCreateGroup, onUpdateGroup, onDeleteGroup, onSetGroupMembers,
-  });
+  };
+
+  // The main app Sidebar (see components/shell/nav.ts) links to Organisation
+  // as a single flat item, like every other destination — no nested submenu.
+  // This tab bar is where the settings sub-pages live instead, visible only
+  // once you're actually on the Organisation screen.
+  const orgTabs: TabItem[] = [
+    { id: "dashboard", label: "Overview", icon: <Building2 size={14} />, content: <DashboardPage {...ctx} /> },
+    { id: "profile", label: "Profile", icon: <User size={14} />, content: <ProfilePage {...ctx} /> },
+    { id: "branding", label: "Branding", icon: <Palette size={14} />, content: <BrandingPage {...ctx} /> },
+    { id: "preferences", label: "Preferences", icon: <SlidersHorizontal size={14} />, content: <PreferencesPage {...ctx} /> },
+    { id: "members", label: "Members", icon: <Users size={14} />, content: <MembersPage {...ctx} /> },
+    { id: "groups", label: "Groups", icon: <Layers size={14} />, content: <GroupsPage {...ctx} /> },
+    { id: "roles", label: "Roles", icon: <Key size={14} />, content: <RolesPage {...ctx} /> },
+    { id: "security", label: "Security", icon: <Shield size={14} />, content: <SecurityPage {...ctx} /> },
+    { id: "reviews", label: "Review Settings", icon: <Film size={14} />, content: <ReviewsPage {...ctx} /> },
+    { id: "learning", label: "Learning Settings", icon: <BookOpen size={14} />, content: <LearningPage {...ctx} /> },
+    { id: "notifications", label: "Notifications", icon: <Bell size={14} />, content: <NotificationsPage {...ctx} /> },
+    { id: "resources", label: "Resources", icon: <FolderOpen size={14} />, content: <ResourcesPage {...ctx} /> },
+    { id: "billing", label: "Billing & Plan", icon: <CreditCard size={14} />, content: <BillingPage {...ctx} /> },
+  ];
+
+  return (
+    <Tabs
+      tabs={orgTabs}
+      ariaLabel="Organisation settings"
+      activeId={currentPage}
+      onChange={(id) => setCurrentPage(id as OrgPage)}
+    />
+  );
 }
 
 // ── Page context ──────────────────────────────────────────────────────────────
@@ -127,24 +153,6 @@ interface PageCtx {
   onUpdateGroup?: (id: string, input: UpdateGroupInput) => Promise<void>;
   onDeleteGroup?: (id: string) => Promise<void>;
   onSetGroupMembers?: (groupId: string, userIds: string[]) => Promise<void>;
-}
-
-function renderPage(page: OrgPage, ctx: PageCtx): ReactNode {
-  switch (page) {
-    case "dashboard":     return <DashboardPage {...ctx} />;
-    case "profile":       return <ProfilePage {...ctx} />;
-    case "branding":      return <BrandingPage {...ctx} />;
-    case "preferences":   return <PreferencesPage {...ctx} />;
-    case "reviews":       return <ReviewsPage {...ctx} />;
-    case "learning":      return <LearningPage {...ctx} />;
-    case "notifications": return <NotificationsPage {...ctx} />;
-    case "security":      return <SecurityPage {...ctx} />;
-    case "members":       return <MembersPage {...ctx} />;
-    case "groups":        return <GroupsPage {...ctx} />;
-    case "roles":         return <RolesPage {...ctx} />;
-    case "resources":     return <ResourcesPage {...ctx} />;
-    case "billing":       return <BillingPage {...ctx} />;
-  }
 }
 
 // ── Dashboard page ────────────────────────────────────────────────────────────

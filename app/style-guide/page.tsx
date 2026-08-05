@@ -13,7 +13,6 @@ import { showToast } from "@/lib/toast";
 import { Header } from "@/components/Header";
 import { PageFrame } from "@/components/shell/PageFrame";
 import type { RefEvalSession, Role, Screen } from "@/lib/types/auth";
-import type { OrgPage } from "@/components/organisation/OrganisationScreen";
 import type { NavContext } from "@/components/shell/nav";
 import {
   Badge,
@@ -72,7 +71,6 @@ export default function StyleGuidePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [role, setRole] = useState<Role>("admin");
   const [activeScreen, setActiveScreen] = useState<Screen>("educator");
-  const [activeOrgPage, setActiveOrgPage] = useState<OrgPage>("dashboard");
 
   const navContext: NavContext = {
     role,
@@ -101,9 +99,8 @@ export default function StyleGuidePage() {
       <Header
         session={mockSession(role)}
         activeScreen={activeScreen}
-        activeOrgPage={activeOrgPage}
         navContext={navContext}
-        onNavigate={(screen, orgPage) => { setActiveScreen(screen); if (orgPage) setActiveOrgPage(orgPage); }}
+        onNavigate={(screen) => setActiveScreen(screen)}
         onHome={() => setActiveScreen("educator")}
         onAdmin={() => setActiveScreen("database")}
         onOrganisation={() => setActiveScreen("organisation")}

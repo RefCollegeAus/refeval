@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { RefEvalSession, Screen } from "@/lib/types/auth";
 import type { OrgPage } from "@/components/organisation/OrganisationScreen";
 import { resolveVisibleNavGroups, type NavContext, type NavItem } from "./nav";
@@ -12,7 +11,6 @@ interface SidebarProps {
   onClose: () => void;
   session: RefEvalSession | null;
   activeScreen?: Screen;
-  activeOrgPage?: OrgPage;
   navContext?: NavContext;
   onNavigate?: (screen: Screen, orgPage?: OrgPage) => void;
   // Legacy fallback, used only when navContext/onNavigate are not supplied.
@@ -24,45 +22,17 @@ interface SidebarProps {
 
 const SIDEBAR_WIDTH_PX = 256;
 
-function isItemActive(item: NavItem, activeScreen: Screen | undefined, activeOrgPage: OrgPage | undefined): boolean {
+function isItemActive(item: NavItem, activeScreen: Screen | undefined): boolean {
   if (!activeScreen) return false;
   const screens = item.activeScreens ?? [item.screen];
-  if (!screens.includes(activeScreen)) return false;
-  if (item.orgPage && activeScreen === "organisation") return item.orgPage === activeOrgPage;
-  return true;
-}
-
-function hasActiveChild(item: NavItem, activeScreen: Screen | undefined, activeOrgPage: OrgPage | undefined): boolean {
-  return (item.children ?? []).some((child) => isItemActive(child, activeScreen, activeOrgPage));
+  return screens.includes(activeScreen);
 }
 
 export function Sidebar({
-  open, onClose, session, activeScreen, activeOrgPage, navContext, onNavigate,
+  open, onClose, session, activeScreen, navContext, onNavigate,
   onHome, onLearning, onOrganisation, onAdmin,
 }: SidebarProps) {
   const groups = navContext ? resolveVisibleNavGroups(navContext) : null;
-  const initialExpanded = new Set(
-    (groups ?? [])
-      .flatMap((g) => g.items)
-      .filter((item) => item.children && (isItemActive(item, activeScreen, activeOrgPage) || hasActiveChild(item, activeScreen, activeOrgPage)))
-      .map((item) => item.label)
-  );
-  const [expanded, setExpanded] = useState<Set<string>>(initialExpanded);
-
-  useEffect(() => {
-    if (!groups) return;
-    const active = groups
-      .flatMap((g) => g.items)
-      .filter((item) => item.children && (isItemActive(item, activeScreen, activeOrgPage) || hasActiveChild(item, activeScreen, activeOrgPage)))
-      .map((item) => item.label);
-    if (active.length === 0) return;
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      active.forEach((label) => next.add(label));
-      return next;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeScreen, activeOrgPage]);
 
   if (!session) return null;
 
@@ -83,15 +53,6 @@ export function Sidebar({
       onHome();
     }
     onClose();
-  };
-
-  const toggleExpanded = (label: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) next.delete(label);
-      else next.add(label);
-      return next;
-    });
   };
 
   const legacyItems = !groups
@@ -164,64 +125,7 @@ export function Sidebar({
                   <div className="grid gap-0.5">
                     {group.items.map((item) => {
                       const Icon = item.icon;
-                      const active = isItemActive(item, activeScreen, activeOrgPage);
-                      const childActive = hasActiveChild(item, activeScreen, activeOrgPage);
-                      const isExpanded = expanded.has(item.label);
-
-                      if (item.children && item.children.length > 0) {
-                        return (
-                          <div key={item.label}>
-                            <div
-                              className={cn(
-                                "flex items-center gap-1 rounded-lg border-0 pr-1 text-sm font-medium shadow-none transition-colors",
-                                active || childActive ? "bg-accent/15 text-amber-300" : "bg-transparent text-muted hover:bg-panel-3 hover:text-text"
-                              )}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => navigate(item)}
-                                aria-current={active ? "page" : undefined}
-                                className="flex flex-1 items-center gap-2.5 rounded-lg border-0 bg-transparent px-2.5 py-2 text-left shadow-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                              >
-                                <Icon size={16} className="shrink-0" />
-                                <span className="flex-1">{item.label}</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => toggleExpanded(item.label)}
-                                aria-expanded={isExpanded}
-                                aria-label={`${isExpanded ? "Collapse" : "Expand"} ${item.label} section`}
-                                className="rounded-lg border-0 bg-transparent p-1.5 shadow-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                              >
-                                <ChevronDown size={14} className={cn("transition-transform", isExpanded ? "rotate-180" : "")} />
-                              </button>
-                            </div>
-                            {isExpanded && (
-                              <div className="ml-4 mt-0.5 grid gap-0.5 border-l border-border pl-2.5">
-                                {item.children.map((child) => {
-                                  const childIsActive = isItemActive(child, activeScreen, activeOrgPage);
-                                  return (
-                                    <button
-                                      key={child.label}
-                                      type="button"
-                                      onClick={() => navigate(child)}
-                                      aria-current={childIsActive ? "page" : undefined}
-                                      className={cn(
-                                        "flex items-center rounded-lg border-0 px-2.5 py-1.5 text-left text-[13px] font-medium shadow-none transition-colors",
-                                        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-                                        childIsActive ? "bg-accent/15 text-amber-300" : "bg-transparent text-muted hover:bg-panel-3 hover:text-text"
-                                      )}
-                                    >
-                                      <span className="flex-1">{child.label}</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-
+                      const active = isItemActive(item, activeScreen);
                       const badgeCount = navContext && item.badge ? item.badge(navContext) : undefined;
 
                       return (

@@ -37,7 +37,6 @@ export interface NavItem {
   resolveScreen?: (ctx: NavContext) => Screen;
   isVisible: (ctx: NavContext) => boolean;
   badge?: (ctx: NavContext) => number | undefined;
-  children?: NavItem[];
 }
 
 export interface NavGroup {
@@ -174,38 +173,26 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Organisation",
     items: [
       {
+        // Flat link, like every other item — the settings sub-pages
+        // (Profile, Branding, Roles, Billing, ...) live behind a tab bar on
+        // the Organisation screen itself (see OrganisationScreen.tsx),
+        // not a sidebar submenu. orgPage always resets to "dashboard" so
+        // this link, like every other, lands on the same destination
+        // every time.
         label: "Organisation",
         icon: Building2,
         screen: "organisation",
         orgPage: "dashboard",
         isVisible: (ctx) => ctx.isAdmin,
-        children: [
-          { label: "Overview", icon: Building2, screen: "organisation", orgPage: "dashboard", isVisible: () => true },
-          { label: "Profile", icon: Building2, screen: "organisation", orgPage: "profile", isVisible: () => true },
-          { label: "Branding", icon: Building2, screen: "organisation", orgPage: "branding", isVisible: () => true },
-          { label: "Preferences", icon: Building2, screen: "organisation", orgPage: "preferences", isVisible: () => true },
-          { label: "Review Settings", icon: Building2, screen: "organisation", orgPage: "reviews", isVisible: () => true },
-          { label: "Learning Settings", icon: Building2, screen: "organisation", orgPage: "learning", isVisible: () => true },
-          { label: "Notification Settings", icon: Building2, screen: "organisation", orgPage: "notifications", isVisible: () => true },
-          { label: "Security", icon: Building2, screen: "organisation", orgPage: "security", isVisible: () => true },
-          { label: "Roles", icon: Building2, screen: "organisation", orgPage: "roles", isVisible: () => true },
-          { label: "Resources", icon: Building2, screen: "organisation", orgPage: "resources", isVisible: () => true },
-          { label: "Billing & Plan", icon: Building2, screen: "organisation", orgPage: "billing", isVisible: () => true },
-        ],
       },
     ],
   },
 ];
 
-/** Pure — takes the current nav context and returns only the groups/items/children the user may see. */
+/** Pure — takes the current nav context and returns only the groups/items the user may see. */
 export function resolveVisibleNavGroups(ctx: NavContext): NavGroup[] {
   return NAV_GROUPS.map((group) => ({
     label: group.label,
-    items: group.items
-      .filter((item) => item.isVisible(ctx))
-      .map((item) => ({
-        ...item,
-        children: item.children?.filter((child) => child.isVisible(ctx)),
-      })),
+    items: group.items.filter((item) => item.isVisible(ctx)),
   })).filter((group) => group.items.length > 0);
 }
