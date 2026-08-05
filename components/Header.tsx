@@ -42,6 +42,7 @@ export function Header({
   onLogout,
   unreadNotificationCount = 0,
   activeScreen,
+  activeOrgPage,
   navContext,
   onNavigate,
   orgLogoUrl,
@@ -56,6 +57,7 @@ export function Header({
   onLogout: () => void;
   unreadNotificationCount?: number;
   activeScreen?: Screen;
+  activeOrgPage?: OrgPage;
   navContext?: NavContext;
   onNavigate?: (screen: Screen, orgPage?: OrgPage) => void;
   orgLogoUrl?: string | null;
@@ -149,6 +151,7 @@ export function Header({
         onClose={() => setSidebarOpen(false)}
         session={session}
         activeScreen={activeScreen}
+        activeOrgPage={activeOrgPage}
         navContext={navContext}
         onNavigate={onNavigate}
         onHome={onHome}

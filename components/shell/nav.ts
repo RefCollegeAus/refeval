@@ -1,7 +1,7 @@
 import {
   Home, ClipboardList, MessageSquare, BookOpen, Target, BarChart3,
   GraduationCap, Film, ListChecks, TrendingUp, MonitorPlay,
-  Users, ShieldCheck, Layers, Building2,
+  Users, ShieldCheck, Layers, Building2, Settings, UserCog, CreditCard, FolderOpen,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Screen, Role } from "@/lib/types/auth";
@@ -31,6 +31,8 @@ export interface NavItem {
   icon: LucideIcon;
   screen: Screen;
   orgPage?: OrgPage;
+  /** orgPage values that count as "active" for this item, when it has more than just `orgPage` itself (e.g. Settings covers 8 sub-pages). Defaults to `[orgPage]`. */
+  activeOrgPages?: OrgPage[];
   /** Screens that count as "active" for this item beyond `screen` itself. */
   activeScreens?: Screen[];
   /** Overrides `screen` at click/highlight time — used by Home, whose destination is role-dependent. */
@@ -173,16 +175,48 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Organisation",
     items: [
       {
-        // Flat link, like every other item — the settings sub-pages
-        // (Profile, Branding, Roles, Billing, ...) live behind a tab bar on
-        // the Organisation screen itself (see OrganisationScreen.tsx),
-        // not a sidebar submenu. orgPage always resets to "dashboard" so
-        // this link, like every other, lands on the same destination
-        // every time.
-        label: "Organisation",
+        label: "Overview",
         icon: Building2,
         screen: "organisation",
         orgPage: "dashboard",
+        isVisible: (ctx) => ctx.isAdmin,
+      },
+      {
+        // Lands on Profile; highlighted as active for any of its 8 tabs
+        // (see OrganisationScreen.tsx's settings tab bar).
+        label: "Settings",
+        icon: Settings,
+        screen: "organisation",
+        orgPage: "profile",
+        activeOrgPages: ["profile", "branding", "preferences", "roles", "security", "notifications", "reviews", "learning"],
+        isVisible: (ctx) => ctx.isAdmin,
+      },
+      {
+        label: "Members",
+        icon: UserCog,
+        screen: "organisation",
+        orgPage: "members",
+        isVisible: (ctx) => ctx.isAdmin,
+      },
+      {
+        label: "Groups",
+        icon: Layers,
+        screen: "organisation",
+        orgPage: "groups",
+        isVisible: (ctx) => ctx.isAdmin,
+      },
+      {
+        label: "Billing & Plan",
+        icon: CreditCard,
+        screen: "organisation",
+        orgPage: "billing",
+        isVisible: (ctx) => ctx.isAdmin,
+      },
+      {
+        label: "Resources",
+        icon: FolderOpen,
+        screen: "organisation",
+        orgPage: "resources",
         isVisible: (ctx) => ctx.isAdmin,
       },
     ],

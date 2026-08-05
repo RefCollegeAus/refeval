@@ -11,6 +11,7 @@ interface SidebarProps {
   onClose: () => void;
   session: RefEvalSession | null;
   activeScreen?: Screen;
+  activeOrgPage?: OrgPage;
   navContext?: NavContext;
   onNavigate?: (screen: Screen, orgPage?: OrgPage) => void;
   // Legacy fallback, used only when navContext/onNavigate are not supplied.
@@ -22,14 +23,23 @@ interface SidebarProps {
 
 const SIDEBAR_WIDTH_PX = 256;
 
-function isItemActive(item: NavItem, activeScreen: Screen | undefined): boolean {
+// Several Organisation items share `screen: "organisation"` (Overview,
+// Settings, Members, Groups, Billing & Plan, Resources), so which one is
+// "active" also depends on the current orgPage — Settings, for instance,
+// covers 8 distinct orgPage values (see nav.ts's `activeOrgPages`).
+function isItemActive(item: NavItem, activeScreen: Screen | undefined, activeOrgPage: OrgPage | undefined): boolean {
   if (!activeScreen) return false;
   const screens = item.activeScreens ?? [item.screen];
-  return screens.includes(activeScreen);
+  if (!screens.includes(activeScreen)) return false;
+  if (item.orgPage && activeScreen === "organisation") {
+    const matchPages = item.activeOrgPages ?? [item.orgPage];
+    return activeOrgPage !== undefined && matchPages.includes(activeOrgPage);
+  }
+  return true;
 }
 
 export function Sidebar({
-  open, onClose, session, activeScreen, navContext, onNavigate,
+  open, onClose, session, activeScreen, activeOrgPage, navContext, onNavigate,
   onHome, onLearning, onOrganisation, onAdmin,
 }: SidebarProps) {
   const groups = navContext ? resolveVisibleNavGroups(navContext) : null;
@@ -125,7 +135,7 @@ export function Sidebar({
                   <div className="grid gap-0.5">
                     {group.items.map((item) => {
                       const Icon = item.icon;
-                      const active = isItemActive(item, activeScreen);
+                      const active = isItemActive(item, activeScreen, activeOrgPage);
                       const badgeCount = navContext && item.badge ? item.badge(navContext) : undefined;
 
                       return (

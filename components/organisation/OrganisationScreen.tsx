@@ -80,6 +80,28 @@ interface Props {
   onSetGroupMembers?: (groupId: string, userIds: string[]) => Promise<void>;
 }
 
+// ── Settings tab bar ─────────────────────────────────────────────────────────
+// The sidebar's "Settings" item (see components/shell/nav.ts) covers these 8
+// orgPage values; only when currentPage is one of them does the Organisation
+// screen show this tab bar instead of a single page.
+
+const SETTINGS_PAGE_IDS = new Set<OrgPage>([
+  "profile", "branding", "preferences", "roles", "security", "notifications", "reviews", "learning",
+]);
+
+function buildSettingsTabs(ctx: PageCtx): TabItem[] {
+  return [
+    { id: "profile", label: "Profile", icon: <User size={14} />, content: <ProfilePage {...ctx} /> },
+    { id: "branding", label: "Branding", icon: <Palette size={14} />, content: <BrandingPage {...ctx} /> },
+    { id: "preferences", label: "Preferences", icon: <SlidersHorizontal size={14} />, content: <PreferencesPage {...ctx} /> },
+    { id: "roles", label: "Roles", icon: <Key size={14} />, content: <RolesPage {...ctx} /> },
+    { id: "security", label: "Security", icon: <Shield size={14} />, content: <SecurityPage {...ctx} /> },
+    { id: "notifications", label: "Notifications", icon: <Bell size={14} />, content: <NotificationsPage {...ctx} /> },
+    { id: "reviews", label: "Reviews Defaults", icon: <Film size={14} />, content: <ReviewsPage {...ctx} /> },
+    { id: "learning", label: "Learning Defaults", icon: <BookOpen size={14} />, content: <LearningPage {...ctx} /> },
+  ];
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export function OrganisationScreen({
@@ -100,33 +122,33 @@ export function OrganisationScreen({
   };
 
   // The main app Sidebar (see components/shell/nav.ts) links to Organisation
-  // as a single flat item, like every other destination — no nested submenu.
-  // This tab bar is where the settings sub-pages live instead, visible only
-  // once you're actually on the Organisation screen.
-  const orgTabs: TabItem[] = [
-    { id: "dashboard", label: "Overview", icon: <Building2 size={14} />, content: <DashboardPage {...ctx} /> },
-    { id: "profile", label: "Profile", icon: <User size={14} />, content: <ProfilePage {...ctx} /> },
-    { id: "branding", label: "Branding", icon: <Palette size={14} />, content: <BrandingPage {...ctx} /> },
-    { id: "preferences", label: "Preferences", icon: <SlidersHorizontal size={14} />, content: <PreferencesPage {...ctx} /> },
-    { id: "members", label: "Members", icon: <Users size={14} />, content: <MembersPage {...ctx} /> },
-    { id: "groups", label: "Groups", icon: <Layers size={14} />, content: <GroupsPage {...ctx} /> },
-    { id: "roles", label: "Roles", icon: <Key size={14} />, content: <RolesPage {...ctx} /> },
-    { id: "security", label: "Security", icon: <Shield size={14} />, content: <SecurityPage {...ctx} /> },
-    { id: "reviews", label: "Review Settings", icon: <Film size={14} />, content: <ReviewsPage {...ctx} /> },
-    { id: "learning", label: "Learning Settings", icon: <BookOpen size={14} />, content: <LearningPage {...ctx} /> },
-    { id: "notifications", label: "Notifications", icon: <Bell size={14} />, content: <NotificationsPage {...ctx} /> },
-    { id: "resources", label: "Resources", icon: <FolderOpen size={14} />, content: <ResourcesPage {...ctx} /> },
-    { id: "billing", label: "Billing & Plan", icon: <CreditCard size={14} />, content: <BillingPage {...ctx} /> },
-  ];
+  // as 6 flat items: Overview, Settings, Members, Groups, Billing & Plan,
+  // Resources. Settings is the only one with further sub-pages, which live
+  // behind this tab bar rather than a sidebar submenu.
+  if (SETTINGS_PAGE_IDS.has(currentPage)) {
+    return (
+      <Tabs
+        tabs={buildSettingsTabs(ctx)}
+        ariaLabel="Organisation settings"
+        activeId={currentPage}
+        onChange={(id) => setCurrentPage(id as OrgPage)}
+      />
+    );
+  }
 
-  return (
-    <Tabs
-      tabs={orgTabs}
-      ariaLabel="Organisation settings"
-      activeId={currentPage}
-      onChange={(id) => setCurrentPage(id as OrgPage)}
-    />
-  );
+  switch (currentPage) {
+    case "members":
+      return <MembersPage {...ctx} />;
+    case "groups":
+      return <GroupsPage {...ctx} />;
+    case "billing":
+      return <BillingPage {...ctx} />;
+    case "resources":
+      return <ResourcesPage {...ctx} />;
+    case "dashboard":
+    default:
+      return <DashboardPage {...ctx} />;
+  }
 }
 
 // ── Page context ──────────────────────────────────────────────────────────────
