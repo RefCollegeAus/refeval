@@ -2437,10 +2437,10 @@ export default function Home() {
         {/* 4. Review actions */}
         <div className="rounded-2xl border border-border p-4">
           <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
-          <div className="grid gap-1.5">
-            <Button variant="secondary" size="sm" className="justify-center" onClick={()=>setConfirmDiscardReview(true)}>{isNewReview ? "Discard Review" : "← Back"}</Button>
-            <Button variant="secondary" size="sm" className="justify-center text-yellow-300" onClick={saveCompleteLater}>Save &amp; Complete Later</Button>
-            <Button variant="good" size="sm" className="justify-center" onClick={submitReview}>Submit Review</Button>
+          <div className="flex gap-1.5">
+            <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={()=>setConfirmDiscardReview(true)}>{isNewReview ? "Discard" : "← Back"}</Button>
+            <Button variant="secondary" size="sm" className="flex-1 justify-center text-yellow-300" onClick={saveCompleteLater}>Save</Button>
+            <Button variant="good" size="sm" className="flex-1 justify-center" onClick={submitReview}>Submit</Button>
           </div>
         </div>
 
