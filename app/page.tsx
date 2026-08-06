@@ -68,7 +68,7 @@ import {
   getVisibleUnreadCount,
 } from "@/lib/services/notifications";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Pause, Play, Trash2, Eye, MessageSquare, BarChart3, Target, BookOpen, Inbox, Tag, ClipboardList } from "lucide-react";
+import { Download, Pause, Play, Trash2, Eye, MessageSquare, BarChart3, Target, BookOpen, Inbox, Tag, ClipboardList, ChevronDown, ChevronUp } from "lucide-react";
 import { PageFrame } from "@/components/shell/PageFrame";
 import { Badge, Button, Card, EmptyState, Input, Modal, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Textarea } from "@/components/ui";
 import { AppToast } from "@/components/common/AppToast";
@@ -531,6 +531,7 @@ export default function Home() {
   const [confirmClearTags, setConfirmClearTags] = useState(false);
   const [clipsModalOpen, setClipsModalOpen] = useState(false);
   const [summaryViewOfficialId, setSummaryViewOfficialId] = useState<string | null>(null);
+  const [gameDetailsExpanded, setGameDetailsExpanded] = useState(false);
 
   // Focus trap / Escape / scroll-lock for the reviewer workspace's own modals
   // (ConfirmModal already has this; these are the ones built directly on
@@ -2382,7 +2383,10 @@ export default function Home() {
 
         {/* 1. Review actions */}
         <div className="rounded-2xl border border-border p-4">
-          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
+          <div className="mb-2.5 flex items-center justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
+            <Badge tone={(activeReview?.status || "In Review") === "Completed" ? "good" : "warn"}>{activeReview?.status || "In Review"}</Badge>
+          </div>
           <div className="flex gap-1.5">
             <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={()=>setConfirmDiscardReview(true)}>{isNewReview ? "Discard" : "← Back"}</Button>
             <Button variant="secondary" size="sm" className="flex-1 justify-center text-yellow-300" onClick={saveCompleteLater}>Save</Button>
@@ -2392,16 +2396,23 @@ export default function Home() {
 
         {/* 2. Game details */}
         <div className="rounded-2xl border border-border p-4">
-          <div className="mb-2.5 flex items-center justify-between gap-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Details</p>
+          <div className={gameDetailsExpanded ? "mb-2.5 flex items-center justify-between gap-2" : "flex items-center justify-between gap-2"}>
+            <button
+              type="button"
+              onClick={() => setGameDetailsExpanded(v => !v)}
+              aria-expanded={gameDetailsExpanded}
+              className="flex min-w-0 items-center gap-1.5 rounded-md text-xs font-bold uppercase tracking-wide text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              {gameDetailsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              Game Details
+            </button>
             <Button variant="secondary" size="sm" onClick={()=>setSetupModalOpen(true)}>✏️ Edit</Button>
           </div>
+          {gameDetailsExpanded && (
           <div className="grid gap-2 text-sm">
             <div className="min-w-0"><span className="font-semibold text-text">Game</span>{" "}<span className="text-muted">{reviewGame || "Untitled Review"}</span></div>
-            <div><span className="font-semibold text-text">Status</span>{" "}<span className="text-muted">{activeReview?.status || "In Review"}</span></div>
-            <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{activeReview?.educatorName || session?.profile.name || "—"}</span></div>
             {reviewGameDate && <div><span className="font-semibold text-text">Date</span>{" "}<span className="text-muted">{reviewGameDate}</span></div>}
-            <div><span className="font-semibold text-text">Video</span>{" "}<span className={reviewVideoLink ? "text-muted" : "text-yellow-300/70"}>{reviewVideoLink ? "Linked" : "No video"}</span></div>
+            <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{activeReview?.educatorName || session?.profile.name || "—"}</span></div>
             {summarySlots.length > 0 && (
               <div>
                 <span className="font-semibold text-text">Officials</span>
@@ -2431,6 +2442,7 @@ export default function Home() {
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* 3. Playback controls */}

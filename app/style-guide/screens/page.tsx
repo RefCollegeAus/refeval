@@ -23,7 +23,7 @@
 // see, which is enough to check its position within the clip row.
 
 import { useState } from "react";
-import { Inbox, Eye, BarChart3, Target, MessageSquare, BookOpen, Play, Pause, Tag as TagIcon, Download, Trash2, ClipboardList } from "lucide-react";
+import { Inbox, Eye, BarChart3, Target, MessageSquare, BookOpen, Play, Pause, Tag as TagIcon, Download, Trash2, ClipboardList, ChevronDown, ChevronUp } from "lucide-react";
 import { EducatorDashboard } from "@/components/educator/EducatorDashboard";
 import { OrganisationScreen } from "@/components/organisation/OrganisationScreen";
 import { RefereeDevelopmentScreen } from "@/components/educator/RefereeDevelopmentScreen";
@@ -300,6 +300,7 @@ export default function ScreenFixturesPage() {
   const [rvActiveCommentTagId, setRvActiveCommentTagId] = useState<string | null>(null);
   const [rvClipsModalOpen, setRvClipsModalOpen] = useState(false);
   const [rvSummaryViewOfficialId, setRvSummaryViewOfficialId] = useState<string | null>(null);
+  const [rvGameDetailsExpanded, setRvGameDetailsExpanded] = useState(false);
 
   function rvSlotName(slot: RefSlot, r?: ReviewRecord) {
     if (!r) return slot;
@@ -585,7 +586,10 @@ export default function ScreenFixturesPage() {
             <div className="grid min-w-0 grid-cols-1 gap-3 lg:sticky lg:top-[120px] lg:h-[calc(100vh-136px)] lg:gap-3 lg:overflow-y-auto lg:pr-1">
 
               <div className="rounded-2xl border border-border p-4">
-                <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
+                <div className="mb-2.5 flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
+                  <Badge tone={REVIEWER_REVIEW.status === "Completed" ? "good" : "warn"}>{REVIEWER_REVIEW.status}</Badge>
+                </div>
                 <div className="flex gap-1.5">
                   <Button variant="secondary" size="sm" className="flex-1 justify-center">← Back</Button>
                   <Button variant="secondary" size="sm" className="flex-1 justify-center text-yellow-300">Save</Button>
@@ -594,16 +598,23 @@ export default function ScreenFixturesPage() {
               </div>
 
               <div className="rounded-2xl border border-border p-4">
-                <div className="mb-2.5 flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Details</p>
+                <div className={rvGameDetailsExpanded ? "mb-2.5 flex items-center justify-between gap-2" : "flex items-center justify-between gap-2"}>
+                  <button
+                    type="button"
+                    onClick={() => setRvGameDetailsExpanded(v => !v)}
+                    aria-expanded={rvGameDetailsExpanded}
+                    className="flex min-w-0 items-center gap-1.5 rounded-md text-xs font-bold uppercase tracking-wide text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    {rvGameDetailsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    Game Details
+                  </button>
                   <Button variant="secondary" size="sm">✏️ Edit</Button>
                 </div>
+                {rvGameDetailsExpanded && (
                 <div className="grid gap-2 text-sm">
                   <div className="min-w-0"><span className="font-semibold text-text">Game</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.game}</span></div>
-                  <div><span className="font-semibold text-text">Status</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.status}</span></div>
-                  <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.educatorName}</span></div>
                   <div><span className="font-semibold text-text">Date</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.gameDate}</span></div>
-                  <div><span className="font-semibold text-text">Video</span>{" "}<span className="text-yellow-300/70">No video</span></div>
+                  <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.educatorName}</span></div>
                   {rvSummarySlots.length > 0 && (
                     <div>
                       <span className="font-semibold text-text">Officials</span>
@@ -633,6 +644,7 @@ export default function ScreenFixturesPage() {
                     </div>
                   )}
                 </div>
+                )}
               </div>
 
               <div className="rounded-2xl border border-border p-4">
