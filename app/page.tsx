@@ -68,9 +68,9 @@ import {
   getVisibleUnreadCount,
 } from "@/lib/services/notifications";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Pause, Play, Trash2, Eye, MessageSquare, BarChart3, Target, BookOpen, Inbox, Tag } from "lucide-react";
+import { Download, Pause, Play, Trash2, Eye, MessageSquare, BarChart3, Target, BookOpen, Inbox, Tag, ClipboardList } from "lucide-react";
 import { PageFrame } from "@/components/shell/PageFrame";
-import { Badge, Button, Card, EmptyState, Input, Modal, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tabs, Textarea } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Input, Modal, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Textarea } from "@/components/ui";
 import { AppToast } from "@/components/common/AppToast";
 import { showToast } from "@/lib/toast";
 import * as XLSX from "xlsx";
@@ -2409,17 +2409,19 @@ export default function Home() {
                   {summarySlots.map(([id, name, role]) => {
                     const s = activeReview?.officialSummaries?.[id];
                     const hasSummary = !!(s && (s.positives || s.workOns || s.nextFocus));
+                    const hasActiveGoals = refereeGoalViewsForReferee(id).some(v => v.status === "Active");
+                    const hasContent = hasSummary || hasActiveGoals;
                     return (
                       <div key={id} className="flex items-center justify-between gap-2 text-muted">
                         <span className="truncate">{name} <span className="text-muted/70">— {role}</span></span>
-                        {hasSummary && (
+                        {hasContent && (
                           <button
                             type="button"
                             onClick={() => setSummaryViewOfficialId(id)}
-                            aria-label={`View game summary for ${name}`}
-                            className="shrink-0 rounded-md p-1 text-muted hover:bg-panel-3 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                            aria-label={`View summary and development for ${name}`}
+                            className="shrink-0 rounded-md p-1 text-accent hover:bg-panel-3 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                           >
-                            <Eye size={14} />
+                            <ClipboardList size={14} />
                           </button>
                         )}
                       </div>
@@ -2442,7 +2444,7 @@ export default function Home() {
         </div>
 
         {/* 4. Tag Moment */}
-        <Button variant="primary" className="w-full justify-center gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button>
+        <Button variant="primary" className="w-full justify-center gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment (X)</Button>
 
         {/* 5. Clips */}
         <div className="rounded-2xl border border-border p-4">
@@ -2498,48 +2500,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 7. Development */}
-        {activeReview && session && (()=>{
-          const slots: Array<{id:string; name:string}> = [
-            {id: activeReview.referee1Id, name: activeReview.referee1Name},
-            {id: activeReview.referee2Id, name: activeReview.referee2Name},
-            {id: activeReview.referee3Id, name: activeReview.referee3Name},
-          ].filter(s => s.id);
-          const allRefereeIds = refereeMembers.map(m => m.id);
-          if (slots.length === 0) return null;
-          const panelFor = (slot: {id:string; name:string}) => (
-            <ReviewDevelopmentPanel
-              key={slot.id}
-              compact
-              session={session}
-              review={activeReview}
-              refereeId={slot.id}
-              refereeName={slot.name}
-              activeGoals={refereeGoalViewsForReferee(slot.id).filter(v => v.status === "Active")}
-              reviewGoalLinks={reviewGoalLinks.filter(l => l.refereeId === slot.id && l.reviewId === activeReview.id)}
-              onCreateGoalFromReview={async (input, reviewId) => {
-                const defId = await assignGoal(input, allRefereeIds);
-                if (defId) createReviewGoalLink({reviewId, goalDefId: defId, refereeId: slot.id, createdGoalFromReview: true});
-              }}
-              onLinkReviewToGoal={createReviewGoalLink}
-              onUnlinkReviewFromGoal={removeReviewGoalLink}
-            />
-          );
-          return (
-            <div className="rounded-2xl border border-border p-4">
-              <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Development</p>
-              {slots.length > 1 ? (
-                <Tabs
-                  ariaLabel="Development by official"
-                  tabs={slots.map(slot => ({ id: slot.id, label: slot.name, content: panelFor(slot) }))}
-                />
-              ) : (
-                panelFor(slots[0])
-              )}
-            </div>
-          );
-        })()}
-
       </div>
     </div>
 
@@ -2562,17 +2522,41 @@ export default function Home() {
     />
 
     {(() => {
-      if (!summaryViewOfficialId) return null;
+      if (!summaryViewOfficialId || !activeReview || !session) return null;
       const slot = summarySlots.find(([id]) => id === summaryViewOfficialId);
-      const s = activeReview?.officialSummaries?.[summaryViewOfficialId];
-      if (!slot || !s) return null;
-      const [, name, role] = slot;
+      if (!slot) return null;
+      const [id, name, role] = slot;
+      const s = activeReview.officialSummaries?.[id];
+      const hasSummaryText = !!(s && (s.positives || s.workOns || s.nextFocus));
+      const allRefereeIds = refereeMembers.map(m => m.id);
       return (
-        <Modal open onClose={() => setSummaryViewOfficialId(null)} title={`Game Summary — ${name}`} description={role}>
-          <div className="grid gap-3">
-            {s.positives && <div><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="whitespace-pre-wrap text-sm text-text">{s.positives}</p></div>}
-            {s.workOns && <div><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-sm text-text">{s.workOns}</p></div>}
-            {s.nextFocus && <div><p className="mb-0.5 text-[11px] text-muted">Focus for next game</p><p className="whitespace-pre-wrap text-sm text-text">{s.nextFocus}</p></div>}
+        <Modal open onClose={() => setSummaryViewOfficialId(null)} title={`Summary — ${name}`} description={role}>
+          <div className="grid gap-4">
+            {hasSummaryText && (
+              <div className="grid gap-3">
+                {s?.positives && <div><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="whitespace-pre-wrap text-sm text-text">{s.positives}</p></div>}
+                {s?.workOns && <div><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-sm text-text">{s.workOns}</p></div>}
+                {s?.nextFocus && <div><p className="mb-0.5 text-[11px] text-muted">Focus for next game</p><p className="whitespace-pre-wrap text-sm text-text">{s.nextFocus}</p></div>}
+              </div>
+            )}
+            <div>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted">Development Goals</p>
+              <ReviewDevelopmentPanel
+                compact
+                session={session}
+                review={activeReview}
+                refereeId={id}
+                refereeName={name}
+                activeGoals={refereeGoalViewsForReferee(id).filter(v => v.status === "Active")}
+                reviewGoalLinks={reviewGoalLinks.filter(l => l.refereeId === id && l.reviewId === activeReview.id)}
+                onCreateGoalFromReview={async (input, reviewId) => {
+                  const defId = await assignGoal(input, allRefereeIds);
+                  if (defId) createReviewGoalLink({reviewId, goalDefId: defId, refereeId: id, createdGoalFromReview: true});
+                }}
+                onLinkReviewToGoal={createReviewGoalLink}
+                onUnlinkReviewFromGoal={removeReviewGoalLink}
+              />
+            </div>
           </div>
         </Modal>
       );

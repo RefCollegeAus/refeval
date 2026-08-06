@@ -23,7 +23,7 @@
 // see, which is enough to check its position within the clip row.
 
 import { useState } from "react";
-import { Inbox, Eye, BarChart3, Target, MessageSquare, BookOpen, Play, Pause, Tag as TagIcon, Download, Trash2 } from "lucide-react";
+import { Inbox, Eye, BarChart3, Target, MessageSquare, BookOpen, Play, Pause, Tag as TagIcon, Download, Trash2, ClipboardList } from "lucide-react";
 import { EducatorDashboard } from "@/components/educator/EducatorDashboard";
 import { OrganisationScreen } from "@/components/organisation/OrganisationScreen";
 import { RefereeDevelopmentScreen } from "@/components/educator/RefereeDevelopmentScreen";
@@ -42,7 +42,7 @@ import { TeamManagementScreen } from "@/components/admin/TeamManagementScreen";
 import { UserProfileScreen } from "@/components/admin/UserProfileScreen";
 import { PageFrame } from "@/components/shell/PageFrame";
 import { TaggedClipsModal } from "@/components/reviewer/TaggedClipsModal";
-import { Badge, Button, Card, EmptyState, Modal, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tabs } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Modal, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui";
 import { makeAnalytics } from "@/lib/utils/analytics";
 import { makeDefaultSettings } from "@/lib/types/organisationSettings";
 import type { RefEvalSession } from "@/lib/types/auth";
@@ -611,17 +611,19 @@ export default function ScreenFixturesPage() {
                         {rvSummarySlots.map(([id, name, role]) => {
                           const s = REVIEWER_REVIEW.officialSummaries?.[id];
                           const hasSummary = !!(s && (s.positives || s.workOns || s.nextFocus));
+                          const hasActiveGoals = REVIEWER_GOALS.some(g => g.refereeId === id && g.status === "Active");
+                          const hasContent = hasSummary || hasActiveGoals;
                           return (
                             <div key={id} className="flex items-center justify-between gap-2 text-muted">
                               <span className="truncate">{name} <span className="text-muted/70">— {role}</span></span>
-                              {hasSummary && (
+                              {hasContent && (
                                 <button
                                   type="button"
                                   onClick={() => setRvSummaryViewOfficialId(id)}
-                                  aria-label={`View game summary for ${name}`}
-                                  className="shrink-0 rounded-md p-1 text-muted hover:bg-panel-3 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                                  aria-label={`View summary and development for ${name}`}
+                                  className="shrink-0 rounded-md p-1 text-accent hover:bg-panel-3 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                                 >
-                                  <Eye size={14} />
+                                  <ClipboardList size={14} />
                                 </button>
                               )}
                             </div>
@@ -642,7 +644,7 @@ export default function ScreenFixturesPage() {
                 </div>
               </div>
 
-              <Button variant="primary" className="w-full justify-center gap-1.5"><TagIcon size={14} /> Tag Moment</Button>
+              <Button variant="primary" className="w-full justify-center gap-1.5"><TagIcon size={14} /> Tag Moment (X)</Button>
 
               <div className="rounded-2xl border border-border p-4">
                 <div className="mb-2.5 flex items-center justify-between gap-2">
@@ -696,47 +698,6 @@ export default function ScreenFixturesPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border p-4">
-                <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Development</p>
-                {rvSummarySlots.length > 1 ? (
-                  <Tabs
-                    ariaLabel="Development by official"
-                    tabs={rvSummarySlots.map(([id, name]) => ({
-                      id,
-                      label: name,
-                      content: (
-                        <ReviewDevelopmentPanel
-                          key={id}
-                          compact
-                          session={SESSION_EDUCATOR}
-                          review={REVIEWER_REVIEW}
-                          refereeId={id}
-                          refereeName={name}
-                          activeGoals={REVIEWER_GOALS.filter(g => g.refereeId === id && g.status === "Active")}
-                          reviewGoalLinks={REVIEWER_GOAL_LINKS}
-                          onCreateGoalFromReview={() => {}}
-                          onLinkReviewToGoal={() => {}}
-                          onUnlinkReviewFromGoal={() => {}}
-                        />
-                      ),
-                    }))}
-                  />
-                ) : rvSummarySlots.length === 1 ? (
-                  <ReviewDevelopmentPanel
-                    compact
-                    session={SESSION_EDUCATOR}
-                    review={REVIEWER_REVIEW}
-                    refereeId={rvSummarySlots[0][0]}
-                    refereeName={rvSummarySlots[0][1]}
-                    activeGoals={REVIEWER_GOALS.filter(g => g.refereeId === rvSummarySlots[0][0] && g.status === "Active")}
-                    reviewGoalLinks={REVIEWER_GOAL_LINKS}
-                    onCreateGoalFromReview={() => {}}
-                    onLinkReviewToGoal={() => {}}
-                    onUnlinkReviewFromGoal={() => {}}
-                  />
-                ) : null}
-              </div>
-
             </div>
           </div>
 
@@ -761,15 +722,35 @@ export default function ScreenFixturesPage() {
           {(() => {
             if (!rvSummaryViewOfficialId) return null;
             const slot = rvSummarySlots.find(([id]) => id === rvSummaryViewOfficialId);
-            const s = REVIEWER_REVIEW.officialSummaries?.[rvSummaryViewOfficialId];
-            if (!slot || !s) return null;
-            const [, name, role] = slot;
+            if (!slot) return null;
+            const [id, name, role] = slot;
+            const s = REVIEWER_REVIEW.officialSummaries?.[id];
+            const hasSummaryText = !!(s && (s.positives || s.workOns || s.nextFocus));
             return (
-              <Modal open onClose={() => setRvSummaryViewOfficialId(null)} title={`Game Summary — ${name}`} description={role}>
-                <div className="grid gap-3">
-                  {s.positives && <div><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="whitespace-pre-wrap text-sm text-text">{s.positives}</p></div>}
-                  {s.workOns && <div><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-sm text-text">{s.workOns}</p></div>}
-                  {s.nextFocus && <div><p className="mb-0.5 text-[11px] text-muted">Focus for next game</p><p className="whitespace-pre-wrap text-sm text-text">{s.nextFocus}</p></div>}
+              <Modal open onClose={() => setRvSummaryViewOfficialId(null)} title={`Summary — ${name}`} description={role}>
+                <div className="grid gap-4">
+                  {hasSummaryText && (
+                    <div className="grid gap-3">
+                      {s?.positives && <div><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="whitespace-pre-wrap text-sm text-text">{s.positives}</p></div>}
+                      {s?.workOns && <div><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-sm text-text">{s.workOns}</p></div>}
+                      {s?.nextFocus && <div><p className="mb-0.5 text-[11px] text-muted">Focus for next game</p><p className="whitespace-pre-wrap text-sm text-text">{s.nextFocus}</p></div>}
+                    </div>
+                  )}
+                  <div>
+                    <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted">Development Goals</p>
+                    <ReviewDevelopmentPanel
+                      compact
+                      session={SESSION_EDUCATOR}
+                      review={REVIEWER_REVIEW}
+                      refereeId={id}
+                      refereeName={name}
+                      activeGoals={REVIEWER_GOALS.filter(g => g.refereeId === id && g.status === "Active")}
+                      reviewGoalLinks={REVIEWER_GOAL_LINKS}
+                      onCreateGoalFromReview={() => {}}
+                      onLinkReviewToGoal={() => {}}
+                      onUnlinkReviewFromGoal={() => {}}
+                    />
+                  </div>
                 </div>
               </Modal>
             );
