@@ -12,11 +12,15 @@ type HeaderProps = ComponentProps<typeof Header>;
 // Header.tsx) — this wrapper only adds the padded content region RefEval
 // never had, since screens here are conditional branches of one component
 // rather than routed pages with a shared layout.
-export function AppShell({ children, ...headerProps }: HeaderProps & { children: ReactNode }) {
+export function AppShell({
+  children,
+  contentClassName,
+  ...headerProps
+}: HeaderProps & { children: ReactNode; /** Overrides the default page gutter — for screens (e.g. the video-first reviewer workspace) that need a tighter or custom content inset. */ contentClassName?: string }) {
   return (
     <main>
       <Header {...headerProps} />
-      <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+      <div className={contentClassName ?? "p-4 sm:p-6 lg:p-8"}>{children}</div>
     </main>
   );
 }

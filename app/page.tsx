@@ -2375,87 +2375,19 @@ export default function Home() {
     ] as [string, string, string][]
   ).filter(([id]) => !!id);
 
-  return <AppShell session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} orgLogoUrl={orgSettings.settings.branding.logoUrl} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} hideSidebar>
+  return <AppShell session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} orgLogoUrl={orgSettings.settings.branding.logoUrl} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} hideSidebar contentClassName="p-3 lg:p-4">
 
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_380px] lg:items-start">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-4">
 
-      {/* ── LEFT — video-first analysis surface ───────────────────────── */}
-      <div className="grid min-w-0 grid-cols-1 gap-4">
-
-        {/* Compact review heading/context */}
-        <div className="min-w-0">
-          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Evaluation</p>
-          <h1 className="truncate text-xl font-bold text-text">{reviewGame || "Untitled Review"}</h1>
-          <p className="mt-1 text-sm text-muted">Status: {activeReview?.status || "In Review"}</p>
-        </div>
-
-        {/* Video + timeline — one connected analysis surface */}
-        <div>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
-            <div className="mode-switch">
-              <button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button>
-              <button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-              <span className="truncate font-semibold text-text">{reviewGame && reviewGame !== "New Review" ? reviewGame : "Untitled Review"}</span>
-              {reviewGameDate && <span>· {reviewGameDate}</span>}
-              {reviewVideoLink ? <span>· 🎥 Video</span> : <span className="text-yellow-300/70">· No video</span>}
-            </div>
-          </div>
-
-          {mode === "video" ? (
-            <>
-              <div className="reviewer-controls">
-                <div className="review-mode-group">
-                  <label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label>
-                </div>
-                <div className="playback-group">
-                  <button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button>
-                  <button className="playback-btn play-pause-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button>
-                  <button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button>
-                </div>
-                <Button variant="primary" className="gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button>
+      {/* ── LEFT — video + timeline only ──────────────────────────────── */}
+      <div className="min-w-0">
+        {mode === "video" ? (
+          <>
+            <div className="w-full overflow-hidden rounded-2xl border border-border bg-panel">
+              <div style={{ aspectRatio: "16/9" }}>
+                {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block"}} onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
               </div>
-
-              <div className="mx-auto w-full overflow-hidden rounded-2xl border border-border bg-panel" style={{ maxWidth: "calc(66vh * 16 / 9)" }}>
-                <div style={{ aspectRatio: "16/9" }}>
-                  {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block"}} onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
-                </div>
-                <div className="border-t border-border px-3 py-2">
-                  <div className="timeline" style={{ margin: "8px 0" }}>
-                    <div className="progress" style={{ width: `${progressPct}%` }} />
-                    {timelineMarkers.map(m => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        className={"marker-hit" + (selectedTagId === m.id ? " marker-hit--active" : "")}
-                        title={m.label}
-                        aria-label={m.label}
-                        style={{ left: `${m.left}%` }}
-                        onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }}
-                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }}
-                      >
-                        <span className="marker-bar" style={{ background: m.color }} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              {usingYouTubeVideo && <p className="hint mt-1 text-center" style={{fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}
-            </>
-          ) : (
-            <>
-              <div className="timer-card">
-                <div className="timer">{formatTime(timerSeconds)}</div>
-                <div className="toolbar">
-                  <button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button>
-                  <button onClick={() => setTimerSeconds(0)}>Reset</button>
-                  <button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button>
-                  <button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button>
-                </div>
-                <p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p>
-              </div>
-              <div className="mt-3 rounded-2xl border border-border bg-panel px-3 py-2">
+              <div className="border-t border-border px-3 py-2">
                 <div className="timeline" style={{ margin: "8px 0" }}>
                   <div className="progress" style={{ width: `${progressPct}%` }} />
                   {timelineMarkers.map(m => (
@@ -2474,28 +2406,49 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-            </>
-          )}
-        </div>
-
-        {mode === "non-video" && (
-          <Card className="shadow-none">
-            <h2 className="mb-2 text-sm font-bold text-text">Non-video hotkeys</h2>
-            <div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div>
-          </Card>
+            </div>
+            {usingYouTubeVideo && <p className="hint mt-1 text-center" style={{fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}
+          </>
+        ) : (
+          <>
+            <div className="timer-card" style={{textAlign:"center"}}>
+              <div className="timer">{formatTime(timerSeconds)}</div>
+            </div>
+            <div className="mt-3 rounded-2xl border border-border bg-panel px-3 py-2">
+              <div className="timeline" style={{ margin: "8px 0" }}>
+                <div className="progress" style={{ width: `${progressPct}%` }} />
+                {timelineMarkers.map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={"marker-hit" + (selectedTagId === m.id ? " marker-hit--active" : "")}
+                    title={m.label}
+                    aria-label={m.label}
+                    style={{ left: `${m.left}%` }}
+                    onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }}
+                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }}
+                  >
+                    <span className="marker-bar" style={{ background: m.color }} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
         )}
       </div>
 
-      {/* ── RIGHT — compact coaching console ──────────────────────────── */}
-      <div className="grid min-w-0 grid-cols-1 gap-4 lg:sticky lg:top-4">
+      {/* ── RIGHT — coaching console (every review control lives here) ─── */}
+      <div className="grid min-w-0 grid-cols-1 gap-3 lg:sticky lg:top-[120px] lg:h-[calc(100vh-136px)] lg:gap-3 lg:overflow-y-auto lg:pr-1">
 
-        {/* Game Details */}
+        {/* 1. Game details */}
         <div className="rounded-2xl border border-border p-4">
           <div className="mb-2.5 flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Details</p>
             <Button variant="secondary" size="sm" onClick={()=>setSetupModalOpen(true)}>✏️ Edit</Button>
           </div>
           <div className="grid gap-2 text-sm">
+            <div className="min-w-0"><span className="font-semibold text-text">Game</span>{" "}<span className="text-muted">{reviewGame || "Untitled Review"}</span></div>
+            <div><span className="font-semibold text-text">Status</span>{" "}<span className="text-muted">{activeReview?.status || "In Review"}</span></div>
             <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{activeReview?.educatorName || session?.profile.name || "—"}</span></div>
             {reviewGameDate && <div><span className="font-semibold text-text">Date</span>{" "}<span className="text-muted">{reviewGameDate}</span></div>}
             <div><span className="font-semibold text-text">Video</span>{" "}<span className={reviewVideoLink ? "text-muted" : "text-yellow-300/70"}>{reviewVideoLink ? "Linked" : "No video"}</span></div>
@@ -2512,7 +2465,52 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Review Actions */}
+        {/* 2. Review mode */}
+        <div className="rounded-2xl border border-border p-4">
+          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Mode</p>
+          <div className="mode-switch" style={{display:"flex", width:"100%"}}>
+            <button style={{flex:1}} className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button>
+            <button style={{flex:1}} className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button>
+          </div>
+        </div>
+
+        {/* 3. Playback controls */}
+        <div className="rounded-2xl border border-border p-4">
+          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Playback Controls</p>
+          {mode === "video" ? (
+            <div className="grid gap-2">
+              <div className="review-mode-group" style={{width:"100%"}}>
+                <label className="file-picker" style={{width:"100%", justifyContent:"center"}}>Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label>
+              </div>
+              <div className="playback-group" style={{display:"flex", width:"100%"}}>
+                <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button>
+                <button className="playback-btn play-pause-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button>
+                <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <div className="toolbar">
+                <button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button>
+                <button onClick={() => setTimerSeconds(0)}>Reset</button>
+                <button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button>
+                <button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button>
+              </div>
+              <p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p>
+              <div className="mt-1 border-t border-border pt-3">
+                <h2 className="mb-2 text-sm font-bold text-text">Non-video hotkeys</h2>
+                <div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 4. Tag Moment */}
+        {mode === "video" && (
+          <Button variant="primary" className="w-full justify-center gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button>
+        )}
+
+        {/* 5. Review actions */}
         <div className="rounded-2xl border border-border p-4">
           <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
           <div className="grid gap-1.5">
@@ -2522,7 +2520,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Clips */}
+        {/* 6. Clips */}
         <div className="rounded-2xl border border-border p-4">
           <div className="mb-2.5 flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Clips</p>
@@ -2553,7 +2551,7 @@ export default function Home() {
           <Button variant="danger" size="sm" className="mt-2.5 w-full justify-center gap-1.5" onClick={() => setConfirmClearTags(true)}><Trash2 size={14} /> Clear Tags</Button>
         </div>
 
-        {/* Statistics */}
+        {/* 7. Statistics */}
         <div className="rounded-2xl border border-border p-4">
           <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Statistics</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -2576,7 +2574,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Development */}
+        {/* 8. Development */}
         {activeReview && session && (()=>{
           const slots: Array<{id:string; name:string}> = [
             {id: activeReview.referee1Id, name: activeReview.referee1Name},
@@ -2618,7 +2616,7 @@ export default function Home() {
           );
         })()}
 
-        {/* Game Summary */}
+        {/* 9. Game Summary */}
         {summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&(activeReview.officialSummaries[id].positives||activeReview.officialSummaries[id].workOns)) && (
           <div className="grid gap-3 rounded-2xl border border-border p-4">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Summary</p>
@@ -2626,7 +2624,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Final Recommendations */}
+        {/* 10. Final Recommendations */}
         {summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]?.nextFocus) && (
           <div className="grid gap-3 rounded-2xl border border-border p-4">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Final Recommendations</p>
