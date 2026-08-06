@@ -87,7 +87,7 @@ import { TaggedClipsModal } from "@/components/reviewer/TaggedClipsModal";
 import { resolveClipBounds, formatClipTime, CLIP_PRE_ROLL, CLIP_DEFAULT_POST_ROLL } from "@/lib/utils/clipBounds";
 import { useUnreadCounts } from "@/lib/hooks/useUnreadCounts";
 import type { Screen } from "@/lib/types/auth";
-import type { ReviewRecord, CodedTag, Mode, RefSlot, OfficialSummaries, OfficialSummary } from "@/lib/types/reviews";
+import type { ReviewRecord, CodedTag, RefSlot, OfficialSummaries, OfficialSummary } from "@/lib/types/reviews";
 
 const OUTCOMES = ["Correct Call", "Correct No Call", "Incorrect Call", "Incorrect No Call", "Review"];
 const OUTCOME_COLOR: Record<string, { color: string; bg: string; border: string }> = {
@@ -108,15 +108,6 @@ const SPECIFIC_TAGS: Record<string, string[]> = {
 const POSITIONS = ["Trail", "Lead", "Centre"];
 const COVERAGE = ["Primary", "Secondary", "Extended"];
 const REF_SLOTS: RefSlot[] = ["All Referees", "Referee 1", "Referee 2", "Referee 3"];
-
-const NON_VIDEO_KEYS: Record<string, Partial<CodedTag>> = {
-  "1": { outcome: "Correct Call" }, "2": { outcome: "Correct No Call" },
-  "3": { outcome: "Incorrect Call" }, "4": { outcome: "Incorrect No Call" },
-  f: { category: "Foul - Personal" }, u: { category: "Foul - Flagrant" },
-  d: { category: "Foul - Disruptive" }, t: { category: "Violation - Travel" },
-  v: { category: "Violation - Other" }, r: { outcome: "Review" },
-};
-const KEY_LABELS = [["1", "Correct Call"], ["2", "Correct No Call"], ["3", "Incorrect Call"], ["4", "Incorrect No Call"], ["F", "Foul"], ["U", "Flagrant"], ["D", "Disruptive"], ["T", "Travel"], ["V", "Violation"], ["R", "Review"]];
 
 function csvEscape(value: unknown) { return `"${String(value ?? "").replaceAll('"', '""')}"`; }
 function slotName(slot: RefSlot, r?: ReviewRecord) {
@@ -485,15 +476,12 @@ export default function Home() {
   );
 
   // --- UI state ---
-  const [mode, setMode] = useState<Mode>("video");
   const [analyticsTarget, setAnalyticsTarget] = useState<RefSlot>("All Referees");
   const [videoCurrent, setVideoCurrent] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
   const [youtubeCurrent, setYoutubeCurrent] = useState(0);
   const [youtubeDuration, setYoutubeDuration] = useState(0);
   const [youtubeReady, setYoutubeReady] = useState(false);
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [timerRunning, setTimerRunning] = useState(false);
 
   const [codingOpen, setCodingOpen] = useState(false);
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
@@ -607,11 +595,11 @@ export default function Home() {
 
   const activeVideoLink = reviewVideoLink || activeReview?.videoLink || "";
   const youtubeVideoId = getYouTubeId(activeVideoLink);
-  const usingYouTubeVideo = mode === "video" && !!youtubeVideoId;
-  const isUnsupportedVideo = mode === "video" && !!activeVideoLink && !youtubeVideoId && !isDirectVideoUrl(activeVideoLink);
-  const currentSeconds = mode === "video" ? (usingYouTubeVideo ? youtubeCurrent : videoCurrent) : timerSeconds;
+  const usingYouTubeVideo = !!youtubeVideoId;
+  const isUnsupportedVideo = !!activeVideoLink && !youtubeVideoId && !isDirectVideoUrl(activeVideoLink);
+  const currentSeconds = usingYouTubeVideo ? youtubeCurrent : videoCurrent;
   const maxTagSeconds = reviewTags.reduce((max, t) => Math.max(max, t.seconds), 0);
-  const scaleSeconds = mode === "video" ? (usingYouTubeVideo ? youtubeDuration || Math.max(60, maxTagSeconds) : videoDuration || Math.max(60, maxTagSeconds)) : Math.max(60, timerSeconds, maxTagSeconds);
+  const scaleSeconds = usingYouTubeVideo ? youtubeDuration || Math.max(60, maxTagSeconds) : videoDuration || Math.max(60, maxTagSeconds);
   const progressPct = Math.min(100, (currentSeconds / scaleSeconds) * 100 || 0);
 
   // Pre-compute timeline marker data. Must stay above all early returns (Rules of Hooks).
@@ -676,21 +664,14 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [usingYouTubeVideo, screen]);
 
-  useEffect(() => {
-    if (!timerRunning || mode !== "non-video") return;
-    const interval = setInterval(() => setTimerSeconds(s => s + 0.2), 200);
-    return () => clearInterval(interval);
-  }, [timerRunning, mode]);
-
-
   // --- Tag / coding helpers ---
   function resetDrafts() {
     setDraftRefereeTarget("All Referees"); setDraftExtraOfficials([]); setDraftOutcome(""); setDraftCategoryGroup(""); setDraftSpecificTag(""); setDraftCategory(""); setDraftPosition(""); setDraftCoverage(""); setDraftNotes(""); setDraftIsLearningClip(false); setDraftStartSeconds(0); setDraftEndSeconds(null); setClipViewportStart(0); setClipViewportEnd(120); setCodingError("");
   }
 
-  function buildTag(baseSeconds: number, tagMode: Mode, patch: Partial<CodedTag>): CodedTag {
+  function buildTag(baseSeconds: number, patch: Partial<CodedTag>): CodedTag {
     const seconds = Math.max(0, baseSeconds);
-    // adjustedSeconds = incident timestamp for ALL new clips (both video and non-video)
+    // adjustedSeconds = incident timestamp for all new clips
     const adjustedSeconds = Math.max(0, seconds + Number(activeReview?.timestampOffset || 0));
     const startTimeSeconds = draftStartSeconds;
     const primary = patch.refereeTarget || draftRefereeTarget || "All Referees";
@@ -701,7 +682,7 @@ export default function Home() {
       organisationId: activeReview?.organisationId || session?.activeOrganisation?.id || "",
       seconds, time: formatTime(seconds), adjustedSeconds, adjustedTime: formatTime(adjustedSeconds),
       startTimeSeconds,
-      mode: tagMode, refereeTarget: primary, extraReviewOfficials: extras,
+      mode: "video", refereeTarget: primary, extraReviewOfficials: extras,
       clipOfficials: [{ slot: primary, type: "Call" }, ...extras.map(slot => ({ slot, type: "Review" as const }))],
       timestampLink: makeTimestampLink(activeReview?.videoLink || "", adjustedSeconds),
       outcome: patch.outcome, category: patch.category, position: patch.position, coverage: patch.coverage, notes: patch.notes,
@@ -712,9 +693,8 @@ export default function Home() {
   }
 
   function getCurrentCodingSeconds(): number {
-    if (mode === "video" && usingYouTubeVideo && youtubePlayerRef.current?.getCurrentTime) return youtubePlayerRef.current.getCurrentTime() || 0;
-    if (mode === "video") return videoRef.current?.currentTime ?? videoCurrent;
-    return timerSeconds;
+    if (usingYouTubeVideo && youtubePlayerRef.current?.getCurrentTime) return youtubePlayerRef.current.getCurrentTime() || 0;
+    return videoRef.current?.currentTime ?? videoCurrent;
   }
 
   function playbackSeconds() {
@@ -805,7 +785,7 @@ export default function Home() {
       coverage: draftCoverage, notes: draftNotes, isLearningClip: draftIsLearningClip,
       createdAt: editingTagId ? tags.find(t => t.id === editingTagId)?.createdAt : undefined,
     };
-    const tag = buildTag(codingSecond, "video", patch);
+    const tag = buildTag(codingSecond, patch);
     await upsertClip(tag);
     if (editingTagId) setTags(items => items.map(item => item.id === editingTagId ? tag : item));
     else setTags(items => [...items, tag]);
@@ -815,23 +795,14 @@ export default function Home() {
     if (shouldResumeVideo) playActiveVideo();
   }
 
-  async function quickNonVideoTag(patch: Partial<CodedTag>) {
-    saveReviewMeta();
-    const tag = buildTag(timerSeconds, "non-video", { ...patch, refereeTarget: "All Referees", extraReviewOfficials: [] });
-    setTags(items => [...items, tag]);
-    await upsertClip(tag);
-  }
-
   function toggleExtra(slot: RefSlot) {
     if (slot === draftRefereeTarget) return;
     setDraftExtraOfficials(items => items.includes(slot) ? items.filter(i => i !== slot) : [...items, slot]);
   }
 
   function jump(seconds: number) {
-    if (mode === "video") {
-      if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { youtubePlayerRef.current.seekTo(seconds, true); youtubePlayerRef.current.playVideo?.(); setYoutubeCurrent(seconds); }
-      else if (videoRef.current) { videoRef.current.currentTime = seconds; videoRef.current.play(); }
-    } else setTimerSeconds(seconds);
+    if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { youtubePlayerRef.current.seekTo(seconds, true); youtubePlayerRef.current.playVideo?.(); setYoutubeCurrent(seconds); }
+    else if (videoRef.current) { videoRef.current.currentTime = seconds; videoRef.current.play(); }
   }
 
   // Auto-open setup modal when a brand-new review is opened
@@ -950,15 +921,12 @@ export default function Home() {
       if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || screen !== "reviewer") return;
       if (e.code === "Space") {
         e.preventDefault();
-        if (mode === "video") {
-          if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) {
-            youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo();
-          } else { const video = videoRef.current; if (!video) return; video.paused ? video.play() : video.pause(); }
-        } else setTimerRunning(r => !r);
+        if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) {
+          youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo();
+        } else { const video = videoRef.current; if (!video) return; video.paused ? video.play() : video.pause(); }
         return;
       }
-      if (mode === "video" && e.key.toLowerCase() === "x") { e.preventDefault(); openVideoCoding(); return; }
-      if (mode === "non-video") { const patch = NON_VIDEO_KEYS[e.key.toLowerCase()]; if (patch) { e.preventDefault(); quickNonVideoTag(patch); } }
+      if (e.key.toLowerCase() === "x") { e.preventDefault(); openVideoCoding(); return; }
     }
     window.addEventListener("keydown", onKeyDown); return () => window.removeEventListener("keydown", onKeyDown);
   });
@@ -2381,60 +2349,31 @@ export default function Home() {
 
       {/* ── LEFT — video + timeline only ──────────────────────────────── */}
       <div className="min-w-0">
-        {mode === "video" ? (
-          <>
-            <div className="w-full overflow-hidden rounded-2xl border border-border bg-panel">
-              <div style={{ aspectRatio: "16/9" }}>
-                {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block"}} onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
-              </div>
-              <div className="border-t border-border px-3 py-2">
-                <div className="timeline" style={{ margin: "8px 0" }}>
-                  <div className="progress" style={{ width: `${progressPct}%` }} />
-                  {timelineMarkers.map(m => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className={"marker-hit" + (selectedTagId === m.id ? " marker-hit--active" : "")}
-                      title={m.label}
-                      aria-label={m.label}
-                      style={{ left: `${m.left}%` }}
-                      onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }}
-                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }}
-                    >
-                      <span className="marker-bar" style={{ background: m.color }} />
-                    </button>
-                  ))}
-                </div>
-              </div>
+        <div className="w-full overflow-hidden rounded-2xl border border-border bg-panel">
+          <div style={{ aspectRatio: "16/9" }}>
+            {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block"}} onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
+          </div>
+          <div className="border-t border-border px-3 py-2">
+            <div className="timeline" style={{ margin: "8px 0" }}>
+              <div className="progress" style={{ width: `${progressPct}%` }} />
+              {timelineMarkers.map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={"marker-hit" + (selectedTagId === m.id ? " marker-hit--active" : "")}
+                  title={m.label}
+                  aria-label={m.label}
+                  style={{ left: `${m.left}%` }}
+                  onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }}
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }}
+                >
+                  <span className="marker-bar" style={{ background: m.color }} />
+                </button>
+              ))}
             </div>
-            {usingYouTubeVideo && <p className="hint mt-1 text-center" style={{fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}
-          </>
-        ) : (
-          <>
-            <div className="timer-card" style={{textAlign:"center"}}>
-              <div className="timer">{formatTime(timerSeconds)}</div>
-            </div>
-            <div className="mt-3 rounded-2xl border border-border bg-panel px-3 py-2">
-              <div className="timeline" style={{ margin: "8px 0" }}>
-                <div className="progress" style={{ width: `${progressPct}%` }} />
-                {timelineMarkers.map(m => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className={"marker-hit" + (selectedTagId === m.id ? " marker-hit--active" : "")}
-                    title={m.label}
-                    aria-label={m.label}
-                    style={{ left: `${m.left}%` }}
-                    onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }}
-                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }}
-                  >
-                    <span className="marker-bar" style={{ background: m.color }} />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
+          </div>
+        </div>
+        {usingYouTubeVideo && <p className="hint mt-1 text-center" style={{fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}
       </div>
 
       {/* ── RIGHT — coaching console (every review control lives here) ─── */}
@@ -2465,52 +2404,20 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 2. Review mode */}
+        {/* 2. Playback controls */}
         <div className="rounded-2xl border border-border p-4">
-          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Mode</p>
-          <div className="mode-switch" style={{display:"flex", width:"100%"}}>
-            <button style={{flex:1}} className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button>
-            <button style={{flex:1}} className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button>
+          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Playback Controls</p>
+          <div className="playback-group" style={{display:"flex", width:"100%"}}>
+            <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button>
+            <button className="playback-btn play-pause-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button>
+            <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button>
           </div>
         </div>
 
-        {/* 3. Playback controls */}
-        <div className="rounded-2xl border border-border p-4">
-          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Playback Controls</p>
-          {mode === "video" ? (
-            <div className="grid gap-2">
-              <div className="review-mode-group" style={{width:"100%"}}>
-                <label className="file-picker" style={{width:"100%", justifyContent:"center"}}>Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label>
-              </div>
-              <div className="playback-group" style={{display:"flex", width:"100%"}}>
-                <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button>
-                <button className="playback-btn play-pause-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button>
-                <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-2">
-              <div className="toolbar">
-                <button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button>
-                <button onClick={() => setTimerSeconds(0)}>Reset</button>
-                <button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button>
-                <button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button>
-              </div>
-              <p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p>
-              <div className="mt-1 border-t border-border pt-3">
-                <h2 className="mb-2 text-sm font-bold text-text">Non-video hotkeys</h2>
-                <div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* 3. Tag Moment */}
+        <Button variant="primary" className="w-full justify-center gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button>
 
-        {/* 4. Tag Moment */}
-        {mode === "video" && (
-          <Button variant="primary" className="w-full justify-center gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button>
-        )}
-
-        {/* 5. Review actions */}
+        {/* 4. Review actions */}
         <div className="rounded-2xl border border-border p-4">
           <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
           <div className="grid gap-1.5">
@@ -2520,7 +2427,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 6. Clips */}
+        {/* 5. Clips */}
         <div className="rounded-2xl border border-border p-4">
           <div className="mb-2.5 flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Clips</p>
@@ -2551,7 +2458,7 @@ export default function Home() {
           <Button variant="danger" size="sm" className="mt-2.5 w-full justify-center gap-1.5" onClick={() => setConfirmClearTags(true)}><Trash2 size={14} /> Clear Tags</Button>
         </div>
 
-        {/* 7. Statistics */}
+        {/* 6. Statistics */}
         <div className="rounded-2xl border border-border p-4">
           <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Statistics</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -2574,7 +2481,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 8. Development */}
+        {/* 7. Development */}
         {activeReview && session && (()=>{
           const slots: Array<{id:string; name:string}> = [
             {id: activeReview.referee1Id, name: activeReview.referee1Name},
@@ -2616,7 +2523,7 @@ export default function Home() {
           );
         })()}
 
-        {/* 9. Game Summary */}
+        {/* 8. Game Summary */}
         {summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&(activeReview.officialSummaries[id].positives||activeReview.officialSummaries[id].workOns)) && (
           <div className="grid gap-3 rounded-2xl border border-border p-4">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Summary</p>
@@ -2624,7 +2531,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* 10. Final Recommendations */}
+        {/* 9. Final Recommendations */}
         {summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]?.nextFocus) && (
           <div className="grid gap-3 rounded-2xl border border-border p-4">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Final Recommendations</p>

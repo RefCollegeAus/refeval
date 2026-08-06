@@ -241,9 +241,6 @@ const REVIEWER_COMMENT_COUNTS: Record<string, number> = {
   [`${REVIEWER_REVIEW.id}::rtag-2`]: 3,
 };
 
-// Mirrors app/page.tsx's local KEY_LABELS — non-video hotkey legend.
-const RV_KEY_LABELS = [["1", "Correct Call"], ["2", "Correct No Call"], ["3", "Incorrect Call"], ["4", "Incorrect No Call"], ["F", "Foul"], ["U", "Flagrant"], ["D", "Disruptive"], ["T", "Travel"], ["V", "Violation"], ["R", "Review"]];
-
 const REVIEWER_GOAL_LINKS: ReviewGoalLink[] = [
   { id: "rvrgl-1", organisationId: ORG_ID, reviewId: REVIEWER_REVIEW.id, goalDefId: "rvdef-1", refereeId: "user-alex", linkedAt: daysAgo(2), linkedBy: "user-jamie", createdGoalFromReview: false },
 ];
@@ -298,7 +295,6 @@ export default function ScreenFixturesPage() {
   const [onboardingDismissed] = useState(true);
 
   // ── Reviewer Workspace fixture (duplicated JSX — see file header note) ────
-  const [rvMode, setRvMode] = useState<"video" | "non-video">("video");
   const [rvAnalyticsTarget, setRvAnalyticsTarget] = useState<RefSlot>("All Referees");
   const [rvSelectedTagId, setRvSelectedTagId] = useState<string | null>(null);
   const [rvActiveCommentTagId, setRvActiveCommentTagId] = useState<string | null>(null);
@@ -557,57 +553,31 @@ export default function ScreenFixturesPage() {
 
             {/* LEFT — video + timeline only */}
             <div className="min-w-0">
-              {rvMode === "video" ? (
-                <div className="w-full overflow-hidden rounded-2xl border border-border bg-panel">
-                  <div style={{ aspectRatio: "16/9" }}>
-                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>
-                      Video preview area (fixture — playback not simulated)
-                    </div>
-                  </div>
-                  <div className="border-t border-border px-3 py-2">
-                    <div className="timeline" style={{ margin: "8px 0" }}>
-                      <div className="progress" style={{ width: "62%" }} />
-                      {rvTimelineMarkers.map(m => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          className={"marker-hit" + (rvSelectedTagId === m.id ? " marker-hit--active" : "")}
-                          title={m.label}
-                          aria-label={m.label}
-                          style={{ left: `${m.left}%` }}
-                          onClick={() => setRvSelectedTagId(m.id)}
-                        >
-                          <span className="marker-bar" style={{ background: m.color }} />
-                        </button>
-                      ))}
-                    </div>
+              <div className="w-full overflow-hidden rounded-2xl border border-border bg-panel">
+                <div style={{ aspectRatio: "16/9" }}>
+                  <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>
+                    Video preview area (fixture — playback not simulated)
                   </div>
                 </div>
-              ) : (
-                <>
-                  <div className="timer-card" style={{ textAlign: "center" }}>
-                    <div className="timer">00:00</div>
+                <div className="border-t border-border px-3 py-2">
+                  <div className="timeline" style={{ margin: "8px 0" }}>
+                    <div className="progress" style={{ width: "62%" }} />
+                    {rvTimelineMarkers.map(m => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={"marker-hit" + (rvSelectedTagId === m.id ? " marker-hit--active" : "")}
+                        title={m.label}
+                        aria-label={m.label}
+                        style={{ left: `${m.left}%` }}
+                        onClick={() => setRvSelectedTagId(m.id)}
+                      >
+                        <span className="marker-bar" style={{ background: m.color }} />
+                      </button>
+                    ))}
                   </div>
-                  <div className="mt-3 rounded-2xl border border-border bg-panel px-3 py-2">
-                    <div className="timeline" style={{ margin: "8px 0" }}>
-                      <div className="progress" style={{ width: "62%" }} />
-                      {rvTimelineMarkers.map(m => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          className={"marker-hit" + (rvSelectedTagId === m.id ? " marker-hit--active" : "")}
-                          title={m.label}
-                          aria-label={m.label}
-                          style={{ left: `${m.left}%` }}
-                          onClick={() => setRvSelectedTagId(m.id)}
-                        >
-                          <span className="marker-bar" style={{ background: m.color }} />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
+                </div>
+              </div>
             </div>
 
             {/* RIGHT — coaching console */}
@@ -638,46 +608,15 @@ export default function ScreenFixturesPage() {
               </div>
 
               <div className="rounded-2xl border border-border p-4">
-                <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Mode</p>
-                <div className="mode-switch" style={{ display: "flex", width: "100%" }}>
-                  <button style={{ flex: 1 }} className={rvMode === "video" ? "primary" : ""} onClick={() => setRvMode("video")}>Video Review</button>
-                  <button style={{ flex: 1 }} className={rvMode === "non-video" ? "primary" : ""} onClick={() => setRvMode("non-video")}>Non-Video Mode</button>
+                <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Playback Controls</p>
+                <div className="playback-group" style={{ display: "flex", width: "100%" }}>
+                  <button className="playback-btn" style={{ flex: 1 }}>← 5s</button>
+                  <button className="playback-btn play-pause-btn" style={{ flex: 1 }}><Play size={15} /><Pause size={15} /></button>
+                  <button className="playback-btn" style={{ flex: 1 }}>5s →</button>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border p-4">
-                <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Playback Controls</p>
-                {rvMode === "video" ? (
-                  <div className="grid gap-2">
-                    <div className="review-mode-group" style={{ width: "100%" }}>
-                      <label className="file-picker" style={{ width: "100%", justifyContent: "center" }}>Upload Local Video<input type="file" accept="video/*" readOnly /></label>
-                    </div>
-                    <div className="playback-group" style={{ display: "flex", width: "100%" }}>
-                      <button className="playback-btn" style={{ flex: 1 }}>← 5s</button>
-                      <button className="playback-btn play-pause-btn" style={{ flex: 1 }}><Play size={15} /><Pause size={15} /></button>
-                      <button className="playback-btn" style={{ flex: 1 }}>5s →</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid gap-2">
-                    <div className="toolbar">
-                      <button className="primary">Start Timer</button>
-                      <button>Reset</button>
-                      <button>-10s</button>
-                      <button>+10s</button>
-                    </div>
-                    <p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p>
-                    <div className="mt-1 border-t border-border pt-3">
-                      <h2 className="mb-2 text-sm font-bold text-text">Non-video hotkeys</h2>
-                      <div className="hotkey-grid">{RV_KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {rvMode === "video" && (
-                <Button variant="primary" className="w-full justify-center gap-1.5"><TagIcon size={14} /> Tag Moment</Button>
-              )}
+              <Button variant="primary" className="w-full justify-center gap-1.5"><TagIcon size={14} /> Tag Moment</Button>
 
               <div className="rounded-2xl border border-border p-4">
                 <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
