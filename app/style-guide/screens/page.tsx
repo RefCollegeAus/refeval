@@ -42,7 +42,7 @@ import { TeamManagementScreen } from "@/components/admin/TeamManagementScreen";
 import { UserProfileScreen } from "@/components/admin/UserProfileScreen";
 import { PageFrame } from "@/components/shell/PageFrame";
 import { TaggedClipsModal } from "@/components/reviewer/TaggedClipsModal";
-import { Badge, Button, Card, EmptyState, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tabs } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Modal, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tabs } from "@/components/ui";
 import { makeAnalytics } from "@/lib/utils/analytics";
 import { makeDefaultSettings } from "@/lib/types/organisationSettings";
 import type { RefEvalSession } from "@/lib/types/auth";
@@ -299,6 +299,7 @@ export default function ScreenFixturesPage() {
   const [rvSelectedTagId, setRvSelectedTagId] = useState<string | null>(null);
   const [rvActiveCommentTagId, setRvActiveCommentTagId] = useState<string | null>(null);
   const [rvClipsModalOpen, setRvClipsModalOpen] = useState(false);
+  const [rvSummaryViewOfficialId, setRvSummaryViewOfficialId] = useState<string | null>(null);
 
   function rvSlotName(slot: RefSlot, r?: ReviewRecord) {
     if (!r) return slot;
@@ -598,9 +599,25 @@ export default function ScreenFixturesPage() {
                     <div>
                       <span className="font-semibold text-text">Officials</span>
                       <div className="mt-0.5 grid gap-0.5">
-                        {rvSummarySlots.map(([id, name, role]) => (
-                          <div key={id} className="text-muted">{name} <span className="text-muted/70">— {role}</span></div>
-                        ))}
+                        {rvSummarySlots.map(([id, name, role]) => {
+                          const s = REVIEWER_REVIEW.officialSummaries?.[id];
+                          const hasSummary = !!(s && (s.positives || s.workOns || s.nextFocus));
+                          return (
+                            <div key={id} className="flex items-center justify-between gap-2 text-muted">
+                              <span className="truncate">{name} <span className="text-muted/70">— {role}</span></span>
+                              {hasSummary && (
+                                <button
+                                  type="button"
+                                  onClick={() => setRvSummaryViewOfficialId(id)}
+                                  aria-label={`View game summary for ${name}`}
+                                  className="shrink-0 rounded-md p-1 text-muted hover:bg-panel-3 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                                >
+                                  <Eye size={14} />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -720,20 +737,6 @@ export default function ScreenFixturesPage() {
                 ) : null}
               </div>
 
-              {rvSummarySlots.some(([id])=>REVIEWER_REVIEW.officialSummaries?.[id]&&(REVIEWER_REVIEW.officialSummaries[id].positives||REVIEWER_REVIEW.officialSummaries[id].workOns)) && (
-                <div className="grid gap-3 rounded-2xl border border-border p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Summary</p>
-                  {rvSummarySlots.map(([id,name,role])=>{const s=REVIEWER_REVIEW.officialSummaries?.[id];return s&&(s.positives||s.workOns)?<div key={id} className="border-b border-border pb-3 last:border-b-0 last:pb-0"><p className="mb-1.5 font-bold text-text">{name} <span className="font-normal text-muted">· {role}</span></p>{s.positives&&<><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="mb-1.5 whitespace-pre-wrap text-[13px] text-text">{s.positives}</p></>}{s.workOns&&<><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-[13px] text-text">{s.workOns}</p></>}</div>:null})}
-                </div>
-              )}
-
-              {rvSummarySlots.some(([id])=>REVIEWER_REVIEW.officialSummaries?.[id]?.nextFocus) && (
-                <div className="grid gap-3 rounded-2xl border border-border p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Final Recommendations</p>
-                  {rvSummarySlots.map(([id,name,role])=>{const s=REVIEWER_REVIEW.officialSummaries?.[id];return s&&s.nextFocus?<div key={id} className="border-b border-border pb-3 last:border-b-0 last:pb-0"><p className="mb-1.5 font-bold text-text">{name} <span className="font-normal text-muted">· {role}</span></p><p className="mb-0.5 text-[11px] text-muted">Focus for next game</p><p className="whitespace-pre-wrap text-[13px] text-text">{s.nextFocus}</p></div>:null})}
-                </div>
-              )}
-
             </div>
           </div>
 
@@ -754,6 +757,23 @@ export default function ScreenFixturesPage() {
             session={SESSION_EDUCATOR}
             onCommentsRead={() => {}}
           />
+
+          {(() => {
+            if (!rvSummaryViewOfficialId) return null;
+            const slot = rvSummarySlots.find(([id]) => id === rvSummaryViewOfficialId);
+            const s = REVIEWER_REVIEW.officialSummaries?.[rvSummaryViewOfficialId];
+            if (!slot || !s) return null;
+            const [, name, role] = slot;
+            return (
+              <Modal open onClose={() => setRvSummaryViewOfficialId(null)} title={`Game Summary — ${name}`} description={role}>
+                <div className="grid gap-3">
+                  {s.positives && <div><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="whitespace-pre-wrap text-sm text-text">{s.positives}</p></div>}
+                  {s.workOns && <div><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-sm text-text">{s.workOns}</p></div>}
+                  {s.nextFocus && <div><p className="mb-0.5 text-[11px] text-muted">Focus for next game</p><p className="whitespace-pre-wrap text-sm text-text">{s.nextFocus}</p></div>}
+                </div>
+              </Modal>
+            );
+          })()}
         </div>
       </Section>
 
