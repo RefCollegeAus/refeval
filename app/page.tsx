@@ -531,7 +531,7 @@ export default function Home() {
   const [confirmClearTags, setConfirmClearTags] = useState(false);
   const [clipsModalOpen, setClipsModalOpen] = useState(false);
   const [summaryViewOfficialId, setSummaryViewOfficialId] = useState<string | null>(null);
-  const [gameDetailsExpanded, setGameDetailsExpanded] = useState(false);
+  const [gameDetailsExpanded, setGameDetailsExpanded] = useState(true);
 
   // Focus trap / Escape / scroll-lock for the reviewer workspace's own modals
   // (ConfirmModal already has this; these are the ones built directly on
@@ -2397,15 +2397,18 @@ export default function Home() {
         {/* 2. Game details */}
         <div className="rounded-2xl border border-border p-4">
           <div className={gameDetailsExpanded ? "mb-2.5 flex items-center justify-between gap-2" : "flex items-center justify-between gap-2"}>
-            <button
-              type="button"
-              onClick={() => setGameDetailsExpanded(v => !v)}
-              aria-expanded={gameDetailsExpanded}
-              className="flex min-w-0 items-center gap-1.5 rounded-md text-xs font-bold uppercase tracking-wide text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            >
-              {gameDetailsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              Game Details
-            </button>
+            <div className="flex min-w-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setGameDetailsExpanded(v => !v)}
+                aria-expanded={gameDetailsExpanded}
+                aria-label={gameDetailsExpanded ? "Collapse Game Details" : "Expand Game Details"}
+                className="rounded p-0.5 text-muted/50 hover:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                {gameDetailsExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              </button>
+              <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Details</p>
+            </div>
             <Button variant="secondary" size="sm" onClick={()=>setSetupModalOpen(true)}>✏️ Edit</Button>
           </div>
           {gameDetailsExpanded && (

@@ -300,7 +300,7 @@ export default function ScreenFixturesPage() {
   const [rvActiveCommentTagId, setRvActiveCommentTagId] = useState<string | null>(null);
   const [rvClipsModalOpen, setRvClipsModalOpen] = useState(false);
   const [rvSummaryViewOfficialId, setRvSummaryViewOfficialId] = useState<string | null>(null);
-  const [rvGameDetailsExpanded, setRvGameDetailsExpanded] = useState(false);
+  const [rvGameDetailsExpanded, setRvGameDetailsExpanded] = useState(true);
 
   function rvSlotName(slot: RefSlot, r?: ReviewRecord) {
     if (!r) return slot;
@@ -599,15 +599,18 @@ export default function ScreenFixturesPage() {
 
               <div className="rounded-2xl border border-border p-4">
                 <div className={rvGameDetailsExpanded ? "mb-2.5 flex items-center justify-between gap-2" : "flex items-center justify-between gap-2"}>
-                  <button
-                    type="button"
-                    onClick={() => setRvGameDetailsExpanded(v => !v)}
-                    aria-expanded={rvGameDetailsExpanded}
-                    className="flex min-w-0 items-center gap-1.5 rounded-md text-xs font-bold uppercase tracking-wide text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                  >
-                    {rvGameDetailsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    Game Details
-                  </button>
+                  <div className="flex min-w-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setRvGameDetailsExpanded(v => !v)}
+                      aria-expanded={rvGameDetailsExpanded}
+                      aria-label={rvGameDetailsExpanded ? "Collapse Game Details" : "Expand Game Details"}
+                      className="rounded p-0.5 text-muted/50 hover:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    >
+                      {rvGameDetailsExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    </button>
+                    <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Details</p>
+                  </div>
                   <Button variant="secondary" size="sm">✏️ Edit</Button>
                 </div>
                 {rvGameDetailsExpanded && (
