@@ -2347,13 +2347,13 @@ export default function Home() {
 
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-4">
 
-      {/* ── LEFT — video + timeline only ──────────────────────────────── */}
-      <div className="min-w-0">
-        <div className="w-full overflow-hidden rounded-2xl border border-border bg-panel">
-          <div style={{ aspectRatio: "16/9" }}>
-            {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block"}} onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
+      {/* ── LEFT — video + timeline only, stretches to match the console's height on desktop ── */}
+      <div className="flex min-w-0 flex-col lg:h-[calc(100vh-136px)]">
+        <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel">
+          <div className="aspect-video min-h-0 lg:flex-1">
+            {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block",objectFit:"contain",maxHeight:"none",border:"none",borderRadius:0,marginTop:0,background:"#000"}} onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
           </div>
-          <div className="border-t border-border px-3 py-2">
+          <div className="shrink-0 border-t border-border px-3 py-2">
             <div className="timeline" style={{ margin: "8px 0" }}>
               <div className="progress" style={{ width: `${progressPct}%` }} />
               {timelineMarkers.map(m => (

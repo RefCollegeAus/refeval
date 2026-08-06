@@ -551,15 +551,15 @@ export default function ScreenFixturesPage() {
         <div className="rounded-2xl border border-border p-3 lg:p-4">
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-4">
 
-            {/* LEFT — video + timeline only */}
-            <div className="min-w-0">
-              <div className="w-full overflow-hidden rounded-2xl border border-border bg-panel">
-                <div style={{ aspectRatio: "16/9" }}>
+            {/* LEFT — video + timeline only, stretches to match the console's height on desktop */}
+            <div className="flex min-w-0 flex-col lg:h-[calc(100vh-136px)]">
+              <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel">
+                <div className="aspect-video min-h-0 lg:flex-1">
                   <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>
                     Video preview area (fixture — playback not simulated)
                   </div>
                 </div>
-                <div className="border-t border-border px-3 py-2">
+                <div className="shrink-0 border-t border-border px-3 py-2">
                   <div className="timeline" style={{ margin: "8px 0" }}>
                     <div className="progress" style={{ width: "62%" }} />
                     {rvTimelineMarkers.map(m => (
