@@ -585,6 +585,15 @@ export default function ScreenFixturesPage() {
             <div className="grid min-w-0 grid-cols-1 gap-3 lg:sticky lg:top-[120px] lg:h-[calc(100vh-136px)] lg:gap-3 lg:overflow-y-auto lg:pr-1">
 
               <div className="rounded-2xl border border-border p-4">
+                <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
+                <div className="flex gap-1.5">
+                  <Button variant="secondary" size="sm" className="flex-1 justify-center">← Back</Button>
+                  <Button variant="secondary" size="sm" className="flex-1 justify-center text-yellow-300">Save</Button>
+                  <Button variant="good" size="sm" className="flex-1 justify-center">Submit</Button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border p-4">
                 <div className="mb-2.5 flex items-center justify-between gap-2">
                   <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Details</p>
                   <Button variant="secondary" size="sm">✏️ Edit</Button>
@@ -634,15 +643,6 @@ export default function ScreenFixturesPage() {
               </div>
 
               <Button variant="primary" className="w-full justify-center gap-1.5"><TagIcon size={14} /> Tag Moment</Button>
-
-              <div className="rounded-2xl border border-border p-4">
-                <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
-                <div className="flex gap-1.5">
-                  <Button variant="secondary" size="sm" className="flex-1 justify-center">← Back</Button>
-                  <Button variant="secondary" size="sm" className="flex-1 justify-center text-yellow-300">Save</Button>
-                  <Button variant="good" size="sm" className="flex-1 justify-center">Submit</Button>
-                </div>
-              </div>
 
               <div className="rounded-2xl border border-border p-4">
                 <div className="mb-2.5 flex items-center justify-between gap-2">

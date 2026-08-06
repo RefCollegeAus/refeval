@@ -2380,7 +2380,17 @@ export default function Home() {
       {/* ── RIGHT — coaching console (every review control lives here) ─── */}
       <div className="grid min-w-0 grid-cols-1 gap-3 lg:sticky lg:top-[120px] lg:h-[calc(100vh-136px)] lg:gap-3 lg:overflow-y-auto lg:pr-1">
 
-        {/* 1. Game details */}
+        {/* 1. Review actions */}
+        <div className="rounded-2xl border border-border p-4">
+          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
+          <div className="flex gap-1.5">
+            <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={()=>setConfirmDiscardReview(true)}>{isNewReview ? "Discard" : "← Back"}</Button>
+            <Button variant="secondary" size="sm" className="flex-1 justify-center text-yellow-300" onClick={saveCompleteLater}>Save</Button>
+            <Button variant="good" size="sm" className="flex-1 justify-center" onClick={submitReview}>Submit</Button>
+          </div>
+        </div>
+
+        {/* 2. Game details */}
         <div className="rounded-2xl border border-border p-4">
           <div className="mb-2.5 flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Details</p>
@@ -2421,7 +2431,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 2. Playback controls */}
+        {/* 3. Playback controls */}
         <div className="rounded-2xl border border-border p-4">
           <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Playback Controls</p>
           <div className="playback-group" style={{display:"flex", width:"100%"}}>
@@ -2431,18 +2441,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 3. Tag Moment */}
+        {/* 4. Tag Moment */}
         <Button variant="primary" className="w-full justify-center gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button>
-
-        {/* 4. Review actions */}
-        <div className="rounded-2xl border border-border p-4">
-          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
-          <div className="flex gap-1.5">
-            <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={()=>setConfirmDiscardReview(true)}>{isNewReview ? "Discard" : "← Back"}</Button>
-            <Button variant="secondary" size="sm" className="flex-1 justify-center text-yellow-300" onClick={saveCompleteLater}>Save</Button>
-            <Button variant="good" size="sm" className="flex-1 justify-center" onClick={submitReview}>Submit</Button>
-          </div>
-        </div>
 
         {/* 5. Clips */}
         <div className="rounded-2xl border border-border p-4">
