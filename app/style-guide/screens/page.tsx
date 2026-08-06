@@ -22,8 +22,8 @@
 // fetch from a non-existent review — its own loading/empty state is what you
 // see, which is enough to check its position within the clip row.
 
-import { useState } from "react";
-import { Inbox, Eye, BarChart3, Target, MessageSquare, BookOpen, Play, Pause, Tag as TagIcon, Download, Trash2, ClipboardList, ChevronDown, ChevronUp } from "lucide-react";
+import { useRef, useState } from "react";
+import { Inbox, Eye, BarChart3, Target, MessageSquare, BookOpen, Play, Pause, Tag as TagIcon, Download, Trash2, ClipboardList, ChevronDown, ChevronUp, X } from "lucide-react";
 import { EducatorDashboard } from "@/components/educator/EducatorDashboard";
 import { OrganisationScreen } from "@/components/organisation/OrganisationScreen";
 import { RefereeDevelopmentScreen } from "@/components/educator/RefereeDevelopmentScreen";
@@ -42,6 +42,7 @@ import { TeamManagementScreen } from "@/components/admin/TeamManagementScreen";
 import { UserProfileScreen } from "@/components/admin/UserProfileScreen";
 import { PageFrame } from "@/components/shell/PageFrame";
 import { TaggedClipsModal } from "@/components/reviewer/TaggedClipsModal";
+import { ClipRow } from "@/components/reviewer/ClipRow";
 import { Badge, Button, Card, EmptyState, Modal, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui";
 import { makeAnalytics } from "@/lib/utils/analytics";
 import { makeDefaultSettings } from "@/lib/types/organisationSettings";
@@ -301,6 +302,13 @@ export default function ScreenFixturesPage() {
   const [rvClipsModalOpen, setRvClipsModalOpen] = useState(false);
   const [rvSummaryViewOfficialId, setRvSummaryViewOfficialId] = useState<string | null>(null);
   const [rvGameDetailsExpanded, setRvGameDetailsExpanded] = useState(true);
+  const rvVideoColumnRef = useRef<HTMLDivElement | null>(null);
+
+  function rvScrollToVideo() {
+    // Deferred: see scrollToVideo in app/page.tsx — must run after the
+    // clips modal's scroll-lock cleanup restores document.body.style.overflow.
+    setTimeout(() => rvVideoColumnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  }
 
   function rvSlotName(slot: RefSlot, r?: ReviewRecord) {
     if (!r) return slot;
@@ -554,7 +562,7 @@ export default function ScreenFixturesPage() {
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-4">
 
             {/* LEFT — video + timeline only, stretches to match the console's height on desktop */}
-            <div className="flex min-w-0 flex-col lg:h-[calc(100vh-136px)]">
+            <div ref={rvVideoColumnRef} className="flex min-w-0 flex-col lg:h-[calc(100vh-136px)]">
               <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel">
                 <div className="aspect-video min-h-0 lg:flex-1">
                   <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>
@@ -562,6 +570,11 @@ export default function ScreenFixturesPage() {
                   </div>
                 </div>
                 <div className="shrink-0 border-t border-border px-3 py-2">
+                  <div className="playback-group" style={{ display: "flex", width: "100%" }}>
+                    <button className="playback-btn" style={{ flex: 1 }}>← 5s</button>
+                    <button className="playback-btn play-pause-btn" style={{ flex: 1 }}><Play size={15} /><Pause size={15} /></button>
+                    <button className="playback-btn" style={{ flex: 1 }}>5s →</button>
+                  </div>
                   <div className="timeline" style={{ margin: "8px 0" }}>
                     <div className="progress" style={{ width: "62%" }} />
                     {rvTimelineMarkers.map(m => (
@@ -614,14 +627,14 @@ export default function ScreenFixturesPage() {
                   <Button variant="secondary" size="sm">✏️ Edit</Button>
                 </div>
                 {rvGameDetailsExpanded && (
-                <div className="grid gap-2 text-sm">
+                <div className="grid gap-1 text-xs leading-snug">
                   <div className="min-w-0"><span className="font-semibold text-text">Game</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.game}</span></div>
                   <div><span className="font-semibold text-text">Date</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.gameDate}</span></div>
                   <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.educatorName}</span></div>
                   {rvSummarySlots.length > 0 && (
                     <div>
                       <span className="font-semibold text-text">Officials</span>
-                      <div className="mt-0.5 grid gap-0.5">
+                      <div className="mt-0.5 grid gap-px">
                         {rvSummarySlots.map(([id, name, role]) => {
                           const s = REVIEWER_REVIEW.officialSummaries?.[id];
                           const hasSummary = !!(s && (s.positives || s.workOns || s.nextFocus));
@@ -648,15 +661,6 @@ export default function ScreenFixturesPage() {
                   )}
                 </div>
                 )}
-              </div>
-
-              <div className="rounded-2xl border border-border p-4">
-                <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Playback Controls</p>
-                <div className="playback-group" style={{ display: "flex", width: "100%" }}>
-                  <button className="playback-btn" style={{ flex: 1 }}>← 5s</button>
-                  <button className="playback-btn play-pause-btn" style={{ flex: 1 }}><Play size={15} /><Pause size={15} /></button>
-                  <button className="playback-btn" style={{ flex: 1 }}>5s →</button>
-                </div>
               </div>
 
               <Button variant="primary" className="w-full justify-center gap-1.5"><TagIcon size={14} /> Tag Moment (X)</Button>
@@ -688,6 +692,39 @@ export default function ScreenFixturesPage() {
                   <div><div className="text-sm font-extrabold text-good">{rvAnalytics.correctCalls + rvAnalytics.correctNoCalls}</div><div className="text-muted">Correct</div></div>
                   <div><div className="text-sm font-extrabold text-red-300">{rvAnalytics.incorrectCalls + rvAnalytics.incorrectNoCalls}</div><div className="text-muted">Incorrect</div></div>
                 </div>
+                {(() => {
+                  const selectedTag = REVIEWER_TAGS.find(t => t.id === rvSelectedTagId);
+                  if (!selectedTag) return null;
+                  return (
+                    <div className="mt-2.5 border-t border-border pt-2.5">
+                      <div className="mb-1 flex items-center justify-between">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Selected Clip</p>
+                        <button
+                          type="button"
+                          onClick={() => setRvSelectedTagId(null)}
+                          aria-label="Clear selected clip"
+                          className="rounded p-0.5 text-muted/60 hover:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                      <ClipRow
+                        tag={selectedTag}
+                        getRefereeName={s => rvSlotName(s, REVIEWER_REVIEW)}
+                        isSelected={false}
+                        onJump={(_seconds, tagId) => setRvSelectedTagId(tagId)}
+                        onDelete={() => {}}
+                        activeCommentTagId={rvActiveCommentTagId}
+                        onToggleComments={tagId => setRvActiveCommentTagId(t => t === tagId ? null : tagId)}
+                        commentCount={REVIEWER_COMMENT_COUNTS[`${REVIEWER_REVIEW.id}::${selectedTag.id}`] ?? 0}
+                        activeReviewId={REVIEWER_REVIEW.id}
+                        session={SESSION_EDUCATOR}
+                        onCommentsRead={() => {}}
+                        className="border-b-0 py-0"
+                      />
+                    </div>
+                  );
+                })()}
                 <Button variant="danger" size="sm" className="mt-2.5 w-full justify-center gap-1.5"><Trash2 size={14} /> Clear Tags</Button>
               </div>
 
@@ -723,7 +760,7 @@ export default function ScreenFixturesPage() {
             filterLabel={rvSlotName(rvAnalyticsTarget, REVIEWER_REVIEW)}
             getRefereeName={s => rvSlotName(s, REVIEWER_REVIEW)}
             selectedTagId={rvSelectedTagId}
-            onJump={(_seconds, tagId) => setRvSelectedTagId(tagId)}
+            onJump={(_seconds, tagId) => { setRvSelectedTagId(tagId); setRvClipsModalOpen(false); rvScrollToVideo(); }}
             onEdit={() => {}}
             onDelete={() => {}}
             activeCommentTagId={rvActiveCommentTagId}

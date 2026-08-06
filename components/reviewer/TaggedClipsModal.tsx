@@ -2,9 +2,8 @@
 
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { CodedTag, RefSlot } from "@/lib/types/reviews";
-import { Badge, Button, Modal } from "@/components/ui";
-import { ReviewComments } from "@/components/ReviewComments";
-import { cn } from "@/lib/utils/cn";
+import { Modal } from "@/components/ui";
+import { ClipRow } from "./ClipRow";
 
 // On-demand replacement for the old permanently-visible coded-clips table.
 // Presentation only — every prop below is an existing piece of state/handler
@@ -30,13 +29,6 @@ interface TaggedClipsModalProps {
   activeReviewId: string;
   session: RefEvalSession | null;
   onCommentsRead: () => void;
-}
-
-function outcomeTone(outcome?: string): "good" | "danger" | "warn" | "neutral" {
-  if (!outcome) return "neutral";
-  if (outcome.startsWith("Correct")) return "good";
-  if (outcome.startsWith("Incorrect")) return "danger";
-  return "warn";
 }
 
 export function TaggedClipsModal({
@@ -67,84 +59,24 @@ export function TaggedClipsModal({
         <p className="py-8 text-center text-sm text-muted">No tagged clips for this filter yet.</p>
       ) : (
         <div className="grid grid-cols-1">
-          {tags.map((tag, i) => {
-            const isSelected = selectedTagId === tag.id;
-            const commentCount = commentCounts?.[`${activeReviewId}::${tag.id}`] ?? 0;
-            const secondaryBits = [
-              tag.category,
-              tag.position,
-              tag.coverage,
-              ...(tag.extraReviewOfficials || []).map(s => `${getRefereeName(s)} (Review)`),
-            ].filter(Boolean);
-
-            return (
-              <div
-                key={tag.id}
-                className={cn(
-                  "border-b border-border py-2.5 last:border-b-0",
-                  isSelected && "rounded-lg border-b-transparent bg-accent/10 px-2.5"
-                )}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-start gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => onJump(tag.adjustedSeconds, tag.id)}
-                      className="shrink-0 rounded-md px-1 font-mono text-sm font-semibold text-accent hover:underline"
-                      aria-label={`Jump to clip ${i + 1} at ${tag.adjustedTime}`}
-                    >
-                      {tag.adjustedTime}
-                    </button>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-semibold text-text">{getRefereeName(tag.refereeTarget)}</span>
-                        {tag.outcome && <Badge tone={outcomeTone(tag.outcome)}>{tag.outcome}</Badge>}
-                      </div>
-                      {secondaryBits.length > 0 && (
-                        <p className="mt-0.5 text-xs text-muted">{secondaryBits.join(" · ")}</p>
-                      )}
-                      {tag.notes && (
-                        <p className="mt-0.5 max-w-md truncate text-xs text-muted" title={tag.notes}>
-                          {tag.notes}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {tag.mode === "video" && (
-                      <Button variant="secondary" size="sm" onClick={() => onEdit(tag)}>
-                        Edit
-                      </Button>
-                    )}
-                    <Button variant="danger" size="sm" onClick={() => onDelete(tag.id)}>
-                      Delete
-                    </Button>
-                    <div className="relative">
-                      <Button
-                        variant={activeCommentTagId === tag.id ? "primary" : "secondary"}
-                        size="sm"
-                        onClick={() => onToggleComments(tag.id)}
-                      >
-                        Comments
-                      </Button>
-                      {commentCount > 0 && (
-                        <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white">
-                          {Math.min(commentCount, 99)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {activeCommentTagId === tag.id && (
-                  <div className="mt-2.5">
-                    <ReviewComments reviewId={activeReviewId} tagId={tag.id} session={session} onRead={onCommentsRead} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {tags.map((tag, i) => (
+            <ClipRow
+              key={tag.id}
+              tag={tag}
+              index={i}
+              getRefereeName={getRefereeName}
+              isSelected={selectedTagId === tag.id}
+              onJump={onJump}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              activeCommentTagId={activeCommentTagId}
+              onToggleComments={onToggleComments}
+              commentCount={commentCounts?.[`${activeReviewId}::${tag.id}`] ?? 0}
+              activeReviewId={activeReviewId}
+              session={session}
+              onCommentsRead={onCommentsRead}
+            />
+          ))}
         </div>
       )}
     </Modal>

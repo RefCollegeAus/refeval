@@ -68,7 +68,7 @@ import {
   getVisibleUnreadCount,
 } from "@/lib/services/notifications";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Pause, Play, Trash2, Eye, MessageSquare, BarChart3, Target, BookOpen, Inbox, Tag, ClipboardList, ChevronDown, ChevronUp } from "lucide-react";
+import { Download, Pause, Play, Trash2, Eye, MessageSquare, BarChart3, Target, BookOpen, Inbox, Tag, ClipboardList, ChevronDown, ChevronUp, X } from "lucide-react";
 import { PageFrame } from "@/components/shell/PageFrame";
 import { Badge, Button, Card, EmptyState, Input, Modal, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Textarea } from "@/components/ui";
 import { AppToast } from "@/components/common/AppToast";
@@ -84,6 +84,7 @@ import { makeAnalytics } from "@/lib/utils/analytics";
 import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
 import { ClipEditorPanel, computeInitialViewport } from "@/components/reviewer/ClipEditorPanel";
 import { TaggedClipsModal } from "@/components/reviewer/TaggedClipsModal";
+import { ClipRow } from "@/components/reviewer/ClipRow";
 import { resolveClipBounds, formatClipTime, CLIP_PRE_ROLL, CLIP_DEFAULT_POST_ROLL } from "@/lib/utils/clipBounds";
 import { useUnreadCounts } from "@/lib/hooks/useUnreadCounts";
 import type { Screen } from "@/lib/types/auth";
@@ -133,6 +134,7 @@ function tagAppliesToSlot(tag: CodedTag, slot: RefSlot | null) {
 
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoColumnRef = useRef<HTMLDivElement | null>(null);
   const youtubeContainerRef = useRef<HTMLDivElement | null>(null);
   const youtubePlayerRef = useRef<any>(null);
 
@@ -805,6 +807,14 @@ export default function Home() {
   function jump(seconds: number) {
     if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { youtubePlayerRef.current.seekTo(seconds, true); youtubePlayerRef.current.playVideo?.(); setYoutubeCurrent(seconds); }
     else if (videoRef.current) { videoRef.current.currentTime = seconds; videoRef.current.play(); }
+  }
+
+  function scrollToVideo() {
+    // Deferred: called right after closing the clips modal, whose scroll-lock
+    // cleanup (restoring document.body.style.overflow) runs in an effect
+    // after this tick — scrolling synchronously here is a no-op since the
+    // body is still overflow:hidden at that point.
+    setTimeout(() => videoColumnRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }
 
   // Auto-open setup modal when a brand-new review is opened
@@ -2350,12 +2360,17 @@ export default function Home() {
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-4">
 
       {/* ── LEFT — video + timeline only, stretches to match the console's height on desktop ── */}
-      <div className="flex min-w-0 flex-col lg:h-[calc(100vh-136px)]">
+      <div ref={videoColumnRef} className="flex min-w-0 flex-col lg:h-[calc(100vh-136px)]">
         <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel">
           <div className="aspect-video min-h-0 lg:flex-1">
             {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block",objectFit:"contain",maxHeight:"none",border:"none",borderRadius:0,marginTop:0,background:"#000"}} onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
           </div>
           <div className="shrink-0 border-t border-border px-3 py-2">
+            <div className="playback-group" style={{display:"flex", width:"100%"}}>
+              <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button>
+              <button className="playback-btn play-pause-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button>
+              <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button>
+            </div>
             <div className="timeline" style={{ margin: "8px 0" }}>
               <div className="progress" style={{ width: `${progressPct}%` }} />
               {timelineMarkers.map(m => (
@@ -2412,14 +2427,14 @@ export default function Home() {
             <Button variant="secondary" size="sm" onClick={()=>setSetupModalOpen(true)}>✏️ Edit</Button>
           </div>
           {gameDetailsExpanded && (
-          <div className="grid gap-2 text-sm">
+          <div className="grid gap-1 text-xs leading-snug">
             <div className="min-w-0"><span className="font-semibold text-text">Game</span>{" "}<span className="text-muted">{reviewGame || "Untitled Review"}</span></div>
             {reviewGameDate && <div><span className="font-semibold text-text">Date</span>{" "}<span className="text-muted">{reviewGameDate}</span></div>}
             <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{activeReview?.educatorName || session?.profile.name || "—"}</span></div>
             {summarySlots.length > 0 && (
               <div>
                 <span className="font-semibold text-text">Officials</span>
-                <div className="mt-0.5 grid gap-0.5">
+                <div className="mt-0.5 grid gap-px">
                   {summarySlots.map(([id, name, role]) => {
                     const s = activeReview?.officialSummaries?.[id];
                     const hasSummary = !!(s && (s.positives || s.workOns || s.nextFocus));
@@ -2448,20 +2463,10 @@ export default function Home() {
           )}
         </div>
 
-        {/* 3. Playback controls */}
-        <div className="rounded-2xl border border-border p-4">
-          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Playback Controls</p>
-          <div className="playback-group" style={{display:"flex", width:"100%"}}>
-            <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button>
-            <button className="playback-btn play-pause-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button>
-            <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button>
-          </div>
-        </div>
-
-        {/* 4. Tag Moment */}
+        {/* 3. Tag Moment */}
         <Button variant="primary" className="w-full justify-center gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment (X)</Button>
 
-        {/* 5. Clips */}
+        {/* 4. Clips */}
         <div className="rounded-2xl border border-border p-4">
           <div className="mb-2.5 flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Clips</p>
@@ -2489,10 +2494,44 @@ export default function Home() {
             <div><div className="text-sm font-extrabold text-good">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="text-muted">Correct</div></div>
             <div><div className="text-sm font-extrabold text-red-300">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="text-muted">Incorrect</div></div>
           </div>
+          {(() => {
+            const selectedTag = reviewTags.find(t => t.id === selectedTagId);
+            if (!selectedTag) return null;
+            return (
+              <div className="mt-2.5 border-t border-border pt-2.5">
+                <div className="mb-1 flex items-center justify-between">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Selected Clip</p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTagId(null)}
+                    aria-label="Clear selected clip"
+                    className="rounded p-0.5 text-muted/60 hover:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+                <ClipRow
+                  tag={selectedTag}
+                  getRefereeName={s => slotName(s, activeReview)}
+                  isSelected={false}
+                  onJump={(seconds, tagId) => { jump(seconds); setSelectedTagId(tagId); }}
+                  onEdit={tag => openEditTag(tag)}
+                  onDelete={tagId => { setSelectedTagId(null); deleteClip(tagId); }}
+                  activeCommentTagId={activeCommentTagId}
+                  onToggleComments={tagId => setActiveCommentTagId(t => t === tagId ? null : tagId)}
+                  commentCount={counts?.[`${activeReviewId}::${selectedTag.id}`] ?? 0}
+                  activeReviewId={activeReviewId}
+                  session={session}
+                  onCommentsRead={refreshUnread}
+                  className="border-b-0 py-0"
+                />
+              </div>
+            );
+          })()}
           <Button variant="danger" size="sm" className="mt-2.5 w-full justify-center gap-1.5" onClick={() => setConfirmClearTags(true)}><Trash2 size={14} /> Clear Tags</Button>
         </div>
 
-        {/* 6. Statistics */}
+        {/* 5. Statistics */}
         <div className="rounded-2xl border border-border p-4">
           <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Statistics</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -2525,7 +2564,7 @@ export default function Home() {
       filterLabel={slotName(analyticsTarget, activeReview)}
       getRefereeName={s => slotName(s, activeReview)}
       selectedTagId={selectedTagId}
-      onJump={(seconds, tagId) => { jump(seconds); setSelectedTagId(tagId); }}
+      onJump={(seconds, tagId) => { jump(seconds); setSelectedTagId(tagId); setClipsModalOpen(false); scrollToVideo(); }}
       onEdit={tag => { setClipsModalOpen(false); openEditTag(tag); }}
       onDelete={tagId => { if (selectedTagId === tagId) setSelectedTagId(null); deleteClip(tagId); }}
       activeCommentTagId={activeCommentTagId}
