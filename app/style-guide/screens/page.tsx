@@ -23,7 +23,7 @@
 // see, which is enough to check its position within the clip row.
 
 import { useRef, useState } from "react";
-import { Inbox, Eye, BarChart3, Target, MessageSquare, BookOpen, Play, Pause, Tag as TagIcon, Download, Trash2, ClipboardList, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Inbox, Eye, BarChart3, Target, MessageSquare, BookOpen, Play, Pause, Tag as TagIcon, Download, Trash2, ChevronDown, ChevronUp, X } from "lucide-react";
 import { EducatorDashboard } from "@/components/educator/EducatorDashboard";
 import { OrganisationScreen } from "@/components/organisation/OrganisationScreen";
 import { RefereeDevelopmentScreen } from "@/components/educator/RefereeDevelopmentScreen";
@@ -302,6 +302,7 @@ export default function ScreenFixturesPage() {
   const [rvClipsModalOpen, setRvClipsModalOpen] = useState(false);
   const [rvSummaryViewOfficialId, setRvSummaryViewOfficialId] = useState<string | null>(null);
   const [rvGameDetailsExpanded, setRvGameDetailsExpanded] = useState(true);
+  const [rvPlaybackRate, setRvPlaybackRate] = useState(1);
   const rvVideoColumnRef = useRef<HTMLDivElement | null>(null);
 
   function rvScrollToVideo() {
@@ -574,6 +575,14 @@ export default function ScreenFixturesPage() {
                     <button className="playback-btn" style={{ flex: 1 }}>← 5s</button>
                     <button className="playback-btn play-pause-btn" style={{ flex: 1 }}><Play size={15} /><Pause size={15} /></button>
                     <button className="playback-btn" style={{ flex: 1 }}>5s →</button>
+                    <button
+                      className="playback-btn"
+                      style={{ flex: 1, color: rvPlaybackRate !== 1 ? "var(--accent)" : undefined }}
+                      onClick={() => setRvPlaybackRate(r => (r === 1 ? 0.5 : r === 0.5 ? 0.25 : 1))}
+                      aria-label={`Playback speed ${rvPlaybackRate}x — click to change`}
+                    >
+                      {rvPlaybackRate}x
+                    </button>
                   </div>
                   <div className="timeline" style={{ margin: "8px 0" }}>
                     <div className="progress" style={{ width: "62%" }} />
@@ -627,37 +636,39 @@ export default function ScreenFixturesPage() {
                   <Button variant="secondary" size="sm">✏️ Edit</Button>
                 </div>
                 {rvGameDetailsExpanded && (
-                <div className="grid gap-1 text-xs leading-snug">
-                  <div className="min-w-0"><span className="font-semibold text-text">Game</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.game}</span></div>
-                  <div><span className="font-semibold text-text">Date</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.gameDate}</span></div>
-                  <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.educatorName}</span></div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-snug">
+                  <span className="font-semibold text-text">{REVIEWER_REVIEW.game}</span>
+                  <span className="text-muted/40" aria-hidden="true">|</span>
+                  <span className="text-muted">{REVIEWER_REVIEW.gameDate}</span>
+                  <span className="text-muted/40" aria-hidden="true">|</span>
+                  <span className="text-muted">Educator: <span className="text-text">{REVIEWER_REVIEW.educatorName}</span></span>
                   {rvSummarySlots.length > 0 && (
-                    <div>
-                      <span className="font-semibold text-text">Officials</span>
-                      <div className="mt-0.5 grid gap-px">
-                        {rvSummarySlots.map(([id, name, role]) => {
-                          const s = REVIEWER_REVIEW.officialSummaries?.[id];
-                          const hasSummary = !!(s && (s.positives || s.workOns || s.nextFocus));
-                          const hasActiveGoals = REVIEWER_GOALS.some(g => g.refereeId === id && g.status === "Active");
-                          const hasContent = hasSummary || hasActiveGoals;
-                          return (
-                            <div key={id} className="flex items-center justify-between gap-2 text-muted">
-                              <span className="truncate">{name} <span className="text-muted/70">— {role}</span></span>
-                              {hasContent && (
-                                <button
-                                  type="button"
-                                  onClick={() => setRvSummaryViewOfficialId(id)}
-                                  aria-label={`View summary and development for ${name}`}
-                                  className="shrink-0 rounded-md p-1 text-accent hover:bg-panel-3 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                                >
-                                  <ClipboardList size={14} />
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    <>
+                      <span className="text-muted/40" aria-hidden="true">|</span>
+                      {rvSummarySlots.map(([id, name, role]) => {
+                        const s = REVIEWER_REVIEW.officialSummaries?.[id];
+                        const hasSummary = !!(s && (s.positives || s.workOns || s.nextFocus));
+                        const hasActiveGoals = REVIEWER_GOALS.some(g => g.refereeId === id && g.status === "Active");
+                        const hasContent = hasSummary || hasActiveGoals;
+                        return (
+                          <span key={id} className="text-muted">
+                            {role}:{" "}
+                            {hasContent ? (
+                              <button
+                                type="button"
+                                onClick={() => setRvSummaryViewOfficialId(id)}
+                                aria-label={`View summary and development for ${name}`}
+                                className="rounded border-0 bg-transparent p-0 font-normal shadow-none text-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                              >
+                                {name}
+                              </button>
+                            ) : (
+                              <span className="text-text">{name}</span>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </>
                   )}
                 </div>
                 )}

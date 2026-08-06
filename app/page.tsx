@@ -68,7 +68,7 @@ import {
   getVisibleUnreadCount,
 } from "@/lib/services/notifications";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Pause, Play, Trash2, Eye, MessageSquare, BarChart3, Target, BookOpen, Inbox, Tag, ClipboardList, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Download, Pause, Play, Trash2, Eye, MessageSquare, BarChart3, Target, BookOpen, Inbox, Tag, ChevronDown, ChevronUp, X } from "lucide-react";
 import { PageFrame } from "@/components/shell/PageFrame";
 import { Badge, Button, Card, EmptyState, Input, Modal, Select, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Textarea } from "@/components/ui";
 import { AppToast } from "@/components/common/AppToast";
@@ -109,6 +109,7 @@ const SPECIFIC_TAGS: Record<string, string[]> = {
 const POSITIONS = ["Trail", "Lead", "Centre"];
 const COVERAGE = ["Primary", "Secondary", "Extended"];
 const REF_SLOTS: RefSlot[] = ["All Referees", "Referee 1", "Referee 2", "Referee 3"];
+const PLAYBACK_RATES = [1, 0.5, 0.25];
 
 function csvEscape(value: unknown) { return `"${String(value ?? "").replaceAll('"', '""')}"`; }
 function slotName(slot: RefSlot, r?: ReviewRecord) {
@@ -484,6 +485,7 @@ export default function Home() {
   const [youtubeCurrent, setYoutubeCurrent] = useState(0);
   const [youtubeDuration, setYoutubeDuration] = useState(0);
   const [youtubeReady, setYoutubeReady] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
 
   const [codingOpen, setCodingOpen] = useState(false);
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
@@ -636,6 +638,7 @@ export default function Home() {
           onReady: (event: any) => {
             setYoutubeReady(true);
             setYoutubeDuration(event.target.getDuration?.() || 0);
+            event.target.setPlaybackRate?.(playbackRate);
           },
           onStateChange: (event: any) => {
             setYoutubeCurrent(event.target.getCurrentTime?.() || 0);
@@ -655,6 +658,7 @@ export default function Home() {
       window.onYouTubeIframeAPIReady = loadPlayer;
     }
     return () => { cancelled = true; if (youtubePlayerRef.current?.destroy) { try { youtubePlayerRef.current.destroy(); } catch {} youtubePlayerRef.current = null; } };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usingYouTubeVideo, youtubeVideoId, screen]);
 
   useEffect(() => {
@@ -807,6 +811,13 @@ export default function Home() {
   function jump(seconds: number) {
     if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { youtubePlayerRef.current.seekTo(seconds, true); youtubePlayerRef.current.playVideo?.(); setYoutubeCurrent(seconds); }
     else if (videoRef.current) { videoRef.current.currentTime = seconds; videoRef.current.play(); }
+  }
+
+  function cyclePlaybackRate() {
+    const next = PLAYBACK_RATES[(PLAYBACK_RATES.indexOf(playbackRate) + 1) % PLAYBACK_RATES.length];
+    setPlaybackRate(next);
+    if (usingYouTubeVideo && youtubePlayerRef.current?.setPlaybackRate) youtubePlayerRef.current.setPlaybackRate(next);
+    else if (videoRef.current) videoRef.current.playbackRate = next;
   }
 
   function scrollToVideo() {
@@ -2363,13 +2374,14 @@ export default function Home() {
       <div ref={videoColumnRef} className="flex min-w-0 flex-col lg:h-[calc(100vh-136px)]">
         <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel">
           <div className="aspect-video min-h-0 lg:flex-1">
-            {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block",objectFit:"contain",maxHeight:"none",border:"none",borderRadius:0,marginTop:0,background:"#000"}} onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
+            {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block",objectFit:"contain",maxHeight:"none",border:"none",borderRadius:0,marginTop:0,background:"#000"}} onLoadedMetadata={e=>{setVideoDuration(e.currentTarget.duration);e.currentTarget.playbackRate=playbackRate;}} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
           </div>
           <div className="shrink-0 border-t border-border px-3 py-2">
             <div className="playback-group" style={{display:"flex", width:"100%"}}>
               <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button>
               <button className="playback-btn play-pause-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button>
               <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button>
+              <button className="playback-btn" style={{flex:1, color: playbackRate !== 1 ? "var(--accent)" : undefined}} onClick={cyclePlaybackRate} aria-label={`Playback speed ${playbackRate}x — click to change`}>{playbackRate}x</button>
             </div>
             <div className="timeline" style={{ margin: "8px 0" }}>
               <div className="progress" style={{ width: `${progressPct}%` }} />
@@ -2427,37 +2439,43 @@ export default function Home() {
             <Button variant="secondary" size="sm" onClick={()=>setSetupModalOpen(true)}>✏️ Edit</Button>
           </div>
           {gameDetailsExpanded && (
-          <div className="grid gap-1 text-xs leading-snug">
-            <div className="min-w-0"><span className="font-semibold text-text">Game</span>{" "}<span className="text-muted">{reviewGame || "Untitled Review"}</span></div>
-            {reviewGameDate && <div><span className="font-semibold text-text">Date</span>{" "}<span className="text-muted">{reviewGameDate}</span></div>}
-            <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{activeReview?.educatorName || session?.profile.name || "—"}</span></div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-snug">
+            <span className="font-semibold text-text">{reviewGame || "Untitled Review"}</span>
+            {reviewGameDate && (
+              <>
+                <span className="text-muted/40" aria-hidden="true">|</span>
+                <span className="text-muted">{reviewGameDate}</span>
+              </>
+            )}
+            <span className="text-muted/40" aria-hidden="true">|</span>
+            <span className="text-muted">Educator: <span className="text-text">{activeReview?.educatorName || session?.profile.name || "—"}</span></span>
             {summarySlots.length > 0 && (
-              <div>
-                <span className="font-semibold text-text">Officials</span>
-                <div className="mt-0.5 grid gap-px">
-                  {summarySlots.map(([id, name, role]) => {
-                    const s = activeReview?.officialSummaries?.[id];
-                    const hasSummary = !!(s && (s.positives || s.workOns || s.nextFocus));
-                    const hasActiveGoals = refereeGoalViewsForReferee(id).some(v => v.status === "Active");
-                    const hasContent = hasSummary || hasActiveGoals;
-                    return (
-                      <div key={id} className="flex items-center justify-between gap-2 text-muted">
-                        <span className="truncate">{name} <span className="text-muted/70">— {role}</span></span>
-                        {hasContent && (
-                          <button
-                            type="button"
-                            onClick={() => setSummaryViewOfficialId(id)}
-                            aria-label={`View summary and development for ${name}`}
-                            className="shrink-0 rounded-md p-1 text-accent hover:bg-panel-3 hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                          >
-                            <ClipboardList size={14} />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <>
+                <span className="text-muted/40" aria-hidden="true">|</span>
+                {summarySlots.map(([id, name, role]) => {
+                  const s = activeReview?.officialSummaries?.[id];
+                  const hasSummary = !!(s && (s.positives || s.workOns || s.nextFocus));
+                  const hasActiveGoals = refereeGoalViewsForReferee(id).some(v => v.status === "Active");
+                  const hasContent = hasSummary || hasActiveGoals;
+                  return (
+                    <span key={id} className="text-muted">
+                      {role}:{" "}
+                      {hasContent ? (
+                        <button
+                          type="button"
+                          onClick={() => setSummaryViewOfficialId(id)}
+                          aria-label={`View summary and development for ${name}`}
+                          className="rounded border-0 bg-transparent p-0 font-normal shadow-none text-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        >
+                          {name}
+                        </button>
+                      ) : (
+                        <span className="text-text">{name}</span>
+                      )}
+                    </span>
+                  );
+                })}
+              </>
             )}
           </div>
           )}
