@@ -196,6 +196,13 @@ const REVIEWER_REVIEW: ReviewRecord = {
   id: "rev-reviewer-fixture", organisationId: ORG_ID, game: "Kings vs Breakers", educatorId: "user-jamie", educatorName: "Jamie Smith",
   referee1Id: "user-alex", referee2Id: "user-sam", referee3Id: "user-morgan", referee1Name: "Alex Referee", referee2Name: "Sam Official", referee3Name: "Morgan Alexander Fitzgerald-Whitfield",
   videoLink: "", timestampOffset: -10, status: "In Review", gameDate: daysAgo(2).slice(0, 10), createdAt: daysAgo(2),
+  // Exercises the console's Game Summary + Final Recommendations sections —
+  // one official with all three fields, one with only positives/workOns
+  // (no nextFocus), one with none (excluded from both sections).
+  officialSummaries: {
+    "user-alex": { positives: "Strong hustle and communication throughout.", workOns: "Trail distance on fast breaks.", nextFocus: "Stay wide through transition." },
+    "user-sam": { positives: "Confident travel calls under pressure.", workOns: "", nextFocus: "" },
+  },
 };
 
 // Multiple goals across officials, distinct priorities, one with notes, one
@@ -541,71 +548,85 @@ export default function ScreenFixturesPage() {
         </div>
       </Section>
 
-      <Section title="Reviewer Workspace (Educator)" description='screen === "reviewer" (inline in app/page.tsx) — fixture duplicate, see file header. Video area is a labelled placeholder box (no real playback simulated); every other control, including the Development tabs (real ReviewDevelopmentPanel in compact mode), is the real markup.'>
+            <Section title="Reviewer Workspace (Educator)" description='screen === "reviewer" (inline in app/page.tsx) — fixture duplicate, see file header. Two-column coaching console (v3): video-first left column, compact right console. Video area is a labelled placeholder box (no real playback simulated); every other control, including the Development tabs (real ReviewDevelopmentPanel in compact mode), is the real markup.'>
         <div className="rounded-2xl border border-border p-4 sm:p-6 lg:p-8">
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_380px] lg:items-start">
 
-            <div className="flex flex-wrap items-start justify-between gap-3">
+            {/* LEFT */}
+            <div className="grid min-w-0 grid-cols-1 gap-4">
+
               <div className="min-w-0">
                 <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Evaluation</p>
                 <h1 className="truncate text-xl font-bold text-text">{REVIEWER_REVIEW.game}</h1>
-                <div className="mt-1.5 flex flex-wrap gap-x-6 gap-y-1.5 text-sm">
-                  <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.educatorName}</span></div>
-                  {rvSummarySlots.length > 0 && (
-                    <div>
-                      <span className="font-semibold text-text">Officials</span>
-                      <div className="mt-0.5 grid gap-0.5">
-                        {rvSummarySlots.map(([id, name, role]) => (
-                          <div key={id} className="text-muted">{name} <span className="text-muted/70">— {role}</span></div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="text-muted">Status: {REVIEWER_REVIEW.status}</div>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Button variant="secondary" size="sm">✏️ Edit Game Details</Button>
-                <Button variant="secondary" size="sm">← Back</Button>
-                <Button variant="secondary" size="sm" className="text-yellow-300">Save &amp; Complete Later</Button>
-                <Button variant="good" size="sm">Submit Review</Button>
-              </div>
-            </div>
-
-            <div>
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
-                <div className="mode-switch">
-                  <button className={rvMode === "video" ? "primary" : ""} onClick={() => setRvMode("video")}>Video Review</button>
-                  <button className={rvMode === "non-video" ? "primary" : ""} onClick={() => setRvMode("non-video")}>Non-Video Mode</button>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-                  <span className="truncate font-semibold text-text">{REVIEWER_REVIEW.game}</span>
-                  <span>· {REVIEWER_REVIEW.gameDate}</span>
-                  <span className="text-yellow-300/70">· No video</span>
-                </div>
+                <p className="mt-1 text-sm text-muted">Status: {REVIEWER_REVIEW.status}</p>
               </div>
 
-              {rvMode === "video" ? (
-                <>
-                  <div className="reviewer-controls">
-                    <div className="review-mode-group">
-                      <label className="file-picker">Upload Local Video<input type="file" accept="video/*" readOnly /></label>
-                    </div>
-                    <div className="playback-group">
-                      <button className="playback-btn">← 5s</button>
-                      <button className="playback-btn play-pause-btn"><Play size={15} /><Pause size={15} /></button>
-                      <button className="playback-btn">5s →</button>
-                    </div>
-                    <Button variant="primary" className="gap-1.5"><TagIcon size={14} /> Tag Moment</Button>
+              <div>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
+                  <div className="mode-switch">
+                    <button className={rvMode === "video" ? "primary" : ""} onClick={() => setRvMode("video")}>Video Review</button>
+                    <button className={rvMode === "non-video" ? "primary" : ""} onClick={() => setRvMode("non-video")}>Non-Video Mode</button>
                   </div>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                    <span className="truncate font-semibold text-text">{REVIEWER_REVIEW.game}</span>
+                    <span>· {REVIEWER_REVIEW.gameDate}</span>
+                    <span className="text-yellow-300/70">· No video</span>
+                  </div>
+                </div>
 
-                  <div className="mx-auto w-full overflow-hidden rounded-2xl border border-border bg-panel" style={{ maxWidth: "calc(66vh * 16 / 9)" }}>
-                    <div style={{ aspectRatio: "16/9" }}>
-                      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>
-                        Video preview area (fixture — playback not simulated)
+                {rvMode === "video" ? (
+                  <>
+                    <div className="reviewer-controls">
+                      <div className="review-mode-group">
+                        <label className="file-picker">Upload Local Video<input type="file" accept="video/*" readOnly /></label>
+                      </div>
+                      <div className="playback-group">
+                        <button className="playback-btn">← 5s</button>
+                        <button className="playback-btn play-pause-btn"><Play size={15} /><Pause size={15} /></button>
+                        <button className="playback-btn">5s →</button>
+                      </div>
+                      <Button variant="primary" className="gap-1.5"><TagIcon size={14} /> Tag Moment</Button>
+                    </div>
+
+                    <div className="mx-auto w-full overflow-hidden rounded-2xl border border-border bg-panel" style={{ maxWidth: "calc(66vh * 16 / 9)" }}>
+                      <div style={{ aspectRatio: "16/9" }}>
+                        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13 }}>
+                          Video preview area (fixture — playback not simulated)
+                        </div>
+                      </div>
+                      <div className="border-t border-border px-3 py-2">
+                        <div className="timeline" style={{ margin: "8px 0" }}>
+                          <div className="progress" style={{ width: "62%" }} />
+                          {rvTimelineMarkers.map(m => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              className={"marker-hit" + (rvSelectedTagId === m.id ? " marker-hit--active" : "")}
+                              title={m.label}
+                              aria-label={m.label}
+                              style={{ left: `${m.left}%` }}
+                              onClick={() => setRvSelectedTagId(m.id)}
+                            >
+                              <span className="marker-bar" style={{ background: m.color }} />
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <div className="border-t border-border px-3 py-2">
+                  </>
+                ) : (
+                  <>
+                    <div className="timer-card">
+                      <div className="timer">00:00</div>
+                      <div className="toolbar">
+                        <button className="primary">Start Timer</button>
+                        <button>Reset</button>
+                        <button>-10s</button>
+                        <button>+10s</button>
+                      </div>
+                      <p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p>
+                    </div>
+                    <div className="mt-3 rounded-2xl border border-border bg-panel px-3 py-2">
                       <div className="timeline" style={{ margin: "8px 0" }}>
                         <div className="progress" style={{ width: "62%" }} />
                         {rvTimelineMarkers.map(m => (
@@ -623,132 +644,153 @@ export default function ScreenFixturesPage() {
                         ))}
                       </div>
                     </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="timer-card">
-                    <div className="timer">00:00</div>
-                    <div className="toolbar">
-                      <button className="primary">Start Timer</button>
-                      <button>Reset</button>
-                      <button>-10s</button>
-                      <button>+10s</button>
-                    </div>
-                    <p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p>
-                  </div>
-                  <div className="mt-3 rounded-2xl border border-border bg-panel px-3 py-2">
-                    <div className="timeline" style={{ margin: "8px 0" }}>
-                      <div className="progress" style={{ width: "62%" }} />
-                      {rvTimelineMarkers.map(m => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          className={"marker-hit" + (rvSelectedTagId === m.id ? " marker-hit--active" : "")}
-                          title={m.label}
-                          aria-label={m.label}
-                          style={{ left: `${m.left}%` }}
-                          onClick={() => setRvSelectedTagId(m.id)}
-                        >
-                          <span className="marker-bar" style={{ background: m.color }} />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 border-y border-border py-3.5">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <label className="flex items-center gap-2 text-xs text-muted">
-                  Statistics for
-                  <Select className="h-8 w-auto min-w-[150px] py-0 text-sm" value={rvAnalyticsTarget} onChange={e => setRvAnalyticsTarget(e.target.value as RefSlot)}>
-                    {RV_REF_SLOTS.map(s => <option key={s} value={s}>{rvSlotName(s, REVIEWER_REVIEW)}</option>)}
-                  </Select>
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  <Button variant="secondary" size="sm" className="gap-1.5"><Download size={14} /> CSV</Button>
-                  <Button variant="primary" size="sm" className="gap-1.5"><Download size={14} /> Excel</Button>
-                  <Button variant="danger" size="sm" className="gap-1.5"><Trash2 size={14} /> Clear Tags</Button>
+            {/* RIGHT — coaching console */}
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:sticky lg:top-4">
+
+              <div className="rounded-2xl border border-border p-4">
+                <div className="mb-2.5 flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Details</p>
+                  <Button variant="secondary" size="sm">✏️ Edit</Button>
+                </div>
+                <div className="grid gap-2 text-sm">
+                  <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.educatorName}</span></div>
+                  <div><span className="font-semibold text-text">Date</span>{" "}<span className="text-muted">{REVIEWER_REVIEW.gameDate}</span></div>
+                  <div><span className="font-semibold text-text">Video</span>{" "}<span className="text-yellow-300/70">No video</span></div>
+                  {rvSummarySlots.length > 0 && (
+                    <div>
+                      <span className="font-semibold text-text">Officials</span>
+                      <div className="mt-0.5 grid gap-0.5">
+                        {rvSummarySlots.map(([id, name, role]) => (
+                          <div key={id} className="text-muted">{name} <span className="text-muted/70">— {role}</span></div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-baseline gap-x-7 gap-y-1.5">
+              <div className="rounded-2xl border border-border p-4">
+                <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
+                <div className="grid gap-1.5">
+                  <Button variant="secondary" size="sm" className="justify-center">← Back</Button>
+                  <Button variant="secondary" size="sm" className="justify-center text-yellow-300">Save &amp; Complete Later</Button>
+                  <Button variant="good" size="sm" className="justify-center">Submit Review</Button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border p-4">
+                <div className="mb-2.5 flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Clips</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button variant="secondary" size="sm" className="gap-1.5"><Download size={14} /> CSV</Button>
+                    <Button variant="primary" size="sm" className="gap-1.5"><Download size={14} /> Excel</Button>
+                  </div>
+                </div>
+                <label className="mb-2.5 flex items-center gap-2 text-xs text-muted">
+                  Referee
+                  <Select className="h-8 w-auto min-w-0 flex-1 py-0 text-sm" value={rvAnalyticsTarget} onChange={e => setRvAnalyticsTarget(e.target.value as RefSlot)}>
+                    {RV_REF_SLOTS.map(s => <option key={s} value={s}>{rvSlotName(s, REVIEWER_REVIEW)}</option>)}
+                  </Select>
+                </label>
                 <button
                   type="button"
                   onClick={() => setRvClipsModalOpen(true)}
                   aria-label={`View ${rvAnalytics.total} tagged clips for ${rvSlotName(rvAnalyticsTarget, REVIEWER_REVIEW)}`}
-                  className="rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="mb-2.5 block w-full rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   <span className="text-lg font-extrabold text-text hover:text-accent">{rvAnalytics.total}</span> <span className="text-xs text-muted">Total clips</span>
                 </button>
-                <span><span className="text-lg font-extrabold text-accent">{rvAnalytics.accuracy}</span> <span className="text-xs text-muted">Coded accuracy</span></span>
-                <span><span className="text-lg font-extrabold text-good">{rvAnalytics.correctCalls + rvAnalytics.correctNoCalls}</span> <span className="text-xs text-muted">Correct decisions</span></span>
-                <span><span className="text-lg font-extrabold text-red-300">{rvAnalytics.incorrectCalls + rvAnalytics.incorrectNoCalls}</span> <span className="text-xs text-muted">Incorrect decisions</span></span>
+                <div className="grid grid-cols-3 gap-2 border-t border-border pt-2.5 text-xs">
+                  <div><div className="text-sm font-extrabold text-accent">{rvAnalytics.accuracy}</div><div className="text-muted">Accuracy</div></div>
+                  <div><div className="text-sm font-extrabold text-good">{rvAnalytics.correctCalls + rvAnalytics.correctNoCalls}</div><div className="text-muted">Correct</div></div>
+                  <div><div className="text-sm font-extrabold text-red-300">{rvAnalytics.incorrectCalls + rvAnalytics.incorrectNoCalls}</div><div className="text-muted">Incorrect</div></div>
+                </div>
+                <Button variant="danger" size="sm" className="mt-2.5 w-full justify-center gap-1.5"><Trash2 size={14} /> Clear Tags</Button>
               </div>
 
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-3 sm:grid-cols-4">
-                <div>
-                  <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Outcome</h3>
-                  <div className="grid gap-0.5">{rvAnalytics.outcomeCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
-                </div>
-                <div>
-                  <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Category</h3>
-                  <div className="grid gap-0.5">{rvAnalytics.categoryCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
-                </div>
-                <div>
-                  <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Position</h3>
-                  <div className="grid gap-0.5">{rvAnalytics.positionCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
-                </div>
-                <div>
-                  <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Coverage</h3>
-                  <div className="grid gap-0.5">{rvAnalytics.coverageCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+              <div className="rounded-2xl border border-border p-4">
+                <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Statistics</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div>
+                    <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Outcome</h3>
+                    <div className="grid gap-0.5">{rvAnalytics.outcomeCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+                  </div>
+                  <div>
+                    <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Category</h3>
+                    <div className="grid gap-0.5">{rvAnalytics.categoryCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+                  </div>
+                  <div>
+                    <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Position</h3>
+                    <div className="grid gap-0.5">{rvAnalytics.positionCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+                  </div>
+                  <div>
+                    <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Coverage</h3>
+                    <div className="grid gap-0.5">{rvAnalytics.coverageCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+                  </div>
                 </div>
               </div>
+
+              <div className="rounded-2xl border border-border p-4">
+                <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Development</p>
+                {rvSummarySlots.length > 1 ? (
+                  <Tabs
+                    ariaLabel="Development by official"
+                    tabs={rvSummarySlots.map(([id, name]) => ({
+                      id,
+                      label: name,
+                      content: (
+                        <ReviewDevelopmentPanel
+                          key={id}
+                          compact
+                          session={SESSION_EDUCATOR}
+                          review={REVIEWER_REVIEW}
+                          refereeId={id}
+                          refereeName={name}
+                          activeGoals={REVIEWER_GOALS.filter(g => g.refereeId === id && g.status === "Active")}
+                          reviewGoalLinks={REVIEWER_GOAL_LINKS}
+                          onCreateGoalFromReview={() => {}}
+                          onLinkReviewToGoal={() => {}}
+                          onUnlinkReviewFromGoal={() => {}}
+                        />
+                      ),
+                    }))}
+                  />
+                ) : rvSummarySlots.length === 1 ? (
+                  <ReviewDevelopmentPanel
+                    compact
+                    session={SESSION_EDUCATOR}
+                    review={REVIEWER_REVIEW}
+                    refereeId={rvSummarySlots[0][0]}
+                    refereeName={rvSummarySlots[0][1]}
+                    activeGoals={REVIEWER_GOALS.filter(g => g.refereeId === rvSummarySlots[0][0] && g.status === "Active")}
+                    reviewGoalLinks={REVIEWER_GOAL_LINKS}
+                    onCreateGoalFromReview={() => {}}
+                    onLinkReviewToGoal={() => {}}
+                    onUnlinkReviewFromGoal={() => {}}
+                  />
+                ) : null}
+              </div>
+
+              {rvSummarySlots.some(([id])=>REVIEWER_REVIEW.officialSummaries?.[id]&&(REVIEWER_REVIEW.officialSummaries[id].positives||REVIEWER_REVIEW.officialSummaries[id].workOns)) && (
+                <div className="grid gap-3 rounded-2xl border border-border p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Summary</p>
+                  {rvSummarySlots.map(([id,name,role])=>{const s=REVIEWER_REVIEW.officialSummaries?.[id];return s&&(s.positives||s.workOns)?<div key={id} className="border-b border-border pb-3 last:border-b-0 last:pb-0"><p className="mb-1.5 font-bold text-text">{name} <span className="font-normal text-muted">· {role}</span></p>{s.positives&&<><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="mb-1.5 whitespace-pre-wrap text-[13px] text-text">{s.positives}</p></>}{s.workOns&&<><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-[13px] text-text">{s.workOns}</p></>}</div>:null})}
+                </div>
+              )}
+
+              {rvSummarySlots.some(([id])=>REVIEWER_REVIEW.officialSummaries?.[id]?.nextFocus) && (
+                <div className="grid gap-3 rounded-2xl border border-border p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Final Recommendations</p>
+                  {rvSummarySlots.map(([id,name,role])=>{const s=REVIEWER_REVIEW.officialSummaries?.[id];return s&&s.nextFocus?<div key={id} className="border-b border-border pb-3 last:border-b-0 last:pb-0"><p className="mb-1.5 font-bold text-text">{name} <span className="font-normal text-muted">· {role}</span></p><p className="mb-0.5 text-[11px] text-muted">Focus for next game</p><p className="whitespace-pre-wrap text-[13px] text-text">{s.nextFocus}</p></div>:null})}
+                </div>
+              )}
+
             </div>
-
-            <Card className="grid gap-3 shadow-none">
-              <p className="text-xs font-bold uppercase tracking-wide text-muted">Development</p>
-              {rvSummarySlots.length > 1 ? (
-                <Tabs
-                  ariaLabel="Development by official"
-                  tabs={rvSummarySlots.map(([id, name]) => ({
-                    id,
-                    label: name,
-                    content: (
-                      <ReviewDevelopmentPanel
-                        key={id}
-                        compact
-                        session={SESSION_EDUCATOR}
-                        review={REVIEWER_REVIEW}
-                        refereeId={id}
-                        refereeName={name}
-                        activeGoals={REVIEWER_GOALS.filter(g => g.refereeId === id && g.status === "Active")}
-                        reviewGoalLinks={REVIEWER_GOAL_LINKS}
-                        onCreateGoalFromReview={() => {}}
-                        onLinkReviewToGoal={() => {}}
-                        onUnlinkReviewFromGoal={() => {}}
-                      />
-                    ),
-                  }))}
-                />
-              ) : rvSummarySlots.length === 1 ? (
-                <ReviewDevelopmentPanel
-                  compact
-                  session={SESSION_EDUCATOR}
-                  review={REVIEWER_REVIEW}
-                  refereeId={rvSummarySlots[0][0]}
-                  refereeName={rvSummarySlots[0][1]}
-                  activeGoals={REVIEWER_GOALS.filter(g => g.refereeId === rvSummarySlots[0][0] && g.status === "Active")}
-                  reviewGoalLinks={REVIEWER_GOAL_LINKS}
-                  onCreateGoalFromReview={() => {}}
-                  onLinkReviewToGoal={() => {}}
-                  onUnlinkReviewFromGoal={() => {}}
-                />
-              ) : null}
-            </Card>
-
           </div>
 
           <TaggedClipsModal

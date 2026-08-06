@@ -2376,69 +2376,86 @@ export default function Home() {
   ).filter(([id]) => !!id);
 
   return <AppShell session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} orgLogoUrl={orgSettings.settings.branding.logoUrl} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout} hideSidebar>
-    <div className="grid grid-cols-1 gap-6">
 
-      {/* Compact review context header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_380px] lg:items-start">
+
+      {/* ── LEFT — video-first analysis surface ───────────────────────── */}
+      <div className="grid min-w-0 grid-cols-1 gap-4">
+
+        {/* Compact review heading/context */}
         <div className="min-w-0">
           <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Evaluation</p>
           <h1 className="truncate text-xl font-bold text-text">{reviewGame || "Untitled Review"}</h1>
-          <div className="mt-1.5 flex flex-wrap gap-x-6 gap-y-1.5 text-sm">
-            <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{activeReview?.educatorName || session?.profile.name || "—"}</span></div>
-            {summarySlots.length > 0 && (
-              <div>
-                <span className="font-semibold text-text">Officials</span>
-                <div className="mt-0.5 grid gap-0.5">
-                  {summarySlots.map(([id, name, role]) => (
-                    <div key={id} className="text-muted">{name} <span className="text-muted/70">— {role}</span></div>
-                  ))}
+          <p className="mt-1 text-sm text-muted">Status: {activeReview?.status || "In Review"}</p>
+        </div>
+
+        {/* Video + timeline — one connected analysis surface */}
+        <div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
+            <div className="mode-switch">
+              <button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button>
+              <button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+              <span className="truncate font-semibold text-text">{reviewGame && reviewGame !== "New Review" ? reviewGame : "Untitled Review"}</span>
+              {reviewGameDate && <span>· {reviewGameDate}</span>}
+              {reviewVideoLink ? <span>· 🎥 Video</span> : <span className="text-yellow-300/70">· No video</span>}
+            </div>
+          </div>
+
+          {mode === "video" ? (
+            <>
+              <div className="reviewer-controls">
+                <div className="review-mode-group">
+                  <label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label>
+                </div>
+                <div className="playback-group">
+                  <button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button>
+                  <button className="playback-btn play-pause-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button>
+                  <button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button>
+                </div>
+                <Button variant="primary" className="gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button>
+              </div>
+
+              <div className="mx-auto w-full overflow-hidden rounded-2xl border border-border bg-panel" style={{ maxWidth: "calc(66vh * 16 / 9)" }}>
+                <div style={{ aspectRatio: "16/9" }}>
+                  {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block"}} onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
+                </div>
+                <div className="border-t border-border px-3 py-2">
+                  <div className="timeline" style={{ margin: "8px 0" }}>
+                    <div className="progress" style={{ width: `${progressPct}%` }} />
+                    {timelineMarkers.map(m => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={"marker-hit" + (selectedTagId === m.id ? " marker-hit--active" : "")}
+                        title={m.label}
+                        aria-label={m.label}
+                        style={{ left: `${m.left}%` }}
+                        onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }}
+                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }}
+                      >
+                        <span className="marker-bar" style={{ background: m.color }} />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            )}
-            <div className="text-muted">Status: {activeReview?.status || "In Review"}</div>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Button variant="secondary" size="sm" onClick={()=>setSetupModalOpen(true)}>✏️ Edit Game Details</Button>
-          <Button variant="secondary" size="sm" onClick={()=>setConfirmDiscardReview(true)}>{isNewReview ? "Discard Review" : "← Back"}</Button>
-          <Button variant="secondary" size="sm" className="text-yellow-300" onClick={saveCompleteLater}>Save &amp; Complete Later</Button>
-          <Button variant="good" size="sm" onClick={submitReview}>Submit Review</Button>
-        </div>
-      </div>
-
-      {/* Video + timeline — one connected analysis surface */}
-      <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5">
-          <div className="mode-switch">
-            <button className={mode === "video" ? "primary" : ""} onClick={() => { setMode("video"); setTimerRunning(false); }}>Video Review</button>
-            <button className={mode === "non-video" ? "primary" : ""} onClick={() => setMode("non-video")}>Non-Video Mode</button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-            <span className="truncate font-semibold text-text">{reviewGame && reviewGame !== "New Review" ? reviewGame : "Untitled Review"}</span>
-            {reviewGameDate && <span>· {reviewGameDate}</span>}
-            {reviewVideoLink ? <span>· 🎥 Video</span> : <span className="text-yellow-300/70">· No video</span>}
-          </div>
-        </div>
-
-        {mode === "video" ? (
-          <>
-            <div className="reviewer-controls">
-              <div className="review-mode-group">
-                <label className="file-picker">Upload Local Video<input type="file" accept="video/*" onChange={e => { const file = e.target.files?.[0]; if (file && videoRef.current) videoRef.current.src = URL.createObjectURL(file); }} /></label>
+              {usingYouTubeVideo && <p className="hint mt-1 text-center" style={{fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}
+            </>
+          ) : (
+            <>
+              <div className="timer-card">
+                <div className="timer">{formatTime(timerSeconds)}</div>
+                <div className="toolbar">
+                  <button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button>
+                  <button onClick={() => setTimerSeconds(0)}>Reset</button>
+                  <button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button>
+                  <button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button>
+                </div>
+                <p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p>
               </div>
-              <div className="playback-group">
-                <button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button>
-                <button className="playback-btn play-pause-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button>
-                <button className="playback-btn" onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button>
-              </div>
-              <Button variant="primary" className="gap-1.5" onClick={openVideoCoding}><Tag size={14} /> Tag Moment</Button>
-            </div>
-
-            <div className="mx-auto w-full overflow-hidden rounded-2xl border border-border bg-panel" style={{ maxWidth: "calc(66vh * 16 / 9)" }}>
-              <div style={{ aspectRatio: "16/9" }}>
-                {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block"}} onLoadedMetadata={e=>setVideoDuration(e.currentTarget.duration)} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
-              </div>
-              <div className="border-t border-border px-3 py-2">
+              <div className="mt-3 rounded-2xl border border-border bg-panel px-3 py-2">
                 <div className="timeline" style={{ margin: "8px 0" }}>
                   <div className="progress" style={{ width: `${progressPct}%` }} />
                   {timelineMarkers.map(m => (
@@ -2457,150 +2474,167 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-            </div>
-            {usingYouTubeVideo && <p className="hint mt-1 text-center" style={{fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}
-          </>
-        ) : (
-          <>
-            <div className="timer-card">
-              <div className="timer">{formatTime(timerSeconds)}</div>
-              <div className="toolbar">
-                <button className="primary" onClick={() => setTimerRunning(r => !r)}>{timerRunning ? "Stop Timer" : "Start Timer"}</button>
-                <button onClick={() => setTimerSeconds(0)}>Reset</button>
-                <button onClick={() => setTimerSeconds(s => Math.max(0, s - 10))}>-10s</button>
-                <button onClick={() => setTimerSeconds(s => s + 10)}>+10s</button>
-              </div>
-              <p className="hint">Non-video mode keeps running. Keyboard tags are saved at current timer minus 10 seconds.</p>
-            </div>
-            <div className="mt-3 rounded-2xl border border-border bg-panel px-3 py-2">
-              <div className="timeline" style={{ margin: "8px 0" }}>
-                <div className="progress" style={{ width: `${progressPct}%` }} />
-                {timelineMarkers.map(m => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className={"marker-hit" + (selectedTagId === m.id ? " marker-hit--active" : "")}
-                    title={m.label}
-                    aria-label={m.label}
-                    style={{ left: `${m.left}%` }}
-                    onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }}
-                    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }}
-                  >
-                    <span className="marker-bar" style={{ background: m.color }} />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
+            </>
+          )}
+        </div>
+
+        {mode === "non-video" && (
+          <Card className="shadow-none">
+            <h2 className="mb-2 text-sm font-bold text-text">Non-video hotkeys</h2>
+            <div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div>
+          </Card>
         )}
       </div>
 
-      {/* Lightweight statistics/action bar */}
-      <div className="grid grid-cols-1 gap-3 border-y border-border py-3.5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <label className="flex items-center gap-2 text-xs text-muted">
-            Statistics for
-            <Select className="h-8 w-auto min-w-[150px] py-0 text-sm" value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>
-              {REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}
-            </Select>
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            <Button variant="secondary" size="sm" className="gap-1.5" onClick={exportCsv}><Download size={14} /> CSV</Button>
-            <Button variant="primary" size="sm" className="gap-1.5" onClick={exportExcel}><Download size={14} /> Excel</Button>
-            <Button variant="danger" size="sm" className="gap-1.5" onClick={() => setConfirmClearTags(true)}><Trash2 size={14} /> Clear Tags</Button>
+      {/* ── RIGHT — compact coaching console ──────────────────────────── */}
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:sticky lg:top-4">
+
+        {/* Game Details */}
+        <div className="rounded-2xl border border-border p-4">
+          <div className="mb-2.5 flex items-center justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Details</p>
+            <Button variant="secondary" size="sm" onClick={()=>setSetupModalOpen(true)}>✏️ Edit</Button>
+          </div>
+          <div className="grid gap-2 text-sm">
+            <div><span className="font-semibold text-text">Educator</span>{" "}<span className="text-muted">{activeReview?.educatorName || session?.profile.name || "—"}</span></div>
+            {reviewGameDate && <div><span className="font-semibold text-text">Date</span>{" "}<span className="text-muted">{reviewGameDate}</span></div>}
+            <div><span className="font-semibold text-text">Video</span>{" "}<span className={reviewVideoLink ? "text-muted" : "text-yellow-300/70"}>{reviewVideoLink ? "Linked" : "No video"}</span></div>
+            {summarySlots.length > 0 && (
+              <div>
+                <span className="font-semibold text-text">Officials</span>
+                <div className="mt-0.5 grid gap-0.5">
+                  {summarySlots.map(([id, name, role]) => (
+                    <div key={id} className="text-muted">{name} <span className="text-muted/70">— {role}</span></div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-baseline gap-x-7 gap-y-1.5">
+        {/* Review Actions */}
+        <div className="rounded-2xl border border-border p-4">
+          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Review Actions</p>
+          <div className="grid gap-1.5">
+            <Button variant="secondary" size="sm" className="justify-center" onClick={()=>setConfirmDiscardReview(true)}>{isNewReview ? "Discard Review" : "← Back"}</Button>
+            <Button variant="secondary" size="sm" className="justify-center text-yellow-300" onClick={saveCompleteLater}>Save &amp; Complete Later</Button>
+            <Button variant="good" size="sm" className="justify-center" onClick={submitReview}>Submit Review</Button>
+          </div>
+        </div>
+
+        {/* Clips */}
+        <div className="rounded-2xl border border-border p-4">
+          <div className="mb-2.5 flex items-center justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Clips</p>
+            <div className="flex flex-wrap gap-1.5">
+              <Button variant="secondary" size="sm" className="gap-1.5" onClick={exportCsv}><Download size={14} /> CSV</Button>
+              <Button variant="primary" size="sm" className="gap-1.5" onClick={exportExcel}><Download size={14} /> Excel</Button>
+            </div>
+          </div>
+          <label className="mb-2.5 flex items-center gap-2 text-xs text-muted">
+            Referee
+            <Select className="h-8 w-auto min-w-0 flex-1 py-0 text-sm" value={analyticsTarget} onChange={e => setAnalyticsTarget(e.target.value as RefSlot)}>
+              {REF_SLOTS.map(s => <option key={s} value={s}>{slotName(s, activeReview)}</option>)}
+            </Select>
+          </label>
           <button
             type="button"
             onClick={() => setClipsModalOpen(true)}
             aria-label={`View ${analytics.total} tagged clips for ${slotName(analyticsTarget, activeReview)}`}
-            className="rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="mb-2.5 block w-full rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <span className="text-lg font-extrabold text-text hover:text-accent">{analytics.total}</span> <span className="text-xs text-muted">Total clips</span>
           </button>
-          <span><span className="text-lg font-extrabold text-accent">{analytics.accuracy}</span> <span className="text-xs text-muted">Coded accuracy</span></span>
-          <span><span className="text-lg font-extrabold text-good">{analytics.correctCalls + analytics.correctNoCalls}</span> <span className="text-xs text-muted">Correct decisions</span></span>
-          <span><span className="text-lg font-extrabold text-red-300">{analytics.incorrectCalls + analytics.incorrectNoCalls}</span> <span className="text-xs text-muted">Incorrect decisions</span></span>
+          <div className="grid grid-cols-3 gap-2 border-t border-border pt-2.5 text-xs">
+            <div><div className="text-sm font-extrabold text-accent">{analytics.accuracy}</div><div className="text-muted">Accuracy</div></div>
+            <div><div className="text-sm font-extrabold text-good">{analytics.correctCalls + analytics.correctNoCalls}</div><div className="text-muted">Correct</div></div>
+            <div><div className="text-sm font-extrabold text-red-300">{analytics.incorrectCalls + analytics.incorrectNoCalls}</div><div className="text-muted">Incorrect</div></div>
+          </div>
+          <Button variant="danger" size="sm" className="mt-2.5 w-full justify-center gap-1.5" onClick={() => setConfirmClearTags(true)}><Trash2 size={14} /> Clear Tags</Button>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-3 sm:grid-cols-4">
-          <div>
-            <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Outcome</h3>
-            <div className="grid gap-0.5">{analytics.outcomeCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
-          </div>
-          <div>
-            <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Category</h3>
-            <div className="grid gap-0.5">{analytics.categoryCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
-          </div>
-          <div>
-            <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Position</h3>
-            <div className="grid gap-0.5">{analytics.positionCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
-          </div>
-          <div>
-            <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Coverage</h3>
-            <div className="grid gap-0.5">{analytics.coverageCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+        {/* Statistics */}
+        <div className="rounded-2xl border border-border p-4">
+          <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Statistics</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <div>
+              <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Outcome</h3>
+              <div className="grid gap-0.5">{analytics.outcomeCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+            </div>
+            <div>
+              <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Category</h3>
+              <div className="grid gap-0.5">{analytics.categoryCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+            </div>
+            <div>
+              <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Position</h3>
+              <div className="grid gap-0.5">{analytics.positionCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+            </div>
+            <div>
+              <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">Coverage</h3>
+              <div className="grid gap-0.5">{analytics.coverageCounts.map(([n, c]) => <div className="flex items-center justify-between text-xs text-text" key={n}><span className="text-muted">{n}</span><strong>{c}</strong></div>)}</div>
+            </div>
           </div>
         </div>
+
+        {/* Development */}
+        {activeReview && session && (()=>{
+          const slots: Array<{id:string; name:string}> = [
+            {id: activeReview.referee1Id, name: activeReview.referee1Name},
+            {id: activeReview.referee2Id, name: activeReview.referee2Name},
+            {id: activeReview.referee3Id, name: activeReview.referee3Name},
+          ].filter(s => s.id);
+          const allRefereeIds = refereeMembers.map(m => m.id);
+          if (slots.length === 0) return null;
+          const panelFor = (slot: {id:string; name:string}) => (
+            <ReviewDevelopmentPanel
+              key={slot.id}
+              compact
+              session={session}
+              review={activeReview}
+              refereeId={slot.id}
+              refereeName={slot.name}
+              activeGoals={refereeGoalViewsForReferee(slot.id).filter(v => v.status === "Active")}
+              reviewGoalLinks={reviewGoalLinks.filter(l => l.refereeId === slot.id && l.reviewId === activeReview.id)}
+              onCreateGoalFromReview={async (input, reviewId) => {
+                const defId = await assignGoal(input, allRefereeIds);
+                if (defId) createReviewGoalLink({reviewId, goalDefId: defId, refereeId: slot.id, createdGoalFromReview: true});
+              }}
+              onLinkReviewToGoal={createReviewGoalLink}
+              onUnlinkReviewFromGoal={removeReviewGoalLink}
+            />
+          );
+          return (
+            <div className="rounded-2xl border border-border p-4">
+              <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted">Development</p>
+              {slots.length > 1 ? (
+                <Tabs
+                  ariaLabel="Development by official"
+                  tabs={slots.map(slot => ({ id: slot.id, label: slot.name, content: panelFor(slot) }))}
+                />
+              ) : (
+                panelFor(slots[0])
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Game Summary */}
+        {summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&(activeReview.officialSummaries[id].positives||activeReview.officialSummaries[id].workOns)) && (
+          <div className="grid gap-3 rounded-2xl border border-border p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Game Summary</p>
+            {summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&(s.positives||s.workOns)?<div key={id} className="border-b border-border pb-3 last:border-b-0 last:pb-0"><p className="mb-1.5 font-bold text-text">{name} <span className="font-normal text-muted">· {role}</span></p>{s.positives&&<><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="mb-1.5 whitespace-pre-wrap text-[13px] text-text">{s.positives}</p></>}{s.workOns&&<><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-[13px] text-text">{s.workOns}</p></>}</div>:null})}
+          </div>
+        )}
+
+        {/* Final Recommendations */}
+        {summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]?.nextFocus) && (
+          <div className="grid gap-3 rounded-2xl border border-border p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Final Recommendations</p>
+            {summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&s.nextFocus?<div key={id} className="border-b border-border pb-3 last:border-b-0 last:pb-0"><p className="mb-1.5 font-bold text-text">{name} <span className="font-normal text-muted">· {role}</span></p><p className="mb-0.5 text-[11px] text-muted">Focus for next game</p><p className="whitespace-pre-wrap text-[13px] text-text">{s.nextFocus}</p></div>:null})}
+          </div>
+        )}
+
       </div>
-
-      {/* Secondary panels */}
-      {mode === "non-video" && (
-        <Card className="shadow-none">
-          <h2 className="mb-2 text-sm font-bold text-text">Non-video hotkeys</h2>
-          <div className="hotkey-grid">{KEY_LABELS.map(([k, l]) => <div className="hotkey" key={k}><span>{l}</span><kbd>{k}</kbd></div>)}</div>
-        </Card>
-      )}
-
-      {summarySlots.some(([id])=>activeReview?.officialSummaries?.[id]&&Object.values(activeReview.officialSummaries[id]).some(Boolean)) && (
-        <div className="grid gap-3 rounded-2xl border border-border p-4">
-          <h3 className="text-sm font-bold text-text">Final Summaries</h3>
-          {summarySlots.map(([id,name,role])=>{const s=activeReview?.officialSummaries?.[id];return s&&(s.positives||s.workOns||s.nextFocus)?<div key={id} className="border-b border-border pb-3 last:border-b-0 last:pb-0"><p className="mb-1.5 font-bold text-text">{name} <span className="font-normal text-muted">· {role}</span></p>{s.positives&&<><p className="mb-0.5 text-[11px] text-muted">Positives</p><p className="mb-1.5 whitespace-pre-wrap text-[13px] text-text">{s.positives}</p></>}{s.workOns&&<><p className="mb-0.5 text-[11px] text-muted">Development Notes</p><p className="whitespace-pre-wrap text-[13px] text-text">{s.workOns}</p></>}</div>:null})}
-        </div>
-      )}
-
-      {activeReview && session && (()=>{
-        const slots: Array<{id:string; name:string}> = [
-          {id: activeReview.referee1Id, name: activeReview.referee1Name},
-          {id: activeReview.referee2Id, name: activeReview.referee2Name},
-          {id: activeReview.referee3Id, name: activeReview.referee3Name},
-        ].filter(s => s.id);
-        const allRefereeIds = refereeMembers.map(m => m.id);
-        if (slots.length === 0) return null;
-        const panelFor = (slot: {id:string; name:string}) => (
-          <ReviewDevelopmentPanel
-            key={slot.id}
-            compact
-            session={session}
-            review={activeReview}
-            refereeId={slot.id}
-            refereeName={slot.name}
-            activeGoals={refereeGoalViewsForReferee(slot.id).filter(v => v.status === "Active")}
-            reviewGoalLinks={reviewGoalLinks.filter(l => l.refereeId === slot.id && l.reviewId === activeReview.id)}
-            onCreateGoalFromReview={async (input, reviewId) => {
-              const defId = await assignGoal(input, allRefereeIds);
-              if (defId) createReviewGoalLink({reviewId, goalDefId: defId, refereeId: slot.id, createdGoalFromReview: true});
-            }}
-            onLinkReviewToGoal={createReviewGoalLink}
-            onUnlinkReviewFromGoal={removeReviewGoalLink}
-          />
-        );
-        return (
-          <Card className="grid gap-3 shadow-none">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted">Development</p>
-            {slots.length > 1 ? (
-              <Tabs
-                ariaLabel="Development by official"
-                tabs={slots.map(slot => ({ id: slot.id, label: slot.name, content: panelFor(slot) }))}
-              />
-            ) : (
-              panelFor(slots[0])
-            )}
-          </Card>
-        );
-      })()}
-
     </div>
 
     <TaggedClipsModal
@@ -2621,6 +2655,6 @@ export default function Home() {
       onCommentsRead={refreshUnread}
     />
 
-    {codingOpen && <div className="modal-backdrop"><div ref={wizardDialogRef} role="dialog" aria-modal="true" aria-label={`${editingTagId?"Edit clip":"Tag Moment"} · Step ${wizardStep} of 8`} tabIndex={-1} className="modal wizard-modal" style={{maxWidth:wizardStep===1?720:500}}><div className="modal-title"><div><p className="eyebrow">{editingTagId?"Edit clip":"Tag Moment"} · Step {wizardStep} of 8</p><h1 style={{fontSize:20,margin:0}}>{wizardStep===1?"Choose Clip Segment":wizardStep===2?"Outcome":wizardStep===3?"Category":wizardStep===4?"Position":wizardStep===5?"Coverage":wizardStep===6?"Official & Notes":wizardStep===7?"Learning Library":"Review & Save"}</h1><p className="hint" style={{margin:"3px 0 0",fontSize:12}}>{formatTime(codingSecond)} · Adjusted: {formatTime(Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0)))}</p></div><button aria-label="Close" onClick={()=>{setCodingOpen(false);setEditingTagId(null);if(shouldResumeVideo)playActiveVideo();}}>✕</button></div><div className="wizard-dots">{[1,2,3,4,5,6,7,8].map(s=><div key={s} className={"wizard-dot"+(s===wizardStep?" wizard-dot--active":s<wizardStep?" wizard-dot--done":"")} />)}</div><div style={{display:wizardStep===1?"":"none"}}><p className="wizard-prompt">Set the clip boundaries. <span className="hint">Drag the handles or use the controls below.</span></p><ClipEditorPanel videoLink={activeReview?.videoLink||""} incidentSeconds={Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0))} draftStartSeconds={draftStartSeconds} setDraftStartSeconds={setDraftStartSeconds} draftEndSeconds={draftEndSeconds} setDraftEndSeconds={setDraftEndSeconds} resolvedEndSeconds={draftEndSeconds??Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0))+CLIP_DEFAULT_POST_ROLL} viewportStart={clipViewportStart} viewportEnd={clipViewportEnd} onViewportChange={(vp)=>{setClipViewportStart(vp.start);setClipViewportEnd(vp.end);}} codingError={wizardStep===1?codingError:""} onClearError={()=>setCodingError("")}/></div>{wizardStep===2&&<><p className="wizard-prompt">What was the result of this moment?</p><div className="wizard-opts">{OUTCOMES.map(item=>{const oc=OUTCOME_COLOR[item];const sel=draftOutcome===item;return<button key={item} className={"wizard-opt"+(sel?" selected":"")} style={oc&&sel?{color:oc.color}:{}} onClick={()=>{setDraftOutcome(item);setCodingError("");setWizardStep(3);}}>{item}</button>;})}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===3&&(()=>{const allTags=SPECIFIC_TAGS[draftCategoryGroup]||[];const recent=recentSpecificTags.filter(t=>allTags.includes(t));const rest=allTags.filter(t=>!recent.includes(t));return(<><p className="wizard-prompt">What type of call is this?</p><div className="wizard-opts">{CATEGORY_GROUPS.map(item=><button key={item} className={"wizard-opt"+(draftCategoryGroup===item?" selected":"")} onClick={()=>{setDraftCategoryGroup(item);if(item!==draftCategoryGroup)setDraftSpecificTag("");setCodingError("");}}>{item}</button>)}</div>{draftCategoryGroup&&<div style={{marginTop:12,paddingTop:10,borderTop:"1px solid rgba(255,255,255,.08)"}}><p className="wizard-prompt" style={{marginBottom:6}}>Select the specific {draftCategoryGroup.toLowerCase()} tag.</p>{recent.length>0&&<><p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>Recently used</p><div className="wizard-opts wizard-opts--compact" style={{marginBottom:12}}>{recent.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(4);}}>{item}</button>)}</div></>}<p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>{recent.length>0?"All tags":"Tags"}</p><div className="wizard-opts wizard-opts--compact">{rest.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(4);}}>{item}</button>)}</div></div>}{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>);})()}{wizardStep===4&&<><p className="wizard-prompt">Where was the referee positioned?</p><div className="wizard-opts">{POSITIONS.map(item=><button key={item} className={"wizard-opt"+(draftPosition===item?" selected":"")} onClick={()=>{setDraftPosition(item);setCodingError("");setWizardStep(5);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===5&&<><p className="wizard-prompt">What was the referee's coverage area?</p><div className="wizard-opts">{COVERAGE.map(item=><button key={item} className={"wizard-opt"+(draftCoverage===item?" selected":"")} onClick={()=>{setDraftCoverage(item);setCodingError("");setWizardStep(6);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===6&&<><p className="wizard-prompt">Who was responsible for this moment?</p><div className="wizard-opts">{REF_SLOTS.map(s=><button key={s} className={"wizard-opt"+(draftRefereeTarget===s?" selected":"")} onClick={()=>{setDraftRefereeTarget(s as RefSlot);setDraftExtraOfficials(items=>items.filter(x=>x!==s));setCodingError("");}}>{slotName(s,activeReview)}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}<div style={{marginTop:14}}><p style={{fontSize:13,fontWeight:700,margin:"0 0 4px"}}>Also show this clip to <span className="hint" style={{fontWeight:400}}>(optional)</span></p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{REF_SLOTS.filter(s=>s!=="All Referees"&&s!==draftRefereeTarget).map(s=><button type="button" key={s} className={"wizard-opt wizard-opt--sm"+(draftExtraOfficials.includes(s)?" selected":"")} onClick={()=>toggleExtra(s)}>{slotName(s,activeReview)}</button>)}</div><p className="hint" style={{fontSize:11,marginTop:5}}>Reference officials can view this clip but are not counted as responsible for the decision.</p></div><div style={{marginTop:14,paddingTop:12,borderTop:"1px solid rgba(255,255,255,.08)"}}><p className="wizard-prompt" style={{marginBottom:8}}>Add notes <span className="hint">(optional)</span></p><textarea value={draftNotes} onChange={e=>setDraftNotes(e.target.value)} placeholder="Notes for this clip…" style={{width:"100%",minHeight:70,resize:"vertical",boxSizing:"border-box"}} /></div></>}{wizardStep===7&&<><p className="wizard-prompt">Add to Learning Library? <span className="hint">(optional)</span></p><div style={{marginTop:8}}><label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={draftIsLearningClip} onChange={e=>setDraftIsLearningClip(e.target.checked)} style={{accentColor:"#22c55e",width:"auto",flexShrink:0}} /><span style={{fontWeight:600}}>Add to Learning Library</span></label><p className="hint" style={{fontSize:11,marginTop:4}}>Educators can filter for this clip when attaching resources to quiz questions.</p></div></>}{wizardStep===8&&<><p className="wizard-prompt">Confirm all details before saving.</p><div style={{display:"flex",flexDirection:"column",gap:6}}>{(()=>{const incSec=Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0));const stSec=draftStartSeconds;const enSec=draftEndSeconds??incSec+CLIP_DEFAULT_POST_ROLL;const segSummary=`Start ${formatClipTime(stSec)} · Incident ${formatClipTime(incSec)} · End ${formatClipTime(enSec)} · ${(enSec-stSec).toFixed(1)}s`;return([["Clip Segment",segSummary,1,false],["Outcome",draftOutcome,2,!draftOutcome],["Category",draftCategoryGroup,3,!draftCategoryGroup],["Specific Tag",draftSpecificTag,3,!draftSpecificTag],["Position",draftPosition,4,!draftPosition],["Coverage",draftCoverage,5,!draftCoverage],["Responsible Official",slotName(draftRefereeTarget,activeReview),6,false],["Reference Officials",draftExtraOfficials.length>0?draftExtraOfficials.map(s=>slotName(s,activeReview)).join(", "):"(none)",6,false],["Notes",draftNotes||"(none)",6,false]] as [string,string,number,boolean][]).map(([label,value,step,isError])=><div key={label} className={"wizard-review-row"+(isError?" wizard-review-row--error":"")}><div style={{flex:1,minWidth:0}}><span className="hint" style={{display:"block",fontSize:11,marginBottom:1}}>{label}</span><span style={{fontWeight:isError?900:700,color:isError?"#fecaca":"var(--text)"}}>{value||"⚠ Required"}</span></div><button style={{fontSize:11,padding:"2px 8px",flexShrink:0}} onClick={()=>setWizardStep(step)}>{label==="Clip Segment"?"Edit Timing":"Edit"}</button></div>);})()}{codingError&&<p className="danger-text" style={{margin:"4px 0 0"}}>{codingError}</p>}</div></>}<div className="wizard-nav"><div>{wizardStep>1&&<Button variant="secondary" size="sm" onClick={()=>setWizardStep(s=>s-1)}>← Back</Button>}</div><div className="flex items-center gap-2">{wizardStep<8&&wizardStep>2&&draftOutcome&&draftCoverage&&draftPosition&&draftCategoryGroup&&draftSpecificTag&&<Button variant="secondary" size="sm" onClick={()=>setWizardStep(8)}>Skip to Review →</Button>}{(wizardStep===1||wizardStep===6||wizardStep===7)&&<Button variant="primary" size="sm" onClick={()=>{if(wizardStep===1){const _inc=Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0));const _en=draftEndSeconds??_inc+CLIP_DEFAULT_POST_ROLL;if(draftStartSeconds>=_inc){setCodingError("Clip start must be before the tagged moment.");return;}if(_en<=draftStartSeconds){setCodingError("Clip end must be after the clip start.");return;}if(_en<=_inc){setCodingError("Clip end must be after the tagged moment.");return;}setCodingError("");}setWizardStep(wizardStep+1);}}>Next →</Button>}{wizardStep===8&&<Button variant="primary" size="sm" onClick={saveVideoCode}>{editingTagId?"Save Changes":"Save & Resume"}</Button>}</div></div></div></div>}{setupModalOpen&&<div className="modal-backdrop" onClick={e=>{if(e.target===e.currentTarget&&reviewGame&&reviewGame!=="New Review")setSetupModalOpen(false);}}><div ref={setupDialogRef} role="dialog" aria-modal="true" aria-label={reviewGame&&reviewGame!=="New Review"?"Edit Game Details":"New Review Setup"} tabIndex={-1} className="modal" style={{maxWidth:660}}><div className="modal-title"><div><p className="eyebrow">{reviewGame&&reviewGame!=="New Review"?"Edit Game Details":"New Review Setup"}</p><h1 style={{fontSize:22,margin:0}}>{reviewGame&&reviewGame!=="New Review"?reviewGame:"Set up your review"}</h1></div>{reviewGame&&reviewGame!=="New Review"&&<button onClick={()=>setSetupModalOpen(false)}>✕</button>}</div><div style={{display:"flex",flexDirection:"column",gap:12,marginTop:12}}><div className="setup-grid"><label>Game / Competition name<Input className="mt-1" value={reviewGame==="New Review"?"":reviewGame} onChange={e=>setReviewGame(e.target.value)} placeholder="e.g. NBL Round 5 — Wildcats vs Kings" autoFocus /></label><label>Game Date<Input className="mt-1" type="date" value={reviewGameDate} onChange={e=>setReviewGameDate(e.target.value)} /></label></div><div className="setup-grid"><label>Crew Chief<Select className="mt-1" value={reviewRef1} onChange={e=>setReviewRef1(e.target.value)}><option value="">Select Crew Chief...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</Select></label><label>Umpire 1<Select className="mt-1" value={reviewRef2} onChange={e=>setReviewRef2(e.target.value)}><option value="">Select Umpire 1...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</Select></label><label>Umpire 2<Select className="mt-1" value={reviewRef3} onChange={e=>setReviewRef3(e.target.value)}><option value="">Select Umpire 2...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</Select></label></div><div className="grid-2"><label>Video link<Input className="mt-1" value={reviewVideoLink} onChange={e=>setReviewVideoLink(e.target.value)} placeholder="YouTube, direct MP4/WebM, Hudl, GloryLeague..." /></label><label>Timestamp offset (seconds)<Input className="mt-1" type="number" step="1" max="0" value={reviewOffset} onChange={e=>setReviewOffset(-Math.abs(Math.trunc(Number(e.target.value)||0)))} /></label></div></div><div className="action-row" style={{marginTop:18}}>{reviewGame&&reviewGame!=="New Review"?<Button variant="secondary" size="sm" onClick={()=>setSetupModalOpen(false)}>Cancel</Button>:<button className="text-xs text-muted" style={{background:"none",border:"none",cursor:"pointer",padding:"6px 4px",userSelect:"none"}} onClick={()=>setSetupModalOpen(false)}>Skip for now</button>}<Button variant="primary" size="sm" onClick={()=>{saveReviewMeta();setSetupModalOpen(false);}}>{ !reviewGame||reviewGame==="New Review"?"Save & Start Review":"Save Changes"}</Button></div></div></div>}{summaryModalOpen&&<div className="modal-backdrop"><div ref={summaryDialogRef} role="dialog" aria-modal="true" aria-label="Complete Review" tabIndex={-1} className="modal" style={{maxWidth:600}}><div className="modal-title"><div><p className="eyebrow">Complete Review</p><h1>Final Summaries</h1><p className="hint">Add optional notes for each official before completing the review.</p></div><button aria-label="Close" onClick={()=>setSummaryModalOpen(false)}>✕</button></div>{summarySlots.length===0&&<p className="hint" style={{marginTop:14}}>No officials assigned to this review.</p>}{summarySlots.length>0&&(()=>{const idx=Math.min(summaryActiveIdx,summarySlots.length-1);const [id,name,role]=summarySlots[idx];return(<><div className="mt-3.5 flex flex-wrap gap-1.5">{summarySlots.map(([sid,sname],i)=><button key={sid} onClick={()=>setSummaryActiveIdx(i)} className={"rounded-lg border px-3.5 py-1 text-[13px] transition-colors "+(i===idx?"border-accent/40 bg-accent/10 font-bold text-accent":"border-border bg-transparent text-muted")}>{sname}</button>)}</div><div style={{marginTop:18}}><h2 style={{margin:"0 0 14px"}}>{name} <span className="hint" style={{fontWeight:400,fontSize:14}}>· {role}</span></h2><div style={{display:"flex",flexDirection:"column",gap:12}}><label>Positives<Textarea className="mt-1" rows={4} value={draftSummaries[id]?.positives||""} onChange={e=>updateSummaryField(id,"positives",e.target.value)} placeholder="What did this official do well?" /></label><label>Development Notes<Textarea className="mt-1" rows={4} value={draftSummaries[id]?.workOns||""} onChange={e=>updateSummaryField(id,"workOns",e.target.value)} placeholder="Key development areas and coaching notes…" /></label></div></div></>);})()}<div className="action-row" style={{marginTop:24}}><Button variant="secondary" size="sm" onClick={()=>setSummaryModalOpen(false)}>Cancel</Button><Button variant="good" size="sm" onClick={confirmSubmit}>✓ Confirm &amp; Complete Review</Button></div></div></div>}{confirmDiscardReview&&<div className="modal-backdrop"><div ref={discardDialogRef} role="dialog" aria-modal="true" aria-label={isNewReview?"Discard this review?":"Leave without saving?"} tabIndex={-1} className="modal" style={{maxWidth:420}}><div className="modal-title"><div><p className="eyebrow">{isNewReview?"Discard Review":"Leave Review"}</p><h1 style={{fontSize:20,margin:0}}>{isNewReview?"Discard this review?":"Leave without saving?"}</h1></div></div><p style={{margin:"16px 0 0",fontSize:14,color:"var(--muted)"}}>{isNewReview?"This review has not been saved. Discarding it will permanently delete it and all coded clips.":"Any unsaved game detail changes will be lost. Coded clips are already saved."}
+{codingOpen && <div className="modal-backdrop"><div ref={wizardDialogRef} role="dialog" aria-modal="true" aria-label={`${editingTagId?"Edit clip":"Tag Moment"} · Step ${wizardStep} of 8`} tabIndex={-1} className="modal wizard-modal" style={{maxWidth:wizardStep===1?720:500}}><div className="modal-title"><div><p className="eyebrow">{editingTagId?"Edit clip":"Tag Moment"} · Step {wizardStep} of 8</p><h1 style={{fontSize:20,margin:0}}>{wizardStep===1?"Choose Clip Segment":wizardStep===2?"Outcome":wizardStep===3?"Category":wizardStep===4?"Position":wizardStep===5?"Coverage":wizardStep===6?"Official & Notes":wizardStep===7?"Learning Library":"Review & Save"}</h1><p className="hint" style={{margin:"3px 0 0",fontSize:12}}>{formatTime(codingSecond)} · Adjusted: {formatTime(Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0)))}</p></div><button aria-label="Close" onClick={()=>{setCodingOpen(false);setEditingTagId(null);if(shouldResumeVideo)playActiveVideo();}}>✕</button></div><div className="wizard-dots">{[1,2,3,4,5,6,7,8].map(s=><div key={s} className={"wizard-dot"+(s===wizardStep?" wizard-dot--active":s<wizardStep?" wizard-dot--done":"")} />)}</div><div style={{display:wizardStep===1?"":"none"}}><p className="wizard-prompt">Set the clip boundaries. <span className="hint">Drag the handles or use the controls below.</span></p><ClipEditorPanel videoLink={activeReview?.videoLink||""} incidentSeconds={Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0))} draftStartSeconds={draftStartSeconds} setDraftStartSeconds={setDraftStartSeconds} draftEndSeconds={draftEndSeconds} setDraftEndSeconds={setDraftEndSeconds} resolvedEndSeconds={draftEndSeconds??Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0))+CLIP_DEFAULT_POST_ROLL} viewportStart={clipViewportStart} viewportEnd={clipViewportEnd} onViewportChange={(vp)=>{setClipViewportStart(vp.start);setClipViewportEnd(vp.end);}} codingError={wizardStep===1?codingError:""} onClearError={()=>setCodingError("")}/></div>{wizardStep===2&&<><p className="wizard-prompt">What was the result of this moment?</p><div className="wizard-opts">{OUTCOMES.map(item=>{const oc=OUTCOME_COLOR[item];const sel=draftOutcome===item;return<button key={item} className={"wizard-opt"+(sel?" selected":"")} style={oc&&sel?{color:oc.color}:{}} onClick={()=>{setDraftOutcome(item);setCodingError("");setWizardStep(3);}}>{item}</button>;})}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===3&&(()=>{const allTags=SPECIFIC_TAGS[draftCategoryGroup]||[];const recent=recentSpecificTags.filter(t=>allTags.includes(t));const rest=allTags.filter(t=>!recent.includes(t));return(<><p className="wizard-prompt">What type of call is this?</p><div className="wizard-opts">{CATEGORY_GROUPS.map(item=><button key={item} className={"wizard-opt"+(draftCategoryGroup===item?" selected":"")} onClick={()=>{setDraftCategoryGroup(item);if(item!==draftCategoryGroup)setDraftSpecificTag("");setCodingError("");}}>{item}</button>)}</div>{draftCategoryGroup&&<div style={{marginTop:12,paddingTop:10,borderTop:"1px solid rgba(255,255,255,.08)"}}><p className="wizard-prompt" style={{marginBottom:6}}>Select the specific {draftCategoryGroup.toLowerCase()} tag.</p>{recent.length>0&&<><p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>Recently used</p><div className="wizard-opts wizard-opts--compact" style={{marginBottom:12}}>{recent.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(4);}}>{item}</button>)}</div></>}<p style={{fontSize:11,fontWeight:700,color:"var(--muted)",margin:"0 0 6px",textTransform:"uppercase",letterSpacing:".04em"}}>{recent.length>0?"All tags":"Tags"}</p><div className="wizard-opts wizard-opts--compact">{rest.map(item=><button key={item} className={"wizard-opt wizard-opt--sm"+(draftSpecificTag===item?" selected":"")} onClick={()=>{setDraftSpecificTag(item);setCodingError("");setWizardStep(4);}}>{item}</button>)}</div></div>}{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>);})()}{wizardStep===4&&<><p className="wizard-prompt">Where was the referee positioned?</p><div className="wizard-opts">{POSITIONS.map(item=><button key={item} className={"wizard-opt"+(draftPosition===item?" selected":"")} onClick={()=>{setDraftPosition(item);setCodingError("");setWizardStep(5);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===5&&<><p className="wizard-prompt">What was the referee's coverage area?</p><div className="wizard-opts">{COVERAGE.map(item=><button key={item} className={"wizard-opt"+(draftCoverage===item?" selected":"")} onClick={()=>{setDraftCoverage(item);setCodingError("");setWizardStep(6);}}>{item}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}</>}{wizardStep===6&&<><p className="wizard-prompt">Who was responsible for this moment?</p><div className="wizard-opts">{REF_SLOTS.map(s=><button key={s} className={"wizard-opt"+(draftRefereeTarget===s?" selected":"")} onClick={()=>{setDraftRefereeTarget(s as RefSlot);setDraftExtraOfficials(items=>items.filter(x=>x!==s));setCodingError("");}}>{slotName(s,activeReview)}</button>)}</div>{codingError&&<p className="danger-text" style={{margin:"8px 0 0"}}>{codingError}</p>}<div style={{marginTop:14}}><p style={{fontSize:13,fontWeight:700,margin:"0 0 4px"}}>Also show this clip to <span className="hint" style={{fontWeight:400}}>(optional)</span></p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{REF_SLOTS.filter(s=>s!=="All Referees"&&s!==draftRefereeTarget).map(s=><button type="button" key={s} className={"wizard-opt wizard-opt--sm"+(draftExtraOfficials.includes(s)?" selected":"")} onClick={()=>toggleExtra(s)}>{slotName(s,activeReview)}</button>)}</div><p className="hint" style={{fontSize:11,marginTop:5}}>Reference officials can view this clip but are not counted as responsible for the decision.</p></div><div style={{marginTop:14,paddingTop:12,borderTop:"1px solid rgba(255,255,255,.08)"}}><p className="wizard-prompt" style={{marginBottom:8}}>Add notes <span className="hint">(optional)</span></p><textarea value={draftNotes} onChange={e=>setDraftNotes(e.target.value)} placeholder="Notes for this clip…" style={{width:"100%",minHeight:70,resize:"vertical",boxSizing:"border-box"}} /></div></>}{wizardStep===7&&<><p className="wizard-prompt">Add to Learning Library? <span className="hint">(optional)</span></p><div style={{marginTop:8}}><label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={draftIsLearningClip} onChange={e=>setDraftIsLearningClip(e.target.checked)} style={{accentColor:"#22c55e",width:"auto",flexShrink:0}} /><span style={{fontWeight:600}}>Add to Learning Library</span></label><p className="hint" style={{fontSize:11,marginTop:4}}>Educators can filter for this clip when attaching resources to quiz questions.</p></div></>}{wizardStep===8&&<><p className="wizard-prompt">Confirm all details before saving.</p><div style={{display:"flex",flexDirection:"column",gap:6}}>{(()=>{const incSec=Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0));const stSec=draftStartSeconds;const enSec=draftEndSeconds??incSec+CLIP_DEFAULT_POST_ROLL;const segSummary=`Start ${formatClipTime(stSec)} · Incident ${formatClipTime(incSec)} · End ${formatClipTime(enSec)} · ${(enSec-stSec).toFixed(1)}s`;return([["Clip Segment",segSummary,1,false],["Outcome",draftOutcome,2,!draftOutcome],["Category",draftCategoryGroup,3,!draftCategoryGroup],["Specific Tag",draftSpecificTag,3,!draftSpecificTag],["Position",draftPosition,4,!draftPosition],["Coverage",draftCoverage,5,!draftCoverage],["Responsible Official",slotName(draftRefereeTarget,activeReview),6,false],["Reference Officials",draftExtraOfficials.length>0?draftExtraOfficials.map(s=>slotName(s,activeReview)).join(", "):"(none)",6,false],["Notes",draftNotes||"(none)",6,false]] as [string,string,number,boolean][]).map(([label,value,step,isError])=><div key={label} className={"wizard-review-row"+(isError?" wizard-review-row--error":"")}><div style={{flex:1,minWidth:0}}><span className="hint" style={{display:"block",fontSize:11,marginBottom:1}}>{label}</span><span style={{fontWeight:isError?900:700,color:isError?"#fecaca":"var(--text)"}}>{value||"⚠ Required"}</span></div><button style={{fontSize:11,padding:"2px 8px",flexShrink:0}} onClick={()=>setWizardStep(step)}>{label==="Clip Segment"?"Edit Timing":"Edit"}</button></div>);})()}{codingError&&<p className="danger-text" style={{margin:"4px 0 0"}}>{codingError}</p>}</div></>}<div className="wizard-nav"><div>{wizardStep>1&&<Button variant="secondary" size="sm" onClick={()=>setWizardStep(s=>s-1)}>← Back</Button>}</div><div className="flex items-center gap-2">{wizardStep<8&&wizardStep>2&&draftOutcome&&draftCoverage&&draftPosition&&draftCategoryGroup&&draftSpecificTag&&<Button variant="secondary" size="sm" onClick={()=>setWizardStep(8)}>Skip to Review →</Button>}{(wizardStep===1||wizardStep===6||wizardStep===7)&&<Button variant="primary" size="sm" onClick={()=>{if(wizardStep===1){const _inc=Math.max(0,codingSecond+Number(activeReview?.timestampOffset||0));const _en=draftEndSeconds??_inc+CLIP_DEFAULT_POST_ROLL;if(draftStartSeconds>=_inc){setCodingError("Clip start must be before the tagged moment.");return;}if(_en<=draftStartSeconds){setCodingError("Clip end must be after the clip start.");return;}if(_en<=_inc){setCodingError("Clip end must be after the tagged moment.");return;}setCodingError("");}setWizardStep(wizardStep+1);}}>Next →</Button>}{wizardStep===8&&<Button variant="primary" size="sm" onClick={saveVideoCode}>{editingTagId?"Save Changes":"Save & Resume"}</Button>}</div></div></div></div>}{setupModalOpen&&<div className="modal-backdrop" onClick={e=>{if(e.target===e.currentTarget&&reviewGame&&reviewGame!=="New Review")setSetupModalOpen(false);}}><div ref={setupDialogRef} role="dialog" aria-modal="true" aria-label={reviewGame&&reviewGame!=="New Review"?"Edit Game Details":"New Review Setup"} tabIndex={-1} className="modal" style={{maxWidth:660}}><div className="modal-title"><div><p className="eyebrow">{reviewGame&&reviewGame!=="New Review"?"Edit Game Details":"New Review Setup"}</p><h1 style={{fontSize:22,margin:0}}>{reviewGame&&reviewGame!=="New Review"?reviewGame:"Set up your review"}</h1></div>{reviewGame&&reviewGame!=="New Review"&&<button onClick={()=>setSetupModalOpen(false)}>✕</button>}</div><div style={{display:"flex",flexDirection:"column",gap:12,marginTop:12}}><div className="setup-grid"><label>Game / Competition name<Input className="mt-1" value={reviewGame==="New Review"?"":reviewGame} onChange={e=>setReviewGame(e.target.value)} placeholder="e.g. NBL Round 5 — Wildcats vs Kings" autoFocus /></label><label>Game Date<Input className="mt-1" type="date" value={reviewGameDate} onChange={e=>setReviewGameDate(e.target.value)} /></label></div><div className="setup-grid"><label>Crew Chief<Select className="mt-1" value={reviewRef1} onChange={e=>setReviewRef1(e.target.value)}><option value="">Select Crew Chief...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</Select></label><label>Umpire 1<Select className="mt-1" value={reviewRef2} onChange={e=>setReviewRef2(e.target.value)}><option value="">Select Umpire 1...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</Select></label><label>Umpire 2<Select className="mt-1" value={reviewRef3} onChange={e=>setReviewRef3(e.target.value)}><option value="">Select Umpire 2...</option>{refereeMembers.map(m=><option value={m.id} key={m.id}>{m.name}</option>)}</Select></label></div><div className="grid-2"><label>Video link<Input className="mt-1" value={reviewVideoLink} onChange={e=>setReviewVideoLink(e.target.value)} placeholder="YouTube, direct MP4/WebM, Hudl, GloryLeague..." /></label><label>Timestamp offset (seconds)<Input className="mt-1" type="number" step="1" max="0" value={reviewOffset} onChange={e=>setReviewOffset(-Math.abs(Math.trunc(Number(e.target.value)||0)))} /></label></div></div><div className="action-row" style={{marginTop:18}}>{reviewGame&&reviewGame!=="New Review"?<Button variant="secondary" size="sm" onClick={()=>setSetupModalOpen(false)}>Cancel</Button>:<button className="text-xs text-muted" style={{background:"none",border:"none",cursor:"pointer",padding:"6px 4px",userSelect:"none"}} onClick={()=>setSetupModalOpen(false)}>Skip for now</button>}<Button variant="primary" size="sm" onClick={()=>{saveReviewMeta();setSetupModalOpen(false);}}>{ !reviewGame||reviewGame==="New Review"?"Save & Start Review":"Save Changes"}</Button></div></div></div>}{summaryModalOpen&&<div className="modal-backdrop"><div ref={summaryDialogRef} role="dialog" aria-modal="true" aria-label="Complete Review" tabIndex={-1} className="modal" style={{maxWidth:600}}><div className="modal-title"><div><p className="eyebrow">Complete Review</p><h1>Final Summaries</h1><p className="hint">Add optional notes for each official before completing the review.</p></div><button aria-label="Close" onClick={()=>setSummaryModalOpen(false)}>✕</button></div>{summarySlots.length===0&&<p className="hint" style={{marginTop:14}}>No officials assigned to this review.</p>}{summarySlots.length>0&&(()=>{const idx=Math.min(summaryActiveIdx,summarySlots.length-1);const [id,name,role]=summarySlots[idx];return(<><div className="mt-3.5 flex flex-wrap gap-1.5">{summarySlots.map(([sid,sname],i)=><button key={sid} onClick={()=>setSummaryActiveIdx(i)} className={"rounded-lg border px-3.5 py-1 text-[13px] transition-colors "+(i===idx?"border-accent/40 bg-accent/10 font-bold text-accent":"border-border bg-transparent text-muted")}>{sname}</button>)}</div><div style={{marginTop:18}}><h2 style={{margin:"0 0 14px"}}>{name} <span className="hint" style={{fontWeight:400,fontSize:14}}>· {role}</span></h2><div style={{display:"flex",flexDirection:"column",gap:12}}><label>Positives<Textarea className="mt-1" rows={4} value={draftSummaries[id]?.positives||""} onChange={e=>updateSummaryField(id,"positives",e.target.value)} placeholder="What did this official do well?" /></label><label>Development Notes<Textarea className="mt-1" rows={4} value={draftSummaries[id]?.workOns||""} onChange={e=>updateSummaryField(id,"workOns",e.target.value)} placeholder="Key development areas and coaching notes…" /></label><label>Focus for next game<Textarea className="mt-1" rows={3} value={draftSummaries[id]?.nextFocus||""} onChange={e=>updateSummaryField(id,"nextFocus",e.target.value)} placeholder="What should this official prioritise next time out?" /></label></div></div></>);})()}<div className="action-row" style={{marginTop:24}}><Button variant="secondary" size="sm" onClick={()=>setSummaryModalOpen(false)}>Cancel</Button><Button variant="good" size="sm" onClick={confirmSubmit}>✓ Confirm &amp; Complete Review</Button></div></div></div>}{confirmDiscardReview&&<div className="modal-backdrop"><div ref={discardDialogRef} role="dialog" aria-modal="true" aria-label={isNewReview?"Discard this review?":"Leave without saving?"} tabIndex={-1} className="modal" style={{maxWidth:420}}><div className="modal-title"><div><p className="eyebrow">{isNewReview?"Discard Review":"Leave Review"}</p><h1 style={{fontSize:20,margin:0}}>{isNewReview?"Discard this review?":"Leave without saving?"}</h1></div></div><p style={{margin:"16px 0 0",fontSize:14,color:"var(--muted)"}}>{isNewReview?"This review has not been saved. Discarding it will permanently delete it and all coded clips.":"Any unsaved game detail changes will be lost. Coded clips are already saved."}
 </p><div className="action-row" style={{marginTop:20}}><Button variant="secondary" size="sm" onClick={()=>setConfirmDiscardReview(false)}>Cancel</Button><Button variant="danger" size="sm" onClick={cancelReview}>{isNewReview?"Yes, Discard":"Yes, Leave"}</Button></div></div></div>}{confirmClearTags&&<ConfirmModal title="Clear all tags?" message="This will permanently delete all coded clips for this review. This cannot be undone." confirmLabel="Yes, Clear All" busyLabel="Clearing…" busy={false} onCancel={()=>setConfirmClearTags(false)} onConfirm={async()=>{setConfirmClearTags(false);await clearReviewClips(activeReviewId);}} />}{globalSearchOverlay}{appToast}</AppShell>;
 }

@@ -154,7 +154,7 @@ export function ReviewDevelopmentPanel({
               <div
                 key={goal.id}
                 className={cn(
-                  "flex items-center justify-between gap-2.5 rounded-lg border px-2.5 py-2",
+                  "flex min-w-0 items-center justify-between gap-2.5 rounded-lg border px-2.5 py-2",
                   linked ? "border-accent/50 bg-accent/[.1]" : "border-border bg-panel",
                 )}
               >
