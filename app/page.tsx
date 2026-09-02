@@ -612,7 +612,10 @@ export default function Home() {
   const timelineMarkers = useMemo(() =>
     reviewTags.map(tag => ({
       id: tag.id,
+      // Marker dot stays anchored to the incident moment; jumping/reviewing the clip
+      // should start from its lead-in (drag-selected start time), not the incident itself.
       seconds: tag.adjustedSeconds,
+      jumpSeconds: resolveClipBounds(tag).startTime,
       left: Math.min(100, (tag.adjustedSeconds / Math.max(1, scaleSeconds)) * 100),
       color: (OUTCOME_COLOR[tag.outcome ?? ""]?.color) ?? "var(--muted)",
       label: [tag.adjustedTime, slotName(tag.refereeTarget, activeReview), tag.outcome || "No decision", tag.category || ""].filter(Boolean).join(" — "),
@@ -2393,8 +2396,8 @@ export default function Home() {
                   title={m.label}
                   aria-label={m.label}
                   style={{ left: `${m.left}%` }}
-                  onClick={() => { jump(m.seconds); setSelectedTagId(m.id); }}
-                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.seconds); setSelectedTagId(m.id); } }}
+                  onClick={() => { jump(m.jumpSeconds); setSelectedTagId(m.id); }}
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jump(m.jumpSeconds); setSelectedTagId(m.id); } }}
                 >
                   <span className="marker-bar" style={{ background: m.color }} />
                 </button>

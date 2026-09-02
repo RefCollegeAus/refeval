@@ -5,6 +5,7 @@ import type { CodedTag, RefSlot } from "@/lib/types/reviews";
 import { Badge, Button } from "@/components/ui";
 import { ReviewComments } from "@/components/ReviewComments";
 import { cn } from "@/lib/utils/cn";
+import { resolveClipBounds } from "@/lib/utils/clipBounds";
 
 // Single tagged-clip detail row — jump/outcome/secondary info/notes plus
 // edit/delete/comments actions. Extracted so the full clip list
@@ -59,13 +60,17 @@ export function ClipRow({
     ...(tag.extraReviewOfficials || []).map(s => `${getRefereeName(s)} (Review)`),
   ].filter(Boolean);
 
+  // Jumping to a clip should start from its lead-in (drag-selected start time),
+  // not the raw incident timestamp the button label displays.
+  const { startTime: jumpSeconds } = resolveClipBounds(tag);
+
   return (
     <div className={cn("border-b border-border py-2.5 last:border-b-0", isSelected && "rounded-lg border-b-transparent bg-accent/10 px-2.5", className)}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-2.5">
           <button
             type="button"
-            onClick={() => onJump(tag.adjustedSeconds, tag.id)}
+            onClick={() => onJump(jumpSeconds, tag.id)}
             className="shrink-0 rounded-md px-1 font-mono text-sm font-semibold text-accent hover:underline"
             aria-label={index != null ? `Jump to clip ${index + 1} at ${tag.adjustedTime}` : `Jump to clip at ${tag.adjustedTime}`}
           >
