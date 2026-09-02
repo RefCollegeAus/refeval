@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { Button, Card, FormField, Input } from "@/components/ui";
 
 // Shown when a profile still has must_change_password set — admin-provisioned
 // accounts land here instead of their normal home screen until they choose
@@ -59,21 +60,21 @@ export function ForcePasswordChangeScreen({
 
   return (
     <div className="login-wrap">
-      <section className="panel login-panel">
+      <Card className="w-full max-w-[540px]">
         <div className="login-logo-wrap">
           <img src="/rca-logo.png" alt="Referee College of Australia logo" className="login-logo" />
         </div>
 
-        <p className="eyebrow">Welcome to RefEval</p>
-        <h1>Set a New Password</h1>
-        <p className="hint" style={{ marginTop: 8 }}>
+        <p className="text-xs font-bold uppercase tracking-wide text-accent">Welcome to RefEval</p>
+        <h1 className="text-xl font-bold tracking-tight text-text">Set a New Password</h1>
+        <p className="mt-1 text-sm text-muted">
           Your account was created with a temporary password. Choose your own password to continue.
         </p>
 
-        <form className="form-stack" style={{ marginTop: 18 }} onSubmit={handleSubmit}>
-          <label>
-            New password
-            <input
+        <form className="grid gap-3 mt-4" onSubmit={handleSubmit}>
+          <FormField label="New password" htmlFor="force-change-password">
+            <Input
+              id="force-change-password"
               type="password"
               value={password}
               onChange={(e) => { setPassword(e.target.value); setError(""); }}
@@ -81,35 +82,36 @@ export function ForcePasswordChangeScreen({
               autoFocus
               required
             />
-          </label>
+          </FormField>
 
-          <label>
-            Confirm password
-            <input
+          <FormField label="Confirm password" htmlFor="force-change-confirm">
+            <Input
+              id="force-change-confirm"
               type="password"
               value={confirm}
               onChange={(e) => { setConfirm(e.target.value); setError(""); }}
               placeholder="Repeat your password"
               required
             />
-          </label>
+          </FormField>
 
-          {error && <p className="danger-text">{error}</p>}
+          {error && <p className="text-xs font-medium text-red-400">{error}</p>}
 
-          <button type="submit" className="primary" disabled={loading}>
+          <Button type="submit" variant="primary" disabled={loading}>
             {loading ? "Saving…" : "Set Password & Continue"}
-          </button>
+          </Button>
         </form>
 
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
+          className="w-fit justify-start px-0 h-auto underline mt-3"
           onClick={onLogout}
-          className="hint"
-          style={{ marginTop: 14, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
         >
           Log out
-        </button>
-      </section>
+        </Button>
+      </Card>
     </div>
   );
 }
