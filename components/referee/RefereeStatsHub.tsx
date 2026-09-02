@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { AppShell } from "@/components/shell/AppShell";
+import { Badge, Button } from "@/components/ui";
+import type { BadgeTone } from "@/components/ui";
 import { makeAnalytics, percent, countBy } from "@/lib/utils/analytics";
 import { embedUrl, isDirectVideoUrl } from "@/lib/utils/video";
 import { normaliseClipTaxonomy } from "@/lib/utils/taxonomyCompatibility";
@@ -105,6 +107,13 @@ function outcomeClass(outcome?: string | null): string {
   return "review";
 }
 
+function outcomeTone(outcome?: string | null): BadgeTone {
+  const cls = outcomeClass(outcome);
+  if (cls === "done") return "good";
+  if (cls === "incorrect") return "danger";
+  return "warn";
+}
+
 // ── Donut chart ──────────────────────────────────────────────────────────────
 type DonutSlice = { label: string; count: number; color: string; field: string; value: string };
 
@@ -186,17 +195,17 @@ function AccuracyTrend({
 
   return (
     <div className="analytics-card">
-      <h3 style={{ marginBottom: 10 }}>Accuracy Trend</h3>
-      <div style={{ display: "flex", gap: 4, alignItems: "flex-end", overflowX: "auto", paddingBottom: 6 }}>
+      <h3 className="mb-2.5">Accuracy Trend</h3>
+      <div className="flex items-end gap-1 overflow-x-auto pb-1.5">
         {validPoints.map((p, i) => (
-          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0, width: barW }}>
-            <span style={{ fontSize: 10, color: "var(--muted)", fontWeight: 700 }}>{p.acc}%</span>
+          <div key={i} className="flex flex-shrink-0 flex-col items-center gap-1" style={{ width: barW }}>
+            <span className="text-[10px] font-bold text-muted">{p.acc}%</span>
             <div style={{
               width: "100%", height: Math.round((p.acc / maxAcc) * chartH),
-              background: p.acc >= 70 ? "#22c55e" : p.acc >= 50 ? "#f59e0b" : "#ef4444",
+              background: p.acc >= 70 ? "var(--good)" : p.acc >= 50 ? "#f59e0b" : "var(--danger)",
               borderRadius: "4px 4px 0 0", minHeight: 4, transition: "height .2s"
             }} />
-            <span style={{ fontSize: 9, color: "var(--muted)", textAlign: "center", wordBreak: "break-all", lineHeight: 1.2 }}>{p.date.slice(5)}</span>
+            <span className="text-center text-[9px] leading-tight text-muted" style={{ wordBreak: "break-all" }}>{p.date.slice(5)}</span>
           </div>
         ))}
       </div>
@@ -386,8 +395,10 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
   // Outcome section bars use the outcome-compatible pool (excludes own facet), so clicking other
   // facets narrows these options without erasing the current Outcome selection
   const outcomeSlices: DonutSlice[] = [
-    { label: "Correct", count: outcomeCompatibleAnalytics.correctCalls + outcomeCompatibleAnalytics.correctNoCalls, color: "#22c55e", field: "outcome-group", value: "Correct" },
-    { label: "Incorrect", count: outcomeCompatibleAnalytics.incorrectCalls + outcomeCompatibleAnalytics.incorrectNoCalls, color: "#ef4444", field: "outcome-group", value: "Incorrect" },
+    { label: "Correct", count: outcomeCompatibleAnalytics.correctCalls + outcomeCompatibleAnalytics.correctNoCalls, color: "var(--good)", field: "outcome-group", value: "Correct" },
+    { label: "Incorrect", count: outcomeCompatibleAnalytics.incorrectCalls + outcomeCompatibleAnalytics.incorrectNoCalls, color: "var(--danger)", field: "outcome-group", value: "Incorrect" },
+    // No existing token matches this amber exactly — the codebase's --warn variable is aliased to
+    // the brownish accent colour, not true amber, so mapping it here would silently change the hue.
     { label: "Review", count: outcomeCompatibleAnalytics.reviews, color: "#f59e0b", field: "outcome", value: "Review" },
   ];
 
@@ -415,13 +426,13 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
       {/* ── Slim toolbar: title + back ── */}
       <div className="sh-toolbar">
         <div className="sh-toolbar__title">
-          <button onClick={onBack} className="sh-toolbar__back">← Back</button>
+          <Button onClick={onBack} variant="secondary" size="sm">← Back</Button>
           <span className="sh-toolbar__heading">My Stats Hub</span>
         </div>
       </div>
 
       {/* ── Date filter (shared component, matches referee home style) ── */}
-      <div style={{ padding: "0 16px" }}>
+      <div className="px-4">
         <DateRangeFilter
           value={dateFilter}
           onChange={v => { setDateFilter(v); setFacetFilters({ ...EMPTY_FACETS }); setExpandedCategoryGroup(null); }}
@@ -441,7 +452,7 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
           <div className="sh-snap-lbl">Reviews</div>
         </div>
         <div className="sh-snap-card">
-          <div className="sh-snap-num">{filteredTags.length}{hasAnyFacetFilter ? <span style={{ fontSize: 11, fontWeight: 400, color: "var(--muted)" }}> /{allMyTags.length}</span> : null}</div>
+          <div className="sh-snap-num">{filteredTags.length}{hasAnyFacetFilter ? <span className="text-[11px] font-normal text-muted"> /{allMyTags.length}</span> : null}</div>
           <div className="sh-snap-lbl">Clips</div>
         </div>
         <div className="sh-snap-card sh-snap-card--good">
@@ -455,7 +466,7 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
       </div>
 
       {allMyTags.length === 0 ? (
-        <div className="empty-state" style={{ margin: "24px 16px" }}>No clips found for this time period.</div>
+        <div className="empty-state mx-4 my-6">No clips found for this time period.</div>
       ) : (
         <div
           className="sh-body"
@@ -468,7 +479,7 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
 
             {/* Selected Filters — compact chip row, only when at least one filter is active */}
             {hasAnyFacetFilter ? (
-              <div className="selected-filters" style={{ marginBottom: 8 }}>
+              <div className="selected-filters mb-2">
                 <div className="facet-active-chips">
                   {activeChips.map(chip => (
                     <button key={chip.collection + chip.value} className="filter-chip"
@@ -480,7 +491,7 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
                 </div>
               </div>
             ) : (
-              <p className="hint" style={{ fontSize: 11, margin: "0 0 4px" }}>Click any bar below to filter clips.</p>
+              <p className="hint mb-1 text-[11px]">Click any bar below to filter clips.</p>
             )}
 
             {/* Outcome bars — counts from compatible pool (excludes own facet) */}
@@ -579,7 +590,7 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
               return (
                 <div className="sh-filter-group sh-filter-group--sub">
                   <p className="sh-filter-group-hdr">
-                    Specific Tags&nbsp;<span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— {activeGroupForSub}</span>
+                    Specific Tags&nbsp;<span className="font-normal normal-case tracking-normal">— {activeGroupForSub}</span>
                   </p>
                   <div className="sh-subtag-chips">
                     {allSubs.map(([specific, fullVal, count]) => {
@@ -664,12 +675,12 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
             })()}
 
             {/* Clip list */}
-            <div style={{ flex: 1 }}>
-              <p className="rv-sidebar-heading" style={{ margin: "8px 0 6px" }}>
+            <div className="flex-1">
+              <p className="rv-sidebar-heading mt-2 mb-1.5">
                 Clips ({filteredTags.length}{hasAnyFacetFilter ? ` of ${allMyTags.length}` : ""})
               </p>
               {filteredTags.length === 0 ? (
-                <div className="empty-state" style={{ margin: 0, padding: "16px 0" }}>No clips match this filter.</div>
+                <div className="empty-state m-0 py-4">No clips match this filter.</div>
               ) : (
                 <div className="sh-clip-list">
                   {filteredTags.map((tag, i) => {
@@ -678,21 +689,19 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
                     return (
                       <div key={tag.id} className={"sh-clip-row" + (sel ? " sh-clip-row--selected" : "")}
                         onClick={() => selectClip(tag)}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                          <span style={{ fontWeight: 900, fontSize: 13 }}>{tag.adjustedTime}</span>
-                          {tag.outcome && (
-                            <span className={`status ${outcomeClass(tag.outcome)}`} style={{ fontSize: 10, padding: "1px 6px" }}>{tag.outcome}</span>
-                          )}
-                          <span className="hint" style={{ fontSize: 10, marginLeft: "auto" }}>#{i + 1}</span>
+                        <div className="mb-0.5 flex items-center justify-between gap-1.5">
+                          <span className="text-[13px] font-black">{tag.adjustedTime}</span>
+                          {tag.outcome && <Badge tone={outcomeTone(tag.outcome)}>{tag.outcome}</Badge>}
+                          <span className="hint ml-auto text-[10px]">#{i + 1}</span>
                         </div>
-                        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <p className="m-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-bold">
                           {tag.reviewGame}
                         </p>
-                        <p className="hint" style={{ margin: "1px 0 0", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <p className="hint mt-[1px] overflow-hidden text-ellipsis whitespace-nowrap text-[11px]">
                           {[tag.reviewGameDate, displayCat].filter(Boolean).join(" · ")}
                         </p>
                         {tag.notes && (
-                          <p className="hint" style={{ margin: "1px 0 0", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <p className="hint mt-[1px] overflow-hidden text-ellipsis whitespace-nowrap text-[11px]">
                             {tag.notes}
                           </p>
                         )}
@@ -710,7 +719,7 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
           {/* ── Right: video + clip detail ── */}
           <div className="sh-video-col">
 
-            <div className="sh-video-frame" style={{ position: "relative" }}>
+            <div className="sh-video-frame relative">
               {/* Loading overlay */}
               {videoLoading && selectedClip && !videoError && (
                 <div className="sh-video-loading">
@@ -728,9 +737,9 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
                   />
                 ) : isDirectVideo ? (
                   videoError ? (
-                    <div className="sh-empty-video" style={{ flexDirection: "column", gap: 8 }}>
+                    <div className="sh-empty-video flex-col gap-2">
                       <span>Video could not be loaded.</span>
-                      <a href={selectedClip.reviewVideoLink} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontSize: 12 }}>Open source video ↗</a>
+                      <a href={selectedClip.reviewVideoLink} target="_blank" rel="noreferrer" className="text-xs text-accent">Open source video ↗</a>
                     </div>
                   ) : (
                     <video key={`${selectedClip.id}-${seekSeconds}`} controls autoPlay
@@ -751,33 +760,33 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
             </div>
 
             <div className="sh-nav-row">
-              <button onClick={goPrev} disabled={!hasPrev}>← Prev</button>
-              <span className="hint" style={{ fontSize: 12 }}>
+              <Button onClick={goPrev} disabled={!hasPrev} variant="secondary" size="sm">← Prev</Button>
+              <span className="hint text-xs">
                 {selectedIdx >= 0 ? `${selectedIdx + 1} / ${filteredTags.length}` : `${filteredTags.length} clips`}
               </span>
-              <button onClick={goNext} disabled={!hasNext}>Next →</button>
+              <Button onClick={goNext} disabled={!hasNext} variant="secondary" size="sm">Next →</Button>
             </div>
 
             {selectedClip && (
               <div className="sh-clip-detail">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <p className="eyebrow" style={{ marginBottom: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedClip.reviewGame}</p>
-                    <p style={{ margin: "0 0 2px", fontSize: 18, fontWeight: 900 }}>{selectedClip.adjustedTime}</p>
-                    <p className="hint" style={{ margin: 0, fontSize: 12 }}>{selectedClip.reviewGameDate || "No date"} · {selectedClip.reviewEducatorName}</p>
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="min-w-0">
+                    <p className="eyebrow mb-[1px] overflow-hidden text-ellipsis whitespace-nowrap">{selectedClip.reviewGame}</p>
+                    <p className="mb-0.5 text-lg font-black">{selectedClip.adjustedTime}</p>
+                    <p className="hint text-xs">{selectedClip.reviewGameDate || "No date"} · {selectedClip.reviewEducatorName}</p>
                   </div>
-                  {selectedClip.outcome && <span className={`status ${outcomeClass(selectedClip.outcome)}`}>{selectedClip.outcome}</span>}
+                  {selectedClip.outcome && <Badge tone={outcomeTone(selectedClip.outcome)}>{selectedClip.outcome}</Badge>}
                 </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {selectedClip.coverage && <span className="chip">{selectedClip.coverage}</span>}
                   {selectedClip.position && <span className="chip">{selectedClip.position}</span>}
                   {(selectedClip as any)._displayCategoryFull && (
-                    <span className="chip" style={{ maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <span className="chip max-w-full overflow-hidden text-ellipsis">
                       {(selectedClip as any)._displayCategoryFull}
                     </span>
                   )}
                 </div>
-                {selectedClip.notes && <div className="rv-clip-notes" style={{ marginTop: 8 }}>{selectedClip.notes}</div>}
+                {selectedClip.notes && <div className="rv-clip-notes mt-2">{selectedClip.notes}</div>}
               </div>
             )}
           </div>
