@@ -143,8 +143,11 @@ export function buildTimeline(
     });
   }
 
-  // Sort newest first
-  events.sort((a, b) => b.date.localeCompare(a.date));
+  // Sort newest first. Plain lexicographic comparison, not localeCompare — these
+  // are machine-format ISO-8601 strings, not human text, and localeCompare's
+  // locale-dependent collation can order same-instant events differently between
+  // server and client, causing a hydration mismatch on tied timestamps.
+  events.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   return events;
 }
 
