@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Play, Pause } from "lucide-react";
 import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
 import type { ViewOnlyGame } from "@/lib/types/viewOnlyGames";
+import { Button } from "@/components/ui";
 
 interface Props {
   game: ViewOnlyGame;
@@ -115,16 +116,16 @@ export function ViewerGamePlayer({ game, onBack }: Props) {
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px" }}>
+    <div className="mx-auto max-w-[900px] px-4 py-6">
       {/* Back + title */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <button onClick={onBack} style={{ padding: "6px 14px", fontSize: 13 }}>
+      <div className="mb-4 flex items-center gap-3">
+        <Button onClick={onBack} variant="secondary" size="sm">
           ← Back
-        </button>
+        </Button>
         <div>
-          <h2 style={{ margin: 0, fontSize: 18 }}>{game.title}</h2>
+          <h2 className="m-0 text-lg">{game.title}</h2>
           {game.gameDate && (
-            <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>
+            <p className="hint mt-0.5 text-xs">
               {new Date(game.gameDate).toLocaleDateString("en-AU", {
                 day: "numeric",
                 month: "long",
@@ -138,13 +139,10 @@ export function ViewerGamePlayer({ game, onBack }: Props) {
       {/* Video area */}
       {usingYouTube ? (
         <>
-          <div
-            className="video-placeholder"
-            style={{ aspectRatio: "16/9", overflow: "hidden", padding: 0 }}
-          >
+          <div className="video-placeholder aspect-video overflow-hidden p-0">
             <div ref={youtubeContainerRef} style={{ width: "100%", height: "100%" }} />
           </div>
-          <p className="hint" style={{ marginTop: 4, fontSize: 12 }}>
+          <p className="hint mt-1 text-xs">
             YouTube · {formatTime(youtubeCurrent)}
             {youtubeReady ? "" : " · loading…"}
           </p>
@@ -158,50 +156,30 @@ export function ViewerGamePlayer({ game, onBack }: Props) {
           onTimeUpdate={e => setVideoCurrent(e.currentTarget.currentTime)}
         />
       ) : unsupported ? (
-        <div
-          className="video-placeholder"
-          style={{
-            aspectRatio: "16/9",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            padding: 24,
-            textAlign: "center",
-          }}
-        >
-          <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>
+        <div className="video-placeholder flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center">
+          <p className="m-0 text-sm font-bold">
             Video is not compatible with RefCoach.
           </p>
-          <p className="hint" style={{ margin: 0 }}>
+          <p className="hint m-0">
             Please contact your educator to use a YouTube link or direct video file.
           </p>
         </div>
       ) : (
-        <div
-          className="video-placeholder"
-          style={{
-            aspectRatio: "16/9",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
+        <div className="video-placeholder flex aspect-video items-center justify-center">
           <p className="hint">No video URL set for this game.</p>
         </div>
       )}
 
       {/* Playback controls — only for YouTube and direct video */}
       {(usingYouTube || usingDirect) && (
-        <div className="toolbar" style={{ marginTop: 8 }}>
-          <button onClick={() => seek(-5)}>-5s</button>
-          <button onClick={playPause}>
+        <div className="mt-2 flex items-center gap-2">
+          <Button onClick={() => seek(-5)} variant="secondary" size="sm">-5s</Button>
+          <Button onClick={playPause} variant="secondary" size="sm">
             <Play size={15} /> / <Pause size={15} />
-          </button>
-          <button onClick={() => seek(5)}>+5s</button>
+          </Button>
+          <Button onClick={() => seek(5)} variant="secondary" size="sm">+5s</Button>
           {usingYouTube && (
-            <span className="hint" style={{ fontSize: 12, marginLeft: 8, fontVariantNumeric: "tabular-nums" }}>
+            <span className="hint ml-2 text-xs tabular-nums">
               {formatTime(currentSeconds)}
             </span>
           )}

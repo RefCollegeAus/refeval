@@ -4,6 +4,8 @@ import { useState } from "react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { ViewOnlyGame } from "@/lib/types/viewOnlyGames";
 import { ViewerGamePlayer } from "@/components/viewer/ViewerGamePlayer";
+import { PageFrame } from "@/components/shell/PageFrame";
+import { Card, EmptyState, Spinner } from "@/components/ui";
 
 interface Props {
   session: RefEvalSession;
@@ -25,78 +27,54 @@ export function ViewerScreen({ session, games, loading, error }: Props) {
   }
 
   return (
-    <div className="layout" style={{ maxWidth: 800, margin: "0 auto" }}>
-      <div style={{ marginBottom: 24 }}>
-        <p className="eyebrow">View-Only Games</p>
-        <h1 style={{ margin: "4px 0 6px" }}>
-          {session.activeOrganisation?.name || "Your Games"}
-        </h1>
-        <p className="hint">Learning content assigned to you.</p>
-      </div>
-
-      {loading && <div className="loading-state"><span className="loading-spinner" />Loading games…</div>}
+    <PageFrame
+      eyebrow="View-Only Games"
+      title={session.activeOrganisation?.name || "Your Games"}
+      description="Learning content assigned to you."
+      className="mx-auto max-w-[800px] p-0"
+    >
+      {loading && (
+        <div className="flex items-center gap-2 py-3.5 text-[13px] text-muted">
+          <Spinner size={16} /> Loading games…
+        </div>
+      )}
       {error && <p className="danger-text">{error}</p>}
 
       {!loading && !error && games.length === 0 && (
-        <div
-          style={{
-            padding: "40px 24px",
-            textAlign: "center",
-            background: "var(--panel)",
-            borderRadius: 8,
-            border: "1px solid var(--border)",
-          }}
-        >
-          <p style={{ margin: 0, fontWeight: 700 }}>No learning content has been assigned to you yet.</p>
-          <p className="hint" style={{ margin: "8px 0 0" }}>
-            Your educator or administrator will assign content when it is ready.
-          </p>
-        </div>
+        <EmptyState
+          title="No learning content has been assigned to you yet."
+          description="Your educator or administrator will assign content when it is ready."
+        />
       )}
 
       {!loading && games.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="grid gap-3">
           {games.map(game => (
-            <button
-              key={game.id}
-              onClick={() => setActiveGame(game)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                padding: "16px 20px",
-                background: "var(--panel)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                cursor: "pointer",
-                textAlign: "left",
-                color: "var(--text)",
-                width: "100%",
-              }}
-            >
-              <div>
-                <p style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>{game.title}</p>
-                {game.gameDate && (
-                  <p className="hint" style={{ margin: "3px 0 0", fontSize: 13 }}>
-                    {new Date(game.gameDate).toLocaleDateString("en-AU", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </p>
-                )}
-              </div>
-              <span
-                className="chip"
-                style={{ flexShrink: 0, padding: "4px 12px", fontSize: 12 }}
+            <Card key={game.id} className="!p-0 overflow-hidden">
+              <button
+                onClick={() => setActiveGame(game)}
+                className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left text-text"
               >
-                Watch ▶
-              </span>
-            </button>
+                <div>
+                  <p className="m-0 text-[15px] font-bold">{game.title}</p>
+                  {game.gameDate && (
+                    <p className="hint mt-[3px]">
+                      {new Date(game.gameDate).toLocaleDateString("en-AU", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </p>
+                  )}
+                </div>
+                <span className="chip shrink-0 px-3 py-1 text-xs">
+                  Watch ▶
+                </span>
+              </button>
+            </Card>
           ))}
         </div>
       )}
-    </div>
+    </PageFrame>
   );
 }
