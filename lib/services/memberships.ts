@@ -28,6 +28,27 @@ export async function inviteMember(params: {
   return adminFetch("POST", "/api/admin/invite", params);
 }
 
+export type CreateAccountResult =
+  | { success: true; userId: string; tempPassword: string }
+  | { error: string };
+
+/** Creates an already-confirmed account with a server-generated temporary password — no invite email sent. */
+export async function createAccountDirectly(params: {
+  email: string;
+  name: string;
+  role: Role;
+  organisationId: string;
+}): Promise<CreateAccountResult> {
+  const res = await fetch("/api/admin/create-account", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  const json = await res.json();
+  if (!res.ok) return { error: (json as any).error ?? "Unknown error." };
+  return json as { success: true; userId: string; tempPassword: string };
+}
+
 export async function resendInvitation(params: {
   email: string;
   organisationId: string;

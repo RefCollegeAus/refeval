@@ -3,6 +3,7 @@
 import { Header } from "@/components/Header";
 import { AppShell } from "@/components/shell/AppShell";
 import { LoginScreen } from "@/components/LoginScreen";
+import { ForcePasswordChangeScreen } from "@/components/auth/ForcePasswordChangeScreen";
 import { OrganisationSelector } from "@/components/OrganisationSelector";
 import { MembersScreen } from "@/components/admin/MembersScreen";
 import { OrgSettingsScreen } from "@/components/admin/OrgSettingsScreen";
@@ -148,6 +149,7 @@ export default function Home() {
     session, pendingSession, authChecked,
     loginName, setLoginName, loginPassword, setLoginPassword, loginError,
     login, logout: authLogout, selectOrganisation, switchOrganisation, updateSessionProfile,
+    completeForcedPasswordChange,
   } = useAuthSession(setScreen);
 
   const {
@@ -1035,6 +1037,13 @@ export default function Home() {
           loginPassword={loginPassword} setLoginPassword={setLoginPassword}
           loginError={loginError || urlAuthError} login={login}
         />
+      {globalSearchOverlay}{appToast}</AppShell>
+    );
+
+  if (screen === "force-password-change")
+    return (
+      <AppShell session={null} onHome={() => {}} onAdmin={() => {}} onProfile={() => {}} onLogout={logout} >
+        <ForcePasswordChangeScreen onComplete={completeForcedPasswordChange} onLogout={logout} />
       {globalSearchOverlay}{appToast}</AppShell>
     );
 

@@ -4,13 +4,48 @@ import { useState, useEffect } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { RefEvalSession, Role, Screen } from "@/lib/types/auth";
 
+type PendingPasswordChange = {
+  user: RefEvalSession["user"];
+  profile: RefEvalSession["profile"];
+  memberships: RefEvalSession["memberships"];
+};
+
 export function useAuthSession(setScreen: (s: Screen) => void) {
   const [session, setSession] = useState<RefEvalSession | null>(null);
   const [pendingSession, setPendingSession] = useState<RefEvalSession | null>(null);
+  // Set when a login/session-restore lands on an account still carrying
+  // must_change_password (admin-provisioned with a temporary password).
+  // Held here rather than in `session` so nothing else in the app can be
+  // reached until the forced password-change screen clears it.
+  const [pendingPasswordChange, setPendingPasswordChange] = useState<PendingPasswordChange | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [loginName, setLoginName] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+
+  function proceedAfterAuth(
+    user: RefEvalSession["user"],
+    profile: RefEvalSession["profile"],
+    memberships: RefEvalSession["memberships"],
+  ) {
+    if (profile.mustChangePassword) {
+      setPendingPasswordChange({ user, profile, memberships });
+      setScreen("force-password-change");
+      return;
+    }
+    if (memberships.length === 1) {
+      const m = memberships[0];
+      setSession({
+        user, profile, memberships,
+        activeOrganisation: { id: m.organisationId, name: m.organisationName },
+        activeRole: m.role,
+      });
+      setScreen(m.role === "referee" ? "referee" : m.role === "viewer" ? "viewer" : "educator");
+    } else {
+      setPendingSession({ user, profile, memberships, activeOrganisation: null, activeRole: null });
+      setScreen("org-selector");
+    }
+  }
 
   useEffect(() => {
     async function restoreSession() {
@@ -18,7 +53,7 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
       if (!user) { setAuthChecked(true); return; }
 
       const { data: profileData } = await getSupabaseClient()
-        .from("profiles").select("id, email, name").eq("id", user.id).single();
+        .from("profiles").select("id, email, name, must_change_password").eq("id", user.id).single();
 
       const { data: membershipRows } = await getSupabaseClient()
         .from("organisation_members")
@@ -40,25 +75,10 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
         id: profileData?.id || user.id,
         email: profileData?.email || user.email || "",
         name: profileData?.name || user.email || "User",
+        mustChangePassword: profileData?.must_change_password ?? false,
       };
 
-      if (memberships.length === 1) {
-        const m = memberships[0];
-        setSession({
-          user: { id: user.id, email: user.email || "" },
-          profile, memberships,
-          activeOrganisation: { id: m.organisationId, name: m.organisationName },
-          activeRole: m.role,
-        });
-        setScreen(m.role === "referee" ? "referee" : m.role === "viewer" ? "viewer" : "educator");
-      } else {
-        setPendingSession({
-          user: { id: user.id, email: user.email || "" },
-          profile, memberships,
-          activeOrganisation: null, activeRole: null,
-        });
-        setScreen("org-selector");
-      }
+      proceedAfterAuth({ id: user.id, email: user.email || "" }, profile, memberships);
       setAuthChecked(true);
     }
     restoreSession();
@@ -74,7 +94,7 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
     if (authError || !authData.user) { setLoginError(authError?.message || "Login failed."); return; }
 
     const { data: profileData } = await getSupabaseClient()
-      .from("profiles").select("id, email, name").eq("id", authData.user.id).single();
+      .from("profiles").select("id, email, name, must_change_password").eq("id", authData.user.id).single();
 
     const { data: membershipRows, error: membershipError } = await getSupabaseClient()
       .from("organisation_members")
@@ -97,34 +117,30 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
       id: profileData?.id || authData.user.id,
       email: profileData?.email || authData.user.email || "",
       name: profileData?.name || authData.user.email || "User",
+      mustChangePassword: profileData?.must_change_password ?? false,
     };
 
     setLoginError("");
     setLoginPassword("");
 
-    if (memberships.length === 1) {
-      const m = memberships[0];
-      setSession({
-        user: { id: authData.user.id, email: authData.user.email || "" },
-        profile, memberships,
-        activeOrganisation: { id: m.organisationId, name: m.organisationName },
-        activeRole: m.role,
-      });
-      setScreen(m.role === "referee" ? "referee" : m.role === "viewer" ? "viewer" : "educator");
-    } else {
-      setPendingSession({
-        user: { id: authData.user.id, email: authData.user.email || "" },
-        profile, memberships,
-        activeOrganisation: null, activeRole: null,
-      });
-      setScreen("org-selector");
-    }
+    proceedAfterAuth({ id: authData.user.id, email: authData.user.email || "" }, profile, memberships);
+  }
+
+  // Called once the forced password-change screen has updated the user's
+  // password and cleared must_change_password — resumes exactly where
+  // proceedAfterAuth would have landed had the flag not been set.
+  function completeForcedPasswordChange() {
+    if (!pendingPasswordChange) return;
+    const { user, profile, memberships } = pendingPasswordChange;
+    setPendingPasswordChange(null);
+    proceedAfterAuth(user, { ...profile, mustChangePassword: false }, memberships);
   }
 
   async function logout() {
     await getSupabaseClient().auth.signOut();
     setSession(null);
     setPendingSession(null);
+    setPendingPasswordChange(null);
     setScreen("login");
   }
 
@@ -160,5 +176,6 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
     loginPassword, setLoginPassword,
     loginError,
     login, logout, selectOrganisation, switchOrganisation, updateSessionProfile,
+    completeForcedPasswordChange,
   };
 }

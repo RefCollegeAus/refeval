@@ -38,7 +38,7 @@ const ORG_ID = "org-demo";
 
 const SESSION: RefEvalSession = {
   user: { id: "user-jamie", email: "jamie@refereecollegeofaustralia.com.au" },
-  profile: { id: "user-jamie", email: "jamie@refereecollegeofaustralia.com.au", name: "Jamie Smith" },
+  profile: { id: "user-jamie", email: "jamie@refereecollegeofaustralia.com.au", name: "Jamie Smith", mustChangePassword: false },
   memberships: [{ organisationId: ORG_ID, organisationName: "Demo Basketball Association", role: "educator" }],
   activeOrganisation: { id: ORG_ID, name: "Demo Basketball Association" },
   activeRole: "educator",

@@ -64,7 +64,7 @@ const ORG_ID = "org-demo";
 
 const SESSION_EDUCATOR: RefEvalSession = {
   user: { id: "user-jamie", email: "jamie@refereecollegeofaustralia.com.au" },
-  profile: { id: "user-jamie", email: "jamie@refereecollegeofaustralia.com.au", name: "Jamie Smith" },
+  profile: { id: "user-jamie", email: "jamie@refereecollegeofaustralia.com.au", name: "Jamie Smith", mustChangePassword: false },
   memberships: [{ organisationId: ORG_ID, organisationName: "Demo Basketball Association", role: "educator" }],
   activeOrganisation: { id: ORG_ID, name: "Demo Basketball Association" },
   activeRole: "educator",
@@ -77,7 +77,7 @@ const SESSION_ADMIN: RefEvalSession = {
 
 const SESSION_REFEREE: RefEvalSession = {
   user: { id: "user-alex", email: "alex@refereecollegeofaustralia.com.au" },
-  profile: { id: "user-alex", email: "alex@refereecollegeofaustralia.com.au", name: "Alex Referee" },
+  profile: { id: "user-alex", email: "alex@refereecollegeofaustralia.com.au", name: "Alex Referee", mustChangePassword: false },
   memberships: [{ organisationId: ORG_ID, organisationName: "Demo Basketball Association", role: "referee" }],
   activeOrganisation: { id: ORG_ID, name: "Demo Basketball Association" },
   activeRole: "referee",

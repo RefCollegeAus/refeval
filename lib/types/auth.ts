@@ -2,6 +2,7 @@ export type Role = "super_admin" | "admin" | "educator" | "referee" | "viewer";
 
 export type Screen =
   | "login"
+  | "force-password-change"
   | "org-selector"
   | "educator"
   | "referee"
@@ -44,6 +45,8 @@ export type RefEvalSession = {
     id: string;
     email: string;
     name: string;
+    /** True for admin-provisioned accounts on a temporary password — gates access until changed. */
+    mustChangePassword: boolean;
   };
   memberships: {
     organisationId: string;

@@ -49,7 +49,7 @@ const ROLES: Role[] = ["super_admin", "admin", "educator", "referee", "viewer"];
 function mockSession(role: Role): RefEvalSession {
   return {
     user: { id: "demo", email: "demo@refereecollegeofaustralia.com.au" },
-    profile: { id: "demo", email: "demo@refereecollegeofaustralia.com.au", name: "Jamie Smith" },
+    profile: { id: "demo", email: "demo@refereecollegeofaustralia.com.au", name: "Jamie Smith", mustChangePassword: false },
     memberships: [{ organisationId: "org-demo", organisationName: "Demo Basketball Association", role }],
     activeOrganisation: { id: "org-demo", name: "Demo Basketball Association" },
     activeRole: role,

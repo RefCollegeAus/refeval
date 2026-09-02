@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { UserPlus, RefreshCw, X, ChevronUp, ChevronDown, Search, Settings, Shield } from "lucide-react";
+import { UserPlus, KeyRound, Copy, Check, RefreshCw, X, ChevronUp, ChevronDown, Search, Settings, Shield } from "lucide-react";
 import {
-  getEnrichedMembers, inviteMember, resendInvitation,
+  getEnrichedMembers, inviteMember, resendInvitation, createAccountDirectly,
   updateMemberRole, removeMember,
 } from "@/lib/services/memberships";
 import { ManageUserModal } from "@/components/admin/ManageUserModal";
@@ -12,7 +12,7 @@ import { showToast } from "@/lib/toast";
 import type { EnrichedMember } from "@/lib/types/members";
 import type { Role, RefEvalSession } from "@/lib/types/auth";
 import { PageFrame } from "@/components/shell/PageFrame";
-import { Badge, Button, Card, EmptyState, Input, Select, Spinner, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Input, Modal, Select, Spinner, Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow, Tabs } from "@/components/ui";
 import { ROLE_TONE } from "@/lib/utils/roleTone";
 import { cn } from "@/lib/utils/cn";
 
@@ -75,6 +75,14 @@ export function MembersScreen({
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState("");
 
+  const [createEmail, setCreateEmail] = useState("");
+  const [createName, setCreateName] = useState("");
+  const [createRole, setCreateRole] = useState<Role>("referee");
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [createdAccount, setCreatedAccount] = useState<{ email: string; tempPassword: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -126,6 +134,33 @@ export function MembersScreen({
     showToast(`Invitation sent to ${inviteEmail.trim()}.`, "success");
     load();
     onRefreshOrgMembers();
+  }
+
+  async function handleCreateAccount(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateError("");
+    setCreateLoading(true);
+    const result = await createAccountDirectly({
+      email: createEmail.trim(), name: createName.trim(),
+      role: createRole, organisationId: orgId,
+    });
+    setCreateLoading(false);
+    if ("error" in result) { setCreateError(result.error); return; }
+    setCreatedAccount({ email: createEmail.trim(), tempPassword: result.tempPassword });
+    setCreateEmail(""); setCreateName(""); setCreateRole("referee");
+    load();
+    onRefreshOrgMembers();
+  }
+
+  async function handleCopyTempPassword() {
+    if (!createdAccount) return;
+    try {
+      await navigator.clipboard.writeText(createdAccount.tempPassword);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      showToast("Couldn't copy automatically — select and copy the password manually.", "error");
+    }
   }
 
   async function handleRoleChange(member: EnrichedMember, role: Role) {
@@ -206,37 +241,90 @@ export function MembersScreen({
         </div>
       )}
 
-      {/* ── Invite form ── */}
+      {/* ── Add member (invite by email, or create directly) ── */}
       <Card>
-        <h2 className="mb-4 flex items-center gap-2 text-sm font-bold text-text">
-          <UserPlus size={15} className="text-accent" />
-          Invite New Member
-        </h2>
-        <form className="setup-grid items-end" onSubmit={handleInvite}>
-          <label className="grid gap-1 text-xs font-semibold text-muted">
-            Full name
-            <Input value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Jane Smith" required />
-          </label>
-          <label className="grid gap-1 text-xs font-semibold text-muted">
-            Email address
-            <Input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="jane@example.com" required />
-          </label>
-          <label className="grid gap-1 text-xs font-semibold text-muted">
-            Role
-            <Select value={inviteRole} onChange={e => setInviteRole(e.target.value as Role)}>
-              {assignableRoles.map(r => (
-                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-              ))}
-            </Select>
-            <span className="text-[11px] font-normal text-muted">{ROLE_DESCRIPTIONS[inviteRole]}</span>
-          </label>
-          <div className="grid gap-2">
-            {inviteError && <p className="text-[13px] text-red-300">{inviteError}</p>}
-            <Button type="submit" variant="primary" disabled={inviteLoading}>
-              {inviteLoading ? "Sending…" : "Send Invitation"}
-            </Button>
-          </div>
-        </form>
+        <Tabs
+          ariaLabel="Add member"
+          tabs={[
+            {
+              id: "invite",
+              label: "Invite by Email",
+              icon: <UserPlus size={14} />,
+              content: (
+                <>
+                  <form className="setup-grid items-end" onSubmit={handleInvite}>
+                    <label className="grid gap-1 text-xs font-semibold text-muted">
+                      Full name
+                      <Input value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Jane Smith" required />
+                    </label>
+                    <label className="grid gap-1 text-xs font-semibold text-muted">
+                      Email address
+                      <Input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="jane@example.com" required />
+                    </label>
+                    <label className="grid gap-1 text-xs font-semibold text-muted">
+                      Role
+                      <Select value={inviteRole} onChange={e => setInviteRole(e.target.value as Role)}>
+                        {assignableRoles.map(r => (
+                          <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                        ))}
+                      </Select>
+                      <span className="text-[11px] font-normal text-muted">{ROLE_DESCRIPTIONS[inviteRole]}</span>
+                    </label>
+                    <div className="grid gap-2">
+                      {inviteError && <p className="text-[13px] text-red-300">{inviteError}</p>}
+                      <Button type="submit" variant="primary" disabled={inviteLoading}>
+                        {inviteLoading ? "Sending…" : "Send Invitation"}
+                      </Button>
+                    </div>
+                  </form>
+                  <p className="mt-2.5 text-xs text-muted">
+                    Sends a Supabase account-activation email. Requires email delivery to be configured
+                    for the project — if invites aren't arriving, use "Create Directly" instead.
+                  </p>
+                </>
+              ),
+            },
+            {
+              id: "create",
+              label: "Create Directly",
+              icon: <KeyRound size={14} />,
+              content: (
+                <>
+                  <form className="setup-grid items-end" onSubmit={handleCreateAccount}>
+                    <label className="grid gap-1 text-xs font-semibold text-muted">
+                      Full name
+                      <Input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Jane Smith" required />
+                    </label>
+                    <label className="grid gap-1 text-xs font-semibold text-muted">
+                      Email address
+                      <Input type="email" value={createEmail} onChange={e => setCreateEmail(e.target.value)} placeholder="jane@example.com" required />
+                    </label>
+                    <label className="grid gap-1 text-xs font-semibold text-muted">
+                      Role
+                      <Select value={createRole} onChange={e => setCreateRole(e.target.value as Role)}>
+                        {assignableRoles.map(r => (
+                          <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                        ))}
+                      </Select>
+                      <span className="text-[11px] font-normal text-muted">{ROLE_DESCRIPTIONS[createRole]}</span>
+                    </label>
+                    <div className="grid gap-2">
+                      {createError && <p className="text-[13px] text-red-300">{createError}</p>}
+                      <Button type="submit" variant="primary" disabled={createLoading}>
+                        {createLoading ? "Creating…" : "Create Account"}
+                      </Button>
+                    </div>
+                  </form>
+                  <p className="mt-2.5 text-xs text-muted">
+                    Creates an already-active account with a one-time temporary password — no email sent.
+                    You'll need to share the password with them yourself, and they'll be required to set
+                    their own password the first time they log in.
+                  </p>
+                </>
+              ),
+            },
+          ]}
+        />
         {!isSuperAdmin && (
           <p className="mt-2.5 text-xs text-muted">
             Admin and Super Admin roles can only be assigned by a Super Admin.
@@ -388,6 +476,39 @@ export function MembersScreen({
           onCancel={() => setConfirmRemoveMember(null)}
           onConfirm={() => confirmRemove(confirmRemoveMember)}
         />
+      )}
+
+      {createdAccount && (
+        <Modal
+          open
+          title="Account Created"
+          description={`Share this temporary password with ${createdAccount.email} through a secure channel — it won't be shown again.`}
+          onClose={() => { setCreatedAccount(null); setCopied(false); }}
+          footer={
+            <Button variant="secondary" onClick={() => { setCreatedAccount(null); setCopied(false); }}>Done</Button>
+          }
+        >
+          <div className="grid gap-3">
+            <div className="grid gap-1">
+              <span className="text-xs font-semibold text-muted">Email</span>
+              <span className="text-sm font-semibold text-text">{createdAccount.email}</span>
+            </div>
+            <div className="grid gap-1">
+              <span className="text-xs font-semibold text-muted">Temporary password</span>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 rounded-md border border-border bg-panel-3 px-2.5 py-1.5 font-mono text-sm text-text">
+                  {createdAccount.tempPassword}
+                </code>
+                <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={handleCopyTempPassword}>
+                  {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy"}
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-muted">
+              They'll be prompted to set their own password immediately after signing in with this one.
+            </p>
+          </div>
+        </Modal>
       )}
     </PageFrame>
   );
