@@ -6,6 +6,8 @@ import type { QuizQuestion } from "@/lib/types/assignments";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import { ClipPickerModal } from "@/components/learning/ClipPickerModal";
 import { slotName, splitCategory } from "@/components/common/ClipPreview";
+import { Button, Input, Select, Textarea } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 interface Props {
   questions: QuizQuestion[];
@@ -13,25 +15,6 @@ interface Props {
   reviews?: ReviewRecord[];
   tags?: CodedTag[];
 }
-
-const btn: React.CSSProperties = {
-  padding: "4px 10px",
-  borderRadius: 6,
-  border: "1px solid rgba(255,255,255,.2)",
-  background: "rgba(255,255,255,.08)",
-  color: "var(--text)",
-  fontSize: 12,
-  cursor: "pointer",
-  flexShrink: 0,
-  whiteSpace: "nowrap",
-};
-
-const dangerBtn: React.CSSProperties = {
-  ...btn,
-  border: "1px solid rgba(239,68,68,.3)",
-  background: "rgba(239,68,68,.08)",
-  color: "#fca5a5",
-};
 
 export default function QuizEditor({ questions, onChange, reviews = [], tags = [] }: Props) {
   const [pickerForQuestionId, setPickerForQuestionId] = useState<string | null>(null);
@@ -99,82 +82,54 @@ export default function QuizEditor({ questions, onChange, reviews = [], tags = [
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="flex flex-col gap-3">
       {sorted.map((q, idx) => (
-        <div
-          key={q.id}
-          style={{
-            border: "1px solid rgba(255,255,255,.12)",
-            borderRadius: 8,
-            padding: 14,
-            background: "rgba(255,255,255,.03)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 20 }}>Q{idx + 1}</span>
-            <input
+        <div key={q.id} className="rounded-lg border border-border bg-panel-2 p-3.5">
+          <div className="mb-2.5 flex items-center gap-2">
+            <span className="min-w-5 text-xs text-muted">Q{idx + 1}</span>
+            <Input
               type="text"
               value={q.prompt}
               onChange={e => update(q.id, { prompt: e.target.value })}
               placeholder="Question prompt…"
-              style={{
-                flex: 1,
-                width: "auto",
-                minWidth: 0,
-                background: "rgba(255,255,255,.08)",
-                border: "1px solid rgba(255,255,255,.2)",
-                borderRadius: 6,
-                padding: "6px 10px",
-                color: "var(--text)",
-                fontSize: 13,
-              }}
+              className="flex-1 text-[13px]"
             />
-            <button style={btn} onClick={() => moveQuestion(q.id, -1)} disabled={idx === 0} title="Move up">↑</button>
-            <button style={btn} onClick={() => moveQuestion(q.id, 1)} disabled={idx === sorted.length - 1} title="Move down">↓</button>
-            <button style={dangerBtn} onClick={() => removeQuestion(q.id)}>Remove</button>
+            <Button variant="secondary" size="sm" onClick={() => moveQuestion(q.id, -1)} disabled={idx === 0} title="Move up">↑</Button>
+            <Button variant="secondary" size="sm" onClick={() => moveQuestion(q.id, 1)} disabled={idx === sorted.length - 1} title="Move down">↓</Button>
+            <Button variant="danger" size="sm" onClick={() => removeQuestion(q.id)}>Remove</Button>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginLeft: 28 }}>
+          <div className="ml-7 flex flex-col gap-1.5">
             {q.answers.map((ans, aIdx) => (
-              <div key={aIdx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div key={aIdx} className="flex items-center gap-2">
                 <input
                   type="radio"
                   name={`correct-${q.id}`}
                   checked={q.correctAnswerIndex === aIdx}
                   onChange={() => update(q.id, { correctAnswerIndex: aIdx })}
                   title="Mark as correct answer"
-                  style={{ width: "auto", flexShrink: 0, accentColor: "#22c55e", cursor: "pointer" }}
+                  className="w-auto shrink-0 cursor-pointer"
+                  style={{ accentColor: "var(--good)" }}
                 />
-                <input
+                <Input
                   type="text"
                   value={ans}
                   onChange={e => updateAnswer(q.id, aIdx, e.target.value)}
                   placeholder={`Answer ${aIdx + 1}…`}
-                  style={{
-                    flex: 1,
-                    width: "auto",
-                    minWidth: 0,
-                    background: "rgba(255,255,255,.08)",
-                    border: q.correctAnswerIndex === aIdx
-                      ? "1px solid rgba(34,197,94,.5)"
-                      : "1px solid rgba(255,255,255,.2)",
-                    borderRadius: 6,
-                    padding: "5px 9px",
-                    color: "var(--text)",
-                    fontSize: 13,
-                  }}
+                  className={cn("flex-1 text-[13px]", q.correctAnswerIndex === aIdx && "border-good/50")}
                 />
-                <button
-                  style={dangerBtn}
+                <Button
+                  variant="danger"
+                  size="sm"
                   onClick={() => removeAnswer(q.id, aIdx)}
                   disabled={q.answers.length <= 2}
                   title="Remove answer"
-                >×</button>
+                >×</Button>
               </div>
             ))}
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 4 }}>
-              <button style={btn} onClick={() => addAnswer(q.id)}>+ Answer</button>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)", cursor: "pointer" }}>
+            <div className="mt-1 flex items-center gap-4">
+              <Button variant="secondary" size="sm" onClick={() => addAnswer(q.id)}>+ Answer</Button>
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted">
                 <input
                   type="checkbox"
                   checked={q.required}
@@ -186,10 +141,10 @@ export default function QuizEditor({ questions, onChange, reviews = [], tags = [
             </div>
 
             {/* Resource section */}
-            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>Video resource:</span>
-                <select
+            <div className="mt-2.5 flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted">Video resource:</span>
+                <Select
                   value={q.resourceType ?? "none"}
                   onChange={e => {
                     const val = e.target.value;
@@ -201,49 +156,37 @@ export default function QuizEditor({ questions, onChange, reviews = [], tags = [
                       update(q.id, { resourceType: "review_clip", resourceVideoUrl: null });
                     }
                   }}
-                  style={{
-                    fontSize: 12, padding: "3px 7px", borderRadius: 6,
-                    background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)",
-                    color: "var(--text)", cursor: "pointer", width: "auto",
-                  }}
+                  className="w-auto text-xs"
                 >
                   <option value="none">None</option>
                   <option value="video_url">Video URL</option>
                   <option value="review_clip">RefCoach Clip</option>
-                </select>
+                </Select>
               </div>
 
               {q.resourceType === "video_url" && (
-                <input
+                <Input
                   type="url"
                   value={q.resourceVideoUrl ?? ""}
                   onChange={e => update(q.id, { resourceVideoUrl: e.target.value || null })}
                   placeholder="https://youtube.com/watch?v=… or direct .mp4 URL"
-                  style={{
-                    width: "100%", boxSizing: "border-box",
-                    background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.15)",
-                    borderRadius: 6, padding: "6px 9px", color: "var(--text)", fontSize: 12,
-                  }}
+                  className="text-xs"
                 />
               )}
 
               {q.resourceType === "review_clip" && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <label style={{ fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted">
                     Clip duration
-                    <input
+                    <Input
                       type="number"
                       min={3}
                       max={60}
                       value={q.resourceClipDurationSeconds ?? 10}
                       onChange={e => update(q.id, { resourceClipDurationSeconds: Math.min(60, Math.max(3, Number(e.target.value) || 10)) })}
-                      style={{
-                        width: 54, padding: "3px 6px", borderRadius: 6, fontSize: 12,
-                        background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)",
-                        color: "var(--text)", textAlign: "center",
-                      }}
+                      className="w-14 text-center text-xs"
                     />
-                    <span style={{ fontSize: 11, color: "var(--muted)" }}>seconds (3–60)</span>
+                    <span className="text-[11px] text-muted">seconds (3–60)</span>
                   </label>
                 </div>
               )}
@@ -256,69 +199,47 @@ export default function QuizEditor({ questions, onChange, reviews = [], tags = [
                   const [catGroup, catSub] = splitCategory(tag.category);
                   const catLabel = catSub ? `${catGroup} — ${catSub}` : catGroup || "";
                   return (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(99,102,241,.1)", border: "1px solid rgba(99,102,241,.25)", borderRadius: 7 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div className="flex items-center gap-2 rounded-lg border border-info/25 bg-info/10 px-2.5 py-1.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-xs font-semibold">
                           {review.game}
                         </div>
-                        <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                        <div className="text-[11px] text-muted">
                           {tag.adjustedTime} · {refName}{catLabel ? ` · ${catLabel}` : ""}
                         </div>
                       </div>
-                      <button
-                        style={btn}
-                        onClick={() => setPickerForQuestionId(q.id)}
-                      >Change</button>
-                      <button
-                        style={dangerBtn}
-                        onClick={() => update(q.id, { resourceReviewId: null, resourceTagId: null })}
-                      >Remove</button>
+                      <Button variant="secondary" size="sm" onClick={() => setPickerForQuestionId(q.id)}>Change</Button>
+                      <Button variant="danger" size="sm" onClick={() => update(q.id, { resourceReviewId: null, resourceTagId: null })}>Remove</Button>
                     </div>
                   );
                 }
                 return (
-                  <button
-                    style={{ ...btn, alignSelf: "flex-start" }}
-                    onClick={() => setPickerForQuestionId(q.id)}
-                  >
+                  <Button variant="secondary" size="sm" className="self-start" onClick={() => setPickerForQuestionId(q.id)}>
                     Choose Clip…
-                  </button>
+                  </Button>
                 );
               })()}
             </div>
 
-            <div style={{ marginTop: 10 }}>
-              <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 4 }}>
-                Explanation <span style={{ opacity: 0.6 }}>(shown after submission)</span>
+            <div className="mt-2.5">
+              <label className="mb-1 block text-xs text-muted">
+                Explanation <span className="opacity-60">(shown after submission)</span>
               </label>
-              <textarea
+              <Textarea
                 value={q.explanation ?? ""}
                 onChange={e => update(q.id, { explanation: e.target.value || undefined })}
                 placeholder="Explain why the correct answer is right…"
                 rows={2}
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  background: "rgba(255,255,255,.05)",
-                  border: "1px solid rgba(255,255,255,.15)",
-                  borderRadius: 6,
-                  padding: "6px 9px",
-                  color: "var(--text)",
-                  fontSize: 12,
-                  resize: "vertical",
-                }}
+                className="text-xs"
               />
             </div>
           </div>
         </div>
       ))}
 
-      <button
-        style={{ ...btn, alignSelf: "flex-start", padding: "6px 14px" }}
-        onClick={addQuestion}
-      >
+      <Button variant="secondary" size="sm" className="self-start" onClick={addQuestion}>
         + Add Question
-      </button>
+      </Button>
 
       {pickerForQuestionId && (
         <ClipPickerModal

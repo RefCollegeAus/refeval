@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Search, X } from "lucide-react";
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import { slotName, splitCategory } from "@/components/common/ClipPreview";
+import { Badge, Button, Input, Select } from "@/components/ui";
 
 interface Props {
   reviews: ReviewRecord[];
@@ -12,23 +13,11 @@ interface Props {
   onClose: () => void;
 }
 
-const selectStyle: React.CSSProperties = {
-  fontSize: 13, padding: "6px 8px", borderRadius: 6,
-  background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)",
-  color: "var(--text)", cursor: "pointer", width: "100%",
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, color: "var(--muted)",
-  textTransform: "uppercase", letterSpacing: ".04em",
-  display: "block", marginBottom: 4,
-};
-
-function outcomeColor(o: string) {
+function outcomeColorClass(o: string) {
   const l = o.toLowerCase();
-  if (l.includes("correct") && !l.includes("in")) return "#86efac";
-  if (l.includes("incorrect") || l.includes("missed")) return "#fca5a5";
-  return "var(--muted)";
+  if (l.includes("correct") && !l.includes("in")) return "text-green-300";
+  if (l.includes("incorrect") || l.includes("missed")) return "text-red-300";
+  return "text-muted";
 }
 
 export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
@@ -117,51 +106,38 @@ export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
 
   return (
     <div
-      style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,.8)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        zIndex: 1100, padding: 20,
-      }}
+      className="fixed inset-0 z-[1100] grid place-items-center bg-black/80 p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{
-        background: "var(--panel)", border: "1px solid var(--border)",
-        borderRadius: 14, width: "100%", maxWidth: 660,
-        maxHeight: "85vh", display: "flex", flexDirection: "column",
-      }}>
+      <div className="flex max-h-[85vh] w-full max-w-[660px] flex-col rounded-2xl border border-border bg-panel shadow-xl">
 
         {/* Header */}
-        <div style={{
-          padding: "14px 18px", borderBottom: "1px solid var(--border)",
-          display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0,
-        }}>
-          <span style={{ fontWeight: 700, fontSize: 15 }}>Choose a Clip</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3.5">
+          <span className="text-[15px] font-bold">Choose a Clip</span>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close" className="px-1.5">
+            <X size={16} />
+          </Button>
         </div>
 
         {/* Search + filters */}
-        <div style={{ padding: "12px 18px 10px", borderBottom: "1px solid var(--border)", flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="flex shrink-0 flex-col gap-2.5 border-b border-border px-4 pt-3 pb-2.5">
 
           {/* Search row */}
-          <div style={{ position: "relative" }}>
-            <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-            <input
+          <div className="relative">
+            <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+            <Input
               autoFocus
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search game, referee, category or notes…"
-              style={{
-                width: "100%", boxSizing: "border-box",
-                padding: "7px 32px 7px 32px",
-                background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)",
-                borderRadius: 8, color: "var(--text)", fontSize: 13,
-              }}
+              className="pl-8 pr-8"
             />
             {query && (
               <button
                 onClick={() => setQuery("")}
-                style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 2 }}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-muted"
               >
                 <X size={13} />
               </button>
@@ -169,84 +145,82 @@ export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
           </div>
 
           {/* Filter grid: 2-column */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <span style={labelStyle}>Game</span>
-              <select value={filterGame} onChange={e => setFilterGame(e.target.value)} style={selectStyle}>
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Game</span>
+              <Select value={filterGame} onChange={e => setFilterGame(e.target.value)} className="text-[13px]">
                 <option value="">All games</option>
                 {gameOptions.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
+              </Select>
             </div>
             <div>
-              <span style={labelStyle}>Referee</span>
-              <select value={filterReferee} onChange={e => setFilterReferee(e.target.value)} style={selectStyle}>
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Referee</span>
+              <Select value={filterReferee} onChange={e => setFilterReferee(e.target.value)} className="text-[13px]">
                 <option value="">All referees</option>
                 {refereeOptions.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
+              </Select>
             </div>
             <div>
-              <span style={labelStyle}>Category</span>
-              <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={selectStyle}>
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Category</span>
+              <Select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="text-[13px]">
                 <option value="">All categories</option>
                 {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              </Select>
             </div>
             <div>
-              <span style={labelStyle}>Outcome</span>
-              <select value={filterOutcome} onChange={e => setFilterOutcome(e.target.value)} style={selectStyle}>
+              <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">Outcome</span>
+              <Select value={filterOutcome} onChange={e => setFilterOutcome(e.target.value)} className="text-[13px]">
                 <option value="">All outcomes</option>
                 {outcomeOptions.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
 
           {/* Checkbox row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--muted)", cursor: "pointer", userSelect: "none" }}>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-muted">
               <input
                 type="checkbox"
                 checked={filterHasNotes}
                 onChange={e => setFilterHasNotes(e.target.checked)}
-                style={{ accentColor: "var(--accent)", width: "auto" }}
+                className="h-auto w-auto"
+                style={{ accentColor: "var(--accent)" }}
               />
               Has notes
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#86efac", cursor: "pointer", userSelect: "none" }}>
+            <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-green-300">
               <input
                 type="checkbox"
                 checked={filterLearning}
                 onChange={e => setFilterLearning(e.target.checked)}
-                style={{ accentColor: "#22c55e", width: "auto" }}
+                className="h-auto w-auto"
+                style={{ accentColor: "var(--good)" }}
               />
               Learning Library only
             </label>
             {hasActiveFilter && (
               <button
                 onClick={clearAll}
-                style={{
-                  marginLeft: "auto", fontSize: 11, padding: "3px 10px", borderRadius: 999,
-                  background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.25)",
-                  color: "#fca5a5", cursor: "pointer", whiteSpace: "nowrap",
-                }}
+                className="ml-auto whitespace-nowrap rounded-full border border-danger/25 bg-danger/10 px-2.5 py-1 text-[11px] text-red-300"
               >
                 Clear filters
               </button>
             )}
           </div>
 
-          <p style={{ margin: 0, fontSize: 11, color: "var(--muted)" }}>
+          <p className="m-0 text-[11px] text-muted">
             {filtered.length} clip{filtered.length !== 1 ? "s" : ""} shown
             {hasActiveFilter && ` of ${videoTags.length} total`}
           </p>
         </div>
 
         {/* Clip list */}
-        <div style={{ overflowY: "auto", flex: 1 }}>
+        <div className="flex-1 overflow-y-auto">
           {filtered.length === 0 && (
-            <div style={{ padding: "32px 18px", textAlign: "center" }}>
-              <p style={{ margin: 0, color: "var(--muted)", fontSize: 13 }}>No clips match the current filters.</p>
+            <div className="px-4 py-8 text-center">
+              <p className="m-0 text-[13px] text-muted">No clips match the current filters.</p>
               {hasActiveFilter && (
-                <button onClick={clearAll} style={{ marginTop: 10, fontSize: 12, padding: "5px 14px" }}>
+                <button onClick={clearAll} className="mt-2.5 text-xs">
                   Clear filters
                 </button>
               )}
@@ -261,39 +235,32 @@ export function ClipPickerModal({ reviews, tags, onSelect, onClose }: Props) {
               <button
                 key={t.id}
                 onClick={() => { onSelect(t.reviewId, t.id); onClose(); }}
-                style={{
-                  display: "block", width: "100%", textAlign: "left",
-                  padding: "10px 18px", background: "none", border: "none",
-                  borderBottom: "1px solid rgba(255,255,255,.06)",
-                  cursor: "pointer", color: "var(--text)",
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.05)")}
-                onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                className="block w-full border-none border-b border-white/[.06] bg-none px-4 py-2.5 text-left text-text hover:bg-white/5"
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.game}</span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 truncate text-[13px] font-semibold">
+                      <span className="truncate">{r.game}</span>
                       {t.isLearningClip && (
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 999, background: "rgba(34,197,94,.15)", border: "1px solid rgba(34,197,94,.3)", color: "#86efac", flexShrink: 0, whiteSpace: "nowrap" }}>
+                        <Badge tone="good" className="shrink-0 whitespace-nowrap text-[10px]">
                           Learning
-                        </span>
+                        </Badge>
                       )}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <div className="mt-0.5 flex flex-wrap gap-2.5 text-xs text-muted">
                       <span>{refName}</span>
                       {catLabel && <span>{catLabel}</span>}
                       {t.outcome && (
-                        <span style={{ color: outcomeColor(t.outcome) }}>{t.outcome}</span>
+                        <span className={outcomeColorClass(t.outcome)}>{t.outcome}</span>
                       )}
                     </div>
                     {t.notes && (
-                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div className="mt-0.5 truncate text-xs text-muted">
                         {t.notes}
                       </div>
                     )}
                   </div>
-                  <span style={{ fontSize: 12, color: "var(--muted)", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+                  <span className="shrink-0 tabular-nums text-xs text-muted">
                     {t.adjustedTime}
                   </span>
                 </div>

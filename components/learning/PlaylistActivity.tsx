@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { CheckCircle2, ListVideo, MessageSquare } from "lucide-react";
 import { ClipPreview, outcomeClass } from "@/components/common/ClipPreview";
 import type { ClipRow } from "@/components/common/ClipPreview";
+import { Card } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 export type PlaylistClipRow = ClipRow & { itemId: string; creatorNote: string | null };
 
@@ -42,30 +44,30 @@ export function PlaylistActivity({
 
   if (clipsLoading && clipRows.length === 0) {
     return (
-      <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-        <p style={{ margin: 0 }}>Loading clips…</p>
-      </div>
+      <Card className="px-6 py-12 text-center text-muted">
+        <p className="m-0">Loading clips…</p>
+      </Card>
     );
   }
 
   if (!clipsLoading && clipsError && clipRows.length === 0) {
     return (
-      <div className="panel" style={{ padding: "24px", borderLeft: "4px solid rgba(239,68,68,.5)" }}>
-        <p style={{ margin: 0, fontWeight: 700, color: "#fca5a5" }}>Could not load clips</p>
-        <p className="hint" style={{ margin: "6px 0 0" }}>{clipsError}</p>
-      </div>
+      <Card className="border-l-4 border-l-danger/50">
+        <p className="m-0 font-bold text-red-300">Could not load clips</p>
+        <p className="mt-1.5 text-[13px] text-muted">{clipsError}</p>
+      </Card>
     );
   }
 
   if (clipRows.length === 0) {
     return (
-      <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-        <ListVideo size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
-        <p style={{ margin: 0, fontWeight: 700 }}>This playlist is empty</p>
-        <p className="hint" style={{ margin: "6px 0 0" }}>
+      <Card className="px-6 py-12 text-center text-muted">
+        <ListVideo size={36} className="mb-3 opacity-30" />
+        <p className="m-0 font-bold">This playlist is empty</p>
+        <p className="mt-1.5 text-[13px] text-muted">
           Clips may have been removed from their source reviews, or none have been added yet.
         </p>
-      </div>
+      </Card>
     );
   }
 
@@ -73,10 +75,9 @@ export function PlaylistActivity({
     <div className="lh-clip-split">
       {/* Left: ordered clip list */}
       <div
-        className="lh-clip-split__list"
-        style={{ maxHeight: "72vh", overflowY: "auto", borderRadius: 8, border: "1px solid var(--border)", background: "var(--panel)" }}
+        className="lh-clip-split__list max-h-[72vh] overflow-y-auto rounded-lg border border-border bg-panel"
       >
-        <div style={{ position: "sticky", top: 0, zIndex: 1, padding: "8px 10px", background: "var(--panel2)", borderBottom: "1px solid var(--border)", fontSize: 12, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <div className="sticky top-0 z-[1] border-b border-border bg-panel-2 px-2.5 py-2 text-xs uppercase tracking-wide text-muted">
           {clipRows.length} clip{clipRows.length !== 1 ? "s" : ""}
         </div>
 
@@ -92,24 +93,32 @@ export function PlaylistActivity({
               aria-label={`Clip ${i + 1}: ${row.categoryGroup}${row.subtype ? ` – ${row.subtype}` : ""}`}
               onClick={() => selectPreview(i)}
               onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPreview(i); } }}
-              style={{
-                display: "flex", gap: 8, padding: "10px 8px 10px 10px",
-                borderBottom: "1px solid var(--border)", cursor: "pointer",
-                background: isPreviewing ? "var(--panel2)" : isWatched ? "rgba(48,209,88,.04)" : undefined,
-                borderLeft: isPreviewing ? "3px solid var(--accent)" : isWatched ? "3px solid rgba(48,209,88,.4)" : "3px solid transparent",
-              }}
+              className={cn(
+                "flex cursor-pointer gap-2 border-b border-border py-2.5 pl-2.5 pr-2",
+                isPreviewing ? "border-l-4 border-l-accent bg-panel-2" : "border-l-4",
+              )}
+              // isWatched's #30d158 tint (an iOS-style green distinct from the --good
+              // token, matching the checkmark button below) has no exact design-system
+              // token, so it stays a literal here rather than shifting the hue.
+              style={
+                isPreviewing
+                  ? undefined
+                  : isWatched
+                  ? { background: "rgba(48,209,88,.04)", borderLeftColor: "rgba(48,209,88,.4)" }
+                  : { borderLeftColor: "transparent" }
+              }
             >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", marginBottom: 2 }}>
+              <div className="min-w-0 flex-1">
+                <div className="mb-0.5 flex flex-wrap items-center gap-1.5">
                   {row.tag.outcome && <span className={outcomeClass(row.tag.outcome)} style={{ fontSize: 11, padding: "1px 6px" }}>{row.tag.outcome}</span>}
-                  {row.categoryGroup && <span className="chip" style={{ fontSize: 11 }}>{row.categoryGroup}</span>}
-                  <span style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", color: "var(--muted)", marginLeft: "auto" }}>{row.tag.adjustedTime}</span>
+                  {row.categoryGroup && <span className="chip text-xs">{row.categoryGroup}</span>}
+                  <span className="ml-auto text-xs tabular-nums text-muted">{row.tag.adjustedTime}</span>
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.refereeName}</div>
-                <div style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.review.game || "Untitled game"}</div>
-                {row.subtype && <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{row.subtype}</div>}
+                <div className="truncate text-[13px] font-semibold">{row.refereeName}</div>
+                <div className="truncate text-xs text-muted">{row.review.game || "Untitled game"}</div>
+                {row.subtype && <div className="mt-px truncate text-xs text-muted">{row.subtype}</div>}
                 {row.creatorNote && (
-                  <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 2, display: "flex", alignItems: "center", gap: 3 }}>
+                  <div className="mt-0.5 flex items-center gap-1 text-xs text-accent">
                     <MessageSquare size={10} /> Note
                   </div>
                 )}
@@ -119,7 +128,10 @@ export function PlaylistActivity({
               {!isCompleted && (
                 <button
                   onClick={e => { e.stopPropagation(); onToggleWatched(row.itemId); }}
-                  style={{ flexShrink: 0, background: "none", border: "none", cursor: "pointer", padding: "2px 4px", alignSelf: "center", color: isWatched ? "#30d158" : "var(--muted)" }}
+                  className={cn(
+                    "shrink-0 self-center border-none bg-none px-1 py-0.5",
+                    isWatched ? "text-[#30d158]" : "text-muted",
+                  )}
                   title={isWatched ? "Mark as unwatched" : "Mark as watched"}
                 >
                   <CheckCircle2 size={16} fill={isWatched ? "currentColor" : "none"} />
@@ -131,8 +143,11 @@ export function PlaylistActivity({
       </div>
 
       {/* Right: sticky preview */}
-      <div style={{ flex: 1, position: "sticky", top: 20 }}>
-        <div className="panel" ref={videoBoxRef}>
+      <div className="sticky top-5 flex-1">
+        {/* Card isn't a forwardRef component, and this element needs a DOM ref for
+            scrollIntoView on selection — so its classes are reproduced directly here
+            instead of using <Card>. */}
+        <div ref={videoBoxRef} className="rounded-2xl border border-border bg-panel p-5 shadow-sm">
           <ClipPreview
             clip={previewClip}
             index={safeIndex}
@@ -144,9 +159,9 @@ export function PlaylistActivity({
             selectionToken={selectionToken}
           />
           {previewClip?.creatorNote && (
-            <div style={{ borderTop: "1px solid var(--border)", marginTop: 12, paddingTop: 12 }}>
-              <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Learning Note</p>
-              <p style={{ margin: 0, fontSize: 13, color: "var(--text)", whiteSpace: "pre-wrap" }}>{previewClip.creatorNote}</p>
+            <div className="mt-3 border-t border-border pt-3">
+              <p className="mb-1.5 text-xs uppercase tracking-wide text-muted">Learning Note</p>
+              <p className="m-0 whitespace-pre-wrap text-[13px] text-text">{previewClip.creatorNote}</p>
             </div>
           )}
         </div>

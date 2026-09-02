@@ -11,6 +11,8 @@ import { PlaylistActivity } from "./PlaylistActivity";
 import type { PlaylistClipRow } from "./PlaylistActivity";
 import { ReflectionActivity } from "./ReflectionActivity";
 import { QuizActivity } from "./QuizActivity";
+import { Button, Card } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 interface Props {
   assignment: Assignment;
@@ -130,58 +132,58 @@ export function LearningAssignmentRunner({
   }
 
   return (
-    <div style={{ boxSizing: "border-box" }}>
+    <div>
 
       {/* Header panel */}
-      <div
-        className="panel"
-        style={{
-          marginBottom: 16,
-          padding: "16px 18px",
-          borderLeft: isCompleted
-            ? "4px solid rgba(34,197,94,.5)"
-            : isOverdue
-            ? "4px solid rgba(239,68,68,.5)"
-            : "4px solid var(--accent)",
-        }}
+      <Card
+        className={cn(
+          "mb-4 border-l-4",
+          isCompleted ? "border-l-good/50" : isOverdue ? "border-l-danger/50" : "border-l-accent",
+        )}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p className="eyebrow" style={{ margin: "0 0 4px" }}>My Learning</p>
-            <h1 style={{ margin: "0 0 6px", fontSize: 20 }}>{assignment.title}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">My Learning</p>
+            <h1 className="mb-1.5 text-xl">{assignment.title}</h1>
 
             {assignment.instructions && (
-              <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", whiteSpace: "pre-wrap" }}>
+              <p className="mb-2.5 whitespace-pre-wrap text-[13px] text-muted">
                 {assignment.instructions}
               </p>
             )}
 
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 12, color: "var(--muted)", alignItems: "center" }}>
+            <div className="flex flex-wrap items-center gap-3.5 text-xs text-muted">
               {assignedByName && <span>Assigned by {assignedByName}</span>}
               {assignment.dueDate && (
-                <span style={{ display: "flex", alignItems: "center", gap: 4, color: isOverdue ? "#fca5a5" : "var(--muted)" }}>
+                <span className={cn("flex items-center gap-1", isOverdue ? "text-red-300" : "text-muted")}>
                   {isOverdue && <AlertCircle size={12} />}
                   Due {new Date(assignment.dueDate).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
                   {isOverdue && " — Overdue"}
                 </span>
               )}
-              <span style={{ fontWeight: 700, color: STATUS_COLORS[assignmentUser.status] }}>
+              <span className="font-bold" style={{ color: STATUS_COLORS[assignmentUser.status] }}>
                 {assignmentUser.status}
               </span>
             </div>
 
             {/* Playlist progress bar */}
             {!isCompleted && hasPlaylist && totalClips > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>
+              <div className="mt-3">
+                <div className="mb-1 flex justify-between text-xs text-muted">
                   <span>{watchedCount} of {totalClips} clips watched</span>
-                  <span style={{ fontWeight: 700, color: allWatched ? "#30d158" : "var(--accent)" }}>{progressPct}%</span>
+                  {/* allWatched uses #30d158 (iOS-style green) — distinct from the --good
+                      token (#22c55e), so it's left as a literal rather than forced onto
+                      a token that would shift the hue. */}
+                  <span className="font-bold" style={{ color: allWatched ? "#30d158" : "var(--accent)" }}>{progressPct}%</span>
                 </div>
-                <div style={{ height: 6, background: "var(--panel3)", borderRadius: 999, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${progressPct}%`, background: allWatched ? "#30d158" : "var(--accent)", borderRadius: 999, transition: "width .3s" }} />
+                <div className="h-1.5 overflow-hidden rounded-full bg-panel-3">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-300"
+                    style={{ width: `${progressPct}%`, background: allWatched ? "#30d158" : "var(--accent)" }}
+                  />
                 </div>
                 {!allWatched && (
-                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>
+                  <p className="mt-1.5 text-xs text-muted">
                     Watch all {totalClips} clips to unlock the Complete button.
                   </p>
                 )}
@@ -190,47 +192,48 @@ export function LearningAssignmentRunner({
 
             {/* Activity prompts — shown once clips are all watched (or no playlist) */}
             {!isCompleted && allWatched && (hasReflection || hasQuiz) && (
-              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="mt-2.5 flex flex-col gap-2">
                 {hasReflection && (
                   reflectionDone ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#22c55e" }}>
+                    <div className="flex items-center gap-1.5 text-xs text-good">
                       <CheckCircle2 size={13} /> Reflection submitted.
                     </div>
                   ) : (
-                    <button
-                      style={{ fontSize: 13, padding: "7px 16px", display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="gap-1.5 self-start"
                       onClick={() => setReflectionOpen(true)}
                     >
                       <MessageSquare size={13} />
                       {assignmentUser.reflectionResponses ? "Continue Reflection" : "Answer Reflection Questions"}
-                    </button>
+                    </Button>
                   )
                 )}
                 {hasQuiz && (!hasReflection || reflectionDone) && (
                   quizDone ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#22c55e" }}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-1.5 text-xs text-good">
                         <CheckCircle2 size={13} />
                         Quiz submitted{assignmentUser.quizScore !== null && assignmentUser.quizTotal
                           ? ` — ${assignmentUser.quizScore}/${assignmentUser.quizTotal}`
                           : ""}.
                       </div>
-                      <button
-                        style={{ fontSize: 12, padding: "4px 12px", display: "flex", alignItems: "center", gap: 5 }}
-                        onClick={() => setQuizOpen(true)}
-                      >
+                      <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setQuizOpen(true)}>
                         <HelpCircle size={12} />
                         Review Results
-                      </button>
+                      </Button>
                     </div>
                   ) : (
-                    <button
-                      style={{ fontSize: 13, padding: "7px 16px", display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="gap-1.5 self-start"
                       onClick={() => setQuizOpen(true)}
                     >
                       <HelpCircle size={13} />
                       {assignmentUser.quizAnswers ? "Continue Quiz" : "Take Knowledge Quiz"}
-                    </button>
+                    </Button>
                   )
                 )}
               </div>
@@ -239,32 +242,29 @@ export function LearningAssignmentRunner({
 
           {/* Complete / Completed state */}
           {isCompleted ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-              <span style={{ fontSize: 15, color: STATUS_COLORS.Completed, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <span className="flex items-center gap-1 text-[15px] font-bold" style={{ color: STATUS_COLORS.Completed }}>
                 <CheckCircle2 size={15} /> Completed
               </span>
               {assignmentUser.completedAt && (
-                <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                <span className="text-[11px] text-muted">
                   {new Date(assignmentUser.completedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
                 </span>
               )}
               {hasQuiz && (
-                <button
-                  style={{ fontSize: 12, padding: "5px 12px", display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}
-                  onClick={() => setQuizOpen(true)}
-                >
+                <Button variant="secondary" size="sm" className="mt-0.5 gap-1.5" onClick={() => setQuizOpen(true)}>
                   <HelpCircle size={12} /> Review Quiz Results
-                </button>
+                </Button>
               )}
             </div>
           ) : confirmComplete ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Mark this assignment as complete?</span>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button style={{ fontSize: 13, padding: "6px 14px" }} onClick={() => setConfirmComplete(false)}>Cancel</button>
-                <button
-                  className="primary"
-                  style={{ fontSize: 13, padding: "6px 14px" }}
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <span className="text-[13px] font-semibold">Mark this assignment as complete?</span>
+              <div className="flex gap-1.5">
+                <Button variant="secondary" size="sm" onClick={() => setConfirmComplete(false)}>Cancel</Button>
+                <Button
+                  variant="primary"
+                  size="sm"
                   disabled={completing}
                   onClick={async () => {
                     setCompleting(true);
@@ -272,14 +272,14 @@ export function LearningAssignmentRunner({
                   }}
                 >
                   {completing ? "Saving…" : "Yes, Mark Complete"}
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-              <button
-                className="primary"
-                style={{ fontSize: 14, padding: "9px 20px", whiteSpace: "nowrap", opacity: canComplete ? 1 : 0.45, cursor: canComplete ? "pointer" : "not-allowed" }}
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <Button
+                variant="primary"
+                className="gap-1.5 whitespace-nowrap"
                 disabled={!canComplete}
                 onClick={() => canComplete && setConfirmComplete(true)}
                 title={
@@ -292,29 +292,29 @@ export function LearningAssignmentRunner({
                     : "Mark assignment as complete"
                 }
               >
-                <CheckCircle2 size={14} style={{ flexShrink: 0 }} /> Complete Assignment
-              </button>
+                <CheckCircle2 size={14} className="shrink-0" /> Complete Assignment
+              </Button>
               {!allWatched && (
-                <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                <span className="text-[11px] text-muted">
                   {totalClips - watchedCount} clip{totalClips - watchedCount !== 1 ? "s" : ""} remaining
                 </span>
               )}
               {allWatched && hasReflection && !reflectionDone && (
-                <span style={{ fontSize: 11, color: "var(--muted)" }}>Submit reflection to complete</span>
+                <span className="text-[11px] text-muted">Submit reflection to complete</span>
               )}
               {allWatched && (!hasReflection || reflectionDone) && hasQuiz && !quizDone && (
-                <span style={{ fontSize: 11, color: "var(--muted)" }}>Complete quiz to finish</span>
+                <span className="text-[11px] text-muted">Complete quiz to finish</span>
               )}
             </div>
           )}
         </div>
 
-        <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
-          <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+        <div className="mt-3 border-t border-border pt-2.5">
+          <Button variant="secondary" size="sm" className="gap-1" onClick={onBack}>
             <ChevronLeft size={14} /> Back to My Learning
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Playlist activity */}
       {hasPlaylist && (

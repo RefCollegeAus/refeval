@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { X } from "lucide-react";
 import type { AssignmentUser, ReflectionQuestion, ReflectionResponse } from "@/lib/types/assignments";
+import { Button, Textarea } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 interface Props {
   questions: ReflectionQuestion[];
@@ -62,58 +65,69 @@ export function ReflectionActivity({ questions, assignmentUser, open, onClose, o
   }
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 560, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-        <div className="modal-title" style={{ flexShrink: 0 }}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-[560px] flex-col rounded-2xl border border-border bg-panel p-5 shadow-xl">
+        <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
           <div>
-            <p className="eyebrow">Reflection</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>Assignment Reflection</h1>
+            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Reflection</p>
+            <h1 className="m-0 text-xl">Assignment Reflection</h1>
             {isSubmitted && (
-              <p className="hint" style={{ margin: "2px 0 0" }}>
+              <p className="mt-0.5 text-xs text-muted">
                 Submitted {new Date(assignmentUser.reflectionSubmittedAt!).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
               </p>
             )}
           </div>
-          <button onClick={() => { setErr(""); onClose(); }} aria-label="Close">✕</button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setErr(""); onClose(); }}
+            aria-label="Close"
+            className="shrink-0 px-1.5"
+          >
+            <X size={16} />
+          </Button>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 18, marginTop: 16 }}>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
           {questions.map((q, i) => (
             <div key={q.id}>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+              <div className="mb-1.5 text-[13px] font-semibold">
                 {i + 1}. {q.text}
-                {q.required && <span style={{ color: "#fca5a5", marginLeft: 4 }} title="Required">*</span>}
+                {q.required && <span className="ml-1 text-red-300" title="Required">*</span>}
               </div>
-              <textarea
+              <Textarea
                 value={draft[q.id] ?? ""}
                 onChange={e => setDraft(prev => ({ ...prev, [q.id]: e.target.value }))}
                 rows={4}
                 readOnly={isSubmitted}
                 placeholder={isSubmitted ? "" : "Type your response here…"}
-                style={{ width: "100%", boxSizing: "border-box", fontSize: 13, resize: "vertical", opacity: isSubmitted ? 0.7 : 1 }}
+                className={cn("text-[13px]", isSubmitted && "opacity-70")}
               />
             </div>
           ))}
         </div>
 
-        {err && <p className="danger-text" style={{ margin: "10px 0 0" }}>{err}</p>}
+        {err && (
+          <p className="mt-2.5 rounded-xl border border-danger/45 bg-danger/[.14] p-2.5 text-[13px] text-red-200">{err}</p>
+        )}
 
-        <div className="action-row" style={{ flexShrink: 0, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
-          <button onClick={() => { setErr(""); onClose(); }}>{isSubmitted ? "Close" : "Cancel"}</button>
+        <div className="mt-4 flex shrink-0 flex-wrap gap-2.5 border-t border-border pt-3">
+          <Button variant="secondary" onClick={() => { setErr(""); onClose(); }}>
+            {isSubmitted ? "Close" : "Cancel"}
+          </Button>
           {!isSubmitted && (
             <>
-              <button onClick={handleSaveDraft} disabled={saving} style={{ fontSize: 13 }}>
+              <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
                 {saving ? "Saving…" : "Save Draft"}
-              </button>
-              <button
-                className="primary"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={handleSubmit}
                 disabled={saving || !requiredAnswered}
-                style={{ opacity: requiredAnswered ? 1 : 0.6 }}
                 title={!requiredAnswered ? "Answer all required questions to submit" : undefined}
               >
                 {saving ? "Submitting…" : "Submit Reflection"}
-              </button>
+              </Button>
             </>
           )}
         </div>

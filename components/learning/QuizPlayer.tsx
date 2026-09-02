@@ -6,6 +6,7 @@ import type { QuizQuestion, QuizAnswer, AssignmentUser } from "@/lib/types/assig
 import type { ReviewRecord, CodedTag } from "@/lib/types/reviews";
 import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
 import { ReviewClipPlayer } from "@/components/learning/ReviewClipPlayer";
+import { Button } from "@/components/ui";
 
 interface Props {
   questions: QuizQuestion[];
@@ -331,39 +332,34 @@ export default function QuizPlayer({ questions, assignmentUser, allowRetakes, ca
                 {requiredUnanswered.length} required question{requiredUnanswered.length !== 1 ? "s" : ""} unanswered
               </span>
             )}
-            <button
+            <Button
+              variant="primary"
               onClick={handleSubmit}
               disabled={saving || requiredUnanswered.length > 0}
-              className="primary"
-              style={{
-                padding: "8px 20px", fontSize: 14,
-                opacity: (saving || requiredUnanswered.length > 0) ? 0.5 : 1,
-                cursor: (saving || requiredUnanswered.length > 0) ? "not-allowed" : "pointer",
-              }}
             >
               {saving ? "Submitting…" : "Submit Quiz"}
-            </button>
+            </Button>
           </div>
         )}
         {submitted && (
           <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 8, flexShrink: 0 }}>
             {canComplete && !isCompleted ? (
               <>
-                <button style={{ padding: "8px 16px", fontSize: 14 }} onClick={onClose}>
+                <Button variant="secondary" onClick={onClose}>
                   Back
-                </button>
-                <button
-                  className="primary"
-                  style={{ padding: "8px 20px", fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}
+                </Button>
+                <Button
+                  variant="primary"
+                  className="gap-1.5"
                   onClick={() => onComplete().catch(console.error)}
                 >
                   <CheckCircle2 size={14} /> Complete Assignment
-                </button>
+                </Button>
               </>
             ) : (
-              <button className="primary" style={{ padding: "8px 20px", fontSize: 14 }} onClick={onClose}>
+              <Button variant="primary" onClick={onClose}>
                 Done
-              </button>
+              </Button>
             )}
           </div>
         )}
