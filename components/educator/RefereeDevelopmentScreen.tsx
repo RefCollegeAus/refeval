@@ -5,7 +5,7 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 import {
   Plus, CheckCircle, Archive, RotateCcw, Pencil, Trash2,
   ChevronLeft, Users, User, UserCheck, FileText, Lock, Eye,
-  Clock,
+  Clock, X,
 } from "lucide-react";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { MemberRecord } from "@/lib/types/members";
@@ -25,6 +25,7 @@ import {
 import { PageFrame } from "@/components/shell/PageFrame";
 import { Badge, type BadgeTone, Button, Card, EmptyState, Input, Select, Tabs, Textarea, type TabItem } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
+import { useModalA11y } from "@/lib/hooks/useModalA11y";
 
 // ── Tone tokens ───────────────────────────────────────────────────────────────
 
@@ -326,7 +327,7 @@ function OverviewTab({
       <section>
         <OverviewSectionHeader title="Development Summary" />
         <Card className="overflow-hidden p-0">
-          <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" }}>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
             {[
               { label: "Active Goals",      value: activeCount,               colour: STATUS_TEXT.Active,    onClick: onViewGoals },
               { label: "Completed Goals",   value: completedCount,            colour: STATUS_TEXT.Completed, onClick: onViewGoals },
@@ -617,6 +618,7 @@ function GoalFormModal({
   );
   const [error, setError] = useState("");
   const isCreate = mode.type === "create";
+  const dialogRef = useModalA11y<HTMLDivElement>(true, onClose);
 
   function toggleMany(id: string) {
     setSelectedMany(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -640,16 +642,19 @@ function GoalFormModal({
   }
 
   return (
-    <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" style={{ maxWidth: 580 }}>
-        <div className="modal-title">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={isCreate ? "Assign Goal" : "Edit Goal"} tabIndex={-1} className="flex max-h-[92vh] w-full max-w-[580px] flex-col overflow-hidden rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none">
+        <div className="mb-2.5 flex shrink-0 items-start justify-between gap-3">
           <div>
-            <p className="eyebrow">Development Goal</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>{isCreate ? "Assign Goal" : "Edit Goal"}</h1>
+            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Development Goal</p>
+            <h1 className="m-0 text-xl">{isCreate ? "Assign Goal" : "Edit Goal"}</h1>
           </div>
-          <button onClick={onClose}>✕</button>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close" className="shrink-0 px-1.5">
+            <X size={16} />
+          </Button>
         </div>
-        <div className="mt-4 grid gap-3.5">
+        <div className="flex-1 overflow-y-auto pt-1">
+        <div className="mt-3 grid gap-3.5">
           {isCreate && (
             <div>
               <p className="mb-2 text-[13px] font-semibold text-text">Assign to</p>
@@ -721,9 +726,10 @@ function GoalFormModal({
           )}
           {error && <p className="text-[13px] text-red-300">{error}</p>}
         </div>
-        <div className="action-row" style={{ marginTop: 20 }}>
-          <button onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={submit}>{isCreate ? "Assign Goal" : "Save Changes"}</button>
+        </div>
+        <div className="mt-4 flex shrink-0 flex-wrap gap-2.5 border-t border-border pt-3">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={submit}>{isCreate ? "Assign Goal" : "Save Changes"}</Button>
         </div>
       </div>
     </div>
@@ -758,6 +764,7 @@ function NoteFormModal({
   const isCreate = mode.type === "create";
   const refereeId = isCreate ? mode.refereeId : existing!.refereeId;
   const linkableGoals = refereeGoalViews.filter(v => v.refereeId === refereeId && v.status === "Active");
+  const dialogRef = useModalA11y<HTMLDivElement>(true, onClose);
 
   function submit() {
     if (!title.trim()) { setError("Title is required."); return; }
@@ -771,16 +778,19 @@ function NoteFormModal({
   }
 
   return (
-    <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" style={{ maxWidth: 560 }}>
-        <div className="modal-title">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={isCreate ? "Add Note" : "Edit Note"} tabIndex={-1} className="flex max-h-[92vh] w-full max-w-[560px] flex-col overflow-hidden rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none">
+        <div className="mb-2.5 flex shrink-0 items-start justify-between gap-3">
           <div>
-            <p className="eyebrow">Development Note</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>{isCreate ? "Add Note" : "Edit Note"}</h1>
+            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Development Note</p>
+            <h1 className="m-0 text-xl">{isCreate ? "Add Note" : "Edit Note"}</h1>
           </div>
-          <button onClick={onClose}>✕</button>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close" className="shrink-0 px-1.5">
+            <X size={16} />
+          </Button>
         </div>
-        <div className="mt-4 grid gap-3.5">
+        <div className="flex-1 overflow-y-auto pt-1">
+        <div className="mt-3 grid gap-3.5">
           <label>
             Title <span className="text-red-300">*</span>
             <Input value={title} onChange={e => { setTitle(e.target.value); setError(""); }} placeholder="e.g. Post-game debrief — Round 7" autoFocus className="mt-1" />
@@ -802,9 +812,10 @@ function NoteFormModal({
           </label>
           {error && <p className="text-[13px] text-red-300">{error}</p>}
         </div>
-        <div className="action-row" style={{ marginTop: 20 }}>
-          <button onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={submit}>{isCreate ? "Add Note" : "Save Changes"}</button>
+        </div>
+        <div className="mt-4 flex shrink-0 flex-wrap gap-2.5 border-t border-border pt-3">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={submit}>{isCreate ? "Add Note" : "Save Changes"}</Button>
         </div>
       </div>
     </div>
@@ -1055,7 +1066,7 @@ export function RefereeDevelopmentScreen({
         }
       >
         {/* Persistent stats strip */}
-        <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))" }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2.5">
           {[
             { label: "Active Goals",      value: goalCounts.Active,        colour: STATUS_TEXT.Active,    onClick: () => { navGoals(); setGoalFilter("Active"); } },
             { label: "Completed Goals",   value: goalCounts.Completed,     colour: STATUS_TEXT.Completed, onClick: () => { navGoals(); setGoalFilter("Completed"); } },
