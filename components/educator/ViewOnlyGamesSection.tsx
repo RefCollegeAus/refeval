@@ -1,14 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Edit2, Eye, PlayCircle } from "lucide-react";
+import { Plus, Trash2, Edit2, Eye, PlayCircle, X } from "lucide-react";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { useModalA11y } from "@/lib/hooks/useModalA11y";
 import type { RefEvalSession, Role } from "@/lib/types/auth";
 import type { ViewOnlyGame, LearningCategory } from "@/lib/types/viewOnlyGames";
 import { LEARNING_CATEGORIES } from "@/lib/types/viewOnlyGames";
 import type { MemberRecord } from "@/lib/types/members";
 import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
+import { ROLE_TONE } from "@/lib/utils/roleTone";
 import { ViewerGamePlayer } from "@/components/viewer/ViewerGamePlayer";
+import {
+  Badge, Button, FormField, Input, Select, Spinner,
+  Table, TableBody, TableCell, TableHead, TableHeaderCell, TableRow,
+} from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 
 const ROLE_LABELS: Record<Role, string> = {
   viewer: "Viewer",
@@ -57,6 +64,7 @@ function GameModal({
   const [selectedIds, setSelectedIds] = useState<string[]>(initial?.assignedViewerIds || []);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const dialogRef = useModalA11y<HTMLDivElement>(true, onClose);
 
   function toggleMember(id: string) {
     setSelectedIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
@@ -92,124 +100,117 @@ function GameModal({
   });
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal" style={{ maxWidth: 580 }}>
-        <div className="modal-title">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={isEditing ? "Edit Learning Content" : "New Learning Content"}
+        tabIndex={-1}
+        className="flex max-h-[92vh] w-full max-w-[580px] flex-col rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none"
+      >
+        <div className="mb-2.5 flex shrink-0 items-start justify-between gap-3">
           <div>
-            <p className="eyebrow">{isEditing ? "Edit" : "New"} Learning Content</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>
-              {isEditing ? "Update content details" : "Create learning content"}
-            </h1>
+            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">{isEditing ? "Edit" : "New"} Learning Content</p>
+            <h1 className="m-0 text-xl">{isEditing ? "Update content details" : "Create learning content"}</h1>
           </div>
-          <button onClick={onClose}>✕</button>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close" className="shrink-0 px-1.5">
+            <X size={16} />
+          </Button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 16 }}>
-          <label>
-            Title *
-            <input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="e.g. NBL Round 5 — Wildcats vs Kings"
-              autoFocus
-            />
-          </label>
-
-          <div style={{ display: "flex", gap: 12 }}>
-            <label style={{ flex: 1 }}>
-              Category
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value as LearningCategory)}
-                style={{ width: "100%", padding: "7px 10px", fontSize: 13 }}
-              >
-                {LEARNING_CATEGORIES.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </label>
-            <label style={{ flex: 1 }}>
-              Date <span className="hint">(optional)</span>
-              <input type="date" value={gameDate} onChange={e => setGameDate(e.target.value)} />
-            </label>
-          </div>
-
-          <div>
-            <label>
-              Video URL <span className="hint">(YouTube or direct MP4)</span>
-              <input
-                value={videoUrl}
-                onChange={e => setVideoUrl(e.target.value)}
-                placeholder="https://youtube.com/watch?v=... or direct .mp4 URL"
+        <div className="flex-1 overflow-y-auto pt-1">
+          <div className="mt-3 grid gap-3.5">
+            <FormField label="Title" htmlFor="game-title" required>
+              <Input
+                id="game-title"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="e.g. NBL Round 5 — Wildcats vs Kings"
+                autoFocus
               />
-            </label>
-            {urlStatus && (
-              <p className="hint" style={{ margin: "4px 0 0", fontSize: 12, color: urlStatus.startsWith("⚠") ? "rgba(253,186,116,.9)" : undefined }}>
-                {urlStatus}
-              </p>
-            )}
-          </div>
+            </FormField>
 
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: 13 }}>
-                Assign to members{" "}
-                <span className="hint" style={{ fontWeight: 400 }}>
-                  ({selectedIds.length} selected)
-                </span>
-              </p>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button type="button" style={{ fontSize: 11, padding: "2px 8px" }} onClick={selectAll}>All</button>
-                <button type="button" style={{ fontSize: 11, padding: "2px 8px" }} onClick={clearAll}>None</button>
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Category" htmlFor="game-category">
+                <Select id="game-category" value={category} onChange={e => setCategory(e.target.value as LearningCategory)}>
+                  {LEARNING_CATEGORIES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </Select>
+              </FormField>
+              <FormField label="Date" htmlFor="game-date" hint="(optional)">
+                <Input id="game-date" type="date" value={gameDate} onChange={e => setGameDate(e.target.value)} />
+              </FormField>
             </div>
-            {allMembers.length === 0 ? (
-              <p className="hint" style={{ fontSize: 13 }}>No other members in this organisation.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 220, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 4px" }}>
-                {sorted.map(m => {
-                  const selected = selectedIds.includes(m.id);
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => toggleMember(m.id)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "6px 10px",
-                        borderRadius: 6,
-                        border: "none",
-                        background: selected ? "var(--accent)" : "transparent",
-                        color: "var(--text)",
-                        cursor: "pointer",
-                        textAlign: "left",
-                        fontSize: 13,
-                      }}
-                    >
-                      <span style={{ fontWeight: selected ? 600 : 400 }}>
-                        {m.name || m.email}
-                        {m.id === currentUserId && <span className="hint" style={{ marginLeft: 6, fontSize: 11 }}>(you)</span>}
-                      </span>
-                      <span className={`role-badge role-${m.role}`} style={{ fontSize: 10 }}>
-                        {ROLE_LABELS[m.role]}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
 
-          {err && <p className="danger-text">{err}</p>}
+            <div>
+              <FormField label="Video URL" htmlFor="game-video" hint="(YouTube or direct MP4)">
+                <Input
+                  id="game-video"
+                  value={videoUrl}
+                  onChange={e => setVideoUrl(e.target.value)}
+                  placeholder="https://youtube.com/watch?v=... or direct .mp4 URL"
+                />
+              </FormField>
+              {urlStatus && (
+                <p className={cn("mt-1 text-xs", urlStatus.startsWith("⚠") ? "text-orange-300" : "text-muted")}>
+                  {urlStatus}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="m-0 text-[13px] font-bold text-text">
+                  Assign to members{" "}
+                  <span className="font-normal text-muted">({selectedIds.length} selected)</span>
+                </p>
+                <div className="flex gap-1.5">
+                  <Button type="button" variant="secondary" size="sm" onClick={selectAll}>All</Button>
+                  <Button type="button" variant="secondary" size="sm" onClick={clearAll}>None</Button>
+                </div>
+              </div>
+              {allMembers.length === 0 ? (
+                <p className="text-[13px] text-muted">No other members in this organisation.</p>
+              ) : (
+                <div className="flex max-h-[220px] flex-col gap-1 overflow-y-auto rounded-lg border border-border px-1 py-2">
+                  {sorted.map(m => {
+                    const selected = selectedIds.includes(m.id);
+                    const tone = ROLE_TONE[m.role] ?? ROLE_TONE.viewer;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleMember(m.id)}
+                        className={cn(
+                          "flex items-center justify-between rounded-md border-none px-2.5 py-1.5 text-left text-[13px] text-text",
+                          selected ? "bg-accent" : "bg-transparent"
+                        )}
+                      >
+                        <span className={cn(selected && "font-semibold")}>
+                          {m.name || m.email}
+                          {m.id === currentUserId && <span className="ml-1.5 text-[11px] text-muted">(you)</span>}
+                        </span>
+                        <Badge tone="neutral" className={tone.text}>
+                          {ROLE_LABELS[m.role]}
+                        </Badge>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {err && <p className="text-[13px] text-red-300">{err}</p>}
+          </div>
         </div>
 
-        <div className="action-row" style={{ marginTop: 20 }}>
-          <button onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={handleSave} disabled={saving}>
+        <div className="mt-4 flex shrink-0 flex-wrap gap-2.5 border-t border-border pt-3">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : isEditing ? "Save Changes" : "Create"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -248,28 +249,32 @@ export function ViewOnlyGamesSection({
   return (
     <>
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Eye size={16} style={{ color: "var(--muted)" }} />
-          <h2 style={{ margin: 0, fontSize: 16 }}>Learning Content</h2>
-          <span className="chip" style={{ fontSize: 11 }}>{games.length}</span>
+      <div className="mb-3 flex items-center justify-between border-t border-border pt-6">
+        <div className="flex items-center gap-2">
+          <Eye size={16} className="text-muted" />
+          <h2 className="m-0 text-base">Learning Content</h2>
+          <Badge tone="neutral">{games.length}</Badge>
         </div>
         {canManage && (
-          <button
-            className="primary"
-            style={{ fontSize: 12, padding: "5px 12px" }}
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => { setEditingGame(null); setShowModal(true); }}
           >
             <Plus size={13} /> New Content
-          </button>
+          </Button>
         )}
       </div>
 
-      {loading && <div className="loading-state"><span className="loading-spinner" />Loading…</div>}
-      {error && <p className="danger-text" style={{ fontSize: 13 }}>{error}</p>}
+      {loading && (
+        <div className="flex items-center gap-2 py-3.5 text-[13px] text-muted">
+          <Spinner size={14} /> Loading…
+        </div>
+      )}
+      {error && <p className="text-[13px] text-red-300">{error}</p>}
 
       {!loading && games.length === 0 && (
-        <p className="hint" style={{ fontSize: 13 }}>
+        <p className="text-[13px] text-muted">
           {canManage
             ? "No learning content yet. Create content and assign it to members."
             : "No learning content has been assigned to you yet."}
@@ -277,70 +282,60 @@ export function ViewOnlyGamesSection({
       )}
 
       {games.length > 0 && (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>Title</th>
-              <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>Category</th>
-              <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>Date</th>
-              {canManage && <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>Video</th>}
-              {canManage && <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>Assigned</th>}
-              <th style={{ padding: "6px 8px" }} />
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableHeaderCell>Title</TableHeaderCell>
+              <TableHeaderCell>Category</TableHeaderCell>
+              <TableHeaderCell>Date</TableHeaderCell>
+              {canManage && <TableHeaderCell>Video</TableHeaderCell>}
+              {canManage && <TableHeaderCell>Assigned</TableHeaderCell>}
+              <TableHeaderCell />
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {games.map(g => (
-              <tr key={g.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                <td style={{ padding: "8px 8px", fontWeight: 600 }}>{g.title}</td>
-                <td style={{ padding: "8px 8px" }}>
-                  <span className="chip" style={{ fontSize: 11 }}>{g.category}</span>
-                </td>
-                <td style={{ padding: "8px 8px", color: "var(--muted)" }}>
+              <TableRow key={g.id}>
+                <TableCell data-label="Title" className="font-semibold">{g.title}</TableCell>
+                <TableCell data-label="Category">
+                  <Badge tone="neutral">{g.category}</Badge>
+                </TableCell>
+                <TableCell data-label="Date" className="text-muted">
                   {g.gameDate
                     ? new Date(g.gameDate).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
                     : "—"}
-                </td>
+                </TableCell>
                 {canManage && (
-                  <td style={{ padding: "8px 8px", color: "var(--muted)" }}>
+                  <TableCell data-label="Video" className="text-muted">
                     {videoLabel(g.videoUrl)}
-                  </td>
+                  </TableCell>
                 )}
                 {canManage && (
-                  <td style={{ padding: "8px 8px", color: "var(--muted)" }}>
+                  <TableCell data-label="Assigned" className="text-muted">
                     {g.assignedViewerIds.length === 0 ? "None" : `${g.assignedViewerIds.length} member${g.assignedViewerIds.length !== 1 ? "s" : ""}`}
-                  </td>
+                  </TableCell>
                 )}
-                <td style={{ padding: "8px 8px", textAlign: "right", whiteSpace: "nowrap" }}>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                    <button
-                      style={{ fontSize: 12, padding: "3px 10px" }}
-                      onClick={() => setOpenGame(g)}
-                    >
+                <TableCell className="whitespace-nowrap text-right">
+                  <div className="flex justify-end gap-1.5">
+                    <Button variant="secondary" size="sm" className="gap-1" onClick={() => setOpenGame(g)}>
                       <PlayCircle size={12} /> Open
-                    </button>
+                    </Button>
                     {canManage && (
                       <>
-                        <button
-                          style={{ fontSize: 12, padding: "3px 10px" }}
-                          onClick={() => { setEditingGame(g); setShowModal(true); }}
-                        >
+                        <Button variant="secondary" size="sm" className="gap-1" onClick={() => { setEditingGame(g); setShowModal(true); }}>
                           <Edit2 size={12} /> Edit
-                        </button>
-                        <button
-                          className="danger"
-                          style={{ fontSize: 12, padding: "3px 10px" }}
-                          onClick={() => handleDelete(g)}
-                        >
+                        </Button>
+                        <Button variant="danger" size="sm" onClick={() => handleDelete(g)}>
                           <Trash2 size={12} />
-                        </button>
+                        </Button>
                       </>
                     )}
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
 
       {showModal && (
