@@ -265,7 +265,7 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
   const setupPct  = Math.round((setupDone / setupItems.length) * 100);
 
   return (
-    <PageFrame eyebrow="Organisation" title={org?.name ?? "Organisation"} className="!p-0 lg:!pl-8">
+    <PageFrame eyebrow="Organisation" title={org?.name ?? "Organisation"} className="!p-0">
 
       {/* ── Org identity header ── */}
       <Card className="flex flex-wrap items-center gap-[18px]">

@@ -1982,7 +1982,7 @@ export default function Home() {
         <div className="layout p-0">
           <div className="grid content-start gap-4">
             <PageFrame
-              className="!p-0 lg:!pl-8"
+              className="!p-0"
               eyebrow="Referee Portal"
               title={`Welcome, ${session?.profile.name}`}
               description="Only completed evaluations from your educator appear here."
