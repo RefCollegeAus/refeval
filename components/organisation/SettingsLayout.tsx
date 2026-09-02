@@ -6,7 +6,7 @@ import { Card, Badge } from "@/components/ui";
 
 // ── SettingsPage ──────────────────────────────────────────────────────────────
 // Top-level wrapper for a settings page. Thin wrapper over the shared
-// PageFrame — `className="p-0"` since AppShell already supplies page-level
+// PageFrame — `className="!p-0"` since AppShell already supplies page-level
 // gutter padding around every screen it wraps.
 export function SettingsPage({
   title,
@@ -22,7 +22,7 @@ export function SettingsPage({
   children: ReactNode;
 }) {
   return (
-    <PageFrame className="p-0" title={title} eyebrow={eyebrow} description={description} actions={actions}>
+    <PageFrame className="!p-0" title={title} eyebrow={eyebrow} description={description} actions={actions}>
       {children}
     </PageFrame>
   );
