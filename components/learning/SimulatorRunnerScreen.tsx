@@ -5,6 +5,8 @@ import {
   Zap, ChevronLeft, CheckCircle2, XCircle, Clock, Play, RotateCcw, Plus,
 } from "lucide-react";
 import { getYouTubeId, isDirectVideoUrl } from "@/lib/utils/video";
+import { cn } from "@/lib/utils/cn";
+import { Badge, Button } from "@/components/ui";
 import type { RefEvalSession } from "@/lib/types/auth";
 import type { CodedTag } from "@/lib/types/reviews";
 import {
@@ -35,7 +37,10 @@ function fmtTime(s: number): string {
 function LevelBadge({ level }: { level: SimulatorLevel }) {
   const c = LEVEL_COLORS[level];
   return (
-    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: c.color, background: c.bg, border: `1px solid ${c.border}`, whiteSpace: "nowrap" }}>
+    <span
+      className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
+      style={{ color: c.color, background: c.bg, border: `1px solid ${c.border}` }}
+    >
       {LEVEL_LABELS[level]}
     </span>
   );
@@ -202,8 +207,8 @@ function YoutubeSimPlayer({
   }, [ytId]);
 
   return (
-    <div style={{ position: "relative", borderRadius: 10, overflow: "hidden", background: "#000", aspectRatio: "16/9" }}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+    <div className="relative aspect-video overflow-hidden rounded-[10px] bg-black">
+      <div ref={containerRef} className="h-full w-full" />
     </div>
   );
 }
@@ -232,12 +237,12 @@ function DirectSimPlayer({
   }, [src]);
 
   return (
-    <div style={{ borderRadius: 10, overflow: "hidden", background: "#000" }}>
+    <div className="overflow-hidden rounded-[10px] bg-black">
       <video
         ref={videoRef}
         src={src}
         controls
-        style={{ width: "100%", display: "block", maxHeight: "60vh" }}
+        className="block max-h-[60vh] w-full"
         onTimeUpdate={() => {
           if (videoRef.current) onTimeUpdateRef.current(videoRef.current.currentTime);
         }}
@@ -265,9 +270,9 @@ function SimulatorVideoPlayer({
     return <DirectSimPlayer src={videoUrl} actionsRef={actionsRef} onTimeUpdate={onTimeUpdate} />;
   }
   return (
-    <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: "var(--muted)", borderRadius: 10, border: "1px solid var(--border)", background: "var(--panel)" }}>
-      <p style={{ margin: 0 }}>Video format not supported for automatic playback.</p>
-      <p className="hint" style={{ margin: "4px 0 0" }}>Use a YouTube link or direct MP4/WebM URL.</p>
+    <div className="rounded-[10px] border border-border bg-panel p-6 text-center text-[13px] text-muted">
+      <p className="m-0">Video format not supported for automatic playback.</p>
+      <p className="hint mt-1">Use a YouTube link or direct MP4/WebM URL.</p>
     </div>
   );
 }
@@ -294,14 +299,12 @@ function OptionBtn({ label, selected, onClick }: { label: string; selected: bool
   return (
     <button
       onClick={onClick}
-      style={{
-        fontSize: 13, padding: "7px 14px", borderRadius: 8,
-        background: selected ? "var(--accent)" : "var(--panel2)",
-        color: selected ? "#000" : "var(--text)",
-        border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
-        fontWeight: selected ? 700 : 400,
-        cursor: "pointer",
-      }}
+      className={cn(
+        "cursor-pointer rounded-lg border px-3.5 py-[7px] text-[13px]",
+        selected
+          ? "border-accent bg-accent font-bold text-black"
+          : "border-border bg-panel-2 font-normal text-text"
+      )}
     >
       {label}
     </button>
@@ -396,41 +399,31 @@ function DecisionPrompt({ activeEvent, level, promptStartTime, onSubmit }: Decis
   const timerColor = remaining <= 3 ? "#ef4444" : remaining <= 5 ? "#f59e0b" : "#22c55e";
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 100,
-      background: "rgba(0,0,0,.82)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 16,
-    }}>
-      <div style={{
-        background: "var(--panel)", border: "1px solid var(--border)",
-        borderRadius: 14, padding: "24px 28px", maxWidth: 520, width: "100%",
-        boxShadow: "0 24px 60px rgba(0,0,0,.6)",
-        maxHeight: "90vh", overflowY: "auto",
-      }}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/[82%] p-4">
+      <div className="max-h-[90vh] w-full max-w-[520px] overflow-y-auto rounded-[14px] border border-border bg-panel px-7 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.6)]">
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <Zap size={18} style={{ color: "#fbbf24", flexShrink: 0 }} />
-          <p className="eyebrow" style={{ margin: 0 }}>Decision Point</p>
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 700, color: timerColor }}>
+        <div className="mb-1.5 flex items-center gap-2.5">
+          <Zap size={18} className="shrink-0 text-amber-400" />
+          <p className="eyebrow m-0">Decision Point</p>
+          <div className="ml-auto flex items-center gap-[5px] text-[13px] font-bold" style={{ color: timerColor }}>
             <Clock size={14} /> {remaining}s
           </div>
         </div>
 
         {/* Timer bar */}
-        <div style={{ height: 4, background: "var(--border)", borderRadius: 2, marginBottom: 20, overflow: "hidden" }}>
-          <div style={{ height: "100%", borderRadius: 2, width: `${pct}%`, background: timerColor, transition: "width 1s linear, background 0.3s" }} />
+        <div className="mb-5 h-1 overflow-hidden rounded-sm bg-border">
+          <div className="h-full rounded-sm" style={{ width: `${pct}%`, background: timerColor, transition: "width 1s linear, background 0.3s" }} />
         </div>
 
-        <h2 style={{ margin: "0 0 16px", fontSize: 17 }}>What is your call at {fmtTime(ts)}?</h2>
+        <h2 className="mb-4 mt-0 text-[17px]">What is your call at {fmtTime(ts)}?</h2>
 
         {/* Clip-based prompts */}
         {isClip && (
           <>
             {level === "foundation" && (
               <>
-                <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Call or No Call?</p>
-                <div style={{ display: "flex", gap: 10 }}>
+                <p className="mb-2.5 mt-0 text-[13px] font-semibold text-muted">Call or No Call?</p>
+                <div className="flex gap-2.5">
                   <OptionBtn label="Call" selected={callDecision === "Call"} onClick={() => setCallDecision("Call")} />
                   <OptionBtn label="No Call" selected={callDecision === "No Call"} onClick={() => setCallDecision("No Call")} />
                 </div>
@@ -439,8 +432,8 @@ function DecisionPrompt({ activeEvent, level, promptStartTime, onSubmit }: Decis
 
             {level === "developing" && (
               <>
-                <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>What category of incident?</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <p className="mb-2.5 mt-0 text-[13px] font-semibold text-muted">What category of incident?</p>
+                <div className="flex flex-wrap gap-2">
                   {SIM_CATEGORY_GROUPS.map(g => (
                     <OptionBtn key={g} label={g} selected={categoryGroup === g} onClick={() => setCategoryGroup(g)} />
                   ))}
@@ -450,8 +443,8 @@ function DecisionPrompt({ activeEvent, level, promptStartTime, onSubmit }: Decis
 
             {(level === "intermediate" || level === "advanced" || level === "expert") && (
               <>
-                <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Category</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                <p className="mb-2.5 mt-0 text-[13px] font-semibold text-muted">Category</p>
+                <div className="mb-4 flex flex-wrap gap-2">
                   {SIM_CATEGORY_GROUPS.map(g => (
                     <OptionBtn key={g} label={g} selected={categoryGroup === g} onClick={() => { setCategoryGroup(g); setCategory(""); }} />
                   ))}
@@ -459,8 +452,8 @@ function DecisionPrompt({ activeEvent, level, promptStartTime, onSubmit }: Decis
 
                 {categoryGroup && (
                   <>
-                    <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Specific call</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                    <p className="mb-2.5 mt-0 text-[13px] font-semibold text-muted">Specific call</p>
+                    <div className="mb-4 flex flex-wrap gap-2">
                       {specificTags.map(t => (
                         <OptionBtn key={t} label={t} selected={category === `${categoryGroup} — ${t}`} onClick={() => setCategory(`${categoryGroup} — ${t}`)} />
                       ))}
@@ -470,8 +463,8 @@ function DecisionPrompt({ activeEvent, level, promptStartTime, onSubmit }: Decis
 
                 {(level === "advanced" || level === "expert") && category && (
                   <>
-                    <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Position</p>
-                    <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                    <p className="mb-2.5 mt-0 text-[13px] font-semibold text-muted">Position</p>
+                    <div className="mb-4 flex gap-2">
                       {SIM_POSITIONS.map(p => (
                         <OptionBtn key={p} label={p} selected={position === p} onClick={() => setPosition(p)} />
                       ))}
@@ -481,8 +474,8 @@ function DecisionPrompt({ activeEvent, level, promptStartTime, onSubmit }: Decis
 
                 {level === "expert" && position && (
                   <>
-                    <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Coverage</p>
-                    <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                    <p className="mb-2.5 mt-0 text-[13px] font-semibold text-muted">Coverage</p>
+                    <div className="mb-4 flex gap-2">
                       {SIM_COVERAGE.map(c => (
                         <OptionBtn key={c} label={c} selected={coverage === c} onClick={() => setCoverage(c)} />
                       ))}
@@ -497,8 +490,8 @@ function DecisionPrompt({ activeEvent, level, promptStartTime, onSubmit }: Decis
         {/* Legacy prompts */}
         {!isClip && (
           <>
-            <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Select outcome</p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: legacyCallOptions.length > 0 ? 16 : 0 }}>
+            <p className="mb-2.5 mt-0 text-[13px] font-semibold text-muted">Select outcome</p>
+            <div className={cn("flex flex-wrap gap-2", legacyCallOptions.length > 0 ? "mb-4" : "mb-0")}>
               {SIMULATOR_OUTCOMES.map(o => (
                 <OptionBtn key={o} label={o} selected={legacyOutcome === o} onClick={() => { setLegacyOutcome(o); setLegacyCall(""); }} />
               ))}
@@ -506,8 +499,8 @@ function DecisionPrompt({ activeEvent, level, promptStartTime, onSubmit }: Decis
 
             {legacyCallOptions.length > 0 && (
               <>
-                <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Select call type</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <p className="mb-2.5 mt-0 text-[13px] font-semibold text-muted">Select call type</p>
+                <div className="flex flex-wrap gap-2">
                   {legacyCallOptions.map(c => (
                     <OptionBtn key={c} label={c} selected={legacyCall === c} onClick={() => setLegacyCall(c)} />
                   ))}
@@ -517,14 +510,14 @@ function DecisionPrompt({ activeEvent, level, promptStartTime, onSubmit }: Decis
           </>
         )}
 
-        <button
-          className="primary"
+        <Button
+          variant="primary"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          style={{ width: "100%", marginTop: 20, padding: "10px 0", fontSize: 15, fontWeight: 700 }}
+          className="mt-5 w-full justify-center text-[15px] font-bold"
         >
           Submit Decision
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -570,86 +563,90 @@ function ScoreScreen({
   const total = responses.length;
   const pct = total > 0 ? Math.round((score / total) * 100) : 0;
 
-  const grade = pct >= 90 ? { label: "Excellent", color: "#22c55e" }
+  // "Good"/"Needs Work" reuse the exact --good/--danger token matches; the "Good" and
+  // "Developing" tiers (blue/amber) have no equivalent token in the design system (--warn is
+  // aliased to the brownish accent colour, not true amber), so those two stay literal, same
+  // call as the amber left in commit 5c10432.
+  const grade = pct >= 90 ? { label: "Excellent", color: "var(--good)" }
     : pct >= 70 ? { label: "Good", color: "#3b82f6" }
     : pct >= 50 ? { label: "Developing", color: "#f59e0b" }
-    : { label: "Needs Work", color: "#ef4444" };
+    : { label: "Needs Work", color: "var(--danger)" };
 
   return (
-    <div style={{ boxSizing: "border-box", maxWidth: 680, margin: "0 auto" }}>
-      <div className="panel" style={{ textAlign: "center", padding: "32px 24px", marginBottom: 16 }}>
-        <Zap size={32} style={{ color: "#fbbf24", marginBottom: 10 }} />
+    <div className="box-border mx-auto max-w-[680px]">
+      <div className="panel mb-4 px-6 py-8 text-center">
+        <Zap size={32} className="mb-2.5 text-amber-400" />
         <p className="eyebrow">{session.title}</p>
-        <div style={{ fontSize: 52, fontWeight: 800, fontVariantNumeric: "tabular-nums", lineHeight: 1.1, marginBottom: 4 }}>
-          {score}<span style={{ fontSize: 28, fontWeight: 400, color: "var(--muted)" }}>/{total}</span>
+        <div className="mb-1 text-[52px] font-extrabold leading-[1.1] tabular-nums">
+          {score}<span className="text-[28px] font-normal text-muted">/{total}</span>
         </div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: grade.color, marginBottom: 8 }}>
+        <div className="mb-2 text-lg font-bold" style={{ color: grade.color }}>
           {pct}% — {grade.label}
         </div>
         {assignmentCompleted && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, margin: "0 0 14px", padding: "8px 16px", background: "rgba(34,197,94,.1)", border: "1px solid rgba(34,197,94,.3)", borderRadius: 8, fontSize: 13, color: "#86efac" }}>
-            <CheckCircle2 size={14} style={{ color: "#22c55e", flexShrink: 0 }} />
+          <div className="mb-3.5 flex items-center justify-center gap-1.5 rounded-lg border border-good/30 bg-good/10 px-4 py-2 text-[13px] text-green-300">
+            <CheckCircle2 size={14} className="shrink-0 text-good" />
             Assignment marked complete
           </div>
         )}
-        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-          <button onClick={onTryAgain} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <div className="flex justify-center gap-2">
+          <Button variant="secondary" onClick={onTryAgain}>
             <RotateCcw size={14} /> Try Again
-          </button>
-          <button className="primary" onClick={onDone}>Done</button>
+          </Button>
+          <Button variant="primary" onClick={onDone}>Done</Button>
         </div>
       </div>
 
-      <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Decision Breakdown</h3>
+      <div className="panel overflow-hidden p-0">
+        <div className="border-b border-border px-4 py-3">
+          <h3 className="m-0 text-sm font-bold">Decision Breakdown</h3>
         </div>
         {responses.map((r, i) => (
           <div
             key={activeEventId(r.activeEvent)}
-            style={{
-              padding: "14px 16px",
-              borderBottom: i < responses.length - 1 ? "1px solid var(--border)" : "none",
-              borderLeft: `3px solid ${r.isCorrect ? "#22c55e" : "#ef4444"}`,
-            }}
+            className={cn(
+              "border-l-[3px] px-4 py-3.5",
+              i < responses.length - 1 && "border-b border-border",
+              r.isCorrect ? "border-l-good" : "border-l-danger"
+            )}
           >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-              <div style={{ flexShrink: 0, paddingTop: 1 }}>
+            <div className="flex items-start gap-2.5">
+              <div className="shrink-0 pt-px">
                 {r.isCorrect
-                  ? <CheckCircle2 size={18} style={{ color: "#22c55e" }} />
-                  : <XCircle size={18} style={{ color: "#ef4444" }} />
+                  ? <CheckCircle2 size={18} className="text-good" />
+                  : <XCircle size={18} className="text-danger" />
                 }
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                  <span style={{ fontWeight: 700, fontSize: 13 }}>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <span className="text-[13px] font-bold">
                     Decision {i + 1} · {fmtTime(activeEventTimestamp(r.activeEvent))}
                   </span>
                   {r.responseTimeSeconds > 0 && (
-                    <span className="hint" style={{ fontSize: 11 }}>
-                      <Clock size={10} style={{ display: "inline", verticalAlign: "middle" }} /> {r.responseTimeSeconds.toFixed(1)}s
+                    <span className="hint text-[11px]">
+                      <Clock size={10} className="inline align-middle" /> {r.responseTimeSeconds.toFixed(1)}s
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: 13, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 16px" }}>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[13px]">
                   <div>
-                    <span className="hint" style={{ fontSize: 11 }}>Your answer</span>
-                    <div style={{ fontWeight: 600, color: r.isCorrect ? "#22c55e" : "#fca5a5" }}>
+                    <span className="hint text-[11px]">Your answer</span>
+                    <div className={cn("font-semibold", r.isCorrect ? "text-good" : "text-red-300")}>
                       {r.responseOutcome
                         ? <>{r.responseOutcome}{r.responseCall ? ` · ${r.responseCall}` : ""}</>
-                        : <em style={{ fontStyle: "italic", color: "var(--muted)" }}>No answer (timed out)</em>
+                        : <em className="italic text-muted">No answer (timed out)</em>
                       }
                     </div>
                   </div>
                   <div>
-                    <span className="hint" style={{ fontSize: 11 }}>Correct answer</span>
-                    <div style={{ fontWeight: 600, color: "#22c55e" }}>
+                    <span className="hint text-[11px]">Correct answer</span>
+                    <div className="font-semibold text-good">
                       {correctAnswerLabel(r.activeEvent, level)}
                     </div>
                   </div>
                 </div>
                 {activeEventNotes(r.activeEvent) && (
-                  <p className="hint" style={{ margin: "6px 0 0", fontSize: 12, fontStyle: "italic" }}>
+                  <p className="hint mt-1.5 text-xs italic">
                     {activeEventNotes(r.activeEvent)}
                   </p>
                 )}
@@ -835,98 +832,93 @@ export function SimulatorRunnerScreen({
 
   if (view === "picker") {
     return (
-      <div style={{ boxSizing: "border-box" }}>
-        <div className="panel" style={{ marginBottom: 16 }}>
+      <div className="box-border">
+        <div className="panel mb-4">
           <div className="table-head">
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Zap size={20} style={{ color: "#fbbf24", flexShrink: 0 }} />
+            <div className="flex items-center gap-2.5">
+              <Zap size={20} className="shrink-0 text-amber-400" />
               <div>
-                <p className="eyebrow" style={{ margin: 0 }}>Learning Hub</p>
-                <h1 style={{ margin: 0, fontSize: 22 }}>Referee Simulator</h1>
-                <p className="hint" style={{ margin: "2px 0 0" }}>Test your decision-making on real game footage</p>
+                <p className="eyebrow m-0">Learning Hub</p>
+                <h1 className="m-0 text-[22px]">Referee Simulator</h1>
+                <p className="hint mt-0.5">Test your decision-making on real game footage</p>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div className="flex items-center gap-2">
               {canManage && onNavigateToBuilder && (
-                <button
-                  className="primary"
-                  onClick={onNavigateToBuilder}
-                  style={{ display: "flex", alignItems: "center", gap: 6 }}
-                >
+                <Button variant="primary" onClick={onNavigateToBuilder}>
                   <Plus size={14} /> Create Simulator
-                </button>
+                </Button>
               )}
-              <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <Button variant="secondary" onClick={onBack}>
                 <ChevronLeft size={15} /> Back
-              </button>
+              </Button>
             </div>
           </div>
         </div>
 
         {loading && (
-          <div className="panel" style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>Loading simulators…</div>
+          <div className="panel p-8 text-center text-muted">Loading simulators…</div>
         )}
 
         {!loading && sessions.length === 0 && (
-          <div className="panel" style={{ padding: "48px 24px", textAlign: "center", color: "var(--muted)" }}>
-            <Zap size={36} style={{ opacity: 0.3, marginBottom: 12 }} />
+          <div className="panel px-6 py-12 text-center text-muted">
+            <Zap size={36} className="mb-3 opacity-30" />
             {canManage ? (
               <>
-                <p style={{ margin: 0, fontWeight: 700 }}>No Referee Simulators yet</p>
-                <p className="hint" style={{ margin: "6px 0 16px" }}>
+                <p className="m-0 font-bold">No Referee Simulators yet</p>
+                <p className="hint mb-4 mt-1.5">
                   Create your first simulator to begin building decision-based referee training.
                 </p>
                 {onNavigateToBuilder && (
-                  <button
-                    className="primary"
-                    onClick={onNavigateToBuilder}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-                  >
+                  <Button variant="primary" onClick={onNavigateToBuilder}>
                     <Plus size={14} /> Create Simulator
-                  </button>
+                  </Button>
                 )}
               </>
             ) : (
               <>
-                <p style={{ margin: 0, fontWeight: 700 }}>No simulations available yet</p>
-                <p className="hint" style={{ margin: "6px 0 0" }}>Your educator will create simulations for you to complete.</p>
+                <p className="m-0 font-bold">No simulations available yet</p>
+                <p className="hint mt-1.5">Your educator will create simulations for you to complete.</p>
               </>
             )}
           </div>
         )}
 
         {!loading && sessions.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
             {sessions.map(s => {
               const decisionCount = s.reviewId
                 ? tags.filter(t => t.reviewId === s.reviewId).length
                 : s.events.length;
               return (
-                <div key={s.id} className="panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
-                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, lineHeight: 1.3, flex: 1 }}>{s.title}</h3>
+                <div key={s.id} className="panel flex flex-col gap-2.5">
+                  <div className="flex flex-wrap items-start gap-2">
+                    <h3 className="m-0 flex-1 text-[15px] font-bold leading-[1.3]">{s.title}</h3>
                     {canManage && (() => {
-                      if (!s.reviewId) return <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, color: "#94a3b8", background: "rgba(148,163,184,.12)", border: "1px solid rgba(148,163,184,.25)" }}>Legacy</span>;
+                      if (!s.reviewId) return <Badge tone="neutral">Legacy</Badge>;
                       const isPublished = publishedSessionIds?.has(s.id) ?? false;
-                      return isPublished
-                        ? <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, color: "#22c55e", background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.35)" }}>Published</span>
-                        : <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, color: "#f59e0b", background: "rgba(245,158,11,.12)", border: "1px solid rgba(245,158,11,.35)" }}>Draft</span>;
+                      if (isPublished) return <Badge tone="good">Published</Badge>;
+                      // Draft: true amber (#f59e0b) has no exact match in the --warn token
+                      // (aliased to the brownish accent colour here), so it's kept as a literal
+                      // rather than forced onto Badge's warn tone — same call made for the
+                      // equivalent amber in commit 5c10432.
+                      return (
+                        <span className="whitespace-nowrap rounded-full border border-[#f59e0b]/35 bg-[#f59e0b]/[12%] px-[7px] py-0.5 text-[11px] font-bold text-[#f59e0b]">
+                          Draft
+                        </span>
+                      );
                     })()}
                   </div>
                   {s.description && (
-                    <p className="hint" style={{ margin: 0, fontSize: 13 }}>{s.description}</p>
+                    <p className="hint m-0 text-[13px]">{s.description}</p>
                   )}
-                  <p className="hint" style={{ margin: 0, fontSize: 12 }}>
-                    <Zap size={11} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
+                  <p className="hint m-0 text-xs">
+                    <Zap size={11} className="mr-[3px] inline align-middle" />
                     {decisionCount} decision{decisionCount !== 1 ? "s" : ""}
                   </p>
-                  <button
-                    className="primary"
-                    onClick={() => pickSession(s)}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: "auto" }}
-                  >
+                  <Button variant="primary" onClick={() => pickSession(s)} className="mt-auto justify-center">
                     <Play size={13} /> Start Simulation
-                  </button>
+                  </Button>
                 </div>
               );
             })}
@@ -943,21 +935,21 @@ export function SimulatorRunnerScreen({
 
     if (activeEvents.length === 0) {
       return (
-        <div style={{ boxSizing: "border-box", maxWidth: 580, margin: "0 auto" }}>
-          <div className="panel" style={{ textAlign: "center", padding: "48px 24px" }}>
-            <button onClick={() => setView("picker")} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, margin: "0 auto 24px" }}>
+        <div className="box-border mx-auto max-w-[580px]">
+          <div className="panel px-6 py-12 text-center">
+            <Button variant="secondary" size="sm" onClick={() => setView("picker")} className="mx-auto mb-6">
               <ChevronLeft size={14} /> All Simulations
-            </button>
-            <Zap size={36} style={{ color: "#fbbf24", opacity: 0.4, marginBottom: 12 }} />
-            <p style={{ margin: 0, fontWeight: 700, fontSize: 16 }}>{selectedSession.title}</p>
-            <p className="hint" style={{ margin: "8px 0 0" }}>
+            </Button>
+            <Zap size={36} className="mb-3 text-amber-400 opacity-40" />
+            <p className="m-0 text-base font-bold">{selectedSession.title}</p>
+            <p className="hint mt-2">
               This simulator has no decisions coded yet.
               {canManage ? " Open it in the Simulator Builder to code decision moments." : " Check back once your educator has finished setting it up."}
             </p>
             {canManage && onNavigateToBuilder && (
-              <button className="primary" onClick={onNavigateToBuilder} style={{ marginTop: 18, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Button variant="primary" onClick={onNavigateToBuilder} className="mt-[18px]">
                 Open Simulator Builder
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -965,33 +957,30 @@ export function SimulatorRunnerScreen({
     }
 
     return (
-      <div style={{ boxSizing: "border-box", maxWidth: 580, margin: "0 auto" }}>
+      <div className="box-border mx-auto max-w-[580px]">
         <div className="panel">
-          <button
-            onClick={() => setView("picker")}
-            style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, marginBottom: 20 }}
-          >
+          <Button variant="secondary" size="sm" onClick={() => setView("picker")} className="mb-5">
             <ChevronLeft size={14} /> All Simulations
-          </button>
+          </Button>
 
-          <div style={{ textAlign: "center", marginBottom: 20 }}>
-            <Zap size={36} style={{ color: "#fbbf24", marginBottom: 10 }} />
-            <h1 style={{ margin: "0 0 6px", fontSize: 22 }}>{selectedSession.title}</h1>
-            <p className="hint" style={{ margin: 0 }}>
+          <div className="mb-5 text-center">
+            <Zap size={36} className="mb-2.5 text-amber-400" />
+            <h1 className="mb-1.5 mt-0 text-[22px]">{selectedSession.title}</h1>
+            <p className="hint m-0">
               {activeEvents.length} decision{activeEvents.length !== 1 ? "s" : ""}
             </p>
           </div>
 
           {selectedSession.description && (
-            <div style={{ padding: "14px 16px", background: "var(--panel2)", borderRadius: 8, marginBottom: 20, fontSize: 14 }}>
+            <div className="mb-5 rounded-lg bg-panel-2 px-4 py-3.5 text-sm">
               {selectedSession.description}
             </div>
           )}
 
           {/* Level picker */}
-          <div style={{ marginBottom: 20 }}>
-            <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>Choose your difficulty level</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="mb-5">
+            <p className="mb-2.5 mt-0 text-sm font-bold">Choose your difficulty level</p>
+            <div className="flex flex-col gap-2">
               {SIMULATOR_LEVELS.map(lv => {
                 const c = LEVEL_COLORS[lv];
                 const selected = selectedLevel === lv;
@@ -999,24 +988,23 @@ export function SimulatorRunnerScreen({
                   <button
                     key={lv}
                     onClick={() => setSelectedLevel(lv)}
+                    className="cursor-pointer rounded-[9px] border-[1.5px] px-3.5 py-2.5 text-left"
                     style={{
-                      textAlign: "left", padding: "10px 14px", borderRadius: 9,
                       background: selected ? c.bg : "var(--panel2)",
-                      border: `1.5px solid ${selected ? c.border : "var(--border)"}`,
-                      cursor: "pointer",
+                      borderColor: selected ? c.border : "var(--border)",
                     }}
                   >
-                    <span style={{ fontWeight: 700, color: c.color, marginRight: 10 }}>{LEVEL_LABELS[lv]}</span>
-                    <span style={{ fontSize: 12, color: "var(--muted)" }}>{LEVEL_DESCRIPTIONS[lv]}</span>
+                    <span className="mr-2.5 font-bold" style={{ color: c.color }}>{LEVEL_LABELS[lv]}</span>
+                    <span className="text-xs text-muted">{LEVEL_DESCRIPTIONS[lv]}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <div style={{ padding: "14px 16px", background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.25)", borderRadius: 8, marginBottom: 20, fontSize: 13 }}>
-            <p style={{ margin: "0 0 6px", fontWeight: 700 }}>How it works</p>
-            <ul style={{ margin: 0, paddingLeft: 18, color: "var(--muted)", lineHeight: 1.7 }}>
+          <div className="mb-5 rounded-lg border border-amber-400/25 bg-amber-400/[6%] px-4 py-3.5 text-[13px]">
+            <p className="mb-1.5 mt-0 font-bold">How it works</p>
+            <ul className="m-0 pl-[18px] leading-[1.7] text-muted">
               <li>Watch the video — it will pause at key decision moments</li>
               <li>Select your call within the time window</li>
               <li>{LEVEL_DESCRIPTIONS[selectedLevel]}</li>
@@ -1024,14 +1012,9 @@ export function SimulatorRunnerScreen({
             </ul>
           </div>
 
-          <button
-            className="primary"
-            onClick={startSession}
-            disabled={startingAttempt}
-            style={{ width: "100%", padding: "12px 0", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}
-          >
+          <Button variant="primary" onClick={startSession} disabled={startingAttempt} className="w-full justify-center">
             <Play size={16} /> {startingAttempt ? "Starting…" : "Start Simulation"}
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -1045,28 +1028,27 @@ export function SimulatorRunnerScreen({
     const total = activeEvents.length;
 
     return (
-      <div style={{ boxSizing: "border-box" }}>
+      <div className="box-border">
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Zap size={18} style={{ color: "#fbbf24" }} />
-            <span style={{ fontWeight: 700 }}>{selectedSession.title}</span>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <Zap size={18} className="text-amber-400" />
+            <span className="font-bold">{selectedSession.title}</span>
             <LevelBadge level={selectedLevel} />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span className="hint" style={{ fontSize: 13 }}>
+          <div className="flex items-center gap-3">
+            <span className="hint text-[13px]">
               {answered} / {total} decisions answered
             </span>
           </div>
         </div>
 
         {/* Progress bar */}
-        <div style={{ height: 4, background: "var(--border)", borderRadius: 2, marginBottom: 16, overflow: "hidden" }}>
-          <div style={{
-            height: "100%", borderRadius: 2, background: "var(--accent)",
-            width: `${total > 0 ? (answered / total) * 100 : 0}%`,
-            transition: "width 0.3s",
-          }} />
+        <div className="mb-4 h-1 overflow-hidden rounded-sm bg-border">
+          <div
+            className="h-full rounded-sm bg-accent transition-[width] duration-300"
+            style={{ width: `${total > 0 ? (answered / total) * 100 : 0}%` }}
+          />
         </div>
 
         {/* Video */}
@@ -1076,7 +1058,7 @@ export function SimulatorRunnerScreen({
           onTimeUpdate={handleTimeUpdate}
         />
 
-        <p className="hint" style={{ marginTop: 8, fontSize: 12, textAlign: "center" }}>
+        <p className="hint mt-2 text-center text-xs">
           Watch the video — it will pause automatically at each decision point.
           {getYouTubeId(selectedSession.videoUrl) && " YouTube timing precision: ~500ms."}
         </p>
