@@ -41,8 +41,11 @@ function ColourPicker({ value, onChange }: { value: string; onChange: (c: string
           onClick={() => onChange(c)}
           aria-label={COLOUR_NAMES[c] ?? c}
           aria-pressed={value === c}
-          className="h-7 w-7 shrink-0 rounded-full border-none"
-          style={{ background: c, outline: value === c ? "3px solid var(--text)" : "none", outlineOffset: 2 }}
+          className={cn(
+            "h-7 w-7 shrink-0 rounded-full border-none outline-offset-2",
+            value === c ? "outline-2 outline-text" : "outline-none"
+          )}
+          style={{ background: c }}
           title={COLOUR_NAMES[c] ?? c}
         />
       ))}
@@ -165,13 +168,15 @@ function GroupModal({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4">
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={mode === "create" ? "Create Group" : "Edit Group"} tabIndex={-1} className="flex w-full max-w-lg flex-col rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none" style={{ maxHeight: "92vh" }}>
-        <div className="modal-title shrink-0">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={mode === "create" ? "Create Group" : "Edit Group"} tabIndex={-1} className="flex max-h-[92vh] w-full max-w-lg flex-col rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none">
+        <div className="mb-2.5 flex shrink-0 items-start justify-between gap-3">
           <div>
-            <p className="eyebrow">{mode === "create" ? "New Group" : "Edit Group"}</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>{mode === "create" ? "Create Group" : "Edit Group"}</h1>
+            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">{mode === "create" ? "New Group" : "Edit Group"}</p>
+            <h1 className="m-0 text-xl">{mode === "create" ? "Create Group" : "Edit Group"}</h1>
           </div>
-          <button aria-label="Close" onClick={onClose}>✕</button>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close" className="shrink-0 px-1.5">
+            <X size={16} />
+          </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto pt-1">
@@ -194,7 +199,7 @@ function GroupModal({
 
         <div className="mt-4 shrink-0 border-t border-border pt-3">
           {err && <p className="mb-2.5 text-[13px] text-red-300">{err}</p>}
-          <div className="action-row">
+          <div className="flex flex-wrap gap-2.5">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
             <Button variant="primary" onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : mode === "create" ? `Create Group${selected.size > 0 ? ` (${selected.size})` : ""}` : "Save Changes"}
@@ -559,7 +564,7 @@ export function GroupsScreen({
 
             {/* Groups grid */}
             {!loading && filtered.length > 0 && (
-              <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
                 {filtered.map(g => (
                   <Card
                     key={g.id}

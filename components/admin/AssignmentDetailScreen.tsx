@@ -121,13 +121,12 @@ function EditModal({
         aria-modal="true"
         aria-label="Edit Assignment"
         tabIndex={-1}
-        className="flex w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none"
-        style={{ maxHeight: "90vh" }}
+        className="flex max-h-[90vh] w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-border bg-panel p-5 shadow-xl focus:outline-none"
       >
         <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
           <div>
-            <p className="eyebrow">Edit Assignment</p>
-            <h1 style={{ fontSize: 20, margin: 0 }}>Update details</h1>
+            <p className="mb-1 text-xs font-bold uppercase tracking-wide text-accent">Edit Assignment</p>
+            <h1 className="m-0 text-xl">Update details</h1>
           </div>
           <Button
             variant="ghost"
@@ -212,7 +211,7 @@ function EditModal({
 
           {err && <p className="text-[13px] text-red-300">{err}</p>}
         </div>
-        <div className="action-row mt-5 shrink-0 border-t border-border pt-3">
+        <div className="mt-5 flex shrink-0 flex-wrap gap-2.5 border-t border-border pt-3">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button variant="primary" onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : "Save Changes"}
