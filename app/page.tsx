@@ -2019,7 +2019,7 @@ export default function Home() {
                           <TableCell data-label="Game" className="font-semibold">{review.game}</TableCell>
                           <TableCell data-label="Status"><Badge tone="good">{review.status}</Badge></TableCell>
                           <TableCell data-label="Educator">{review.educatorName}</TableCell>
-                          <TableCell data-label="Submitted">{review.submittedAt ? new Date(review.submittedAt).toLocaleDateString() : "—"}</TableCell>
+                          <TableCell data-label="Submitted">{review.submittedAt ? new Date(review.submittedAt).toLocaleDateString("en-AU") : "—"}</TableCell>
                           <TableCell data-label="Clips">{visible.length}</TableCell>
                           <TableCell data-label="Accuracy">{makeAnalytics(visible).accuracy}</TableCell>
                           <TableCell data-label="">

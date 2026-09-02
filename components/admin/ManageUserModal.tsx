@@ -246,8 +246,8 @@ export function ManageUserModal({ member, session, onClose, onRefresh }: Props) 
 
               <div style={{ paddingTop: 4, borderTop: "1px solid var(--border)" }}>
                 <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted)" }}>
-                  Member since {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString() : "—"} ·
-                  Last sign-in {member.lastSignInAt ? new Date(member.lastSignInAt).toLocaleDateString() : "—"} ·
+                  Member since {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString("en-AU") : "—"} ·
+                  Last sign-in {member.lastSignInAt ? new Date(member.lastSignInAt).toLocaleDateString("en-AU") : "—"} ·
                   Status{" "}
                   <Badge tone={member.invitationStatus === "pending" ? "warn" : "good"}>
                     {member.invitationStatus === "pending" ? "Pending" : "Active"}
