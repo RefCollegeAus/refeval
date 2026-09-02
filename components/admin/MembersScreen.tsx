@@ -44,6 +44,20 @@ function sortValue(m: EnrichedMember, f: SortField): string {
   return (v ?? "").toString().toLowerCase();
 }
 
+// Matches the SummaryTile pattern already established in OrganisationScreen.tsx
+// ("Shared summary/stat tile (repeated pattern across Dashboard/Members/Preferences/etc)")
+// rather than inventing a new stat-card shape for this screen's role counts.
+function SummaryTile({ label, value, colourClassName }: { label: string; value: number; colourClassName?: string }) {
+  return (
+    <div className="rounded-[14px] border border-border bg-panel p-3.5 shadow-sm">
+      <div className={cn("mb-1 text-[28px] font-black leading-none tracking-tight text-text", colourClassName)}>
+        {value}
+      </div>
+      <div className="text-[11px] font-bold uppercase tracking-wide text-muted">{label}</div>
+    </div>
+  );
+}
+
 export function MembersScreen({
   session,
   onNavigateSettings,
@@ -232,12 +246,12 @@ export function MembersScreen({
     >
       {/* ── Role stats ── */}
       {!loading && members.length > 0 && (
-        <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))" }}>
-          <div className="ed-summary-card"><div className="ed-summary-number">{members.length}</div><div className="ed-summary-label">Total</div></div>
-          <div className="ed-summary-card"><div className="ed-summary-number">{refereeCount}</div><div className="ed-summary-label">Referees</div></div>
-          <div className="ed-summary-card"><div className="ed-summary-number">{educatorCount}</div><div className="ed-summary-label">Educators</div></div>
-          <div className="ed-summary-card"><div className="ed-summary-number">{adminCount}</div><div className="ed-summary-label">Admins</div></div>
-          <div className="ed-summary-card"><div className={cn("ed-summary-number", pendingCount > 0 && "text-warn")}>{pendingCount}</div><div className="ed-summary-label">Pending</div></div>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2.5">
+          <SummaryTile label="Total" value={members.length} />
+          <SummaryTile label="Referees" value={refereeCount} />
+          <SummaryTile label="Educators" value={educatorCount} />
+          <SummaryTile label="Admins" value={adminCount} />
+          <SummaryTile label="Pending" value={pendingCount} colourClassName={pendingCount > 0 ? "text-warn" : undefined} />
         </div>
       )}
 
@@ -252,7 +266,7 @@ export function MembersScreen({
               icon: <UserPlus size={14} />,
               content: (
                 <>
-                  <form className="setup-grid items-end" onSubmit={handleInvite}>
+                  <form className="grid grid-cols-1 items-end gap-3 lg:grid-cols-3" onSubmit={handleInvite}>
                     <label className="grid gap-1 text-xs font-semibold text-muted">
                       Full name
                       <Input value={inviteName} onChange={e => setInviteName(e.target.value)} placeholder="Jane Smith" required />
@@ -290,7 +304,7 @@ export function MembersScreen({
               icon: <KeyRound size={14} />,
               content: (
                 <>
-                  <form className="setup-grid items-end" onSubmit={handleCreateAccount}>
+                  <form className="grid grid-cols-1 items-end gap-3 lg:grid-cols-3" onSubmit={handleCreateAccount}>
                     <label className="grid gap-1 text-xs font-semibold text-muted">
                       Full name
                       <Input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Jane Smith" required />

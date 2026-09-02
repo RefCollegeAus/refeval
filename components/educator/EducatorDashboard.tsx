@@ -660,7 +660,13 @@ export function EducatorDashboard({
           {/* Compact KPI strip — an unboxed stat strip, not per-metric Cards,
               matching RefOps's dashboard summary treatment. */}
           <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border bg-panel/60 p-4 sm:grid-cols-4">
-            <button className="text-left" onClick={clearFilters} style={{ fontWeight: kpiFilter === "all" && filterStatus === "All" && filterDateRange === "all" ? 800 : undefined }}>
+            <button
+              className={cn(
+                "text-left",
+                kpiFilter === "all" && filterStatus === "All" && filterDateRange === "all" && "font-extrabold"
+              )}
+              onClick={clearFilters}
+            >
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">Total</p>
               <p className="text-xl font-bold text-text">{visibleReviews.length}</p>
             </button>
