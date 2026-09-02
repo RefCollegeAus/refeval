@@ -288,3 +288,25 @@ ORDER BY enumsortorder;
 - [ ] Verify RLS policies appear under Authentication → Policies for each table
 - [ ] Begin Phase 13.3 app work: migrate hooks one at a time, test each before moving on
 - [ ] Run the localStorage export / import flow from the admin UI once app work is complete
+
+---
+
+## Migration 028 — applied to production (2 September 2026)
+
+**File:** `supabase/migrations/028_must_change_password.sql`
+**Target:** RefEval production (`rydjxihdukoretyqqfue`), via the repo-scoped `supabase-refeval-pooler-url` Keychain credential and direct `psql` execution — no `supabase login`/`logout` or global CLI credential change.
+
+**Purpose:** adds `profiles.must_change_password boolean not null default false`, backing the admin "Create Account Directly" flow (`app/api/admin/create-account/route.ts`) and the forced password-change screen (`components/auth/ForcePasswordChangeScreen.tsx`) shipped this session.
+
+**Pre-apply check:** column absent (`information_schema.columns` confirmed no `must_change_password` on `public.profiles`). No `supabase_migrations.schema_migrations` tracking table exists in this database — consistent with every prior migration here having been applied by direct SQL execution rather than `supabase db push`.
+
+**Applied:** the file's single `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` statement, executed verbatim via `psql -f`.
+
+**Post-apply verification:**
+- Column present: `boolean`, `NOT NULL`, `default false`.
+- All 9 existing `profiles` rows unaffected — 0 with `must_change_password = true`, 0 `NULL`.
+- `profiles_update` RLS policy (`auth.uid() = id`) already covers the new column (RLS is row-level, no policy change needed) — confirms the forced-password-change screen's self-update will work.
+- `handle_new_user` trigger on `auth.users` unaffected; new accounts still get an auto-created `profiles` row, defaulting the new column to `false` before `create-account`'s explicit upsert sets it `true` for admin-provisioned accounts.
+- RLS remains enabled on `profiles`.
+
+**Not yet verified:** an actual end-to-end run of "Create Account Directly" through the UI — that still needs live admin credentials, same blocker as the rest of this session's work.
