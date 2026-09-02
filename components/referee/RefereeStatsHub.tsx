@@ -58,7 +58,12 @@ function shMatchesOutcome(tag: StatsTag, filterValue: string): boolean {
   return tagVal === fVal;
 }
 function shMatchesCategory(tag: StatsTag, filterValue: string): boolean {
-  const tagVal = norm((tag as any)._displayCategoryFull as string || tag.category);
+  // _displayCategoryFull is null when the raw category doesn't map to a known
+  // taxonomy value — groupedCategoryCounts buckets that as "Uncoded" (never the
+  // raw string), so matching must fall back to "" here too, not the raw
+  // tag.category. Falling back to the raw string previously meant clicking the
+  // "Uncoded" bar could never match the very clips it counted.
+  const tagVal = norm((tag as any)._displayCategoryFull as string | null);
   const fVal = normForMatch(filterValue);
   if (fVal === "") return tagVal === "";
   if (fVal.includes(" — ")) return tagVal === fVal;
@@ -256,7 +261,11 @@ export function RefereeStatsHub({ reviews, tags, session, onBack, onAdmin, onPro
   const userId = session?.user.id || "";
 
   const myReviews = useMemo(() =>
-    reviews.filter(r => r.status === "Completed" && [r.referee1Id, r.referee2Id, r.referee3Id].includes(userId)),
+    reviews.filter(r =>
+      r.status === "Completed" &&
+      !r.isSimulator &&
+      [r.referee1Id, r.referee2Id, r.referee3Id].includes(userId)
+    ),
     [reviews, userId]
   );
 
