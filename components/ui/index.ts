@@ -16,3 +16,4 @@ export { Modal } from "./Modal";
 export { ToastViewport } from "./Toast";
 export { Tabs } from "./Tabs";
 export type { TabItem } from "./Tabs";
+export { Switch } from "./Switch";

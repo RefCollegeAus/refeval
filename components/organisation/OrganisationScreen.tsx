@@ -21,7 +21,7 @@ import {
 } from "./SettingsLayout";
 import { PageFrame } from "@/components/shell/PageFrame";
 import {
-  Badge, Button, buttonClasses, Card, EmptyState, FormField, Input, Select, Table, TableBody,
+  Badge, Button, buttonClasses, Card, EmptyState, FormField, Input, Select, Switch, Table, TableBody,
   TableCell, TableHead, TableHeaderCell, TableRow, Tabs, Textarea,
   type TabItem, type BadgeTone,
 } from "@/components/ui";
@@ -652,6 +652,28 @@ function FeedbackBanner({ type, message }: { type: "success" | "error"; message:
   );
 }
 
+// ── Shared "live" status dot (repeated across the settings config-summary grids) ─
+
+function LiveDot({ active }: { active: boolean }) {
+  return <span className={cn("h-[7px] w-[7px] shrink-0 rounded-full", active ? "bg-good" : "bg-border")} />;
+}
+
+// ── Shared "Current Configuration" summary tile (repeated across Preferences/
+// Reviews/Learning/Notifications/Resources) — `active` undefined renders the
+// plain (no-dot) variant used by Preferences' summary.
+
+function ConfigTile({ label, value, active }: { label: string; value: ReactNode; active?: boolean }) {
+  return (
+    <div className={cn("rounded-[10px] border bg-panel px-3.5 py-3", active ? "border-good/20" : "border-border")}>
+      <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">{label}</p>
+      <div className="flex items-center gap-1.5">
+        {active !== undefined && <LiveDot active={active} />}
+        <span className={cn("text-[13px] font-semibold", active === false ? "text-muted" : "text-text")}>{value}</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Profile page ──────────────────────────────────────────────────────────────
 
 function ProfilePage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
@@ -911,8 +933,6 @@ function PreferencesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx
     setFeedback(null);
   }, [saved]);
 
-  const selectStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
-
   const localeName = LOCALES.find(l => l.value === draft.locale)?.label ?? draft.locale;
   const dateExample = draft.dateFormat === "DD/MM/YYYY" ? "3 Jul 2026" : draft.dateFormat === "MM/DD/YYYY" ? "Jul 3 2026" : "2026-07-03";
   const timeExample = draft.timeFormat === "12h" ? "2:30 PM" : "14:30";
@@ -933,16 +953,9 @@ function PreferencesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx
       title="Regional Preferences"
       description="Timezone, locale, date and time formats, and review visibility defaults for all members."
       actions={
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
-          <button
-            className="primary"
-            onClick={save}
-            disabled={!dirty}
-            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
-          >
-            Save changes
-          </button>
+        <div className="flex items-center gap-2">
+          {dirty && <Button variant="ghost" size="sm" onClick={discard}>Discard</Button>}
+          <Button variant="primary" size="sm" onClick={save} disabled={!dirty}>Save changes</Button>
         </div>
       }
     >
@@ -950,17 +963,9 @@ function PreferencesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx
 
       {/* ── Current configuration summary ── */}
       <SettingsSection title="Current Configuration" description="A snapshot of your saved preferences. Updates live as you make changes.">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
           {summaryItems.map(({ label, value }) => (
-            <div key={label} style={{
-              padding: "12px 14px", borderRadius: 10,
-              background: "var(--panel)", border: "1px solid var(--border)",
-            }}>
-              <p style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
-                {label}
-              </p>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{value}</p>
-            </div>
+            <ConfigTile key={label} label={label} value={value} />
           ))}
         </div>
       </SettingsSection>
@@ -968,27 +973,22 @@ function PreferencesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx
       {/* ── Regional identity ── */}
       <SettingsSection title="Regional Identity" description="Sets the timezone and language used across all dates, times, and member-facing text.">
         <SettingsCard>
-          <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-              <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Timezone</span>
-                <select style={selectStyle} value={draft.timezone} onChange={e => patch("timezone", e.target.value)}>
-                  {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
-                </select>
-              </label>
-              <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Language / locale</span>
-                <select style={selectStyle} value={draft.locale} onChange={e => patch("locale", e.target.value)}>
-                  {LOCALES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                </select>
-              </label>
-            </div>
-            <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Country / region</span>
-              <select style={selectStyle} value={draft.country} onChange={e => patch("country", e.target.value)}>
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            <FormField label="Timezone">
+              <Select value={draft.timezone} onChange={e => patch("timezone", e.target.value)}>
+                {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Language / locale">
+              <Select value={draft.locale} onChange={e => patch("locale", e.target.value)}>
+                {LOCALES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Country / region" className="sm:col-span-2">
+              <Select value={draft.country} onChange={e => patch("country", e.target.value)}>
                 {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </label>
+              </Select>
+            </FormField>
           </div>
         </SettingsCard>
       </SettingsSection>
@@ -996,43 +996,35 @@ function PreferencesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx
       {/* ── Date & time format ── */}
       <SettingsSection title="Date & Time Format" description="Controls how dates and times are displayed throughout the platform for all members.">
         <SettingsCard>
-          <div className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-              <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Date format</span>
-                <select
-                  style={selectStyle}
-                  value={draft.dateFormat}
-                  onChange={e => patch("dateFormat", e.target.value as typeof draft.dateFormat)}
-                >
-                  <option value="DD/MM/YYYY">DD/MM/YYYY (3 Jul 2026)</option>
-                  <option value="MM/DD/YYYY">MM/DD/YYYY (Jul 3 2026)</option>
-                  <option value="YYYY-MM-DD">YYYY-MM-DD (2026-07-03)</option>
-                </select>
-              </label>
-              <label>
-                <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Time format</span>
-                <select
-                  style={selectStyle}
-                  value={draft.timeFormat}
-                  onChange={e => patch("timeFormat", e.target.value as typeof draft.timeFormat)}
-                >
-                  <option value="12h">12-hour (2:30 PM)</option>
-                  <option value="24h">24-hour (14:30)</option>
-                </select>
-              </label>
-            </div>
-            <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Week starts on</span>
-              <select
-                style={selectStyle}
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            <FormField label="Date format">
+              <Select
+                value={draft.dateFormat}
+                onChange={e => patch("dateFormat", e.target.value as typeof draft.dateFormat)}
+              >
+                <option value="DD/MM/YYYY">DD/MM/YYYY (3 Jul 2026)</option>
+                <option value="MM/DD/YYYY">MM/DD/YYYY (Jul 3 2026)</option>
+                <option value="YYYY-MM-DD">YYYY-MM-DD (2026-07-03)</option>
+              </Select>
+            </FormField>
+            <FormField label="Time format">
+              <Select
+                value={draft.timeFormat}
+                onChange={e => patch("timeFormat", e.target.value as typeof draft.timeFormat)}
+              >
+                <option value="12h">12-hour (2:30 PM)</option>
+                <option value="24h">24-hour (14:30)</option>
+              </Select>
+            </FormField>
+            <FormField label="Week starts on" className="sm:col-span-2">
+              <Select
                 value={draft.weekStartsOn}
                 onChange={e => patch("weekStartsOn", Number(e.target.value) as 0 | 1)}
               >
                 <option value={1}>Monday</option>
                 <option value={0}>Sunday</option>
-              </select>
-            </label>
+              </Select>
+            </FormField>
           </div>
         </SettingsCard>
       </SettingsSection>
@@ -1040,36 +1032,30 @@ function PreferencesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx
       {/* ── Review defaults ── */}
       <SettingsSection title="Review Defaults" description="Default visibility applied when new reviews are created. Can also be configured per review in Review Defaults settings.">
         <SettingsCard>
-          <div className="form-stack">
-            <label>
-              <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>Default review visibility</span>
-              <select
-                style={selectStyle}
-                value={draft.defaultReviewVisibility}
-                onChange={e => patch("defaultReviewVisibility", e.target.value as typeof draft.defaultReviewVisibility)}
-              >
-                <option value="assigned-referees">Assigned referees can view their own review</option>
-                <option value="educators-only">Educators only (referees cannot view)</option>
-              </select>
-            </label>
-          </div>
+          <FormField label="Default review visibility">
+            <Select
+              value={draft.defaultReviewVisibility}
+              onChange={e => patch("defaultReviewVisibility", e.target.value as typeof draft.defaultReviewVisibility)}
+            >
+              <option value="assigned-referees">Assigned referees can view their own review</option>
+              <option value="educators-only">Educators only (referees cannot view)</option>
+            </Select>
+          </FormField>
         </SettingsCard>
       </SettingsSection>
 
       {/* ── Related ── */}
       <SettingsSection title="Related">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("reviews")}>
-            <Film size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Review Defaults
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("profile")}>
-            <User size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Organisation Profile
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("reviews")}>
+            <Film size={13} /> Review Defaults
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("profile")}>
+            <User size={13} /> Organisation Profile
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentPage("dashboard")}>
             ← Dashboard
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
@@ -1137,31 +1123,24 @@ function ColorField({
   const valid = isValidHex(value);
   return (
     <div>
-      <span style={{ display: "block", marginBottom: 5, fontSize: 13, fontWeight: 700 }}>{label}</span>
-      {description && <span className="hint" style={{ display: "block", marginBottom: 6, fontSize: 12 }}>{description}</span>}
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <span className="mb-1.5 block text-[13px] font-bold text-text">{label}</span>
+      {description && <span className="hint mb-1.5 block text-xs">{description}</span>}
+      <div className="flex items-center gap-2">
         <input
           type="color"
           value={valid ? value : "#000000"}
           onChange={e => onChange(e.target.value)}
-          style={{
-            width: 40, height: 36, padding: 3, flexShrink: 0,
-            border: "1px solid var(--border)", borderRadius: 8,
-            cursor: "pointer", background: "var(--panel2)",
-          }}
+          className="h-9 w-10 shrink-0 cursor-pointer rounded-lg border border-border bg-panel-2 p-[3px]"
         />
-        <input
+        <Input
           type="text"
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder="#000000"
-          style={{
-            flex: 1, fontFamily: "monospace", fontSize: 13,
-            borderColor: !value || valid ? undefined : "rgba(255,69,58,.6)",
-          }}
+          className={cn("flex-1 font-mono text-[13px]", value && !valid && "border-danger/60")}
         />
         {value && !valid && (
-          <span style={{ fontSize: 11, color: "#ff453a", flexShrink: 0 }}>Invalid hex</span>
+          <span className="shrink-0 text-[11px] text-danger">Invalid hex</span>
         )}
       </div>
     </div>
@@ -1181,33 +1160,18 @@ function BrandingPreview({
   const ac = isValidHex(branding.accentColour) ? branding.accentColour : "#636366";
 
   return (
-    <div
-      style={{
-        background: "var(--panel2)",
-        border: "1px solid var(--border)",
-        borderRadius: 14,
-        padding: "20px 22px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-      }}
-    >
-      <p className="eyebrow" style={{ margin: 0 }}>Live preview</p>
+    <div className="flex flex-col gap-4 rounded-[14px] border border-border bg-panel-2 px-[22px] py-5">
+      <p className="eyebrow m-0">Live preview</p>
 
       {/* Identity row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <div className="flex items-center gap-3.5">
         <OrgLogoMark name={orgName} branding={{ ...branding, primaryColour: pc }} size={52} fontSize={18} borderRadius={12} />
         <div>
-          <p style={{ margin: 0, fontWeight: 800, fontSize: 15 }}>{orgName || "Organisation name"}</p>
-          {shortName && <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>{shortName}</p>}
+          <p className="m-0 text-[15px] font-extrabold">{orgName || "Organisation name"}</p>
+          {shortName && <p className="hint m-0 mt-0.5 text-xs">{shortName}</p>}
           <span
-            style={{
-              display: "inline-block", marginTop: 5,
-              background: `${pc}22`, border: `1px solid ${pc}44`,
-              borderRadius: 6, padding: "1px 8px",
-              fontSize: 11, fontWeight: 800, color: pc,
-              textTransform: "uppercase", letterSpacing: "0.05em",
-            }}
+            className="mt-1.5 inline-block rounded-md border px-2 py-px text-[11px] font-extrabold uppercase tracking-wide"
+            style={{ background: `${pc}22`, borderColor: `${pc}44`, color: pc }}
           >
             {sport}
           </span>
@@ -1380,7 +1344,7 @@ function BrandingPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
       {/* ── Colours ── */}
       <SettingsSection title="Colours" description="Use 6-digit hex values (e.g. #a56a1b). The colour picker updates the hex field automatically.">
         <SettingsCard>
-          <div className="form-stack" style={{ paddingTop: 4 }}>
+          <div className="grid gap-3 pt-1">
             <ColorField
               label="Primary colour"
               description="Used for primary action buttons, the logo mark background, and key accent elements throughout the platform."
@@ -1419,43 +1383,9 @@ function BrandingPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
   );
 }
 
-// ── Toggle component ─────────────────────────────────────────────────────────
-
-function OrgToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      style={{
-        position: "relative",
-        width: 44, height: 26,
-        borderRadius: 13,
-        border: "none",
-        background: checked ? "var(--accent)" : "var(--panel3)",
-        cursor: "pointer",
-        flexShrink: 0,
-        boxShadow: "none",
-        padding: 0,
-        transition: "background 0.15s",
-      }}
-    >
-      <span
-        style={{
-          position: "absolute",
-          top: 3,
-          left: checked ? 21 : 3,
-          width: 20, height: 20,
-          borderRadius: "50%",
-          background: "#fff",
-          transition: "left 0.15s",
-          boxShadow: "0 1px 3px rgba(0,0,0,.4)",
-        }}
-      />
-    </button>
-  );
-}
+// ── Toggle row ────────────────────────────────────────────────────────────────
+// Uses the shared Switch primitive (components/ui/Switch.tsx) — previously a
+// locally-duplicated OrgToggle button with hardcoded pixel/hex styling.
 
 function ToggleRow({
   label, description, checked, onChange, last, badge,
@@ -1469,8 +1399,8 @@ function ToggleRow({
 }) {
   return (
     <SettingsRow label={label} description={description} last={last}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <OrgToggle checked={checked} onChange={onChange} />
+      <div className="flex items-center gap-2.5">
+        <Switch checked={checked} onChange={onChange} aria-label={label} />
         {badge}
       </div>
     </SettingsRow>
@@ -1509,9 +1439,6 @@ function ReviewsPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
     setFeedback(null);
   }, [saved]);
 
-  const selectStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
-  const numStyle: React.CSSProperties = { width: 100, boxSizing: "border-box" };
-
   // ── Required tagging fields summary ────────────────────────────────────────
   const taggingFields: { key: keyof typeof draft; label: string }[] = [
     { key: "requireOutcome",     label: "Outcome" },
@@ -1544,16 +1471,9 @@ function ReviewsPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
       title="Review Defaults"
       description="Pre-fill settings applied whenever an educator creates a new review. All defaults can be overridden per review."
       actions={
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
-          <button
-            className="primary"
-            onClick={save}
-            disabled={!dirty}
-            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
-          >
-            Save changes
-          </button>
+        <div className="flex items-center gap-2">
+          {dirty && <Button variant="ghost" size="sm" onClick={discard}>Discard</Button>}
+          <Button variant="primary" size="sm" onClick={save} disabled={!dirty}>Save changes</Button>
         </div>
       }
     >
@@ -1567,21 +1487,9 @@ function ReviewsPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
 
       {/* ── Current Configuration summary ── */}
       <SettingsSection title="Current Configuration" description="A live snapshot of your saved review defaults.">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
           {summaryItems.map(({ label, value, active }) => (
-            <div key={label} style={{
-              padding: "12px 14px", borderRadius: 10,
-              background: "var(--panel)",
-              border: `1px solid ${active ? "rgba(52,199,89,.2)" : "var(--border)"}`,
-            }}>
-              <p style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
-                {label}
-              </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: active ? "#34c759" : "var(--border)" }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: active ? "var(--text)" : "var(--muted)" }}>{value}</span>
-              </div>
-            </div>
+            <ConfigTile key={label} label={label} value={value} active={active} />
           ))}
         </div>
       </SettingsSection>
@@ -1593,28 +1501,28 @@ function ReviewsPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
             label="Default crew size"
             description="How many referees are assigned to a review by default."
           >
-            <select
-              style={{ ...selectStyle, width: 140 }}
+            <Select
+              className="w-[140px]"
               value={draft.defaultCrewSize}
               onChange={e => patch("defaultCrewSize", Number(e.target.value) as 1 | 2 | 3)}
             >
               <option value={1}>1 referee</option>
               <option value={2}>2 referees</option>
               <option value={3}>3 referees</option>
-            </select>
+            </Select>
           </SettingsRow>
           <SettingsRow
             label="Default visibility"
             description="Who can see a completed review by default. Educators can change this per review."
           >
-            <select
-              style={{ ...selectStyle, width: 220 }}
+            <Select
+              className="w-[220px]"
               value={draft.defaultVisibility}
               onChange={e => patch("defaultVisibility", e.target.value as typeof draft.defaultVisibility)}
             >
               <option value="assigned-referees">Assigned referees can view</option>
               <option value="educators-only">Educators only</option>
-            </select>
+            </Select>
           </SettingsRow>
           <ToggleRow
             label="Allow draft reviews"
@@ -1633,17 +1541,17 @@ function ReviewsPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
             label="Timestamp offset (seconds)"
             description="Shift all clip timestamps by this amount. Use negative values to start playback before the coded moment."
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
+            <div className="flex items-center gap-2">
+              <Input
                 type="number"
-                style={numStyle}
+                className="w-[100px]"
                 value={draft.timestampOffsetSeconds}
                 onChange={e => patch("timestampOffsetSeconds", Number(e.target.value))}
                 step={1}
                 min={-300}
                 max={300}
               />
-              <span className="hint" style={{ fontSize: 13 }}>sec</span>
+              <span className="hint text-[13px]">sec</span>
             </div>
           </SettingsRow>
           <SettingsRow
@@ -1651,17 +1559,17 @@ function ReviewsPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
             description="Suggested clip duration for tagged moments. Does not control external video playback length."
             last
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
+            <div className="flex items-center gap-2">
+              <Input
                 type="number"
-                style={numStyle}
+                className="w-[100px]"
                 value={draft.defaultClipLengthSeconds}
                 onChange={e => patch("defaultClipLengthSeconds", Number(e.target.value))}
                 step={5}
                 min={5}
                 max={600}
               />
-              <span className="hint" style={{ fontSize: 13 }}>sec</span>
+              <span className="hint text-[13px]">sec</span>
             </div>
           </SettingsRow>
         </SettingsCard>
@@ -1723,22 +1631,19 @@ function ReviewsPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
 
       {/* ── Related ── */}
       <SettingsSection title="Related">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("learning")}>
-            <BookOpen size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Learning Defaults
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("notifications")}>
-            <Bell size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Notification Preferences
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
-            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Manage Members
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("learning")}>
+            <BookOpen size={13} /> Learning Defaults
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("notifications")}>
+            <Bell size={13} /> Notification Preferences
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("members")}>
+            <Users size={13} /> Manage Members
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentPage("dashboard")}>
             ← Dashboard
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
@@ -1784,8 +1689,6 @@ function LearningPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
     setFeedback(null);
   }, [saved]);
 
-  const numStyle: React.CSSProperties = { width: 100, boxSizing: "border-box" };
-
   // ── Live summary chips ────────────────────────────────────────────────────
   const reminderLabel = draft.sendDueReminders
     ? `${draft.reminderDaysBefore} day${draft.reminderDaysBefore !== 1 ? "s" : ""} before`
@@ -1808,16 +1711,9 @@ function LearningPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
       title="Learning Defaults"
       description="Pre-fill settings applied whenever an educator assigns learning to a referee. All defaults can be overridden per assignment."
       actions={
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
-          <button
-            className="primary"
-            onClick={save}
-            disabled={!dirty}
-            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
-          >
-            Save changes
-          </button>
+        <div className="flex items-center gap-2">
+          {dirty && <Button variant="ghost" size="sm" onClick={discard}>Discard</Button>}
+          <Button variant="primary" size="sm" onClick={save} disabled={!dirty}>Save changes</Button>
         </div>
       }
     >
@@ -1830,21 +1726,9 @@ function LearningPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
 
       {/* ── Current configuration summary ── */}
       <SettingsSection title="Current Configuration" description="A live snapshot of your saved learning defaults.">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
           {summaryItems.map(({ label, value, active }) => (
-            <div key={label} style={{
-              padding: "12px 14px", borderRadius: 10,
-              background: "var(--panel)",
-              border: `1px solid ${active ? "rgba(52,199,89,.2)" : "var(--border)"}`,
-            }}>
-              <p style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
-                {label}
-              </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: active ? "#34c759" : "var(--border)" }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: active ? "var(--text)" : "var(--muted)" }}>{value}</span>
-              </div>
-            </div>
+            <ConfigTile key={label} label={label} value={value} active={active} />
           ))}
         </div>
       </SettingsSection>
@@ -1856,16 +1740,16 @@ function LearningPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
             label="Default due days"
             description="How many days after assignment a referee has to complete the learning."
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
+            <div className="flex items-center gap-2">
+              <Input
                 type="number"
-                style={numStyle}
+                className="w-[100px]"
                 value={draft.assignmentDueDays}
                 onChange={e => patch("assignmentDueDays", Number(e.target.value))}
                 min={1}
                 step={1}
               />
-              <span className="hint" style={{ fontSize: 13 }}>days</span>
+              <span className="hint text-[13px]">days</span>
             </div>
           </SettingsRow>
           <ToggleRow
@@ -1891,34 +1775,34 @@ function LearningPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
             label="Required completion %"
             description="How much of the assignment content must be viewed before it counts as complete."
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input
+            <div className="flex items-center gap-1.5">
+              <Input
                 type="number"
-                style={numStyle}
+                className="w-[100px]"
                 value={draft.requiredCompletionPercent}
                 onChange={e => patch("requiredCompletionPercent", Number(e.target.value))}
                 min={1}
                 max={100}
                 step={5}
               />
-              <span className="hint" style={{ fontSize: 13 }}>%</span>
+              <span className="hint text-[13px]">%</span>
             </div>
           </SettingsRow>
           <SettingsRow
             label="Passing %"
             description="Minimum score required to pass an assessed assignment."
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input
+            <div className="flex items-center gap-1.5">
+              <Input
                 type="number"
-                style={numStyle}
+                className="w-[100px]"
                 value={draft.passingPercent}
                 onChange={e => patch("passingPercent", Number(e.target.value))}
                 min={1}
                 max={100}
                 step={5}
               />
-              <span className="hint" style={{ fontSize: 13 }}>%</span>
+              <span className="hint text-[13px]">%</span>
             </div>
           </SettingsRow>
           <ToggleRow
@@ -1958,17 +1842,17 @@ function LearningPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
             description="How many days before the due date to send the reminder. Requires reminders to be enabled."
             last
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
+            <div className="flex items-center gap-2">
+              <Input
                 type="number"
-                style={numStyle}
+                className="w-[100px]"
                 value={draft.reminderDaysBefore}
                 onChange={e => patch("reminderDaysBefore", Number(e.target.value))}
                 min={0}
                 step={1}
                 disabled={!draft.sendDueReminders}
               />
-              <span className="hint" style={{ fontSize: 13, opacity: draft.sendDueReminders ? 1 : 0.45 }}>days before</span>
+              <span className={cn("hint text-[13px]", !draft.sendDueReminders && "opacity-45")}>days before</span>
             </div>
           </SettingsRow>
         </SettingsCard>
@@ -1990,14 +1874,14 @@ function LearningPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
       {/* ── Default Assignment Message ── */}
       <SettingsSection title="Default Assignment Message" description="Pre-filled message sent to a referee when an educator assigns learning. Educators can edit or clear it per assignment.">
         <SettingsCard>
-          <textarea
+          <Textarea
             value={draft.defaultAssignmentMessage}
             onChange={e => patch("defaultAssignmentMessage", e.target.value)}
             rows={4}
             placeholder="e.g. Please review the clips in this assignment and focus on your positioning. Reach out if you have any questions."
-            style={{ width: "100%", boxSizing: "border-box", resize: "vertical", minHeight: 96 }}
+            className="min-h-24 resize-y"
           />
-          <p className="hint" style={{ margin: "6px 0 0", fontSize: 12 }}>
+          <p className="hint mt-1.5 text-xs">
             {draft.defaultAssignmentMessage.trim().length > 0
               ? `${draft.defaultAssignmentMessage.trim().length} characters`
               : "No default message set — educators will start with an empty message field."}
@@ -2007,18 +1891,16 @@ function LearningPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) {
 
       {/* ── Related ── */}
       <SettingsSection title="Related">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("notifications")}>
-            <Bell size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Notification Preferences
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
-            <Layers size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Manage Groups
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("notifications")}>
+            <Bell size={13} /> Notification Preferences
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("groups")}>
+            <Layers size={13} /> Manage Groups
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentPage("dashboard")}>
             ← Dashboard
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
@@ -2048,8 +1930,6 @@ function NotificationsPage({ settings, onUpdateSettings, setCurrentPage }: PageC
     setFeedback(null);
   }, [saved]);
 
-  const selectStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
-
   // Derive live counts for summary
   const reviewToggles  = [draft.notifyReviewAssigned, draft.notifyReviewCompleted, draft.notifyReviewPublished, draft.commentReceived];
   const learningToggles = [draft.notifyAssignmentAssigned, draft.notifyAssignmentCompleted, draft.notifyAssignmentOverdue];
@@ -2069,16 +1949,9 @@ function NotificationsPage({ settings, onUpdateSettings, setCurrentPage }: PageC
       title="Notification Preferences"
       description="Control which events trigger notifications for referees, educators, and admins across your organisation."
       actions={
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
-          <button
-            className="primary"
-            onClick={save}
-            disabled={!dirty}
-            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
-          >
-            Save changes
-          </button>
+        <div className="flex items-center gap-2">
+          {dirty && <Button variant="ghost" size="sm" onClick={discard}>Discard</Button>}
+          <Button variant="primary" size="sm" onClick={save} disabled={!dirty}>Save changes</Button>
         </div>
       }
     >
@@ -2091,7 +1964,7 @@ function NotificationsPage({ settings, onUpdateSettings, setCurrentPage }: PageC
 
       {/* ── Status summary ── */}
       <SettingsSection title="Current Configuration" description="A live snapshot of your saved notification preferences.">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
           {[
             { label: "Review alerts",   value: `${reviewOn} of ${reviewToggles.length} on`,   active: reviewOn > 0 },
             { label: "Learning alerts", value: `${learningOn} of ${learningToggles.length} on`, active: learningOn > 0 },
@@ -2100,19 +1973,7 @@ function NotificationsPage({ settings, onUpdateSettings, setCurrentPage }: PageC
             { label: "Weekly digest",   value: draft.weeklyDigestEnabled ? "On" : "Off",        active: draft.weeklyDigestEnabled },
             { label: "Delivery",        value: deliveryLabel,                                   active: true },
           ].map(({ label, value, active }) => (
-            <div key={label} style={{
-              padding: "12px 14px", borderRadius: 10,
-              background: "var(--panel)",
-              border: `1px solid ${active ? "rgba(52,199,89,.2)" : "var(--border)"}`,
-            }}>
-              <p style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
-                {label}
-              </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: active ? "#34c759" : "var(--border)" }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: active ? "var(--text)" : "var(--muted)" }}>{value}</span>
-              </div>
-            </div>
+            <ConfigTile key={label} label={label} value={value} active={active} />
           ))}
         </div>
       </SettingsSection>
@@ -2186,8 +2047,8 @@ function NotificationsPage({ settings, onUpdateSettings, setCurrentPage }: PageC
             label="Reminder frequency"
             description="How often reminder emails are sent. Requires reminder emails to be enabled."
           >
-            <select
-              style={{ ...selectStyle, width: 160 }}
+            <Select
+              className="w-[160px]"
               value={draft.reminderFrequency}
               onChange={e => patch("reminderFrequency", e.target.value as typeof draft.reminderFrequency)}
               disabled={!draft.enableReminderEmails}
@@ -2196,7 +2057,7 @@ function NotificationsPage({ settings, onUpdateSettings, setCurrentPage }: PageC
               <option value="weekly">Weekly</option>
               <option value="fortnightly">Fortnightly</option>
               <option value="monthly">Monthly</option>
-            </select>
+            </Select>
           </SettingsRow>
           <ToggleRow
             label="Weekly digest"
@@ -2235,35 +2096,33 @@ function NotificationsPage({ settings, onUpdateSettings, setCurrentPage }: PageC
             description="Email delivers to member inboxes. In-app shows notifications within the platform."
             last
           >
-            <select
-              style={{ ...selectStyle, width: 160 }}
+            <Select
+              className="w-[160px]"
               value={draft.preferredDeliveryMethod}
               onChange={e => patch("preferredDeliveryMethod", e.target.value as typeof draft.preferredDeliveryMethod)}
             >
               <option value="email">Email</option>
               <option value="in-app">In-app</option>
-            </select>
+            </Select>
           </SettingsRow>
         </SettingsCard>
-        <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
+        <p className="hint mt-1 text-xs">
           Additional channels — Push, SMS, Microsoft Teams, and Slack — will appear here when available.
         </p>
       </SettingsSection>
 
       {/* ── Related ── */}
       <SettingsSection title="Related">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
-            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Manage Members
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("learning")}>
-            <BookOpen size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Learning Defaults
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("members")}>
+            <Users size={13} /> Manage Members
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("learning")}>
+            <BookOpen size={13} /> Learning Defaults
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentPage("dashboard")}>
             ← Dashboard
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
@@ -2305,8 +2164,6 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
     setFeedback(null);
   }, [saved]);
 
-  const numStyle: React.CSSProperties = { width: 120, boxSizing: "border-box" };
-
   // Derive live status chips for the overview panel
   const hours = Math.floor(draft.sessionTimeoutMinutes / 60);
   const mins  = draft.sessionTimeoutMinutes % 60;
@@ -2335,16 +2192,9 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
       title="Security & Access"
       description="Authentication, session, and access control settings for your organisation."
       actions={
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
-          <button
-            className="primary"
-            onClick={save}
-            disabled={!dirty}
-            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
-          >
-            Save changes
-          </button>
+        <div className="flex items-center gap-2">
+          {dirty && <Button variant="ghost" size="sm" onClick={discard}>Discard</Button>}
+          <Button variant="primary" size="sm" onClick={save} disabled={!dirty}>Save changes</Button>
         </div>
       }
     >
@@ -2362,26 +2212,19 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
 
       {/* ── Security overview ── */}
       <SettingsSection title="Current Configuration" description="A snapshot of your saved security preferences.">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2.5">
           {statusChips.map(chip => (
-            <div key={chip.label} style={{
-              padding: "12px 14px", borderRadius: 10,
-              background: "var(--panel)",
-              border: `1px solid ${chip.future ? "var(--border)" : chip.active ? "rgba(52,199,89,.25)" : "var(--border)"}`,
-            }}>
-              <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+            <div key={chip.label} className={cn("rounded-[10px] border bg-panel px-3.5 py-3", !chip.future && chip.active ? "border-good/25" : "border-border")}>
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">
                 {chip.label}
               </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div className="flex items-center gap-1.5">
                 {chip.future ? (
-                  <span style={{ fontSize: 13, color: "var(--muted)" }}>{chip.value}</span>
+                  <span className="text-[13px] text-muted">{chip.value}</span>
                 ) : (
                   <>
-                    <span style={{
-                      width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
-                      background: chip.active ? "#34c759" : "var(--muted)",
-                    }} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: chip.active ? "var(--text)" : "var(--muted)" }}>
+                    <span className={cn("h-[7px] w-[7px] shrink-0 rounded-full", chip.active ? "bg-good" : "bg-muted")} />
+                    <span className={cn("text-[13px] font-semibold", chip.active ? "text-text" : "text-muted")}>
                       {chip.value}
                     </span>
                   </>
@@ -2403,17 +2246,17 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
             label="Session timeout"
             description="How long a member's session stays active without interaction. Between 5 and 10,080 minutes (7 days)."
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input
+            <div className="flex items-center gap-1.5">
+              <Input
                 type="number"
-                style={numStyle}
+                className="w-[120px]"
                 value={draft.sessionTimeoutMinutes}
                 onChange={e => patch("sessionTimeoutMinutes", Number(e.target.value))}
                 min={5}
                 max={10080}
                 step={30}
               />
-              <span className="hint" style={{ fontSize: 13 }}>min</span>
+              <span className="hint text-[13px]">min</span>
             </div>
           </SettingsRow>
           <ToggleRow
@@ -2459,9 +2302,9 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
             description="Comma-separated list of permitted domains (e.g. basketball.org.au, example.com). Leave empty to allow any domain."
             last
           >
-            <input
+            <Input
               type="text"
-              style={{ width: 260, boxSizing: "border-box" }}
+              className="w-[260px]"
               value={draft.allowedEmailDomains}
               onChange={e => patch("allowedEmailDomains", e.target.value)}
               placeholder="example.com, basketball.org.au"
@@ -2481,10 +2324,11 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
             label="Multi-factor authentication (MFA)"
             description="Require all organisation members to use a second authentication factor when signing in."
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <OrgToggle
+            <div className="flex items-center gap-2.5">
+              <Switch
                 checked={draft.requireTwoFactorAuthentication}
                 onChange={v => patch("requireTwoFactorAuthentication", v)}
+                aria-label="Multi-factor authentication (MFA)"
               />
               <StatusBadge status="coming-soon" />
             </div>
@@ -2494,10 +2338,11 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
             description="Allow members to sign in using your organisation's identity provider (e.g. Azure AD, Google Workspace, Okta)."
             last
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <OrgToggle
+            <div className="flex items-center gap-2.5">
+              <Switch
                 checked={draft.allowSingleSignOn}
                 onChange={v => patch("allowSingleSignOn", v)}
+                aria-label="Single sign-on (SSO)"
               />
               <StatusBadge status="coming-soon" />
             </div>
@@ -2516,34 +2361,33 @@ function SecurityPage({ settings, onUpdateSettings, session, members, setCurrent
             description="Record security-relevant events for this organisation. Logs will be viewable by Super Admins when the feature launches."
             last
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <OrgToggle
+            <div className="flex items-center gap-2.5">
+              <Switch
                 checked={draft.auditLoggingEnabled}
                 onChange={v => patch("auditLoggingEnabled", v)}
+                aria-label="Enable audit logging"
               />
               <StatusBadge status="coming-soon" />
             </div>
           </SettingsRow>
         </SettingsCard>
-        <p className="hint" style={{ margin: "4px 0 0", fontSize: 12 }}>
+        <p className="hint mt-1 text-xs">
           Audit log storage and viewing will be available in a future release. Your preference is saved and will take effect when the feature launches.
         </p>
       </SettingsSection>
 
       {/* ── Quick links ── */}
       <SettingsSection title="Related">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
-            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Manage Members
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("roles")}>
-            <Shield size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Roles & Permissions
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("members")}>
+            <Users size={13} /> Manage Members
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("roles")}>
+            <Shield size={13} /> Roles & Permissions
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentPage("dashboard")}>
             ← Dashboard
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
@@ -2995,8 +2839,6 @@ function ResourcesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) 
     setFeedback(null);
   }, [settings.resources]);
 
-  const selectStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
-
   const visibilityLabel: Record<string, string> = {
     "all-members":    "All members",
     "assigned-only":  "Assigned referees",
@@ -3033,16 +2875,9 @@ function ResourcesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) 
       title="Resources"
       description="Control how learning resources are shared with referees across your organisation."
       actions={
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {dirty && <button onClick={discard} style={{ fontSize: 13 }}>Discard</button>}
-          <button
-            className="primary"
-            onClick={save}
-            disabled={!dirty}
-            style={{ fontSize: 13, opacity: dirty ? 1 : 0.45 }}
-          >
-            Save changes
-          </button>
+        <div className="flex items-center gap-2">
+          {dirty && <Button variant="ghost" size="sm" onClick={discard}>Discard</Button>}
+          <Button variant="primary" size="sm" onClick={save} disabled={!dirty}>Save changes</Button>
         </div>
       }
     >
@@ -3055,21 +2890,9 @@ function ResourcesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) 
 
       {/* ── Current Configuration ── */}
       <SettingsSection title="Current Configuration" description="A live snapshot of your saved resource settings.">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
           {summaryItems.map(({ label, value, active }) => (
-            <div key={label} style={{
-              padding: "12px 14px", borderRadius: 10,
-              background: "var(--panel)",
-              border: `1px solid ${active ? "rgba(52,199,89,.2)" : "var(--border)"}`,
-            }}>
-              <p style={{ margin: "0 0 3px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
-                {label}
-              </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: active ? "#34c759" : "var(--border)" }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: active ? "var(--text)" : "var(--muted)" }}>{value}</span>
-              </div>
-            </div>
+            <ConfigTile key={label} label={label} value={value} active={active} />
           ))}
         </div>
       </SettingsSection>
@@ -3114,15 +2937,15 @@ function ResourcesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) 
             label="Default resource visibility"
             description="Who can access resources in this organisation. Educators can override this per resource."
           >
-            <select
-              style={{ ...selectStyle, width: 220 }}
+            <Select
+              className="w-[220px]"
               value={draft.defaultResourceVisibility}
               onChange={e => patch("defaultResourceVisibility", e.target.value as typeof draft.defaultResourceVisibility)}
             >
               <option value="all-members">All members</option>
               <option value="assigned-only">Assigned referees only</option>
               <option value="educators-only">Educators only</option>
-            </select>
+            </Select>
           </SettingsRow>
           <ToggleRow
             label="Show resources to referees"
@@ -3149,47 +2972,34 @@ function ResourcesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) 
 
       {/* ── Supported Formats ── */}
       <SettingsSection title="Supported Formats" description="Resource formats currently available and coming soon in RefCoach.">
-        <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+        <div className="overflow-hidden rounded-2xl border border-border bg-panel">
           {resourceFormats.map((rf, i) => {
             const isLast = i === resourceFormats.length - 1;
             return (
-              <div key={rf.label} style={{
-                display: "flex", alignItems: "center", gap: 14,
-                padding: "13px 18px",
-                borderBottom: isLast ? "none" : "1px solid var(--border)",
-                opacity: rf.available ? 1 : 0.55,
-              }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                  background: rf.available ? "rgba(10,132,255,.1)" : "var(--panel2)",
-                  border: `1px solid ${rf.available ? "rgba(10,132,255,.25)" : "var(--border)"}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: rf.available ? "#6fb8ff" : "var(--muted)",
-                }}>
+              <div
+                key={rf.label}
+                className={cn(
+                  "flex items-center gap-3.5 px-4.5 py-3.5",
+                  !isLast && "border-b border-border",
+                  !rf.available && "opacity-55"
+                )}
+              >
+                <div
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border",
+                    rf.available ? "border-blue-400/25 bg-blue-400/10 text-blue-300" : "border-border bg-panel-2 text-muted"
+                  )}
+                >
                   {rf.icon}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{rf.label}</p>
-                  <p className="hint" style={{ margin: "2px 0 0", fontSize: 12 }}>{rf.description}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-text">{rf.label}</p>
+                  <p className="hint mt-0.5 text-xs">{rf.description}</p>
                 </div>
                 {rf.available ? (
-                  <span style={{
-                    flexShrink: 0, fontSize: 11, fontWeight: 700,
-                    padding: "2px 9px", borderRadius: 20,
-                    background: "rgba(52,199,89,.12)", border: "1px solid rgba(52,199,89,.3)",
-                    color: "#34c759", textTransform: "uppercase", letterSpacing: "0.05em",
-                  }}>
-                    Available
-                  </span>
+                  <Badge tone="good" className="shrink-0">Available</Badge>
                 ) : (
-                  <span style={{
-                    flexShrink: 0, fontSize: 11, fontWeight: 700,
-                    padding: "2px 9px", borderRadius: 20,
-                    background: "var(--panel3)", border: "1px solid var(--border)",
-                    color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em",
-                  }}>
-                    Coming soon
-                  </span>
+                  <Badge tone="neutral" className="shrink-0">Coming soon</Badge>
                 )}
               </div>
             );
@@ -3199,18 +3009,16 @@ function ResourcesPage({ settings, onUpdateSettings, setCurrentPage }: PageCtx) 
 
       {/* ── Related ── */}
       <SettingsSection title="Related">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("learning")}>
-            <BookOpen size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Learning Defaults
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("groups")}>
-            <Layers size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Manage Groups
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("learning")}>
+            <BookOpen size={13} /> Learning Defaults
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("groups")}>
+            <Layers size={13} /> Manage Groups
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentPage("dashboard")}>
             ← Dashboard
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
@@ -3257,42 +3065,29 @@ function BillingPage({ org, members, reviews, assignments, session, setCurrentPa
 
       {/* ── Current Plan ── */}
       <SettingsSection title="Current Plan" description="Your organisation's active plan and account standing.">
-        <div style={{
-          padding: "20px 24px", borderRadius: 12,
-          background: "var(--panel)",
-          border: "1px solid rgba(165,106,27,.3)",
-          display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, flexWrap: "wrap",
-        }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-              background: "rgba(165,106,27,.15)", border: "1px solid rgba(165,106,27,.3)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <CreditCard size={20} style={{ color: "var(--accent)" }} />
+        <div className="flex flex-wrap items-start justify-between gap-5 rounded-xl border border-accent/30 bg-panel px-6 py-5">
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-accent/30 bg-accent/15">
+              <CreditCard size={20} className="text-accent" />
             </div>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>RefCoach Platform</h2>
-                <span style={{
-                  fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
-                  background: "rgba(52,199,89,.14)", color: "#34c759",
-                  border: "1px solid rgba(52,199,89,.3)", textTransform: "uppercase", letterSpacing: "0.05em",
-                }}>Active</span>
+              <div className="mb-1 flex items-center gap-2">
+                <h2 className="m-0 text-lg font-bold text-text">RefCoach Platform</h2>
+                <Badge tone="good">Active</Badge>
               </div>
-              <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+              <p className="m-0 text-[13px] text-muted">
                 {org?.name ?? "Your organisation"}
-                {createdAt && <span style={{ marginLeft: 8 }}>· Member since {createdAt}</span>}
+                {createdAt && <span className="ml-2">· Member since {createdAt}</span>}
               </p>
             </div>
           </div>
           {isAdmin && (
-            <div style={{ textAlign: "right", flexShrink: 0 }}>
-              <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+            <div className="shrink-0 text-right">
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">
                 Billing enquiries
               </p>
-              <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-                Contact <span style={{ color: "var(--text)" }}>support@refcoach.com.au</span>
+              <p className="m-0 text-xs text-muted">
+                Contact <span className="text-text">support@refcoach.com.au</span>
               </p>
             </div>
           )}
@@ -3301,17 +3096,14 @@ function BillingPage({ org, members, reviews, assignments, session, setCurrentPa
 
       {/* ── Account Usage ── */}
       <SettingsSection title="Account Usage" description="Activity across your organisation based on your current data.">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
           {usageItems.map(({ label, value, sub }) => (
-            <div key={label} style={{
-              padding: "16px 18px", borderRadius: 10,
-              background: "var(--panel)", border: "1px solid var(--border)",
-            }}>
-              <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
+            <div key={label} className="rounded-[10px] border border-border bg-panel px-4.5 py-4">
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted">
                 {label}
               </p>
-              <p style={{ margin: "0 0 2px", fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{value}</p>
-              {sub && <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>{sub}</p>}
+              <p className="mb-0.5 text-2xl font-bold leading-none text-text">{value}</p>
+              {sub && <p className="m-0 text-xs text-muted">{sub}</p>}
             </div>
           ))}
         </div>
@@ -3326,32 +3118,18 @@ function BillingPage({ org, members, reviews, assignments, session, setCurrentPa
             { icon: <Shield size={15} />,      label: "Subscription plan", desc: "Upgrade, downgrade, or cancel your plan." },
             { icon: <Users size={15} />,       label: "Seat management",   desc: "Manage member seats and plan limits." },
           ].map(({ icon, label, desc }, i, arr) => (
-            <div key={label} style={{
-              display: "flex", alignItems: "center", gap: 14,
-              padding: "14px 0",
-              borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : undefined,
-              opacity: 0.55,
-            }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                background: "var(--panel2)", border: "1px solid var(--border)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "var(--muted)",
-              }}>
+            <div
+              key={label}
+              className={cn("flex items-center gap-3.5 py-3.5 opacity-55", i < arr.length - 1 && "border-b border-border")}
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-panel-2 text-muted">
                 {icon}
               </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 600 }}>{label}</p>
-                <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>{desc}</p>
+              <div className="flex-1">
+                <p className="mb-0.5 text-[13px] font-semibold text-text">{label}</p>
+                <p className="m-0 text-xs text-muted">{desc}</p>
               </div>
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20,
-                background: "var(--panel3)", color: "var(--muted)",
-                border: "1px solid var(--border)", textTransform: "uppercase", letterSpacing: "0.04em",
-                flexShrink: 0,
-              }}>
-                Coming soon
-              </span>
+              <Badge tone="neutral" className="shrink-0">Coming soon</Badge>
             </div>
           ))}
         </SettingsCard>
@@ -3359,18 +3137,16 @@ function BillingPage({ org, members, reviews, assignments, session, setCurrentPa
 
       {/* ── Related ── */}
       <SettingsSection title="Related">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("members")}>
-            <Users size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Manage Members
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("profile")}>
-            <Building2 size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
-            Organisation Profile
-          </button>
-          <button style={{ fontSize: 12 }} onClick={() => setCurrentPage("dashboard")}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("members")}>
+            <Users size={13} /> Manage Members
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setCurrentPage("profile")}>
+            <Building2 size={13} /> Organisation Profile
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCurrentPage("dashboard")}>
             ← Dashboard
-          </button>
+          </Button>
         </div>
       </SettingsSection>
 
