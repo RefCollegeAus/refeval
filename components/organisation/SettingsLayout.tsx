@@ -6,8 +6,12 @@ import { Card, Badge } from "@/components/ui";
 
 // ── SettingsPage ──────────────────────────────────────────────────────────────
 // Top-level wrapper for a settings page. Thin wrapper over the shared
-// PageFrame — `className="!p-0"` since AppShell already supplies page-level
-// gutter padding around every screen it wraps.
+// PageFrame — `className="!p-0 lg:!pl-8"` since AppShell already supplies
+// page-level gutter padding around every screen it wraps, except on the
+// left at desktop widths, where the fixed sidebar's own clearance rule
+// (`.rcds-sidebar ~ *`, app/globals.css) overrides AppShell's padding-left
+// to exactly the sidebar's width with no built-in buffer — `lg:!pl-8`
+// restores that buffer using the same lg:p-8 gutter scale used elsewhere.
 export function SettingsPage({
   title,
   eyebrow,
@@ -22,7 +26,7 @@ export function SettingsPage({
   children: ReactNode;
 }) {
   return (
-    <PageFrame className="!p-0" title={title} eyebrow={eyebrow} description={description} actions={actions}>
+    <PageFrame className="!p-0 lg:!pl-8" title={title} eyebrow={eyebrow} description={description} actions={actions}>
       {children}
     </PageFrame>
   );
