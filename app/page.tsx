@@ -1980,7 +1980,7 @@ export default function Home() {
     return (
       <AppShell session={session} activeScreen={screen} onHome={() => setScreen(session?.activeRole === "referee" ? "referee" : session?.activeRole === "viewer" ? "viewer" : "educator")} onAdmin={() => setScreen("database")} onOrganisation={() => setScreen("organisation")} onLearning={() => setScreen("learning-hub")} onNavigate={navigate} orgLogoUrl={orgSettings.settings.branding.logoUrl} navContext={navContext} activeOrgPage={orgPage} onProfile={() => setScreen("user-profile")} onNotifications={() => setScreen("notifications")} unreadNotificationCount={visibleUnreadCount} onLogout={logout}>
         <div className="layout p-0">
-          <div className="grid gap-4">
+          <div className="grid content-start gap-4">
             <PageFrame
               className="!p-0"
               eyebrow="Referee Portal"
