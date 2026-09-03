@@ -31,7 +31,7 @@ export function ViewerScreen({ session, games, loading, error }: Props) {
       eyebrow="View-Only Games"
       title={session.activeOrganisation?.name || "Your Games"}
       description="Learning content assigned to you."
-      className="mx-auto max-w-[800px] p-0"
+      className="mx-auto max-w-[800px] !p-0"
     >
       {loading && (
         <div className="flex items-center gap-2 py-3.5 text-[13px] text-muted">

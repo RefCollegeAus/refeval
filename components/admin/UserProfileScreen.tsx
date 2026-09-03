@@ -69,7 +69,7 @@ export function UserProfileScreen({
 
   return (
     <PageFrame
-      className="mx-auto max-w-[900px] p-0"
+      className="mx-auto max-w-[900px] !p-0"
       eyebrow="Account"
       title="Your Profile"
       description={session.profile.email}
