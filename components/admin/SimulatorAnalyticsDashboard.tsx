@@ -392,7 +392,7 @@ export function SimulatorAnalyticsDashboard({
   if (!publishedSessions.length) {
     return (
       <PageFrame
-        className="p-0"
+        className="!p-0"
         eyebrow="Simulator"
         title="Analytics"
         actions={
@@ -414,7 +414,7 @@ export function SimulatorAnalyticsDashboard({
 
   return (
     <PageFrame
-      className="p-0 mx-auto max-w-[1100px]"
+      className="!p-0 mx-auto max-w-[1100px]"
       eyebrow="Simulator"
       title="Analytics"
       description="Referee performance and decision-making insights"

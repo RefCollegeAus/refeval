@@ -182,7 +182,7 @@ export function SimulatorBuilderScreen({
   if (view === "list") {
     return (
       <PageFrame
-        className="p-0"
+        className="!p-0"
         eyebrow="Learning Hub"
         title="Simulator Builder"
         description="Create decision-making simulations from video"
@@ -350,7 +350,7 @@ export function SimulatorBuilderScreen({
 
   return (
     <PageFrame
-      className="p-0"
+      className="!p-0"
       eyebrow="Simulator Builder"
       title={editId ? "Edit Simulator" : "New Simulator"}
       actions={

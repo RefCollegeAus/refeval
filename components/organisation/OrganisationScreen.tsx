@@ -237,9 +237,12 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
   const adminCount    = members.filter(m => m.role === "admin" || m.role === "super_admin").length;
 
   // ── Review stats ──────────────────────────────────────────────────
-  const completedReviews  = reviews.filter(r => r.status === "Completed").length;
-  const inProgressReviews = reviews.length - completedReviews;
-  const reviewPct = reviews.length > 0 ? Math.round((completedReviews / reviews.length) * 100) : 0;
+  // Simulator/practice reviews are excluded — they don't represent real
+  // performance activity (same isSimulator exclusion as Stats Hub/Home/EducatorDashboard).
+  const nonSimReviews = reviews.filter(r => !r.isSimulator);
+  const completedReviews  = nonSimReviews.filter(r => r.status === "Completed").length;
+  const inProgressReviews = nonSimReviews.length - completedReviews;
+  const reviewPct = nonSimReviews.length > 0 ? Math.round((completedReviews / nonSimReviews.length) * 100) : 0;
 
   // ── Assignment stats ──────────────────────────────────────────────
   const activeAssignments    = assignments.filter(a => a.assignmentUsers.some(u => u.status !== "Completed")).length;
@@ -303,7 +306,7 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
           { label: "Referees",     value: refereeCount,     onClick: () => setCurrentPage("members") },
           { label: "Educators",    value: educatorCount,    onClick: () => setCurrentPage("members") },
           { label: "Groups",       value: groupCount,       onClick: () => setCurrentPage("groups") },
-          { label: "Reviews",      value: reviews.length,   onClick: undefined },
+          { label: "Reviews",      value: nonSimReviews.length, onClick: undefined },
           { label: "Active Goals", value: activeGoalCount,  onClick: undefined },
         ].map(({ label, value, onClick }) => (
           <SummaryTile key={label} label={label} value={value} onClick={onClick} />
@@ -317,8 +320,8 @@ function DashboardPage({ org, members, reviews, assignments, settings, setCurren
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 
           {/* Reviews */}
-          <DashboardSectionCard title="Reviews" description={reviews.length === 0 ? "No reviews yet" : `${reviews.length} total`}>
-            {reviews.length === 0 ? (
+          <DashboardSectionCard title="Reviews" description={nonSimReviews.length === 0 ? "No reviews yet" : `${nonSimReviews.length} total`}>
+            {nonSimReviews.length === 0 ? (
               <p className="hint text-xs">Reviews created by educators will appear here.</p>
             ) : (
               <div className="grid gap-2">

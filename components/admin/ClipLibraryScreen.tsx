@@ -162,7 +162,9 @@ export function ClipLibraryScreen({ session, reviews, tags, onBack, onOpenReview
   const reviewMap = useMemo(() => {
     const m = new Map<string, ReviewRecord>();
     for (const r of reviews) {
-      if (r.organisationId === orgId) m.set(r.id, r);
+      // Simulator/practice reviews are excluded — their clips are practice
+      // decisions, not real coded footage suitable for a referee learning playlist.
+      if (r.organisationId === orgId && !r.isSimulator) m.set(r.id, r);
     }
     return m;
   }, [reviews, orgId]);

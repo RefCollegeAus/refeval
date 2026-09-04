@@ -25,6 +25,7 @@ import {
   SIM_COVERAGE,
 } from "@/lib/types/simulator";
 import type { SaveResponseData } from "@/lib/hooks/useSimulatorSessions";
+import { useSimulatorDecisionClips } from "@/lib/hooks/useSimulatorDecisionClips";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -705,10 +706,20 @@ export function SimulatorRunnerScreen({
   const nextEventRef = useRef<SimActiveEvent | null>(null);
   const promptActiveRef = useRef(false);
 
+  // Authenticated, entitlement-checked fetch of the selected session's
+  // decision clips (review-linked sessions only — legacy sessions carry
+  // their decisions in sess.events, already RLS-readable). This is the
+  // single source of truth for running a review-linked simulator; the
+  // picker's per-card decision count below still reads the ordinary `tags`
+  // prop and is unaffected by (and not fixed by) this change.
+  const decisionSessionId = selectedSession?.reviewId ? selectedSession.id : null;
+  const { clips: decisionClips, loading: decisionClipsLoading, error: decisionClipsError } =
+    useSimulatorDecisionClips(decisionSessionId);
+
   // Derive active events for selected session
   function getActiveEvents(sess: SimulatorSessionWithEvents): SimActiveEvent[] {
     if (sess.reviewId) {
-      return tags
+      return decisionClips
         .filter(t => t.reviewId === sess.reviewId)
         .sort((a, b) => a.adjustedSeconds - b.adjustedSeconds)
         .map(t => ({ kind: "clip", tag: t } as SimActiveEvent));
@@ -931,6 +942,32 @@ export function SimulatorRunnerScreen({
   // ── Intro ───────────────────────────────────────────────────────────────────
 
   if (view === "intro" && selectedSession) {
+    const isReviewLinked = !!selectedSession.reviewId;
+
+    if (isReviewLinked && decisionClipsLoading) {
+      return (
+        <div className="box-border mx-auto max-w-[580px]">
+          <div className="panel px-6 py-12 text-center text-muted">
+            <p className="m-0">Loading decisions…</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (isReviewLinked && decisionClipsError) {
+      return (
+        <div className="box-border mx-auto max-w-[580px]">
+          <div className="panel px-6 py-12 text-center">
+            <Button variant="secondary" size="sm" onClick={() => setView("picker")} className="mx-auto mb-6">
+              <ChevronLeft size={14} /> All Simulations
+            </Button>
+            <p className="m-0 font-bold text-red-300">Could not load decisions</p>
+            <p className="hint mt-1.5">{decisionClipsError}</p>
+          </div>
+        </div>
+      );
+    }
+
     const activeEvents = getActiveEvents(selectedSession);
 
     if (activeEvents.length === 0) {
