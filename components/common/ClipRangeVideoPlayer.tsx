@@ -288,15 +288,18 @@ function YoutubeRangePlayer({
 
   return (
     <div className={className} style={containerStyle}>
+      {/*
+        The container stays mounted in the error state. The effect that rebuilds
+        the player runs before React renders again, so unmounting it here would
+        leave containerRef null and a later, valid video would silently never load.
+      */}
+      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
       {loadError ? (
-        <div style={{ padding: 16, color: "var(--muted)", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", height: "100%", boxSizing: "border-box", textAlign: "center" }}>
+        <div style={{ position: "absolute", inset: 0, background: "#000", color: "rgba(255,255,255,.45)", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box", textAlign: "center" }}>
           Video could not be loaded.
         </div>
       ) : (
-        <>
-          <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
-          {ended && <RewatchOverlay onRewatch={rewatch} />}
-        </>
+        ended && <RewatchOverlay onRewatch={rewatch} />
       )}
     </div>
   );

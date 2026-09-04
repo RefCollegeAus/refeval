@@ -791,12 +791,14 @@ function YtClipEditor({
 
       {/* ── Embedded YT player ── */}
       <div style={{ position: "relative", background: "#000", borderRadius: 10, overflow: "hidden", aspectRatio: "16/9", marginBottom: 16 }}>
-        {videoError ? (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13, textAlign: "center", padding: 16, boxSizing: "border-box" }}>
+        {/* Kept mounted while errored: the rebuild effect runs before the next
+            render, so unmounting would leave containerRef null and a later valid
+            video would silently never load. */}
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        {videoError && (
+          <div style={{ position: "absolute", inset: 0, background: "#000", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13, textAlign: "center", padding: 16, boxSizing: "border-box" }}>
             Video could not be loaded.
           </div>
-        ) : (
-          <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
         )}
         {isPreviewing && (
           <div style={{ position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)", background: "rgba(0,0,0,.65)", color: "#fff", borderRadius: 99, padding: "3px 10px", fontSize: 11, fontWeight: 700, pointerEvents: "none" }}>

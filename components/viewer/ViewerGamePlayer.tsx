@@ -148,19 +148,23 @@ export function ViewerGamePlayer({ game, onBack }: Props) {
       </div>
 
       {/* Video area */}
-      {usingYouTube && youtubeError ? (
-        <div className="video-placeholder flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center">
-          <p className="m-0 text-sm font-bold">Video could not be loaded.</p>
-          <p className="hint m-0">The YouTube link may be broken, removed, or restricted from embedding.</p>
-        </div>
-      ) : usingYouTube ? (
+      {usingYouTube ? (
         <>
-          <div className="video-placeholder aspect-video overflow-hidden p-0">
+          {/* The container stays mounted while errored: the rebuild effect runs
+              before the next render, so unmounting it would leave the ref null
+              and a later valid video would silently never load. */}
+          <div className="video-placeholder relative aspect-video overflow-hidden p-0">
             <div ref={youtubeContainerRef} style={{ width: "100%", height: "100%" }} />
+            {youtubeError && (
+              <div className="video-placeholder absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center">
+                <p className="m-0 text-sm font-bold">Video could not be loaded.</p>
+                <p className="hint m-0">The YouTube link may be broken, removed, or restricted from embedding.</p>
+              </div>
+            )}
           </div>
           <p className="hint mt-1 text-xs">
             YouTube · {formatTime(youtubeCurrent)}
-            {youtubeReady ? "" : " · loading…"}
+            {youtubeError ? " · unavailable" : youtubeReady ? "" : " · loading…"}
           </p>
         </>
       ) : usingDirect ? (

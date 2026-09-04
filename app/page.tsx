@@ -635,7 +635,8 @@ export default function Home() {
     setYoutubeError(false);
     function loadPlayer() {
       if (cancelled || !youtubeContainerRef.current || !window.YT?.Player) return;
-      if (youtubePlayerRef.current?.destroy) youtubePlayerRef.current.destroy();
+      // Destroying a player that never finished initialising can itself throw.
+      if (youtubePlayerRef.current?.destroy) { try { youtubePlayerRef.current.destroy(); } catch {} youtubePlayerRef.current = null; }
       setYoutubeReady(false);
       try {
         youtubePlayerRef.current = new window.YT.Player(youtubeContainerRef.current, {
@@ -2420,7 +2421,8 @@ export default function Home() {
       <div ref={videoColumnRef} className="flex min-w-0 flex-col lg:h-[calc(100vh-136px)]">
         <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel">
           <div className="aspect-video min-h-0 lg:flex-1">
-            {usingYouTubeVideo && youtubeError ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video could not be loaded.</p><p className="hint" style={{margin:0}}>The YouTube link may be broken, removed, or restricted from embedding.</p></div> : usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block",objectFit:"contain",maxHeight:"none",border:"none",borderRadius:0,marginTop:0,background:"#000"}} onLoadedMetadata={e=>{setVideoDuration(e.currentTarget.duration);e.currentTarget.playbackRate=playbackRate;}} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
+            {/* The YT container stays mounted while errored: the rebuild effect runs before the next render, so unmounting it would leave the ref null and a later valid video would silently never load. */}
+            {usingYouTubeVideo ? <div style={{position:"relative",width:"100%",height:"100%"}}><div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} />{youtubeError && <div style={{position:"absolute",inset:0,background:"#000",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video could not be loaded.</p><p className="hint" style={{margin:0}}>The YouTube link may be broken, removed, or restricted from embedding.</p></div>}</div> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block",objectFit:"contain",maxHeight:"none",border:"none",borderRadius:0,marginTop:0,background:"#000"}} onLoadedMetadata={e=>{setVideoDuration(e.currentTarget.duration);e.currentTarget.playbackRate=playbackRate;}} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
           </div>
           <div className="shrink-0 border-t border-border px-3 py-2">
             <div className="playback-group" style={{display:"flex", width:"100%"}}>
@@ -2448,7 +2450,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-        {usingYouTubeVideo && <p className="hint mt-1 text-center" style={{fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeReady?"":" · loading..."}</p>}
+        {usingYouTubeVideo && <p className="hint mt-1 text-center" style={{fontSize:12}}>YouTube · {formatTime(youtubeCurrent)}{youtubeError?" · unavailable":youtubeReady?"":" · loading..."}</p>}
       </div>
 
       {/* ── RIGHT — coaching console (every review control lives here) ─── */}

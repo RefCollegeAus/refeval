@@ -220,12 +220,14 @@ function YoutubeSimPlayer({
 
   return (
     <div className="relative aspect-video overflow-hidden rounded-[10px] bg-black">
-      {videoError ? (
-        <div className="flex h-full w-full items-center justify-center px-4 text-center text-[13px] text-muted">
+      {/* Kept mounted while errored: the rebuild effect runs before the next
+          render, so unmounting would leave containerRef null and a later valid
+          video would silently never load. */}
+      <div ref={containerRef} className="h-full w-full" />
+      {videoError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black px-4 text-center text-[13px] text-muted">
           Video could not be loaded.
         </div>
-      ) : (
-        <div ref={containerRef} className="h-full w-full" />
       )}
     </div>
   );
