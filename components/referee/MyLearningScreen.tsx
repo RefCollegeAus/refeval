@@ -281,7 +281,7 @@ export function MyLearningScreen({ session, myAssignments, playlists, members, s
       title="My Learning"
       description="Assignments from your educators"
       actions={<Button variant="secondary" size="sm" onClick={onBack}>← Back</Button>}
-      className="mx-auto max-w-[900px] p-0"
+      className="mx-auto max-w-[900px] !p-0"
     >
       {/* Empty state */}
       {myAssignments.length === 0 && (
