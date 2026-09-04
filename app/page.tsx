@@ -488,6 +488,7 @@ export default function Home() {
   const [youtubeCurrent, setYoutubeCurrent] = useState(0);
   const [youtubeDuration, setYoutubeDuration] = useState(0);
   const [youtubeReady, setYoutubeReady] = useState(false);
+  const [youtubeError, setYoutubeError] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
 
   const [codingOpen, setCodingOpen] = useState(false);
@@ -631,27 +632,37 @@ export default function Home() {
   useEffect(() => {
     if (!usingYouTubeVideo || screen !== "reviewer") return;
     let cancelled = false;
+    setYoutubeError(false);
     function loadPlayer() {
       if (cancelled || !youtubeContainerRef.current || !window.YT?.Player) return;
       if (youtubePlayerRef.current?.destroy) youtubePlayerRef.current.destroy();
       setYoutubeReady(false);
-      youtubePlayerRef.current = new window.YT.Player(youtubeContainerRef.current, {
-        videoId: youtubeVideoId,
-        width: "100%",
-        height: "100%",
-        playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
-        events: {
-          onReady: (event: any) => {
-            setYoutubeReady(true);
-            setYoutubeDuration(event.target.getDuration?.() || 0);
-            event.target.setPlaybackRate?.(playbackRate);
-          },
-          onStateChange: (event: any) => {
-            setYoutubeCurrent(event.target.getCurrentTime?.() || 0);
-            setYoutubeDuration(event.target.getDuration?.() || 0);
+      try {
+        youtubePlayerRef.current = new window.YT.Player(youtubeContainerRef.current, {
+          videoId: youtubeVideoId,
+          width: "100%",
+          height: "100%",
+          playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+          events: {
+            onReady: (event: any) => {
+              setYoutubeReady(true);
+              setYoutubeDuration(event.target.getDuration?.() || 0);
+              event.target.setPlaybackRate?.(playbackRate);
+            },
+            onStateChange: (event: any) => {
+              setYoutubeCurrent(event.target.getCurrentTime?.() || 0);
+              setYoutubeDuration(event.target.getDuration?.() || 0);
+            },
+            // YouTube error codes: 2 = invalid video id, 5 = HTML5 player error,
+            // 100 = video not found/removed, 101/150 = not allowed to be embedded.
+            onError: () => { if (!cancelled) setYoutubeError(true); },
           }
-        }
-      });
+        });
+      } catch {
+        // The IFrame API can throw synchronously (rather than firing onError)
+        // for a malformed video id — same "could not load" state either way.
+        if (!cancelled) setYoutubeError(true);
+      }
     }
     if (window.YT?.Player) loadPlayer();
     else {
@@ -2409,7 +2420,7 @@ export default function Home() {
       <div ref={videoColumnRef} className="flex min-w-0 flex-col lg:h-[calc(100vh-136px)]">
         <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel">
           <div className="aspect-video min-h-0 lg:flex-1">
-            {usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block",objectFit:"contain",maxHeight:"none",border:"none",borderRadius:0,marginTop:0,background:"#000"}} onLoadedMetadata={e=>{setVideoDuration(e.currentTarget.duration);e.currentTarget.playbackRate=playbackRate;}} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
+            {usingYouTubeVideo && youtubeError ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video could not be loaded.</p><p className="hint" style={{margin:0}}>The YouTube link may be broken, removed, or restricted from embedding.</p></div> : usingYouTubeVideo ? <div ref={youtubeContainerRef} style={{width:"100%",height:"100%"}} /> : isUnsupportedVideo ? <div style={{width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,padding:24,textAlign:"center"}}><p style={{margin:0,fontWeight:700,fontSize:14}}>Video is not compatible with RefCoach timestamp tagging.</p><p className="hint" style={{margin:0}}>Please use a YouTube link or direct video file (MP4, WebM, or CloudFront video URL).</p></div> : <video ref={videoRef} controls src={isDirectVideoUrl(activeVideoLink)?activeVideoLink:undefined} style={{width:"100%",height:"100%",display:"block",objectFit:"contain",maxHeight:"none",border:"none",borderRadius:0,marginTop:0,background:"#000"}} onLoadedMetadata={e=>{setVideoDuration(e.currentTarget.duration);e.currentTarget.playbackRate=playbackRate;}} onTimeUpdate={e=>setVideoCurrent(e.currentTarget.currentTime)} />}
           </div>
           <div className="shrink-0 border-t border-border px-3 py-2">
             <div className="playback-group" style={{display:"flex", width:"100%"}}>

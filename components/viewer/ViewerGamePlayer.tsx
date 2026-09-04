@@ -25,6 +25,7 @@ export function ViewerGamePlayer({ game, onBack }: Props) {
 
   const [youtubeCurrent, setYoutubeCurrent] = useState(0);
   const [youtubeReady, setYoutubeReady] = useState(false);
+  const [youtubeError, setYoutubeError] = useState(false);
   const [videoCurrent, setVideoCurrent] = useState(0);
 
   const youtubeVideoId = getYouTubeId(game.videoUrl);
@@ -38,6 +39,7 @@ export function ViewerGamePlayer({ game, onBack }: Props) {
   useEffect(() => {
     if (!usingYouTube) return;
     let cancelled = false;
+    setYoutubeError(false);
 
     function loadPlayer() {
       if (cancelled || !youtubeContainerRef.current || !window.YT?.Player) return;
@@ -46,16 +48,25 @@ export function ViewerGamePlayer({ game, onBack }: Props) {
         youtubePlayerRef.current = null;
       }
       setYoutubeReady(false);
-      youtubePlayerRef.current = new window.YT.Player(youtubeContainerRef.current, {
-        videoId: youtubeVideoId,
-        width: "100%",
-        height: "100%",
-        playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
-        events: {
-          onReady: () => setYoutubeReady(true),
-          onStateChange: (e: any) => setYoutubeCurrent(e.target.getCurrentTime?.() || 0),
-        },
-      });
+      try {
+        youtubePlayerRef.current = new window.YT.Player(youtubeContainerRef.current, {
+          videoId: youtubeVideoId,
+          width: "100%",
+          height: "100%",
+          playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+          events: {
+            onReady: () => setYoutubeReady(true),
+            onStateChange: (e: any) => setYoutubeCurrent(e.target.getCurrentTime?.() || 0),
+            // YouTube error codes: 2 = invalid video id, 5 = HTML5 player error,
+            // 100 = video not found/removed, 101/150 = not allowed to be embedded.
+            onError: () => { if (!cancelled) setYoutubeError(true); },
+          },
+        });
+      } catch {
+        // The IFrame API can throw synchronously (rather than firing onError)
+        // for a malformed video id — same "could not load" state either way.
+        if (!cancelled) setYoutubeError(true);
+      }
     }
 
     if (window.YT?.Player) {
@@ -137,7 +148,12 @@ export function ViewerGamePlayer({ game, onBack }: Props) {
       </div>
 
       {/* Video area */}
-      {usingYouTube ? (
+      {usingYouTube && youtubeError ? (
+        <div className="video-placeholder flex aspect-video flex-col items-center justify-center gap-2 p-6 text-center">
+          <p className="m-0 text-sm font-bold">Video could not be loaded.</p>
+          <p className="hint m-0">The YouTube link may be broken, removed, or restricted from embedding.</p>
+        </div>
+      ) : usingYouTube ? (
         <>
           <div className="video-placeholder aspect-video overflow-hidden p-0">
             <div ref={youtubeContainerRef} style={{ width: "100%", height: "100%" }} />

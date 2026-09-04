@@ -142,9 +142,11 @@ function YoutubeSimPlayer({
   const cancelledRef = useRef(false);
   const onTimeUpdateRef = useRef(onTimeUpdate);
   onTimeUpdateRef.current = onTimeUpdate;
+  const [videoError, setVideoError] = useState(false);
 
   useEffect(() => {
     cancelledRef.current = false;
+    setVideoError(false);
 
     function createPlayer() {
       if (cancelledRef.current || !containerRef.current || !window.YT?.Player) return;
@@ -152,22 +154,31 @@ function YoutubeSimPlayer({
         try { playerRef.current.destroy(); } catch { }
         playerRef.current = null;
       }
-      playerRef.current = new window.YT.Player(containerRef.current, {
-        videoId: ytId,
-        width: "100%",
-        height: "100%",
-        playerVars: { rel: 0, modestbranding: 1, playsinline: 1, autoplay: 0 },
-        events: {
-          onReady: () => {
-            if (cancelledRef.current) return;
-            actionsRef.current = {
-              pause: () => playerRef.current?.pauseVideo?.(),
-              play: () => playerRef.current?.playVideo?.(),
-              seekTo: t => playerRef.current?.seekTo?.(t, true),
-            };
+      try {
+        playerRef.current = new window.YT.Player(containerRef.current, {
+          videoId: ytId,
+          width: "100%",
+          height: "100%",
+          playerVars: { rel: 0, modestbranding: 1, playsinline: 1, autoplay: 0 },
+          events: {
+            onReady: () => {
+              if (cancelledRef.current) return;
+              actionsRef.current = {
+                pause: () => playerRef.current?.pauseVideo?.(),
+                play: () => playerRef.current?.playVideo?.(),
+                seekTo: t => playerRef.current?.seekTo?.(t, true),
+              };
+            },
+            // YouTube error codes: 2 = invalid video id, 5 = HTML5 player error,
+            // 100 = video not found/removed, 101/150 = not allowed to be embedded.
+            onError: () => { if (!cancelledRef.current) setVideoError(true); },
           },
-        },
-      });
+        });
+      } catch {
+        // The IFrame API can throw synchronously (rather than firing onError)
+        // for a malformed video id — same "could not load" state either way.
+        if (!cancelledRef.current) setVideoError(true);
+      }
     }
 
     if (window.YT?.Player) {
@@ -209,7 +220,13 @@ function YoutubeSimPlayer({
 
   return (
     <div className="relative aspect-video overflow-hidden rounded-[10px] bg-black">
-      <div ref={containerRef} className="h-full w-full" />
+      {videoError ? (
+        <div className="flex h-full w-full items-center justify-center px-4 text-center text-[13px] text-muted">
+          Video could not be loaded.
+        </div>
+      ) : (
+        <div ref={containerRef} className="h-full w-full" />
+      )}
     </div>
   );
 }

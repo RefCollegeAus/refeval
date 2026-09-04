@@ -186,6 +186,7 @@ function YoutubeRangePlayer({
   const cancelledRef = useRef(false);
   const endedRef = useRef(false);
   const [ended, setEnded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const boundsRef = useRef({ startTime, endTime, autoPlay });
   useEffect(() => { boundsRef.current = { startTime, endTime, autoPlay }; }, [startTime, endTime, autoPlay]);
@@ -195,6 +196,7 @@ function YoutubeRangePlayer({
     cancelledRef.current = false;
     endedRef.current = false;
     setEnded(false);
+    setLoadError(false);
 
     function createPlayer() {
       if (cancelledRef.current || !containerRef.current || !window.YT?.Player) return;
@@ -202,19 +204,28 @@ function YoutubeRangePlayer({
         try { playerRef.current.destroy(); } catch {}
         playerRef.current = null;
       }
-      playerRef.current = new window.YT.Player(containerRef.current, {
-        videoId: ytId,
-        width: "100%",
-        height: "100%",
-        playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
-        events: {
-          onReady: () => {
-            if (cancelledRef.current) return;
-            playerRef.current?.seekTo?.(boundsRef.current.startTime, true);
-            if (boundsRef.current.autoPlay) playerRef.current?.playVideo?.();
+      try {
+        playerRef.current = new window.YT.Player(containerRef.current, {
+          videoId: ytId,
+          width: "100%",
+          height: "100%",
+          playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+          events: {
+            onReady: () => {
+              if (cancelledRef.current) return;
+              playerRef.current?.seekTo?.(boundsRef.current.startTime, true);
+              if (boundsRef.current.autoPlay) playerRef.current?.playVideo?.();
+            },
+            // YouTube error codes: 2 = invalid video id, 5 = HTML5 player error,
+            // 100 = video not found/removed, 101/150 = not allowed to be embedded.
+            onError: () => { if (!cancelledRef.current) setLoadError(true); },
           },
-        },
-      });
+        });
+      } catch {
+        // The IFrame API can throw synchronously (rather than firing onError)
+        // for a malformed video id — same "could not load" state either way.
+        if (!cancelledRef.current) setLoadError(true);
+      }
     }
 
     if (window.YT?.Player) {
@@ -277,8 +288,16 @@ function YoutubeRangePlayer({
 
   return (
     <div className={className} style={containerStyle}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
-      {ended && <RewatchOverlay onRewatch={rewatch} />}
+      {loadError ? (
+        <div style={{ padding: 16, color: "var(--muted)", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", height: "100%", boxSizing: "border-box", textAlign: "center" }}>
+          Video could not be loaded.
+        </div>
+      ) : (
+        <>
+          <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+          {ended && <RewatchOverlay onRewatch={rewatch} />}
+        </>
+      )}
     </div>
   );
 }

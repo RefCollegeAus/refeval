@@ -587,34 +587,45 @@ function YtClipEditor({
   const [currentTime, setCurrentTime] = useState(draftStart);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const isPreviewingRef = useRef(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const previewPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     cancelledRef.current = false;
+    setVideoError(false);
 
     function createPlayer() {
       if (cancelledRef.current || !containerRef.current || !window.YT?.Player) return;
       if (playerRef.current?.destroy) { try { playerRef.current.destroy(); } catch {} playerRef.current = null; }
-      playerRef.current = new window.YT.Player(containerRef.current, {
-        videoId: ytId,
-        width: "100%", height: "100%",
-        playerVars: { rel: 0, modestbranding: 1, playsinline: 1, autoplay: 0 },
-        events: {
-          onReady: () => {
-            if (cancelledRef.current) return;
-            const dur = playerRef.current?.getDuration?.() || 0;
-            if (dur > 0) onDurationKnown(dur);
-            playerRef.current?.seekTo?.(draftStart, true);
+      try {
+        playerRef.current = new window.YT.Player(containerRef.current, {
+          videoId: ytId,
+          width: "100%", height: "100%",
+          playerVars: { rel: 0, modestbranding: 1, playsinline: 1, autoplay: 0 },
+          events: {
+            onReady: () => {
+              if (cancelledRef.current) return;
+              const dur = playerRef.current?.getDuration?.() || 0;
+              if (dur > 0) onDurationKnown(dur);
+              playerRef.current?.seekTo?.(draftStart, true);
+            },
+            onStateChange: (ev: any) => {
+              if (cancelledRef.current) return;
+              setIsPlaying(ev.data === 1);
+              if (ev.data === 0) { setIsPlaying(false); }
+            },
+            // YouTube error codes: 2 = invalid video id, 5 = HTML5 player error,
+            // 100 = video not found/removed, 101/150 = not allowed to be embedded.
+            onError: () => { if (!cancelledRef.current) setVideoError(true); },
           },
-          onStateChange: (ev: any) => {
-            if (cancelledRef.current) return;
-            setIsPlaying(ev.data === 1);
-            if (ev.data === 0) { setIsPlaying(false); }
-          },
-        },
-      });
+        });
+      } catch {
+        // The IFrame API can throw synchronously (rather than firing onError)
+        // for a malformed video id — same "could not load" state either way.
+        if (!cancelledRef.current) setVideoError(true);
+      }
     }
 
     if (window.YT?.Player) {
@@ -780,7 +791,13 @@ function YtClipEditor({
 
       {/* ── Embedded YT player ── */}
       <div style={{ position: "relative", background: "#000", borderRadius: 10, overflow: "hidden", aspectRatio: "16/9", marginBottom: 16 }}>
-        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        {videoError ? (
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)", fontSize: 13, textAlign: "center", padding: 16, boxSizing: "border-box" }}>
+            Video could not be loaded.
+          </div>
+        ) : (
+          <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+        )}
         {isPreviewing && (
           <div style={{ position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)", background: "rgba(0,0,0,.65)", color: "#fff", borderRadius: 99, padding: "3px 10px", fontSize: 11, fontWeight: 700, pointerEvents: "none" }}>
             Previewing clip…
