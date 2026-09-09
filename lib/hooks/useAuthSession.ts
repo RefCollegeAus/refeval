@@ -52,13 +52,10 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
       const { data: { user } } = await getSupabaseClient().auth.getUser();
       if (!user) { setAuthChecked(true); return; }
 
-      const { data: profileData } = await getSupabaseClient()
-        .from("profiles").select("id, email, name, must_change_password").eq("id", user.id).single();
-
-      const { data: membershipRows } = await getSupabaseClient()
-        .from("organisation_members")
-        .select("role, organisation_id, organisations(name)")
-        .eq("user_id", user.id);
+      const [{ data: profileData }, { data: membershipRows }] = await Promise.all([
+        getSupabaseClient().from("profiles").select("id, email, name, must_change_password").eq("id", user.id).single(),
+        getSupabaseClient().from("organisation_members").select("role, organisation_id, organisations(name)").eq("user_id", user.id),
+      ]);
 
       if (!membershipRows || membershipRows.length === 0) {
         await getSupabaseClient().auth.signOut();
@@ -93,13 +90,10 @@ export function useAuthSession(setScreen: (s: Screen) => void) {
     });
     if (authError || !authData.user) { setLoginError(authError?.message || "Login failed."); return; }
 
-    const { data: profileData } = await getSupabaseClient()
-      .from("profiles").select("id, email, name, must_change_password").eq("id", authData.user.id).single();
-
-    const { data: membershipRows, error: membershipError } = await getSupabaseClient()
-      .from("organisation_members")
-      .select("role, organisation_id, organisations(name)")
-      .eq("user_id", authData.user.id);
+    const [{ data: profileData }, { data: membershipRows, error: membershipError }] = await Promise.all([
+      getSupabaseClient().from("profiles").select("id, email, name, must_change_password").eq("id", authData.user.id).single(),
+      getSupabaseClient().from("organisation_members").select("role, organisation_id, organisations(name)").eq("user_id", authData.user.id),
+    ]);
 
     if (membershipError) { await getSupabaseClient().auth.signOut(); setLoginError(membershipError.message); return; }
     if (!membershipRows || membershipRows.length === 0) {
