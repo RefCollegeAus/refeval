@@ -111,7 +111,7 @@ const SPECIFIC_TAGS: Record<string, string[]> = {
 const POSITIONS = ["Trail", "Lead", "Centre"];
 const COVERAGE = ["Primary", "Secondary", "Extended"];
 const REF_SLOTS: RefSlot[] = ["All Referees", "Referee 1", "Referee 2", "Referee 3"];
-const PLAYBACK_RATES = [1, 1.25, 1.5, 0.5, 0.25];
+const PLAYBACK_RATES = [1, 1.25, 1.5, 0.25, 0.5];
 
 function csvEscape(value: unknown) { return `"${String(value ?? "").replaceAll('"', '""')}"`; }
 function slotName(slot: RefSlot, r?: ReviewRecord) {
@@ -2429,7 +2429,7 @@ export default function Home() {
               <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = Math.max(0, playbackSeconds() - 5); youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5); }}>← 5s</button>
               <button className="playback-btn play-pause-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.getPlayerState) { youtubePlayerRef.current.getPlayerState() === 1 ? youtubePlayerRef.current.pauseVideo() : youtubePlayerRef.current.playVideo(); } else { videoRef.current?.paused ? videoRef.current?.play() : videoRef.current?.pause(); } }}><Play size={15} /><Pause size={15} /></button>
               <button className="playback-btn" style={{flex:1}} onClick={() => { if (usingYouTubeVideo && youtubePlayerRef.current?.seekTo) { const next = playbackSeconds() + 5; youtubePlayerRef.current.seekTo(next, true); setYoutubeCurrent(next); } else if (videoRef.current) videoRef.current.currentTime += 5; }}>5s →</button>
-              <button className="playback-btn" style={{flex:1, color: playbackRate !== 1 ? "var(--accent)" : undefined}} onClick={cyclePlaybackRate} aria-label={`Playback speed ${playbackRate}x — click to change`}>{playbackRate}x</button>
+              <select className="playback-btn" style={{flex:1, color: playbackRate !== 1 ? "var(--accent)" : undefined, cursor:"pointer"}} value={playbackRate} aria-label="Playback speed" onChange={e => { const next = Number(e.target.value); setPlaybackRate(next); if (usingYouTubeVideo && youtubePlayerRef.current?.setPlaybackRate) youtubePlayerRef.current.setPlaybackRate(next); else if (videoRef.current) videoRef.current.playbackRate = next; }}>{PLAYBACK_RATES.map(r => <option key={r} value={r}>{r}x</option>)}</select>
             </div>
             <div className="timeline" style={{ margin: "8px 0" }}>
               <div className="progress" style={{ width: `${progressPct}%` }} />
