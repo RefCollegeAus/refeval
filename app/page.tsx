@@ -111,7 +111,7 @@ const SPECIFIC_TAGS: Record<string, string[]> = {
 const POSITIONS = ["Trail", "Lead", "Centre"];
 const COVERAGE = ["Primary", "Secondary", "Extended"];
 const REF_SLOTS: RefSlot[] = ["All Referees", "Referee 1", "Referee 2", "Referee 3"];
-const PLAYBACK_RATES = [1, 0.5, 0.25];
+const PLAYBACK_RATES = [1, 1.25, 1.5, 0.5, 0.25];
 
 function csvEscape(value: unknown) { return `"${String(value ?? "").replaceAll('"', '""')}"`; }
 function slotName(slot: RefSlot, r?: ReviewRecord) {
